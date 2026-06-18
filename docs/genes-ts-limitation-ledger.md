@@ -5,9 +5,9 @@
 
 ## Current Status
 
-No open `genes-ts` compiler limitations are known from the initial NodeNext scaffold or import-resource smoke.
+OpenCodeHX remains unblocked, but several open `genes-ts` compiler limitations have been discovered during config, message, storage, tool, and session work. Each open limitation has a workaround in OpenCodeHX and should be fixed generically in `../genes` before similar patterns spread into server/provider/TUI code.
 
-The first smoke (`opencodehx-005`) did expose one project-configuration requirement: `package.json` must include `"type": "module"` for TypeScript NodeNext plus `verbatimModuleSyntax` to treat generated `.ts` files as ESM. That is recorded in `docs/node-next-smoke.md` and is not currently a compiler bug.
+The first smoke (`opencodehx-005`) also exposed one project-configuration requirement: `package.json` must include `"type": "module"` for TypeScript NodeNext plus `verbatimModuleSyntax` to treat generated `.ts` files as ESM. That is recorded in `docs/node-next-smoke.md` and is not currently a compiler bug.
 
 ## Entry Format
 
@@ -24,6 +24,7 @@ Use one table row per discovered compiler limitation:
 | `array-temp-collision-001` | `opencodehx-015` | Ripgrep file listing used a local `result` followed by generated `filter(...).map(...)`, causing duplicate TS local declarations | `genes-zjj` | `open` | OpenCodeHX is unblocked by replacing the combinator chain with an explicit loop. `genes-ts` should generate unique locals for array helper temporaries. |
 | `optional-array-narrowing-001` | `opencodehx-015` | Iterating optional array fields after null guards still emitted `string[] \| null` temporaries under strict TS | `genes-6rs` | `open` | OpenCodeHX is unblocked with small `Dynamic` normalization helpers for optional arrays. `genes-ts` should preserve Haxe null-guard narrowing or emit non-null temporaries. |
 | `secondary-extern-return-001` | `opencodehx-016` | Node fs extern `statSync():FsStats` returned a secondary extern class that generated TS referenced without an import | `genes-ast` | `open` | OpenCodeHX is unblocked by loosening `statSync` to `Dynamic` inside the Node seam. `genes-ts` should import or qualify secondary extern return types correctly. |
+| `map-temp-collision-002` | `opencodehx-022` | `SessionProcessor.toTranscript(result)` using `result.messages.map(...)` emitted a local array named `result`, colliding with the function parameter under strict TS | OpenCodeHX `opencodehx-y71` | `open` | OpenCodeHX is unblocked with an explicit loop. `genes-ts` should generate unique array helper temporaries even when enclosing bindings use common names such as `result`. |
 
 ## Required Fields
 
