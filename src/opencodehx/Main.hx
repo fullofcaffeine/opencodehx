@@ -5,10 +5,12 @@ import genes.ts.Imports;
 import js.Syntax;
 import opencodehx.fixtures.DynamicFixture;
 import opencodehx.fx.Task;
+import opencodehx.harness.TranscriptHarness;
 import opencodehx.host.node.NodePath;
 import opencodehx.smoke.ConfigSmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
+import opencodehx.smoke.ProviderSmoke;
 import opencodehx.smoke.StorageSmoke;
 import opencodehx.smoke.ToolSmoke;
 import opencodehx.smoke.UtilSmoke;
@@ -20,6 +22,10 @@ typedef SmokeResource = {
 
 class Main {
 	static function main():Void {
+		if (hasArg("--transcript-fixture")) {
+			Syntax.code("console.log({0})", TranscriptHarness.oneTurnJson());
+			return;
+		}
 		final smokePath = NodePath.normalize(NodePath.join("opencodehx", "smoke"));
 		final smokeTask = Task.succeed(smokePath);
 		final resource:SmokeResource = Imports.defaultImportWith("#opencodehx/smoke-resource", "json", "SmokeResourceJson");
@@ -38,9 +44,15 @@ class Main {
 		Syntax.code("console.log({0})", "storage-smoke:ok");
 		ToolSmoke.run();
 		Syntax.code("console.log({0})", "tool-smoke:ok");
+		ProviderSmoke.run();
+		Syntax.code("console.log({0})", "provider-smoke:ok");
 		Genes.dynamicImport(DynamicFixture -> DynamicFixture.label()).then(label -> {
 			Syntax.code("console.log({0})", label);
 			return null;
 		});
+	}
+
+	static function hasArg(flag:String):Bool {
+		return Syntax.code("process.argv.includes({0})", flag);
 	}
 }

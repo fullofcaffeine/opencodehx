@@ -181,6 +181,8 @@ Keep this file current. When the port teaches a durable lesson about Haxe modeli
 
 Current generated-TS hygiene lesson: avoid dense `Array.map` plus switch-expression summaries in large tool functions until `genes-ts` temp-name hygiene is fixed. Simple typed loops are clearer here and emit strict-checkable TypeScript.
 
+For provider/session parity, keep transcript fixtures deterministic and credential-free. Early harnesses may use upstream-shaped oracle scripts, but each one must document when it should be replaced by a real upstream command runner.
+
 Document non-obvious advanced Haxe features with concise hxdoc:
 
 - why the feature is used,
