@@ -1,11 +1,13 @@
 package opencodehx.smoke;
 
+import haxe.DynamicAccess;
 import genes.js.Async.await;
 import js.Syntax;
 import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigError.ConfigFailure;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigInfo.OpenConfigValue;
 import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigLoader.ConfigEnv;
@@ -19,6 +21,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Url;
 import opencodehx.externs.web.Fetch.FetchFunction;
+import opencodehx.externs.web.Fetch.RemoteConfigObject;
 import opencodehx.host.node.NodePath;
 
 typedef RemoteMcpEntry = {
@@ -70,16 +73,25 @@ class ConfigSmoke {
 				}), { status: 200 }));
 			}");
 			final project = directory(root, "remote-project");
-			write(project, "opencode.json", '{"mcp":{"jira":{"type":"remote","url":"https://jira.example.com/mcp","enabled":true}}}');
+			write(project, "opencode.json", '{"model":"project/model","mcp":{"jira":{"type":"remote","url":"https://jira.example.com/mcp","enabled":true}}}');
 			final env:ConfigEnv = cast {};
-			final config = @:await ConfigLoader.loadProjectWithRemoteWellKnown(project,
-				[{url: "https://example.com/", key: "TEST_TOKEN", token: "remote-token"}], {defaultUsername: "fixture-user", worktree: project, env: env});
+			final accountConfig = accountRemoteConfig();
+			final config = @:await ConfigLoader.loadProjectWithRemoteSources(project,
+				[{url: "https://example.com/", key: "TEST_TOKEN", token: "remote-token"}], [
+				{url: "https://control.example.com/", token: "st_test_token", config: accountConfig}
+			], {defaultUsername: "fixture-user", worktree: project, env: env});
 
 			eq(Syntax.code("(globalThis as unknown as { __opencodehxFetchedUrl?: string }).__opencodehxFetchedUrl ?? null"),
 				"https://example.com/.well-known/opencode", "remote well-known URL normalized");
 			eq(config.username, "remote-token", "remote well-known env token substitution");
 			final jira:RemoteMcpEntry = cast Reflect.field(config.mcp, "jira");
 			eq(jira.enabled, true, "project config overrides remote well-known config");
+			eq(config.model, "account/model", "account config overrides project config");
+			eq(Reflect.field(env, "OPENCODE_CONSOLE_TOKEN"), "st_test_token", "account token injected into substitution env");
+			final providers = require(config.provider, "account provider map");
+			final provider = require(providers.get("opencode"), "account provider config");
+			final options = require(provider.options, "account provider options");
+			eq(Reflect.field(options, "apiKey"), "st_test_token", "account config resolves token env template");
 			Syntax.code("globalThis.fetch = {0}", originalFetch);
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
@@ -87,6 +99,19 @@ class ConfigSmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	static function accountRemoteConfig():RemoteConfigObject {
+		final options = new DynamicAccess<OpenConfigValue>();
+		options.set("apiKey", "{env:OPENCODE_CONSOLE_TOKEN}");
+		final opencode = new DynamicAccess<OpenConfigValue>();
+		opencode.set("options", options);
+		final provider = new DynamicAccess<OpenConfigValue>();
+		provider.set("opencode", opencode);
+		final config = new DynamicAccess<OpenConfigValue>();
+		config.set("provider", provider);
+		config.set("model", "account/model");
+		return config;
 	}
 
 	static function missingConfig(root:String):Void {

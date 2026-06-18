@@ -232,6 +232,8 @@ For plugin config discovery, scan only the upstream-shaped immediate `plugin/*.{
 
 For remote well-known config, keep network fetching in an explicit async loader path. Fetch `/.well-known/opencode` from normalized base URLs, inject advertised auth tokens into the substitution env before parsing, merge remote config before local project config, and avoid letting default-only local fields override remote-provided fields.
 
+For remote account/org config, preserve the upstream order: load active account config after project/config-dir/content sources, inject `OPENCODE_CONSOLE_TOKEN` into the substitution env before parsing, and treat the real account repo/service as a separate runtime slice. Until that service exists, use explicit typed remote source records rather than hidden globals or broad `Dynamic`.
+
 For overload-heavy Node APIs such as `spawnSync`, keep raw extern calls dynamic at the host boundary and expose typed Haxe facades to app/tool code. This keeps generated TypeScript strict-checkable without weakening the app-facing model.
 
 For permission work, preserve upstream's last-match wildcard rule semantics. Config-derived wildcard permission keys should sort before specific keys so specific rules override fallback rules regardless of JSON key order.

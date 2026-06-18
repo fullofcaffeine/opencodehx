@@ -16,6 +16,7 @@ import opencodehx.config.ConfigPlugin.PluginSpec;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.web.Fetch;
+import opencodehx.externs.web.Fetch.RemoteConfigObject;
 import opencodehx.externs.web.Fetch.WellKnownPayload;
 import opencodehx.host.node.NodePath;
 
@@ -34,6 +35,12 @@ typedef WellKnownAuth = {
 	final url:String;
 	final key:String;
 	final token:String;
+}
+
+typedef AccountRemoteConfig = {
+	final url:String;
+	final config:RemoteConfigObject;
+	@:optional final token:String;
 }
 
 class ConfigLoader {
@@ -106,11 +113,17 @@ class ConfigLoader {
 
 	@:async
 	public static function loadProjectWithRemoteWellKnown(directory:String, auths:Array<WellKnownAuth>, ?options:LoadOptions):Promise<ConfigInfo> {
+		return loadProjectWithRemoteSources(directory, auths, [], options);
+	}
+
+	@:async
+	public static function loadProjectWithRemoteSources(directory:String, auths:Array<WellKnownAuth>, accountConfigs:Array<AccountRemoteConfig>,
+			?options:LoadOptions):Promise<ConfigInfo> {
 		final opts:LoadOptions = options == null ? {} : options;
 		final result = new ConfigInfo();
 		final env = ensureEnv(opts);
 		for (auth in auths) {
-			final url = normalizeWellKnownUrl(auth.url);
+			final url = normalizeBaseUrl(auth.url);
 			setEnvValue(env, auth.key, auth.token);
 			final response = @:await Fetch.fetch(url + "/.well-known/opencode");
 			if (!response.ok)
@@ -125,6 +138,14 @@ class ConfigLoader {
 			result.merge(loadText(Json.stringify(remote), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
 		}
 		result.merge(loadProject(directory, withoutDefaultUsername(withEnv(opts, env))));
+		for (accountConfig in accountConfigs) {
+			final url = normalizeBaseUrl(accountConfig.url);
+			final token = accountConfig.token;
+			if (token != null)
+				setEnvValue(env, "OPENCODE_CONSOLE_TOKEN", token);
+			final source = url + "/api/config";
+			result.merge(loadText(Json.stringify(accountConfig.config), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
+		}
 		if (result.username == null)
 			result.username = defaultUsername(opts);
 		return result;
@@ -222,7 +243,7 @@ class ConfigLoader {
 		return value != null && value != "" && value != "0" && value != "false";
 	}
 
-	static function normalizeWellKnownUrl(url:String):String {
+	static function normalizeBaseUrl(url:String):String {
 		var result = url;
 		while (StringTools.endsWith(result, "/"))
 			result = result.substr(0, result.length - 1);
