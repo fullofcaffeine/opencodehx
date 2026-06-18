@@ -8,6 +8,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 
 - `../opencode` is the upstream OpenCode oracle. Inspect it for behavior, tests, structure, schemas, CLI/TUI UX, and fixtures. Do not edit it from this project unless explicitly asked.
 - `../genes` is the sibling Genes checkout and contains the `genes-ts` compiler mode, sources, and tests.
+- `../genes-vanilla` is the read-only reference for the original upstream Genes implementation. Use it to compare original ES/JS behavior and architecture, especially for performance-oriented ES6 output, but do not patch it from OpenCodeHX work. The source of truth for compiler changes is `../genes`.
 - OpenCodeHX and `genes-ts` are developed together. Compiler limitations discovered here should be fixed as generic `genes-ts` improvements, not worked around with OpenCode-specific hacks.
 - Keep any future Caf/Cafex work out of the Phase 1 core. Caf/Cafex is later adapter/preflight work after OpenCode parity exists; see `docs/no-caf-integration-guardrail.md`.
 
@@ -15,7 +16,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 
 1. **OpenCode parity first.** CLI, headless mode, server/API, sessions, providers, tools, storage, permissions, and TUI behavior should match upstream evidence.
 2. **Haxe source is authoritative.** Generated TypeScript is a build artifact, but it is also a product surface: readable, strict-checkable, reviewable, and idiomatic enough to debug.
-3. **Use `genes-ts` as the primary target.** Regular Genes and Haxe JS are diagnostic/fallback profiles only unless a task explicitly changes that.
+3. **Use `genes-ts` as the primary target.** Idiomatic strict TypeScript output is the default product surface. Regular Genes' existing ES6 path is a promising secondary, performance-oriented output profile, using `../genes-vanilla` as read-only reference and implementing any OpenCodeHX-needed compiler work in `../genes`.
 4. **Node-first, Bun-aware.** Start with NodeNext ESM TypeScript and OpenCode's Node adapters. Preserve Bun seams for later packaging, but do not let Bun-only assumptions block early parity.
 5. **Classify seams before abstracting.** Mark runtime classes such as `portable`, `node-host`, `bun-host`, `tsx`, `browser`, `resource`, or `generated-ts-only`. Add abstractions only when they reduce real coupling.
 6. **Parity is empirical.** Prefer upstream tests, golden transcripts, API fixtures, terminal replays, generated TS snapshots, and smoke commands over intuition.
@@ -68,6 +69,8 @@ Treat generated TypeScript readability as a product gate: strict-checkable is ne
 When a macro-generated TypeScript boundary needs a TS-only shape, prefer a small `@:ts.type` Haxe abstract in `genes-ts` over weakening OpenCodeHX source types. The `Genes.dynamicImport` fix uses Haxe-compatible abstracts that emit `unknown`/`unknown[]` and casts module reads to `typeof import(...)`, keeping user TS free of `module: any` while preserving Haxe typing.
 
 When Haxe std reflection or extern aliases expose generated TS type leaks, fix the alias lowering in `genes-ts` rather than avoiding the Haxe API. The config port exposed `Reflect.fields` emitting `unsafeCast<Rest<any>>`; `../genes` now normalizes `haxe.extern.Rest<T>` aliases to `T[]` and guards the full fixture against unresolved `Rest` casts.
+
+For provider registry work, model stable provider facts in Haxe first: provider/model IDs as abstracts, capabilities/costs/limits/headers as typed records, and upstream unions such as `interleaved` as Haxe union-friendly types. Keep provider `options` and `variants` open only because upstream treats them as provider-SDK passthrough `Record<string, any>` data, and narrow provider-specific options through facades when a runtime path owns them.
 
 ## Repository Layout Policy
 

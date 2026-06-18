@@ -1,63 +1,9 @@
 package opencodehx.provider;
 
-typedef ProviderCapabilityIO = {
-	final text:Bool;
-	final image:Bool;
-	final audio:Bool;
-	final video:Bool;
-	final pdf:Bool;
-}
-
-typedef ProviderCapabilities = {
-	final toolcall:Bool;
-	final attachment:Bool;
-	final reasoning:Bool;
-	final temperature:Bool;
-	final interleaved:Bool;
-	final input:ProviderCapabilityIO;
-	final output:ProviderCapabilityIO;
-}
-
-typedef ProviderCost = {
-	final input:Float;
-	final output:Float;
-	final cache:{
-		final read:Float;
-		final write:Float;
-	};
-}
-
-typedef ProviderLimit = {
-	final context:Float;
-	final output:Float;
-}
-
-typedef ProviderModel = {
-	final id:String;
-	final providerID:String;
-	final name:String;
-	final capabilities:ProviderCapabilities;
-	final api:{
-		final id:String;
-		final url:String;
-		final npm:String;
-	};
-	final cost:ProviderCost;
-	final limit:ProviderLimit;
-	final status:String;
-	final options:Dynamic;
-	final headers:Dynamic;
-	final release_date:String;
-}
-
-typedef ProviderInfo = {
-	final id:String;
-	final name:String;
-	final source:String;
-	final env:Array<String>;
-	final options:Dynamic;
-	final models:Dynamic;
-}
+import opencodehx.provider.ProviderTypes.ModelID;
+import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderInfo;
+import opencodehx.provider.ProviderTypes.ProviderModel;
 
 enum FakeProviderEvent {
 	StreamStart;
@@ -74,8 +20,8 @@ class FakeProvider {
 	public function new(?reply:String) {
 		this.reply = reply == null ? "Hello from the fake provider." : reply;
 		model = makeModel();
-		final models:Dynamic = {};
-		Reflect.setField(models, model.id, model);
+		final models = new Map<String, ProviderModel>();
+		models.set(model.id.toString(), model);
 		info = {
 			id: model.providerID,
 			name: "Test Provider",
@@ -129,6 +75,7 @@ class FakeProvider {
 			options: {},
 			headers: {},
 			release_date: "2025-01-01",
+			variants: {},
 		};
 	}
 }
