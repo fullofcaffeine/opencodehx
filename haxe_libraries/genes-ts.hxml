@@ -1,0 +1,8 @@
+-lib helder.set
+-cp ../genes/src
+-D genes-ts=1.11.0
+--macro genes.Generator.use()
+--macro genes.js.Async.enable()
+--macro genes.react.InlineMarkup.enable()
+--macro addMetadata('@:genes.disableNativeAccessors', 'haxe.Exception')
+

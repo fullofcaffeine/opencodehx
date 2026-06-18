@@ -1,0 +1,43 @@
+# genes-ts NodeNext Smoke
+
+**Bead:** `opencodehx-005`  
+**Recorded:** 2026-06-18T03:26:00Z
+
+## Scaffold
+
+The first executable scaffold is intentionally small:
+
+- Haxe entry: `src/opencodehx/Main.hx`
+- Haxe support module: `src/opencodehx/BuildInfo.hx`
+- Haxe compile profile: `hxml/opencodehx.node.genes-ts.hxml`
+- Generated TypeScript: `src-gen/`
+- TypeScript output: `dist/`
+- TypeScript config: `tsconfig.json`
+
+The Haxe library shim in `haxe_libraries/genes-ts.hxml` points at the sibling `../genes` checkout recorded in `reference/genes.pin.json`.
+
+## Gate
+
+Command:
+
+```sh
+npm run build && npm run smoke
+```
+
+Observed result:
+
+```text
+opencodehx 0.0.0
+```
+
+This proves:
+
+- Haxe 4.3.7 can compile the scaffold through `genes-ts`.
+- `src-gen/**/*.ts` is emitted.
+- `tsc -p tsconfig.json` passes under NodeNext.
+- `node --enable-source-maps dist/index.js` runs the generated output.
+- Generated import specifiers use explicit `.js` suffixes, for example `./opencodehx/Main.js` and `./BuildInfo.js`.
+
+## Notes
+
+`package.json` must set `"type": "module"` for TypeScript NodeNext to treat generated `.ts` files as ESM while `verbatimModuleSyntax` is enabled.
