@@ -18,6 +18,8 @@ class ConfigSmoke {
 			jsonAndJsonc(root);
 			envContentAndSubstitution(root);
 			legacyTuiKeys(root);
+			projectDiscovery(root);
+			configDirAndProjectDisable(root);
 			invalidJson(root);
 			invalidSchema(root);
 			fileSubstitution(root);
@@ -75,6 +77,49 @@ class ConfigSmoke {
 		write(dir, "opencode.json", '{"model":"test/model","theme":"legacy","tui":{"scroll_speed":4},"keybinds":{"x":"y"}}');
 		final config = ConfigLoader.loadProject(dir, {defaultUsername: "fixture-user"});
 		eq(config.model, "test/model", "legacy tui stripped model preserved");
+	}
+
+	static function projectDiscovery(root:String):Void {
+		final worktree = directory(root, "project-discovery");
+		write(worktree, "opencode.json", '{"model":"root/model","instructions":["root.md","shared.md"]}');
+		final project = directory(worktree, "project");
+		write(project, "opencode.json", '{"model":"project/model","instructions":["shared.md","project.md"]}');
+		final opencodeDir = directory(project, ".opencode");
+		write(opencodeDir, "opencode.json", '{"model":"opencode/model","username":"opencode-user","instructions":["opencode.md"]}');
+		final nested = directory(project, "nested");
+
+		final config = ConfigLoader.loadProject(nested, {defaultUsername: "fixture-user", worktree: worktree});
+		eq(config.model, "opencode/model", ".opencode model override");
+		eq(config.username, "opencode-user", ".opencode username override");
+		eq(config.instructions.join(","), "root.md,shared.md,project.md,opencode.md", "ancestor instruction merge");
+	}
+
+	static function configDirAndProjectDisable(root:String):Void {
+		final project = directory(root, "project-disabled");
+		write(project, "opencode.json", '{"model":"project/model"}');
+		final opencodeDir = directory(project, ".opencode");
+		write(opencodeDir, "opencode.json", '{"model":"opencode/model"}');
+		final configDir = directory(root, "config-dir");
+		write(configDir, "opencode.json", '{"model":"configdir/model"}');
+
+		final config = ConfigLoader.loadProject(project, {
+			defaultUsername: "fixture-user",
+			worktree: project,
+			env: {
+				OPENCODE_DISABLE_PROJECT_CONFIG: "true",
+				OPENCODE_CONFIG_DIR: configDir
+			}
+		});
+		eq(config.model, "configdir/model", "OPENCODE_CONFIG_DIR loads with project config disabled");
+
+		final enabled = ConfigLoader.loadProject(project, {
+			defaultUsername: "fixture-user",
+			worktree: project,
+			env: {
+				OPENCODE_CONFIG_DIR: configDir
+			}
+		});
+		eq(enabled.model, "configdir/model", "OPENCODE_CONFIG_DIR overrides project .opencode");
 	}
 
 	static function invalidJson(root:String):Void {

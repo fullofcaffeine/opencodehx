@@ -14,6 +14,9 @@ Implemented:
 - JSONC parsing with comment stripping and trailing-comma support.
 - Variable substitution for `{env:NAME}` and `{file:path}` at the config boundary.
 - Project load order where `opencode.jsonc` overrides `opencode.json` in the same directory.
+- Ancestor project config discovery from worktree root to leaf, followed by discovered `.opencode/opencode.{json,jsonc}` directories.
+- `OPENCODE_DISABLE_PROJECT_CONFIG` skips project and `.opencode` discovery while still allowing explicit config inputs.
+- `OPENCODE_CONFIG_DIR` loads `opencode.{json,jsonc}` as an explicit directory source and overrides project-local config in this early slice.
 - `OPENCODE_CONFIG` and `OPENCODE_CONFIG_CONTENT` overlays for early env-driven parity.
 - Legacy `theme`, `keybinds`, and `tui` stripping from main OpenCode config.
 - Strict top-level key rejection for the known upstream config field set.
@@ -21,7 +24,7 @@ Implemented:
 - Typed permission config as the upstream-shaped `permission -> action | pattern map` record, with runtime narrowing isolated in `PermissionRules.fromConfig`.
 - Narrow Node fs/os externs used only by the config smoke and host boundary.
 
-Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, legacy TUI key stripping, invalid JSON, and invalid schema fields.
+Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
 
 ## Deliberate Boundaries
 
@@ -29,7 +32,7 @@ Provider and permission config are now typed at the Haxe boundary because their 
 
 Agent, MCP, formatter, LSP, command, skills, watcher, plugin, tools, enterprise, compaction, layout, and experimental nested shapes are still accepted as documented boundary debt because their authoritative schemas belong to later port slices. They should be tightened as those modules are ported.
 
-This slice does not reimplement upstream's Effect service layer, remote account config, plugin origin provenance, npm dependency install side effects, global config migration, or `.opencode` directory discovery. Those should be added when the dependent session/provider/server slices need them.
+This slice does not reimplement upstream's Effect service layer, remote account config, plugin origin provenance, npm dependency install side effects, global config migration, agent/command/skill directory discovery, or TUI migration. Those should be added when the dependent session/provider/server/TUI slices need them.
 
 ## genes-ts Lesson
 

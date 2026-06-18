@@ -13,6 +13,7 @@ import opencodehx.host.node.NodePath;
 typedef LoadOptions = {
 	@:optional final env:Dynamic;
 	@:optional final defaultUsername:String;
+	@:optional final worktree:String;
 }
 
 class ConfigLoader {
@@ -58,10 +59,18 @@ class ConfigLoader {
 		if (customPath != null && customPath != "")
 			result.merge(loadFile(customPath, opts));
 
-		for (file in ["opencode.json", "opencode.jsonc"]) {
-			final path = NodePath.join(directory, file);
-			if (Fs.existsSync(path))
-				result.merge(loadFile(path, opts));
+		if (!projectConfigDisabled(opts)) {
+			for (dir in projectDirectories(directory, opts.worktree)) {
+				mergeConfigFiles(result, dir, opts);
+			}
+			for (dir in opencodeDirectories(directory, opts.worktree)) {
+				mergeConfigFiles(result, dir, opts);
+			}
+		}
+
+		final configDir = envValue(opts, "OPENCODE_CONFIG_DIR");
+		if (configDir != null && configDir != "") {
+			mergeConfigFiles(result, configDir, opts);
 		}
 
 		final content = envValue(opts, "OPENCODE_CONFIG_CONTENT");
@@ -69,6 +78,51 @@ class ConfigLoader {
 			result.merge(loadText(content, "OPENCODE_CONFIG_CONTENT", directory, opts));
 		}
 		return result;
+	}
+
+	static function mergeConfigFiles(result:ConfigInfo, directory:String, options:LoadOptions):Void {
+		for (file in ["opencode.json", "opencode.jsonc"]) {
+			final path = NodePath.join(directory, file);
+			if (Fs.existsSync(path))
+				result.merge(loadFile(path, options));
+		}
+	}
+
+	static function projectDirectories(directory:String, ?worktree:String):Array<String> {
+		final dirs = ancestors(directory, worktree);
+		dirs.reverse();
+		return dirs;
+	}
+
+	static function opencodeDirectories(directory:String, ?worktree:String):Array<String> {
+		final result:Array<String> = [];
+		for (dir in projectDirectories(directory, worktree)) {
+			final opencodeDir = NodePath.join(dir, ".opencode");
+			if (Fs.existsSync(opencodeDir))
+				result.push(opencodeDir);
+		}
+		return result;
+	}
+
+	static function ancestors(directory:String, ?worktree:String):Array<String> {
+		final result:Array<String> = [];
+		var current = NodePath.resolve(directory, "");
+		final stop = worktree == null || worktree == "" ? null : NodePath.resolve(worktree, "");
+		while (true) {
+			result.push(current);
+			if (stop != null && current == stop)
+				break;
+			final parent = NodePath.dirname(current);
+			if (parent == current)
+				break;
+			current = parent;
+		}
+		return result;
+	}
+
+	static function projectConfigDisabled(options:LoadOptions):Bool {
+		final value = envValue(options, "OPENCODE_DISABLE_PROJECT_CONFIG");
+		return value != null && value != "" && value != "0" && value != "false";
 	}
 
 	public static function loadFile(path:String, ?options:LoadOptions):ConfigInfo {
