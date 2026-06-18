@@ -1,5 +1,6 @@
 package opencodehx.config;
 
+import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.externs.node.Fs;
@@ -12,8 +13,7 @@ typedef MarkdownDocument = {
 // Boundary debt: frontmatter is a user-authored YAML-ish interop surface.
 // Keep raw values inside ConfigMarkdown and narrow them in ConfigAgent/ConfigCommand.
 
-@:ts.type("unknown")
-abstract MarkdownValue(Dynamic) from Dynamic to Dynamic {}
+typedef MarkdownValue = Unknown;
 
 class ConfigMarkdown {
 	public static function parse(path:String):MarkdownDocument {
@@ -71,7 +71,7 @@ class ConfigMarkdown {
 
 			if (value == "|" || value == "|-" || value == ">" || value == ">-") {
 				final block = readBlock(lines, index + 1, value == ">" || value == ">-", value == "|-" || value == ">-");
-				data.set(key, block.value);
+				data.set(key, Unknown.fromBoundary(block.value));
 				index = block.next;
 				continue;
 			}
@@ -91,7 +91,7 @@ class ConfigMarkdown {
 					}
 					index++;
 				}
-				data.set(key, nested);
+				data.set(key, Unknown.fromBoundary(nested));
 				continue;
 			}
 
@@ -116,18 +116,18 @@ class ConfigMarkdown {
 
 	static function scalar(value:String):MarkdownValue {
 		if (value == "" || value == "null" || value == "~")
-			return null;
+			return Unknown.fromBoundary(null);
 		if (value == "true")
-			return true;
+			return Unknown.fromBoundary(true);
 		if (value == "false")
-			return false;
+			return Unknown.fromBoundary(false);
 		if ((StringTools.startsWith(value, '"') && StringTools.endsWith(value, '"'))
 			|| (StringTools.startsWith(value, "'") && StringTools.endsWith(value, "'")))
-			return value.substr(1, value.length - 2);
+			return Unknown.fromBoundary(value.substr(1, value.length - 2));
 		final number = Std.parseFloat(value);
 		if (!Math.isNaN(number) && Std.string(number) == value)
-			return number;
-		return value;
+			return Unknown.fromBoundary(number);
+		return Unknown.fromBoundary(value);
 	}
 
 	static function hasIndentedChild(lines:Array<String>, index:Int):Bool {

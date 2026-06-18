@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import haxe.DynamicAccess;
 import genes.js.Async.await;
+import genes.ts.Unknown;
 import js.Syntax;
 import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
@@ -109,14 +110,14 @@ class ConfigSmoke {
 
 	static function accountRemoteConfig():RemoteConfigObject {
 		final options = new DynamicAccess<OpenConfigValue>();
-		options.set("apiKey", "{env:OPENCODE_CONSOLE_TOKEN}");
+		options.set("apiKey", Unknown.fromBoundary("{env:OPENCODE_CONSOLE_TOKEN}"));
 		final opencode = new DynamicAccess<OpenConfigValue>();
-		opencode.set("options", options);
+		opencode.set("options", Unknown.fromBoundary(options));
 		final provider = new DynamicAccess<OpenConfigValue>();
-		provider.set("opencode", opencode);
+		provider.set("opencode", Unknown.fromBoundary(opencode));
 		final config = new DynamicAccess<OpenConfigValue>();
-		config.set("provider", provider);
-		config.set("model", "account/model");
+		config.set("provider", Unknown.fromBoundary(provider));
+		config.set("model", Unknown.fromBoundary("account/model"));
 		return config;
 	}
 
@@ -325,7 +326,7 @@ class ConfigSmoke {
 		eq(Reflect.field(tuple.spec.options, "source"), "tuple", "resolved plugin tuple options preserved");
 
 		final option = new DynamicAccess<PluginOptionValue>();
-		option.set("source", "direct");
+		option.set("source", Unknown.fromBoundary("direct"));
 		final direct = ConfigPlugin.resolveSpec({specifier: "./plugin.ts", options: option}, NodePath.join(opencodeDir, "opencode.json"));
 		eq(ConfigPlugin.specifier(direct), fileUrl, "direct plugin resolver");
 		eq(Reflect.field(direct.options, "source"), "direct", "direct resolver preserves options");

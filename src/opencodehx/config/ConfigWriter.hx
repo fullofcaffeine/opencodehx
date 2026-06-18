@@ -1,5 +1,6 @@
 package opencodehx.config;
 
+import genes.ts.Unknown;
 import haxe.Json;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigLoader.LoadOptions;
@@ -19,9 +20,7 @@ import opencodehx.host.node.NodePath;
 // schemas whose owning modules are not ported yet. Keep this raw tree contained
 // in ConfigWriter and replace fields with precise typedefs as those slices land.
 
-@:ts.type("unknown")
-abstract WritableConfigJson(Dynamic) from Dynamic to Dynamic {}
-
+typedef WritableConfigJson = Unknown;
 typedef WritableConfigObject = DynamicAccess<WritableConfigJson>;
 
 class ConfigWriter {
@@ -86,9 +85,9 @@ class ConfigWriter {
 			final model = tomlString(parsed.get("model"));
 			parsed.remove("provider");
 			parsed.remove("model");
-			parsed.set("$schema", ConfigInfo.DEFAULT_SCHEMA);
+			parsed.set("$schema", Unknown.fromBoundary(ConfigInfo.DEFAULT_SCHEMA));
 			if (provider != null && model != null)
-				parsed.set("model", provider + "/" + model);
+				parsed.set("model", Unknown.fromBoundary(provider + "/" + model));
 
 			result.merge(ConfigLoader.loadParsedData(parsed, legacy, withGlobalScope(options)));
 			Fs.writeFileSync(NodePath.join(globalDir, "config.json"), Json.stringify(writableDynamic(result), null, "  "));
@@ -138,7 +137,7 @@ class ConfigWriter {
 			final patchValue:WritableConfigJson = cast Reflect.field(patch, field);
 			result.set(field, mergeWritable(currentValue, patchValue));
 		}
-		return cast result;
+		return Unknown.fromBoundary(result);
 	}
 
 	static function writableDynamic(info:ConfigInfo):WritableConfigJson {
@@ -178,25 +177,30 @@ class ConfigWriter {
 		set(out, "enterprise", info.enterprise);
 		set(out, "compaction", info.compaction);
 		set(out, "experimental", info.experimental);
-		return cast out;
+		// `out` was assembled from typed ConfigInfo fields, but config-file JSON is
+		// still an open tree while not every nested section has an owner schema.
+		// Unknown.fromBoundary marks the single handoff into WritableConfigJson
+		// (`unknown` in generated TS) so callers must narrow again before reading.
+		return Unknown.fromBoundary(out);
 	}
 
 	static function serverDynamic(server:Null<ServerConfig>):WritableConfigJson {
 		if (server == null)
-			return null;
+			return Unknown.fromBoundary(null);
 		final out:WritableConfigObject = {};
 		set(out, "port", server.port);
 		set(out, "hostname", server.hostname);
 		set(out, "mdns", server.mdns);
 		set(out, "mdnsDomain", server.mdnsDomain);
 		set(out, "cors", server.cors);
-		return cast out;
+		return Unknown.fromBoundary(out);
 	}
 
 	static function pluginDynamic(spec:PluginSpec):WritableConfigJson {
 		if (spec.options == null)
-			return spec.specifier;
-		return [spec.specifier, spec.options];
+			return Unknown.fromBoundary(spec.specifier);
+		final tuple:Array<WritableConfigJson> = [Unknown.fromBoundary(spec.specifier), Unknown.fromBoundary(spec.options)];
+		return Unknown.fromBoundary(tuple);
 	}
 
 	static function shareString(value:Null<ShareMode>):Null<String> {
@@ -210,24 +214,33 @@ class ConfigWriter {
 
 	static function autoUpdateDynamic(value:Null<AutoUpdate>):WritableConfigJson {
 		return switch value {
-			case null: null;
-			case AutoUpdateEnabled: true;
-			case AutoUpdateDisabled: false;
-			case AutoUpdateNotify: "notify";
+			case null: Unknown.fromBoundary(null);
+			case AutoUpdateEnabled: Unknown.fromBoundary(true);
+			case AutoUpdateDisabled: Unknown.fromBoundary(false);
+			case AutoUpdateNotify: Unknown.fromBoundary("notify");
 		}
 	}
 
-	static function set(target:WritableConfigObject, field:String, value:WritableConfigJson):Void {
-		if (value != null)
-			target.set(field, value);
+	static function set<T>(target:WritableConfigObject, field:String, value:T):Void {
+		// Generic Haxe values need one null check before entering the open JSON
+		// writer tree; the stored value itself is wrapped as WritableConfigJson.
+		final rawValue:Dynamic = cast value;
+		if (rawValue != null)
+			target.set(field, Unknown.fromBoundary(value));
 	}
 
 	static function isRecord(value:WritableConfigJson):Bool {
-		if (value == null || Std.isOfType(value, Array))
+		// WritableConfigJson is generated as TS `unknown`; runtime reflection is
+		// contained here to decide whether JSONC patching should recurse.
+		final rawValue:Dynamic = cast value;
+		if (rawValue == null || Std.isOfType(rawValue, Array))
 			return false;
-		if (Std.isOfType(value, String) || Std.isOfType(value, Bool) || Std.isOfType(value, Float) || Std.isOfType(value, Int))
+		if (Std.isOfType(rawValue, String)
+			|| Std.isOfType(rawValue, Bool)
+			|| Std.isOfType(rawValue, Float)
+			|| Std.isOfType(rawValue, Int))
 			return false;
-		return Reflect.isObject(value);
+		return Reflect.isObject(rawValue);
 	}
 
 	static function withGlobalScope(?options:LoadOptions):LoadOptions {

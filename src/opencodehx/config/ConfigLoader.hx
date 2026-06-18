@@ -4,6 +4,7 @@ import haxe.ds.ReadOnlyArray;
 import haxe.DynamicAccess;
 import haxe.Json;
 import genes.js.Async.await;
+import genes.ts.Unknown;
 import js.Syntax;
 import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
@@ -139,7 +140,7 @@ class ConfigLoader {
 			if (remote == null)
 				continue;
 			if (!remote.exists("$schema"))
-				remote.set("$schema", ConfigInfo.DEFAULT_SCHEMA);
+				remote.set("$schema", Unknown.fromBoundary(ConfigInfo.DEFAULT_SCHEMA));
 			final source = url + "/.well-known/opencode";
 			result.merge(loadText(Json.stringify(remote), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
 		}

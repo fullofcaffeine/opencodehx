@@ -1,5 +1,6 @@
 package opencodehx.config;
 
+import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import haxe.extern.EitherType;
 import opencodehx.config.ConfigPlugin.PluginOrigin;
@@ -97,9 +98,7 @@ typedef CompactionConfig = {
 	@:optional var reserved:Int;
 }
 
-@:ts.type("unknown")
-abstract OpenConfigValue(Dynamic) from Dynamic to Dynamic {}
-
+typedef OpenConfigValue = Unknown;
 typedef CommandMap = DynamicAccess<CommandInfo>;
 
 typedef CommandInfo = {

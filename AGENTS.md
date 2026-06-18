@@ -11,6 +11,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 - `../genes-vanilla` is the read-only reference for the original upstream Genes implementation. Use it to compare original ES/JS behavior and architecture, especially for performance-oriented ES6 output, but do not patch it from OpenCodeHX work. The source of truth for compiler changes is `../genes`.
 - OpenCodeHX and `genes-ts` are developed together. Compiler limitations discovered here should be fixed as generic `genes-ts` improvements, not worked around with OpenCode-specific hacks.
 - **Hard boundary: never couple `genes-ts` to OpenCodeHX.** OpenCodeHX is allowed, and expected, to drive compiler fixes, but `../genes` must never gain special knowledge of OpenCodeHX paths, names, schemas, runtime conventions, or product behavior. Reduce issues to general Haxe/JS/TS/compiler cases and fix those so every Genes user benefits.
+- Keep the `../genes` repo itself project-neutral. Do not add OpenCode/OpenCodeHX-specific wording to genes source, docs, fixtures, labels, or Beads; describe discoveries there as generic downstream compiler cases.
 - Keep any future Caf/Cafex work out of the Phase 1 core. Caf/Cafex is later adapter/preflight work after OpenCode parity exists; see `docs/no-caf-integration-guardrail.md`.
 
 ## Core Product Rules
@@ -72,6 +73,8 @@ The high-level goal is deliberately twofold: build the best Haxe-native, future-
 Treat generated TypeScript readability as a product gate: strict-checkable is necessary but not sufficient. The output should preserve useful names, avoid gratuitous temporaries and casts, emit narrow imports/types, and remain efficient enough that an OpenCode maintainer could debug it directly.
 
 Treat `@:ts.type("...")` as a raw TypeScript override and a last-resort escape hatch, not a normal interop design tool. Prefer ordinary Haxe typedefs/enums/abstracts, `DynamicAccess<T>` for string-keyed maps, narrow externs/facades for libraries, and typed decoders for runtime data. If a reusable TS-only primitive is needed, add a named generic helper in `../genes` such as `genes.ts.Unknown` or `genes.ts.Undefinable<T>` rather than scattering raw strings through OpenCodeHX. Any remaining raw override must live at a boundary, be named and documented, and be tracked for eventual replacement or audit.
+
+Keep `reference/raw-ts-type-overrides.md` synchronized with every surviving `@:ts.type("...")` use. New raw overrides require a boundary justification and a replacement direction in that manifest in the same change.
 
 When a macro-generated TypeScript boundary needs a TS-only shape, prefer a small named Haxe abstraction in `genes-ts` over weakening OpenCodeHX source types. The `Genes.dynamicImport` fix uses Haxe-compatible abstracts that emit `unknown`/`unknown[]` and casts module reads to `typeof import(...)`, keeping user TS free of `module: any` while preserving Haxe typing.
 

@@ -1,9 +1,9 @@
 package opencodehx.externs.hono;
 
+import genes.ts.Undefinable;
 import js.lib.Promise;
 
-@:ts.type("string | undefined")
-abstract HonoQueryValue(Dynamic) from Dynamic to Dynamic {}
+typedef HonoQueryValue = Undefinable<String>;
 
 typedef HonoRequest = {
 	function json():Promise<Dynamic>;

@@ -110,12 +110,13 @@ class ConfigAgent {
 	}
 
 	static function permissionValue(value:ConfigMarkdown.MarkdownValue):Null<PermissionConfigValue> {
-		if (Std.isOfType(value, String))
-			return cast value;
-		if (value != null && Reflect.isObject(value) && !Std.isOfType(value, Array)) {
+		final rawValue = raw(value);
+		if (Std.isOfType(rawValue, String))
+			return cast rawValue;
+		if (rawValue != null && Reflect.isObject(rawValue) && !Std.isOfType(rawValue, Array)) {
 			final result = new DynamicAccess<String>();
-			for (field in Reflect.fields(value)) {
-				final child:ConfigMarkdown.MarkdownValue = cast Reflect.field(value, field);
+			for (field in Reflect.fields(rawValue)) {
+				final child = raw(cast Reflect.field(rawValue, field));
 				if (Std.isOfType(child, String))
 					result.set(field, cast child);
 			}
@@ -125,22 +126,22 @@ class ConfigAgent {
 	}
 
 	static function stringField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<String> {
-		final value = data.get(field);
+		final value = raw(data.get(field));
 		return Std.isOfType(value, String) ? cast value : null;
 	}
 
 	static function boolField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<Bool> {
-		final value = data.get(field);
+		final value = raw(data.get(field));
 		return Std.isOfType(value, Bool) ? cast value : null;
 	}
 
 	static function floatField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<Float> {
-		final value = data.get(field);
+		final value = raw(data.get(field));
 		return Std.isOfType(value, Float) || Std.isOfType(value, Int) ? cast value : null;
 	}
 
 	static function intField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<Int> {
-		final value = data.get(field);
+		final value = raw(data.get(field));
 		if (Std.isOfType(value, Int))
 			return cast value;
 		if (Std.isOfType(value, Float) && Math.floor(cast value) == value)
@@ -149,12 +150,12 @@ class ConfigAgent {
 	}
 
 	static function boolMapField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<DynamicAccess<Bool>> {
-		final raw = objectField(data, field);
-		if (raw == null)
+		final object = objectField(data, field);
+		if (object == null)
 			return null;
 		final result = new DynamicAccess<Bool>();
-		for (key in raw.keys()) {
-			final value = raw.get(key);
+		for (key in object.keys()) {
+			final value = raw(object.get(key));
 			if (Std.isOfType(value, Bool))
 				result.set(key, cast value);
 		}
@@ -162,13 +163,19 @@ class ConfigAgent {
 	}
 
 	static function objectField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<DynamicAccess<ConfigMarkdown.MarkdownValue>> {
-		final value = data.get(field);
+		final value = raw(data.get(field));
 		if (value != null && Reflect.isObject(value) && !Std.isOfType(value, Array)) {
 			final result = new DynamicAccess<ConfigMarkdown.MarkdownValue>();
 			for (child in Reflect.fields(value))
-				result.set(child, Reflect.field(value, child));
+				result.set(child, cast Reflect.field(value, child));
 			return result;
 		}
 		return null;
+	}
+
+	static inline function raw(value:Null<ConfigMarkdown.MarkdownValue>):Dynamic {
+		// MarkdownValue is `genes.ts.Unknown`; this decoder locally inspects runtime
+		// frontmatter shapes before returning typed AgentInfo fields.
+		return cast value;
 	}
 }

@@ -191,7 +191,7 @@ class OpenCodeServer {
 	}
 
 	static function query(c:HonoContext, name:String):Null<String> {
-		return Syntax.code("{0}.req.query({1}) ?? null", c, name);
+		return c.req.query(name).orNull();
 	}
 
 	static function parseLimit(value:Null<String>):Int {

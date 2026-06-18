@@ -1,5 +1,6 @@
 package opencodehx.config;
 
+import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Url;
@@ -9,9 +10,7 @@ import opencodehx.host.node.NodePath;
 // data consumed by plugin packages. Keep the map contained and narrow once plugin
 // manifests or package-specific schemas own these values.
 
-@:ts.type("unknown")
-abstract PluginOptionValue(Dynamic) from Dynamic to Dynamic {}
-
+typedef PluginOptionValue = Unknown;
 typedef PluginOptions = DynamicAccess<PluginOptionValue>;
 
 typedef PluginSpec = {

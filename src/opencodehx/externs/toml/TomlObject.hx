@@ -1,11 +1,10 @@
 package opencodehx.externs.toml;
 
+import genes.ts.Unknown;
 import haxe.DynamicAccess;
 
-@:ts.type("unknown")
-abstract TomlValue(Dynamic) from Dynamic to Dynamic {}
+typedef TomlValue = Unknown;
 
-@:ts.type("{[key: string]: unknown}")
 abstract TomlObject(DynamicAccess<TomlValue>) from DynamicAccess<TomlValue> to DynamicAccess<TomlValue> {
 	public inline function get(field:String):Null<TomlValue> {
 		return this.get(field);
