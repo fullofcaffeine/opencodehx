@@ -79,6 +79,8 @@ For provider registry work, model stable provider facts in Haxe first: provider/
 
 For resource imports under NodeNext, prefer the explicit `opencodehx.resource.Resources` adapter until `genes-ts` has a proven generic import story for `.txt`, `type:file`, and dynamic `.wasm` assets. JSON import attributes are already covered by `genes.ts.Imports.defaultImportWith(...)`; arbitrary text/file/WASM imports should resolve to copied resources and typed runtime helpers rather than hidden bundler assumptions.
 
+For markdown-backed config discovery, treat frontmatter parsing as an `unknown` boundary only at the parser. Command, agent, and mode loaders must immediately narrow owned fields into typed Haxe records, preserve only documented passthrough keys such as agent `options`, and avoid leaking broad `Dynamic`/`any` into app-facing config.
+
 ## Repository Layout Policy
 
 Follow the `codex-hxrust` precedent: keep this repo as the owner of the port, not a mirror of sibling projects.

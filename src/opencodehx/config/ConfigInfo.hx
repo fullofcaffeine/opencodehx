@@ -89,14 +89,50 @@ typedef ConfigProviderModelLimitConfig = {
 typedef PermissionConfig = DynamicAccess<PermissionConfigValue>;
 typedef PermissionConfigValue = EitherType<String, DynamicAccess<String>>;
 
+@:ts.type("unknown")
+abstract OpenConfigValue(Dynamic) from Dynamic to Dynamic {}
+
+typedef CommandMap = DynamicAccess<CommandInfo>;
+
+typedef CommandInfo = {
+	final template:String;
+	@:optional final description:String;
+	@:optional final agent:String;
+	@:optional final model:String;
+	@:optional final subtask:Bool;
+}
+
+typedef AgentMap = DynamicAccess<AgentInfo>;
+
+typedef AgentInfo = {
+	final name:String;
+	@:optional final model:String;
+	@:optional final variant:String;
+	@:optional final temperature:Float;
+	@:optional final top_p:Float;
+	@:optional final prompt:String;
+	@:optional final tools:DynamicAccess<Bool>;
+	@:optional final disable:Bool;
+	@:optional final description:String;
+	@:optional final mode:String;
+	@:optional final hidden:Bool;
+	// Boundary debt: agent-specific provider options and unknown frontmatter keys
+	// are passthrough values until provider/agent schemas own them precisely.
+	@:optional final options:DynamicAccess<OpenConfigValue>;
+	@:optional final color:String;
+	@:optional final steps:Int;
+	@:optional final maxSteps:Int;
+	@:optional final permission:PermissionConfig;
+}
+
 class ConfigInfo {
 	public static inline final DEFAULT_SCHEMA = "https://opencode.ai/config.json";
 
 	public var schema:Null<String>;
 	public var logLevel:Null<String>;
 	public var server:Null<ServerConfig>;
-	// Boundary debt: these nested schemas are owned by later command/skill/file-watch/plugin slices.
-	public var command:Dynamic;
+	public var command:Null<CommandMap>;
+	// Boundary debt: skills/watcher schemas are owned by later skill/file-watch slices.
 	public var skills:Dynamic;
 	public var watcher:Dynamic;
 	public var snapshot:Null<Bool>;
@@ -111,9 +147,8 @@ class ConfigInfo {
 	public var smallModel:Null<String>;
 	public var defaultAgent:Null<String>;
 	public var username:Null<String>;
-	// Boundary debt: mode/agent schemas become precise with the agent/session orchestration slice.
-	public var mode:Dynamic;
-	public var agent:Dynamic;
+	public var mode:Null<AgentMap>;
+	public var agent:Null<AgentMap>;
 	public var provider:Null<ConfigProviderMap>;
 	// Boundary debt: MCP/formatter/LSP/layout/tool/enterprise/compaction/experimental owners are not ported yet.
 	public var mcp:Dynamic;
@@ -146,7 +181,7 @@ class ConfigInfo {
 		if (next.server != null)
 			server = next.server;
 		if (next.command != null)
-			command = mergeObject(command, next.command);
+			command = cast mergeObject(command, next.command);
 		if (next.skills != null)
 			skills = next.skills;
 		if (next.watcher != null)
@@ -182,9 +217,9 @@ class ConfigInfo {
 		if (next.username != null)
 			username = next.username;
 		if (next.mode != null)
-			mode = mergeObject(mode, next.mode);
+			mode = cast mergeObject(mode, next.mode);
 		if (next.agent != null)
-			agent = mergeObject(agent, next.agent);
+			agent = cast mergeObject(agent, next.agent);
 		if (next.provider != null)
 			provider = mergeObject(provider, next.provider);
 		if (next.mcp != null)

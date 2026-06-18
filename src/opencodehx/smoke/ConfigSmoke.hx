@@ -27,6 +27,8 @@ class ConfigSmoke {
 			pluginMergeAndOrigins(root);
 			globalLoadAndUpdate(root);
 			localUpdateWritesConfigJson(root);
+			commandAgentDiscovery(root);
+			projectDisableSkipsDiscoveredEntries(root);
 			invalidJson(root);
 			invalidSchema(root);
 			fileSubstitution(root);
@@ -230,6 +232,105 @@ class ConfigSmoke {
 		contains(text, '"bash": "allow"', "local update merges permission");
 	}
 
+	static function commandAgentDiscovery(root:String):Void {
+		final worktree = directory(root, "entry-discovery");
+		final project = directory(worktree, "project");
+		final opencodeDir = directory(project, ".opencode");
+		final agentDir = directory(opencodeDir, "agents");
+		directory(agentDir, "nested");
+		write(agentDir, "helper.md", '---
+model: test/model
+mode: subagent
+tools:
+  write: true
+color: "#FFA500"
+---
+Helper agent prompt');
+		write(NodePath.join(agentDir, "nested"), "child.md", '---
+model: test/model
+mode: subagent
+---
+Nested agent prompt');
+
+		final commandDir = directory(opencodeDir, "command");
+		directory(commandDir, "nested");
+		write(commandDir, "hello.md", '---
+description: Test command
+agent: helper
+subtask: true
+---
+Hello from singular command');
+		write(NodePath.join(commandDir, "nested"), "child.md", '---
+description: Nested command
+---
+Nested command template');
+
+		final modeDir = directory(opencodeDir, "modes");
+		write(modeDir, "plan.md", '---
+model: test/model
+---
+Plan mode prompt');
+
+		final configDir = directory(root, "entry-config-dir");
+		final configCommands = directory(configDir, "commands");
+		write(configCommands, "global.md", '---
+description: Global command
+---
+Global command template');
+
+		final config = ConfigLoader.loadProject(project, {
+			defaultUsername: "fixture-user",
+			worktree: worktree,
+			env: {
+				OPENCODE_CONFIG_DIR: configDir
+			},
+		});
+
+		final agents = require(config.agent, "agent discovery map");
+		final commands = require(config.command, "command discovery map");
+		final helper = require(agents.get("helper"), "helper agent");
+		eq(helper.name, "helper", "agent discovery name");
+		eq(helper.model, "test/model", "agent discovery model");
+		eq(helper.mode, "subagent", "agent discovery mode");
+		eq(helper.prompt, "Helper agent prompt", "agent discovery prompt");
+		final helperPermission = require(helper.permission, "helper permission");
+		eq(helperPermission.get("edit"), "allow", "agent tools permission migration");
+		eq(helper.color, "#FFA500", "agent color discovery");
+
+		final nestedAgent = require(agents.get("nested/child"), "nested agent");
+		eq(nestedAgent.prompt, "Nested agent prompt", "nested agent path name");
+
+		final plan = require(agents.get("plan"), "plan mode agent");
+		eq(plan.mode, "primary", "mode discovery becomes primary agent");
+		eq(plan.prompt, "Plan mode prompt", "mode prompt");
+
+		final hello = require(commands.get("hello"), "hello command");
+		eq(hello.description, "Test command", "command description");
+		eq(hello.agent, "helper", "command agent");
+		eq(hello.subtask, true, "command subtask");
+		eq(hello.template, "Hello from singular command", "command template");
+
+		final nestedCommand = require(commands.get("nested/child"), "nested command");
+		eq(nestedCommand.template, "Nested command template", "nested command path name");
+		eq(require(commands.get("global"), "global command").template, "Global command template", "OPENCODE_CONFIG_DIR command discovery");
+	}
+
+	static function projectDisableSkipsDiscoveredEntries(root:String):Void {
+		final project = directory(root, "entry-disabled");
+		final opencodeDir = directory(project, ".opencode");
+		final commandDir = directory(opencodeDir, "command");
+		write(commandDir, "skip.md", "# Skip\nShould not load");
+
+		final config = ConfigLoader.loadProject(project, {
+			defaultUsername: "fixture-user",
+			worktree: project,
+			env: {
+				OPENCODE_DISABLE_PROJECT_CONFIG: "true"
+			},
+		});
+		eq(config.command, null, "project disable skips command discovery");
+	}
+
 	static function invalidJson(root:String):Void {
 		final dir = directory(root, "bad-json");
 		write(dir, "opencode.json", "{ invalid json }");
@@ -285,6 +386,12 @@ class ConfigSmoke {
 		if (actual != expected) {
 			throw '$label: expected ${expected}, got ${actual}';
 		}
+	}
+
+	static function require<T>(value:Null<T>, label:String):T {
+		if (value == null)
+			throw '${label}: expected value';
+		return value;
 	}
 
 	static function contains(text:String, needle:String, label:String):Void {

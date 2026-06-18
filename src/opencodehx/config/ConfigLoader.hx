@@ -1,6 +1,7 @@
 package opencodehx.config;
 
 import haxe.ds.ReadOnlyArray;
+import haxe.DynamicAccess;
 import js.Syntax;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigInfo.AutoUpdate;
@@ -63,23 +64,27 @@ class ConfigLoader {
 			result.merge(loadFile(customPath, opts));
 
 		if (!projectConfigDisabled(opts)) {
+			final projectOpencodeDirs = opencodeDirectories(directory, opts.worktree);
 			for (dir in projectDirectories(directory, opts.worktree)) {
 				mergeConfigFiles(result, dir, withPluginScope(opts, PluginScopeLocal));
 			}
-			for (dir in opencodeDirectories(directory, opts.worktree)) {
+			for (dir in projectOpencodeDirs) {
 				mergeConfigFiles(result, dir, withPluginScope(opts, PluginScopeLocal));
+				mergeDiscoveredEntries(result, dir);
 			}
 		}
 
 		final configDir = envValue(opts, "OPENCODE_CONFIG_DIR");
 		if (configDir != null && configDir != "") {
 			mergeConfigFiles(result, configDir, withPluginScope(opts, PluginScopeGlobal));
+			mergeDiscoveredEntries(result, configDir);
 		}
 
 		final content = envValue(opts, "OPENCODE_CONFIG_CONTENT");
 		if (content != null && content != "") {
 			result.merge(loadText(content, "OPENCODE_CONFIG_CONTENT", directory, withPluginScope(opts, PluginScopeLocal)));
 		}
+		promoteModes(result);
 		return result;
 	}
 
@@ -89,6 +94,48 @@ class ConfigLoader {
 			if (Fs.existsSync(path))
 				result.merge(loadFile(path, options));
 		}
+	}
+
+	static function mergeDiscoveredEntries(result:ConfigInfo, directory:String):Void {
+		final discovered = new ConfigInfo();
+		discovered.command = ConfigCommand.load(directory);
+		discovered.agent = ConfigAgent.load(directory);
+		discovered.mode = ConfigAgent.loadMode(directory);
+		result.merge(discovered);
+	}
+
+	static function promoteModes(result:ConfigInfo):Void {
+		if (result.mode == null)
+			return;
+		if (result.agent == null)
+			result.agent = new DynamicAccess();
+		for (name in result.mode.keys()) {
+			final mode = result.mode.get(name);
+			result.agent.set(name, mergeAgent(result.agent.get(name), mode));
+		}
+	}
+
+	static function mergeAgent(current:Null<ConfigInfo.AgentInfo>, mode:ConfigInfo.AgentInfo):ConfigInfo.AgentInfo {
+		if (current == null)
+			return mode;
+		return {
+			name: mode.name,
+			model: mode.model != null ? mode.model : current.model,
+			variant: mode.variant != null ? mode.variant : current.variant,
+			temperature: mode.temperature != null ? mode.temperature : current.temperature,
+			top_p: mode.top_p != null ? mode.top_p : current.top_p,
+			prompt: mode.prompt != null ? mode.prompt : current.prompt,
+			tools: mode.tools != null ? mode.tools : current.tools,
+			disable: mode.disable != null ? mode.disable : current.disable,
+			description: mode.description != null ? mode.description : current.description,
+			mode: "primary",
+			hidden: mode.hidden != null ? mode.hidden : current.hidden,
+			options: mode.options != null ? mode.options : current.options,
+			color: mode.color != null ? mode.color : current.color,
+			steps: mode.steps != null ? mode.steps : current.steps,
+			maxSteps: mode.maxSteps != null ? mode.maxSteps : current.maxSteps,
+			permission: mode.permission != null ? mode.permission : current.permission,
+		};
 	}
 
 	static function projectDirectories(directory:String, ?worktree:String):Array<String> {

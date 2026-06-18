@@ -3,6 +3,12 @@ package opencodehx.externs.node;
 @:ts.type("import('node:buffer').Buffer")
 abstract NodeBufferData(Dynamic) from Dynamic to Dynamic {}
 
+extern typedef FsStats = {
+	function isDirectory():Bool;
+	function isFile():Bool;
+	@:optional final mtimeMs:Float;
+}
+
 @:jsRequire("node:fs")
 extern class Fs {
 	static function existsSync(path:String):Bool;
@@ -13,5 +19,6 @@ extern class Fs {
 	static function mkdtempSync(prefix:String):String;
 	static function rmSync(path:String, ?options:Dynamic):Void;
 	static function readdirSync(path:String, ?options:Dynamic):Array<Dynamic>;
-	static function statSync(path:String):Dynamic;
+	@:native("readdirSync") static function readdirNamesSync(path:String):Array<String>;
+	static function statSync(path:String):FsStats;
 }

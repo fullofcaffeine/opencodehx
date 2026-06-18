@@ -23,23 +23,28 @@ Implemented:
 - Global config loading with upstream precedence (`config.json`, then `opencode.json`, then `opencode.jsonc`), and global update target selection (`opencode.jsonc`, `opencode.json`, `config.json`, falling back to a new `opencode.jsonc`).
 - Local config updates that merge writable config into `config.json`, matching the server route's instance update target.
 - JSONC-preserving global updates through upstream's `jsonc-parser` behavior, with plugin provenance omitted from persisted config.
+- Markdown-backed command discovery from `command/**/*.md` and `commands/**/*.md`, including nested path-derived names and typed command records.
+- Markdown-backed agent discovery from `agent/**/*.md` and `agents/**/*.md`, including nested path-derived names, typed agent records, tool-to-permission migration, color, options passthrough, and primary-mode promotion.
+- Markdown-backed mode discovery from `mode/*.md` and `modes/*.md`, promoted into `agent` entries with `mode: "primary"` like upstream.
 - Legacy `theme`, `keybinds`, and `tui` stripping from main OpenCode config.
 - Strict top-level key rejection for the known upstream config field set.
 - Typed provider config records for provider entries, model entries, model API override, modalities, cost, limits, headers, variants, whitelist, and blacklist. Provider SDK `options` and `variants` stay open as documented passthrough maps.
 - Typed permission config as the upstream-shaped `permission -> action | pattern map` record, with runtime narrowing isolated in `PermissionRules.fromConfig`.
 - Narrow Node fs/os externs used only by the config smoke and host boundary.
 
-Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, global load/update precedence, JSONC comment-preserving global writes, local `config.json` writes, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
+Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, global load/update precedence, JSONC comment-preserving global writes, local `config.json` writes, command/agent/mode markdown discovery, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
 
 ## Deliberate Boundaries
 
 Provider and permission config are now typed at the Haxe boundary because their owner slices exist. Provider `options`, model `options`, headers, and variants remain open maps only where upstream treats them as provider-SDK passthrough data.
 
-Agent, MCP, formatter, LSP, command, skills, watcher, tools, enterprise, compaction, layout, and experimental nested shapes are still accepted as documented boundary debt because their authoritative schemas belong to later port slices. They should be tightened as those modules are ported.
+MCP, formatter, LSP, skills, watcher, tools, enterprise, compaction, layout, and experimental nested shapes are still accepted as documented boundary debt because their authoritative schemas belong to later port slices. They should be tightened as those modules are ported.
+
+Markdown frontmatter is intentionally typed as an `unknown` boundary at parse time. Command and agent loaders immediately narrow the fields they own into typed Haxe records; unknown agent frontmatter keys survive only through the documented `options` passthrough.
 
 Plugin options remain open passthrough maps because upstream models them as `Record<string, unknown>` for plugin packages to consume. This slice does not resolve path plugin targets, load plugin modules, install npm dependencies, or scan plugin directories; those belong to the plugin/runtime slices.
 
-This slice does not reimplement upstream's Effect service layer, remote account config, npm dependency install side effects, legacy TOML global config migration, agent/command/skill directory discovery, plugin runtime loading/path resolution, or TUI migration. Those should be added when the dependent session/provider/server/TUI slices need them.
+This slice does not reimplement upstream's Effect service layer, remote account config, npm dependency install side effects, legacy TOML global config migration, skill directory discovery/service loading, plugin runtime loading/path resolution, or TUI migration. Those should be added when the dependent session/provider/server/TUI slices need them.
 
 The writable JSON tree in `ConfigWriter` is intentionally typed as an `unknown` boundary in generated TypeScript. It exists only to round-trip arbitrary JSON/JSONC fields whose owning modules are not ported yet; app-facing code should stay on `ConfigInfo` and typed nested records.
 
