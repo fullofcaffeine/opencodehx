@@ -16,8 +16,10 @@ typedef SessionListQuery = {
 	final directory:Null<String>;
 	final roots:Bool;
 	final start:Null<Float>;
+	final cursor:Null<Float>;
 	final search:Null<String>;
 	final limit:Int;
+	final archived:Bool;
 }
 
 typedef ServerErrorResponse = {
@@ -48,6 +50,17 @@ typedef SessionResponse = {
 	final title:String;
 	final version:String;
 	final time:SessionResponseTime;
+}
+
+typedef ProjectResponse = {
+	final id:String;
+	final worktree:String;
+	final name:Null<String>;
+}
+
+typedef GlobalSessionResponse = {
+	> SessionResponse,
+	final project:Null<ProjectResponse>;
 }
 
 enum DecodeResult<T> {
@@ -91,8 +104,10 @@ class ServerProtocol {
 			directory: blankToNull(read("directory")),
 			roots: read("roots") == "true",
 			start: parseOptionalFloat(read("start")),
+			cursor: parseOptionalFloat(read("cursor")),
 			search: blankToNull(read("search")),
 			limit: parseLimit(read("limit")),
+			archived: read("archived") == "true",
 		};
 	}
 
@@ -101,7 +116,9 @@ class ServerProtocol {
 			return false;
 		if (query.roots && info.parentID != null)
 			return false;
-		if (query.start != null && info.time.created < query.start)
+		if (query.start != null && info.time.updated < query.start)
+			return false;
+		if (query.cursor != null && info.time.updated >= query.cursor)
 			return false;
 		if (query.search != null && query.search != "") {
 			final haystack = info.title.toLowerCase();
@@ -111,7 +128,13 @@ class ServerProtocol {
 		return true;
 	}
 
-	public static function withTitle(info:SessionInfo, title:String):SessionInfo {
+	public static function matchesGlobalSession(info:SessionInfo, query:SessionListQuery):Bool {
+		if (!query.archived && info.time.archived != null)
+			return false;
+		return matchesSession(info, query);
+	}
+
+	public static function withTitle(info:SessionInfo, title:String, ?updated:Float):SessionInfo {
 		return {
 			id: info.id,
 			slug: info.slug,
@@ -125,7 +148,12 @@ class ServerProtocol {
 			share: info.share,
 			revert: info.revert,
 			permission: info.permission,
-			time: info.time,
+			time: {
+				created: info.time.created,
+				updated: updated == null ? info.time.updated : updated,
+				compacting: info.time.compacting,
+				archived: info.time.archived,
+			},
 		};
 	}
 
@@ -142,6 +170,26 @@ class ServerProtocol {
 			time: {
 				created: info.time.created,
 				updated: info.time.updated,
+			},
+		};
+	}
+
+	public static function encodeGlobalSession(info:SessionInfo):GlobalSessionResponse {
+		final encoded = encodeSession(info);
+		return {
+			id: encoded.id,
+			projectID: encoded.projectID,
+			workspaceID: encoded.workspaceID,
+			parentID: encoded.parentID,
+			slug: encoded.slug,
+			directory: encoded.directory,
+			title: encoded.title,
+			version: encoded.version,
+			time: encoded.time,
+			project: {
+				id: info.projectID,
+				worktree: info.directory,
+				name: null,
 			},
 		};
 	}

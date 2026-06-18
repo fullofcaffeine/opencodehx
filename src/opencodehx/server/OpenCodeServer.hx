@@ -15,6 +15,7 @@ import opencodehx.session.MessageError.MessageException;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionProcessor;
 import opencodehx.server.ServerProtocol.DecodeResult;
+import opencodehx.server.ServerProtocol.GlobalSessionResponse;
 import opencodehx.server.ServerProtocol.ServerEvent;
 import opencodehx.server.ServerProtocol.SessionResponse;
 import opencodehx.server.ServerTypes.ServerListener;
@@ -55,6 +56,7 @@ class OpenCodeServer {
 		app.get("/health", c -> json(c, {ok: true, service: "opencodehx"}));
 		app.get("/event", c -> eventStream(c));
 		app.get("/session", c -> listSessions(c));
+		app.get("/experimental/session", c -> listGlobalSessions(c));
 		app.post("/session", c -> createSession(c));
 		app.get("/session/:sessionID/message", c -> sessionMessages(c));
 		app.post("/session/:sessionID/abort", c -> json(c, true));
@@ -81,7 +83,7 @@ class OpenCodeServer {
 			store: store,
 		});
 		final info = store.getSession(SessionID.make(result.request.sessionID));
-		final updated = ServerProtocol.withTitle(info, request.title);
+		final updated = ServerProtocol.withTitle(info, request.title, 1002 + createdCount);
 		store.updateSession(updated);
 		final encoded = ServerProtocol.encodeSession(updated);
 		if (sessionOrder.indexOf(result.request.sessionID) == -1)
@@ -108,6 +110,30 @@ class OpenCodeServer {
 			} catch (_:StorageException) {}
 		}
 		return json(c, items);
+	}
+
+	function listGlobalSessions(c:HonoContext):Response {
+		final queryOptions = ServerProtocol.decodeSessionListQuery(name -> query(c, name));
+		final items:Array<GlobalSessionResponse> = [];
+		final newestFirst = sessionOrder.copy();
+		newestFirst.reverse();
+		for (id in newestFirst) {
+			try {
+				final info = store.getSession(SessionID.make(id));
+				if (ServerProtocol.matchesGlobalSession(info, queryOptions)) {
+					items.push(ServerProtocol.encodeGlobalSession(info));
+					if (items.length > queryOptions.limit)
+						break;
+				}
+			} catch (_:StorageException) {}
+		}
+		final hasMore = items.length > queryOptions.limit;
+		final page = hasMore ? items.slice(0, queryOptions.limit) : items;
+		if (hasMore && page.length > 0) {
+			final tail = page[page.length - 1];
+			Syntax.code("{0}.header('x-next-cursor', String({1}))", c, tail.time.updated);
+		}
+		return json(c, page);
 	}
 
 	function sessionMessages(c:HonoContext):Response {

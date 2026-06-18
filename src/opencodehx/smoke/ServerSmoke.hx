@@ -21,7 +21,7 @@ class ServerSmoke {
 		});
 		var listener:Null<ServerListener> = null;
 		try {
-			await(appRequestRoutes(server));
+			await(appRequestRoutes(server, root));
 			listener = await(server.listen(0, "127.0.0.1"));
 			final health = await(fetchJson(listener.url + "/health"));
 			eq(Reflect.field(health, "ok"), true, "listener health");
@@ -40,7 +40,7 @@ class ServerSmoke {
 	}
 
 	@:async
-	static function appRequestRoutes(server:OpenCodeServer):Promise<Void> {
+	static function appRequestRoutes(server:OpenCodeServer, root:String):Promise<Void> {
 		final health = await(jsonResponse(await(server.app.request("/health"))));
 		eq(Reflect.field(health, "service"), "opencodehx", "health service");
 
@@ -121,6 +121,22 @@ class ServerSmoke {
 		eq(Reflect.field(cast searched[0], "id"), "ses_server_2", "session search id");
 		final future:Dynamic = await(jsonResponse(await(server.app.request("/session?start=9999999999999"))));
 		eq(future.length, 0, "future start filter");
+
+		final globalLimitedResponse = await(server.app.request("/experimental/session?limit=2"));
+		final globalCursor = Syntax.code("{0}.headers.get('x-next-cursor')", globalLimitedResponse);
+		eq(globalCursor != null, true, "global session cursor");
+		final globalLimited:Dynamic = await(jsonResponse(globalLimitedResponse));
+		eq(globalLimited.length, 2, "global session list limit");
+		eq(Reflect.field(cast globalLimited[0], "id"), "ses_server_3", "global newest session");
+		final globalProject = Reflect.field(cast globalLimited[0], "project");
+		eq(Reflect.field(globalProject, "id"), "proj_server", "global project id");
+		eq(Reflect.field(globalProject, "worktree"), root, "global project worktree");
+		final globalNext:Dynamic = await(jsonResponse(await(server.app.request('/experimental/session?limit=10&cursor=${globalCursor}'))));
+		eq(globalNext.length, 1, "global cursor page size");
+		eq(Reflect.field(cast globalNext[0], "id"), "ses_server_1", "global cursor next id");
+		final globalSearch:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?search=other-session"))));
+		eq(globalSearch.length, 1, "global search count");
+		eq(Reflect.field(cast globalSearch[0], "id"), "ses_server_3", "global search id");
 
 		final aborted = await(jsonResponse(await(server.app.request('/session/${sessionID}/abort', {method: "POST"}))));
 		eq(aborted, true, "abort route");
