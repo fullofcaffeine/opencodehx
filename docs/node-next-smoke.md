@@ -39,6 +39,8 @@ This proves:
 - Generated import specifiers use explicit `.js` suffixes, for example `./opencodehx/Main.js` and `./BuildInfo.js`.
 - The first Node built-in extern imports `node:path` and runs through the host facade.
 - The first Effect facade imports `effect` and constructs a `Task.succeed(...)` value.
+- The import/resource fixture imports `#opencodehx/smoke-resource` with `with { type: "json" }`, copies it from `fixtures/resources` into `src-gen/resources`, and executes it through Node's package `imports` map.
+- The dynamic import fixture emits and executes a `genes.Genes.dynamicImport(...)` import of `opencodehx.fixtures.DynamicFixture`.
 
 ## Notes
 

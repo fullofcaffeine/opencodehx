@@ -1,7 +1,7 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-18T03:22:45Z  
+**Recorded:** 2026-06-18T03:52:39Z  
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
@@ -15,22 +15,24 @@ Both inspected compiler copies report version `1.11.0`:
 | Canonical checkout | `../genes` | `1.11.0` | `genes-ts` `1.11.0` |
 | Cafetera vendor | `../fullofcaffeine/tools/cafetera/vendor/genes-ts` | `1.11.0` | `genes-ts` `1.11.0` |
 
-The common compiler source trees are identical:
+The canonical compiler checkout is now ahead of the Cafetera vendored reference for OpenCodeHX work:
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 33 in each tree
-- `diff -qr`: no differences
-- Relative-path source manifest hash: `0691b042d1bda69ca6496ccc534810fa78b24ebcdb28ad309a54421f03bf380e`
+- `diff -qr`: differs after `opencodehx-010` import-attribute support landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `14418723d969b564e3fbb4d76d09b0f0493fb7716b428789545bb1fb52869e86`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `d8601fafe66aab3b39c824cfb71e28aabfa660b4`
+- Commit: `856864bd8d3de7d481a3c2f150548006d9e525a0`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
+- OpenCodeHX-specific compiler fix: `f88d6fb18208b9a5f40031c978162e7fbf8178e7` (`Support TypeScript import attributes`), adding `genes.ts.Imports.defaultImportWith(...)` and JSON import-attribute fixture coverage.
+- Follow-up tracking commit: `856864bd8d3de7d481a3c2f150548006d9e525a0`, adding `genes-h65` for dynamic import typing debt.
 
 Cafetera vendored reference:
 

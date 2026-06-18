@@ -7,12 +7,14 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "resolveJsonModule": true,
     "rootDir": "./src-gen",
     "outDir": "./dist",
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
   "include": [
-    "src-gen/**/*.ts"
+    "src-gen/**/*.ts",
+    "src-gen/**/*.json"
   ]
 }

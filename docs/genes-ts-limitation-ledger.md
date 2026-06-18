@@ -16,6 +16,7 @@ Use one table row per discovered compiler limitation:
 | ID | Discovered from | OpenCodeHX blocker | genes task/repro | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `effect-dynamic-001` | `opencodehx-009` | Future config/session/provider Effect facades | none yet | `accepted-boundary-debt` | `opencodehx.fx.Task` stores the raw Effect runtime value as `Dynamic` while the exact Effect subset is discovered. Keep this isolated to `opencodehx.fx`/extern modules and tighten during config/session work. |
+| `dynamic-import-any-001` | `opencodehx-010` | Generated user TS for dynamic imports contains `(module: any)` | `genes-h65`; OpenCodeHX follow-up `opencodehx-c0j` | `open` | The smoke passes, but generated user modules should not leak `any`. Keep using the fixture as acceptance evidence when genes-ts tightens `Genes.dynamicImport` typing. |
 
 ## Required Fields
 

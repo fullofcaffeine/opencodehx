@@ -8,7 +8,8 @@
   "scripts": {
     "build:haxe": "haxe hxml/opencodehx.node.genes-ts.hxml",
     "typecheck": "tsc -p tsconfig.json",
-    "build": "npm run build:haxe && npm run typecheck",
+    "copy:resources": "node scripts/build/copy-resources.mjs",
+    "build": "npm run build:haxe && npm run copy:resources && npm run typecheck",
     "smoke": "node --enable-source-maps dist/index.js",
     "format:haxe": "bash scripts/lint/hx_format_guard.sh --write",
     "format:haxe:check": "bash scripts/lint/hx_format_guard.sh",
@@ -21,6 +22,12 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/fullofcaffeine/opencodehx.git"
+  },
+  "imports": {
+    "#opencodehx/smoke-resource": {
+      "types": "./src-gen/resources/smoke-resource.json",
+      "default": "./dist/resources/smoke-resource.json"
+    }
   },
   "devDependencies": {
     "@types/node": "^20.19.1",
