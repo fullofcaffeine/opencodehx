@@ -7,4 +7,5 @@ extern class Path {
 	static function resolve(paths:haxe.extern.Rest<String>):String;
 	static function basename(path:String):String;
 	static function dirname(path:String):String;
+	static function isAbsolute(path:String):Bool;
 }

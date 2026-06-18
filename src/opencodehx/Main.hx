@@ -6,6 +6,7 @@ import js.Syntax;
 import opencodehx.fixtures.DynamicFixture;
 import opencodehx.fx.Task;
 import opencodehx.host.node.NodePath;
+import opencodehx.smoke.ConfigSmoke;
 import opencodehx.smoke.UtilSmoke;
 
 typedef SmokeResource = {
@@ -23,6 +24,8 @@ class Main {
 		Syntax.code("console.log({0})", '${resource.name}:${resource.mode}');
 		UtilSmoke.run();
 		Syntax.code("console.log({0})", "util-smoke:ok");
+		ConfigSmoke.run();
+		Syntax.code("console.log({0})", "config-smoke:ok");
 		Genes.dynamicImport(DynamicFixture -> DynamicFixture.label()).then(label -> {
 			Syntax.code("console.log({0})", label);
 			return null;

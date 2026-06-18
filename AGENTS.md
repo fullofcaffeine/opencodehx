@@ -58,6 +58,8 @@ Generated TS quality problems are compiler work, not source contortion work, whe
 
 When a macro-generated TypeScript boundary needs a TS-only shape, prefer a small `@:ts.type` Haxe abstract in `genes-ts` over weakening OpenCodeHX source types. The `Genes.dynamicImport` fix uses Haxe-compatible abstracts that emit `unknown`/`unknown[]` and casts module reads to `typeof import(...)`, keeping user TS free of `module: any` while preserving Haxe typing.
 
+When Haxe std reflection or extern aliases expose generated TS type leaks, fix the alias lowering in `genes-ts` rather than avoiding the Haxe API. The config port exposed `Reflect.fields` emitting `unsafeCast<Rest<any>>`; `../genes` now normalizes `haxe.extern.Rest<T>` aliases to `T[]` and guards the full fixture against unresolved `Rest` casts.
+
 ## Repository Layout Policy
 
 Follow the `codex-hxrust` precedent: keep this repo as the owner of the port, not a mirror of sibling projects.
@@ -127,6 +129,10 @@ Do not reimplement Effect up front.
 1. Begin with extern/facade compatibility for enough `Effect`, `Layer`, `Context`, and `Stream` APIs to preserve OpenCode control flow.
 2. Introduce a narrow `opencodehx.fx` facade as repeated patterns become clear.
 3. Consider native Haxe replacements only after parity evidence exists and the replacement improves readability, testing, or future portability.
+
+## Config Strategy
+
+The initial config port is documented in `docs/config-port.md`. Keep config parsing Haxe-native at the boundary: JSON/JSONC and environment/file templates stay as strings until parsed, then closed domains should become enums or enum abstracts. Keep broad `Dynamic` only for nested schemas whose owner modules have not been ported yet, and replace those with precise typedefs/enums when provider, agent, MCP, formatter, LSP, and permission slices land.
 
 ## TUI Strategy
 

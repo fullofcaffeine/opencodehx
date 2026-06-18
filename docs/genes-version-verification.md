@@ -1,7 +1,7 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-18T04:12:42Z
+**Recorded:** 2026-06-18T04:23:38Z
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
@@ -19,20 +19,21 @@ The canonical compiler checkout is now ahead of the Cafetera vendored reference 
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 33 in each tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support and dynamic import typing fixes landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `22911def82cef35c20e785d8cbeb540ca88c969c6a114eea5f084f461b80d6d8`
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, and Rest alias type-emission fixes landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `1fcd69b400c8c16a6c4afea404b664a711d703344585984b7d47b9ab26cd55a9`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `899e7732b15a1ff0d46cb53e9169faf9a8e3ca3c`
+- Commit: `7ccc162886aa35e925fdc06fa995058d870f45a6`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
 - OpenCodeHX-specific compiler fix: `f88d6fb18208b9a5f40031c978162e7fbf8178e7` (`Support TypeScript import attributes`), adding `genes.ts.Imports.defaultImportWith(...)` and JSON import-attribute fixture coverage.
 - Dynamic import typing fix: `899e7732b15a1ff0d46cb53e9169faf9a8e3ca3c` (`Tighten dynamic import module typing`), emitting `unknown` callback parameters plus `typeof import(...)` casts and guarding the full fixture against regressing to `module: any`.
+- Rest alias type-emission fix: `7ccc162886aa35e925fdc06fa995058d870f45a6` (`Normalize Rest type aliases in TS output`), normalizing `haxe.extern.Rest<T>` aliases to `T[]` in generated TS type positions and guarding the full fixture against `unsafeCast<Rest<...>>` leaks from `Reflect.fields`.
 
 Cafetera vendored reference:
 
