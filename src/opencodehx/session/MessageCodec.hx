@@ -64,6 +64,32 @@ class MessageCodec {
 		return result;
 	}
 
+	public static function decodeInfoRecord(data:Dynamic, ?source:String):Info {
+		final label = source == null ? "message.info" : source;
+		final issues:Array<String> = [];
+		final info = decodeInfo(data, issues, label);
+		if (issues.length > 0)
+			throw invalid(label, issues);
+		return info;
+	}
+
+	public static function encodeInfoRecord(info:Info):Dynamic {
+		return encodeInfo(info);
+	}
+
+	public static function decodePartRecord(data:Dynamic, ?source:String):Part {
+		final label = source == null ? "message.part" : source;
+		final issues:Array<String> = [];
+		final part = decodePart(data, issues, label);
+		if (issues.length > 0)
+			throw invalid(label, issues);
+		return part;
+	}
+
+	public static function encodePartRecord(part:Part):Dynamic {
+		return encodePart(part);
+	}
+
 	public static function encodeCursor(cursor:Cursor):String {
 		return NodeBuffer.toBase64Url(Json.stringify({
 			id: cursor.id.toString(),

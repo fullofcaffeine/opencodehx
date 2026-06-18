@@ -89,6 +89,7 @@ opencodehx/
 - Do not vendor `../opencode` or `../genes` by default. Use sibling checkouts plus pinned commits/manifests.
 - `src-gen/` and `dist/` are rebuildable generated output. Do not manually edit generated files.
 - If generated snapshots are checked in for review, record the `genes-ts` pin, Haxe version, TypeScript/Node versions, hxml, and generation command.
+- Keep storage access behind narrow host seams. Upstream may use `node:sqlite`, Bun SQLite, or Drizzle, but OpenCodeHX session logic should depend on Haxe store interfaces so driver swaps do not rewrite product behavior.
 
 ## Upstream Oracle Policy
 
