@@ -1,11 +1,18 @@
 package opencodehx.config;
 
 import haxe.DynamicAccess;
+import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Url;
+import opencodehx.host.node.NodePath;
 
 // Boundary debt: upstream plugin options are `Record<string, unknown>` passthrough
 // data consumed by plugin packages. Keep the map contained and narrow once plugin
 // manifests or package-specific schemas own these values.
-typedef PluginOptions = DynamicAccess<Dynamic>;
+
+@:ts.type("unknown")
+abstract PluginOptionValue(Dynamic) from Dynamic to Dynamic {}
+
+typedef PluginOptions = DynamicAccess<PluginOptionValue>;
 
 typedef PluginSpec = {
 	final specifier:String;
@@ -24,6 +31,23 @@ typedef PluginOrigin = {
 }
 
 class ConfigPlugin {
+	public static function load(dir:String):Array<PluginSpec> {
+		final result:Array<PluginSpec> = [];
+		for (root in ["plugin", "plugins"]) {
+			final base = NodePath.join(dir, root);
+			if (!Fs.existsSync(base))
+				continue;
+			for (name in Fs.readdirNamesSync(base)) {
+				final absolute = NodePath.join(base, name);
+				final stat = Fs.statSync(absolute);
+				if (stat.isFile() && isPluginFile(name))
+					result.push({specifier: Url.pathToFileURL(absolute).href});
+			}
+		}
+		result.sort((a, b) -> Reflect.compare(a.specifier, b.specifier));
+		return result;
+	}
+
 	public static function specifier(spec:PluginSpec):String {
 		return spec.specifier;
 	}
@@ -58,6 +82,10 @@ class ConfigPlugin {
 		if (StringTools.startsWith(raw, "file://"))
 			return raw;
 		return packageName(raw);
+	}
+
+	static function isPluginFile(name:String):Bool {
+		return StringTools.endsWith(name, ".ts") || StringTools.endsWith(name, ".js");
 	}
 
 	static function packageName(raw:String):String {

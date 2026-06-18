@@ -226,6 +226,8 @@ For provider/session parity, keep transcript fixtures deterministic and credenti
 
 For CLI parity, keep the command dispatcher pure enough to smoke test without spawning Node; use separate harness scripts for generated-binary behavior such as stdout, stderr, and exit codes.
 
+For plugin config discovery, scan only the upstream-shaped immediate `plugin/*.{ts,js}` and `plugins/*.{ts,js}` roots, normalize discovered local files to file URL specs, and attach provenance before dedupe. Loading plugin modules, resolving relative path specs, and npm dependency installation are separate runtime slices.
+
 For overload-heavy Node APIs such as `spawnSync`, keep raw extern calls dynamic at the host boundary and expose typed Haxe facades to app/tool code. This keeps generated TypeScript strict-checkable without weakening the app-facing model.
 
 For permission work, preserve upstream's last-match wildcard rule semantics. Config-derived wildcard permission keys should sort before specific keys so specific rules override fallback rules regardless of JSON key order.

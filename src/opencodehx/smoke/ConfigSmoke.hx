@@ -7,10 +7,13 @@ import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigPlugin;
+import opencodehx.config.ConfigPlugin.PluginOrigin;
 import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeLocal;
+import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeGlobal;
 import opencodehx.config.ConfigWriter;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodePath;
 
 class ConfigSmoke {
@@ -25,6 +28,7 @@ class ConfigSmoke {
 			configDirAndProjectDisable(root);
 			schemaAutoAddPreservesTokens(root);
 			pluginMergeAndOrigins(root);
+			pluginDirectoryDiscovery(root);
 			globalLoadAndUpdate(root);
 			legacyGlobalTomlMigration(root);
 			localUpdateWritesConfigJson(root);
@@ -173,6 +177,45 @@ class ConfigSmoke {
 		eq(shared.scope, PluginScopeLocal, "plugin origin scope");
 		contains(shared.source, ".opencode", "plugin origin source");
 		eq(Reflect.field(shared.spec.options, "source"), "local", "plugin tuple options preserved");
+	}
+
+	static function pluginDirectoryDiscovery(root:String):Void {
+		final worktree = directory(root, "plugin-discovery");
+		final project = directory(worktree, "project");
+		final opencodeDir = directory(project, ".opencode");
+		final pluginDir = directory(opencodeDir, "plugin");
+		final pluginsDir = directory(opencodeDir, "plugins");
+		write(pluginDir, "local-a.js", "export default {}");
+		write(pluginsDir, "local-b.ts", "export default {}");
+		write(pluginsDir, "ignore.md", "not a plugin");
+
+		final configDir = directory(root, "plugin-config-dir");
+		final configPluginsDir = directory(configDir, "plugins");
+		write(configPluginsDir, "global.js", "export default {}");
+
+		final config = ConfigLoader.loadProject(project, {
+			defaultUsername: "fixture-user",
+			worktree: worktree,
+			env: {
+				OPENCODE_CONFIG_DIR: configDir
+			},
+		});
+
+		final localA = Url.pathToFileURL(NodePath.join(pluginDir, "local-a.js")).href;
+		final localB = Url.pathToFileURL(NodePath.join(pluginsDir, "local-b.ts")).href;
+		final global = Url.pathToFileURL(NodePath.join(configPluginsDir, "global.js")).href;
+		final names = [for (plugin in config.plugin) ConfigPlugin.specifier(plugin)];
+		eq(names.indexOf(localA) != -1, true, "plugin directory singular discovery");
+		eq(names.indexOf(localB) != -1, true, "plugin directory plural discovery");
+		eq(names.indexOf(global) != -1, true, "plugin config dir discovery");
+		eq(hasSuffix(names, "ignore.md"), false, "plugin discovery ignores non-js-ts");
+
+		final localOrigin = require(findOrigin(config.pluginOrigins, localA), "local plugin origin");
+		eq(localOrigin.scope, PluginScopeLocal, "local discovered plugin scope");
+		eq(localOrigin.source, opencodeDir, "local discovered plugin source");
+		final globalOrigin = require(findOrigin(config.pluginOrigins, global), "global plugin origin");
+		eq(globalOrigin.scope, PluginScopeGlobal, "config dir discovered plugin scope");
+		eq(globalOrigin.source, configDir, "config dir discovered plugin source");
 	}
 
 	static function globalLoadAndUpdate(root:String):Void {
@@ -394,6 +437,22 @@ Global command template');
 
 	static function write(dir:String, name:String, data:String):Void {
 		Fs.writeFileSync(NodePath.join(dir, name), data);
+	}
+
+	static function findOrigin(origins:Array<PluginOrigin>, specifier:String):Null<PluginOrigin> {
+		for (origin in origins) {
+			if (ConfigPlugin.specifier(origin.spec) == specifier)
+				return origin;
+		}
+		return null;
+	}
+
+	static function hasSuffix(values:Array<String>, suffix:String):Bool {
+		for (value in values) {
+			if (StringTools.endsWith(value, suffix))
+				return true;
+		}
+		return false;
 	}
 
 	static function expectFailure(run:() -> Void, label:String, matches:ConfigFailure->Bool):Void {

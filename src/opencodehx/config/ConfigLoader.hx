@@ -71,14 +71,14 @@ class ConfigLoader {
 			}
 			for (dir in projectOpencodeDirs) {
 				mergeConfigFiles(result, dir, withPluginScope(opts, PluginScopeLocal));
-				mergeDiscoveredEntries(result, dir);
+				mergeDiscoveredEntries(result, dir, PluginScopeLocal);
 			}
 		}
 
 		final configDir = envValue(opts, "OPENCODE_CONFIG_DIR");
 		if (configDir != null && configDir != "") {
 			mergeConfigFiles(result, configDir, withPluginScope(opts, PluginScopeGlobal));
-			mergeDiscoveredEntries(result, configDir);
+			mergeDiscoveredEntries(result, configDir, PluginScopeGlobal);
 		}
 
 		final content = envValue(opts, "OPENCODE_CONFIG_CONTENT");
@@ -97,11 +97,16 @@ class ConfigLoader {
 		}
 	}
 
-	static function mergeDiscoveredEntries(result:ConfigInfo, directory:String):Void {
+	static function mergeDiscoveredEntries(result:ConfigInfo, directory:String, scope:PluginScope):Void {
 		final discovered = new ConfigInfo();
 		discovered.command = ConfigCommand.load(directory);
 		discovered.agent = ConfigAgent.load(directory);
 		discovered.mode = ConfigAgent.loadMode(directory);
+		discovered.plugin = ConfigPlugin.load(directory);
+		discovered.pluginOrigins = [
+			for (spec in discovered.plugin)
+				ConfigPlugin.withOrigin(spec, directory, scope)
+		];
 		result.merge(discovered);
 	}
 
