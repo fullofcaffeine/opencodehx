@@ -93,6 +93,7 @@ Use upstream OpenCode as the behavioral authority:
 - Port in dependency order: scaffold, utilities, config, message/session DTOs, storage seam, file/tool primitives, fake provider, headless run, session processor, providers, server, plugin/MCP/ACP/LSP, TUI, packaging.
 - Keep golden evidence for high-risk UX and behavior: help/version output, config errors, fake-provider transcripts, tool edits, permission prompts, server events, provider streams, and TUI replays.
 - Treat upstream OpenCode tests as oracle inputs. Adapt them into Haxe-owned fixtures or differential harnesses rather than copying blindly.
+- Use `docs/ts2hx-opencode-audit.md` as the current ts2hx evidence. ts2hx is useful for inventory, dependency ordering, and small repros, but broad OpenCode conversion should be Haxe-native and parity-led rather than a blind generated rewrite.
 
 ## Extern and Interop Policy
 

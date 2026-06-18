@@ -1,0 +1,441 @@
+{
+  "schema": "opencodehx.reference.ts2hx-audit.v1",
+  "sourceRoot": "../opencode/packages/opencode/src",
+  "sourceFiles": 446,
+  "generatedAt": "2026-06-18T04:00:00.203Z",
+  "directTs2hxProbe": {
+    "command": "yarn --cwd ../genes/tools/ts2hx build && node ../genes/tools/ts2hx/dist/cli.js --project ../opencode/packages/opencode/tsconfig.json --list-files --diagnostics",
+    "result": "failed-before-emit",
+    "diagnostic": "File '@tsconfig/bun/tsconfig.json' not found."
+  },
+  "features": {
+    "as-cast": {
+      "count": 520,
+      "files": [
+        "account/account.ts",
+        "acp/agent.ts",
+        "auth/index.ts",
+        "bus/index.ts",
+        "cli/cmd/agent.ts",
+        "cli/cmd/db.ts",
+        "cli/cmd/debug/agent.ts",
+        "cli/cmd/debug/ripgrep.ts"
+      ]
+    },
+    "class": {
+      "count": 153,
+      "files": [
+        "account/account.ts",
+        "account/repo.ts",
+        "account/schema.ts",
+        "acp/agent.ts",
+        "acp/session.ts",
+        "agent/agent.ts",
+        "auth/index.ts",
+        "bus/index.ts"
+      ]
+    },
+    "conditional-type": {
+      "count": 21,
+      "files": [
+        "account/repo.ts",
+        "config/config.ts",
+        "plugin/index.ts",
+        "project/project.ts",
+        "provider/sdk/copilot/responses/openai-responses-language-model.ts",
+        "server/routes/instance/trace.ts",
+        "session/llm.ts",
+        "session/projectors.ts"
+      ]
+    },
+    "enum": {
+      "count": 4,
+      "files": [
+        "lsp/lsp.ts",
+        "patch/index.ts"
+      ]
+    },
+    "generic-function": {
+      "count": 140,
+      "files": [
+        "account/account.ts",
+        "account/repo.ts",
+        "acp/agent.ts",
+        "bus/bus-event.ts",
+        "bus/index.ts",
+        "cli/bootstrap.ts",
+        "cli/cmd/cmd.ts",
+        "cli/cmd/github.ts"
+      ]
+    },
+    "generic-type-reference": {
+      "count": 1734,
+      "files": [
+        "account/account.ts",
+        "account/repo.ts",
+        "account/schema.ts",
+        "acp/agent.ts",
+        "acp/session.ts",
+        "agent/agent.ts",
+        "auth/index.ts",
+        "bus/bus-event.ts"
+      ]
+    },
+    "import-type": {
+      "count": 4,
+      "files": [
+        "file/watcher.ts",
+        "mcp/oauth-callback.ts"
+      ]
+    },
+    "interface": {
+      "count": 148,
+      "files": [
+        "account/account.ts",
+        "account/repo.ts",
+        "acp/types.ts",
+        "agent/agent.ts",
+        "auth/index.ts",
+        "bus/index.ts",
+        "cli/cmd/account.ts",
+        "cli/cmd/stats.ts"
+      ]
+    },
+    "mapped-type": {
+      "count": 6,
+      "files": [
+        "config/config.ts",
+        "config/permission.ts",
+        "plugin/index.ts",
+        "session/projectors.ts",
+        "util/update-schema.ts"
+      ]
+    },
+    "non-null-assertion": {
+      "count": 150,
+      "files": [
+        "acp/agent.ts",
+        "acp/session.ts",
+        "cli/cmd/export.ts",
+        "cli/cmd/github.ts",
+        "cli/cmd/import.ts",
+        "cli/cmd/providers.ts",
+        "cli/cmd/tui/component/dialog-provider.tsx",
+        "cli/cmd/tui/component/dialog-session-list.tsx"
+      ]
+    },
+    "nullish-coalescing": {
+      "count": 907,
+      "files": [
+        "account/repo.ts",
+        "acp/agent.ts",
+        "agent/agent.ts",
+        "cli/cmd/debug/agent.ts",
+        "cli/cmd/debug/ripgrep.ts",
+        "cli/cmd/export.ts",
+        "cli/cmd/generate.ts",
+        "cli/cmd/github.ts"
+      ]
+    },
+    "optional-chaining": {
+      "count": 1070,
+      "files": [
+        "account/repo.ts",
+        "acp/agent.ts",
+        "agent/agent.ts",
+        "cli/cmd/export.ts",
+        "cli/cmd/generate.ts",
+        "cli/cmd/github.ts",
+        "cli/cmd/import.ts",
+        "cli/cmd/mcp.ts"
+      ]
+    },
+    "rest-parameter": {
+      "count": 25,
+      "files": [
+        "cli/cmd/tui/context/local.tsx",
+        "cli/ui.ts",
+        "effect/cross-spawn-spawner.ts",
+        "effect/instance-state.ts",
+        "npm/index.ts",
+        "permission/evaluate.ts",
+        "permission/index.ts",
+        "plugin/index.ts"
+      ]
+    },
+    "satisfies": {
+      "count": 60,
+      "files": [
+        "agent/agent.ts",
+        "cli/cmd/generate.ts",
+        "cli/cmd/tui/component/textarea-keybindings.ts",
+        "cli/cmd/tui/context/project.tsx",
+        "cli/cmd/tui/routes/session/dialog-fork-from-timeline.tsx",
+        "effect/bridge.ts",
+        "effect/runner.ts",
+        "git/index.ts"
+      ]
+    },
+    "spread": {
+      "count": 783,
+      "files": [
+        "account/account.sql.ts",
+        "account/repo.ts",
+        "acp/agent.ts",
+        "agent/agent.ts",
+        "auth/index.ts",
+        "cli/cmd/account.ts",
+        "cli/cmd/debug/agent.ts",
+        "cli/cmd/debug/ripgrep.ts"
+      ]
+    },
+    "template-literal-type": {
+      "count": 7,
+      "files": [
+        "cli/cmd/tui/context/theme.tsx",
+        "effect/cross-spawn-spawner.ts",
+        "session/message-v2.ts",
+        "sync/index.ts"
+      ]
+    },
+    "tsx-file": {
+      "count": 77,
+      "files": [
+        "cli/cmd/tui/app.tsx",
+        "cli/cmd/tui/component/bg-pulse.tsx",
+        "cli/cmd/tui/component/border.tsx",
+        "cli/cmd/tui/component/dialog-agent.tsx",
+        "cli/cmd/tui/component/dialog-command.tsx",
+        "cli/cmd/tui/component/dialog-console-org.tsx",
+        "cli/cmd/tui/component/dialog-go-upsell.tsx",
+        "cli/cmd/tui/component/dialog-mcp.tsx"
+      ]
+    },
+    "tsx-jsx": {
+      "count": 1099,
+      "files": [
+        "cli/cmd/tui/app.tsx",
+        "cli/cmd/tui/component/bg-pulse.tsx",
+        "cli/cmd/tui/component/dialog-agent.tsx",
+        "cli/cmd/tui/component/dialog-command.tsx",
+        "cli/cmd/tui/component/dialog-console-org.tsx",
+        "cli/cmd/tui/component/dialog-go-upsell.tsx",
+        "cli/cmd/tui/component/dialog-mcp.tsx",
+        "cli/cmd/tui/component/dialog-model.tsx"
+      ]
+    },
+    "type-alias": {
+      "count": 518,
+      "files": [
+        "account/account.ts",
+        "account/repo.ts",
+        "account/schema.ts",
+        "acp/agent.ts",
+        "agent/agent.ts",
+        "auth/index.ts",
+        "bus/bus-event.ts",
+        "bus/global.ts"
+      ]
+    }
+  },
+  "imports": {
+    "alias:@": {
+      "count": 838,
+      "files": [
+        "account/account.ts",
+        "account/repo.ts",
+        "acp/agent.ts",
+        "acp/session.ts",
+        "agent/agent.ts",
+        "auth/index.ts",
+        "bus/index.ts",
+        "cli/bootstrap.ts"
+      ]
+    },
+    "alias:@tui": {
+      "count": 163,
+      "files": [
+        "cli/cmd/tui/app.tsx",
+        "cli/cmd/tui/component/bg-pulse.tsx",
+        "cli/cmd/tui/component/dialog-agent.tsx",
+        "cli/cmd/tui/component/dialog-command.tsx",
+        "cli/cmd/tui/component/dialog-console-org.tsx",
+        "cli/cmd/tui/component/dialog-go-upsell.tsx",
+        "cli/cmd/tui/component/dialog-mcp.tsx",
+        "cli/cmd/tui/component/dialog-model.tsx"
+      ]
+    },
+    "alias:#": {
+      "count": 3,
+      "files": [
+        "pty/index.ts",
+        "server/server.ts",
+        "storage/db.ts"
+      ]
+    },
+    "dynamic-import": {
+      "count": 59,
+      "files": [
+        "cli/cmd/generate.ts",
+        "cli/cmd/tui/util/clipboard.ts",
+        "config/agent.ts",
+        "config/command.ts",
+        "config/config.ts",
+        "control-plane/adaptors/index.ts",
+        "effect/cross-spawn-spawner.ts",
+        "effect/observability.ts"
+      ]
+    },
+    "dynamic-import-attributes": {
+      "count": 4,
+      "files": [
+        "config/config.ts",
+        "tool/bash.ts"
+      ]
+    },
+    "import-attributes": {
+      "count": 37,
+      "files": [
+        "cli/cmd/tui/context/theme.tsx",
+        "cli/cmd/tui/util/sound.ts"
+      ]
+    },
+    "node-builtin": {
+      "count": 27,
+      "files": [
+        "cli/cmd/github.ts",
+        "cli/cmd/providers.ts",
+        "cli/cmd/tui/component/dialog-workspace-create.tsx",
+        "cli/cmd/tui/util/editor.ts",
+        "cli/cmd/tui/util/sound.ts",
+        "cli/cmd/tui/win32.ts",
+        "cli/cmd/tui/worker.ts",
+        "cli/heap.ts"
+      ]
+    },
+    "npm": {
+      "count": 1056,
+      "files": [
+        "account/account.sql.ts",
+        "account/account.ts",
+        "account/repo.ts",
+        "account/schema.ts",
+        "acp/agent.ts",
+        "acp/session.ts",
+        "acp/types.ts",
+        "agent/agent.ts"
+      ]
+    },
+    "relative": {
+      "count": 1152,
+      "files": [
+        "account/account.sql.ts",
+        "account/account.ts",
+        "account/repo.ts",
+        "acp/agent.ts",
+        "acp/session.ts",
+        "acp/types.ts",
+        "agent/agent.ts",
+        "auth/index.ts"
+      ]
+    },
+    "resource:json": {
+      "count": 33,
+      "files": [
+        "cli/cmd/tui/context/theme.tsx"
+      ]
+    },
+    "resource:txt": {
+      "count": 34,
+      "files": [
+        "agent/agent.ts",
+        "command/index.ts",
+        "session/prompt.ts",
+        "session/system.ts",
+        "tool/apply_patch.ts",
+        "tool/bash.ts",
+        "tool/codesearch.ts",
+        "tool/edit.ts"
+      ]
+    },
+    "resource:wav": {
+      "count": 4,
+      "files": [
+        "cli/cmd/tui/util/sound.ts"
+      ]
+    },
+    "type-only-import": {
+      "count": 228,
+      "files": [
+        "account/schema.ts",
+        "acp/agent.ts",
+        "acp/session.ts",
+        "acp/types.ts",
+        "bus/bus-event.ts",
+        "cli/cmd/agent.ts",
+        "cli/cmd/cmd.ts",
+        "cli/cmd/db.ts"
+      ]
+    }
+  },
+  "unsupportedOrManual": {
+    "advanced-type-level-ts-manual-or-extern": {
+      "count": 34,
+      "files": [
+        "account/repo.ts",
+        "cli/cmd/tui/context/theme.tsx",
+        "config/config.ts",
+        "config/permission.ts",
+        "effect/cross-spawn-spawner.ts",
+        "plugin/index.ts",
+        "project/project.ts",
+        "provider/sdk/copilot/responses/openai-responses-language-model.ts"
+      ]
+    },
+    "resource-txt-needs-copy-or-loader": {
+      "count": 34,
+      "files": [
+        "agent/agent.ts",
+        "command/index.ts",
+        "session/prompt.ts",
+        "session/system.ts",
+        "tool/apply_patch.ts",
+        "tool/bash.ts",
+        "tool/codesearch.ts",
+        "tool/edit.ts"
+      ]
+    },
+    "resource-wav-needs-copy-or-loader": {
+      "count": 4,
+      "files": [
+        "cli/cmd/tui/util/sound.ts"
+      ]
+    },
+    "satisfies-needs-type-directed-haxe-modeling": {
+      "count": 60,
+      "files": [
+        "agent/agent.ts",
+        "cli/cmd/generate.ts",
+        "cli/cmd/tui/component/textarea-keybindings.ts",
+        "cli/cmd/tui/context/project.tsx",
+        "cli/cmd/tui/routes/session/dialog-fork-from-timeline.tsx",
+        "effect/bridge.ts",
+        "effect/runner.ts",
+        "git/index.ts"
+      ]
+    },
+    "tsx-jsx-requires-hxx-or-tsx-compiler-fixtures": {
+      "count": 1099,
+      "files": [
+        "cli/cmd/tui/app.tsx",
+        "cli/cmd/tui/component/bg-pulse.tsx",
+        "cli/cmd/tui/component/dialog-agent.tsx",
+        "cli/cmd/tui/component/dialog-command.tsx",
+        "cli/cmd/tui/component/dialog-console-org.tsx",
+        "cli/cmd/tui/component/dialog-go-upsell.tsx",
+        "cli/cmd/tui/component/dialog-mcp.tsx",
+        "cli/cmd/tui/component/dialog-model.tsx"
+      ]
+    }
+  }
+}
