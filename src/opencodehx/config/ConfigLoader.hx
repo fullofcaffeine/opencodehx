@@ -7,6 +7,7 @@ import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ServerConfig;
 import opencodehx.config.ConfigInfo.ShareMode;
+import opencodehx.config.ConfigInfo.SkillsConfig;
 import opencodehx.config.ConfigPlugin.PluginScope;
 import opencodehx.config.ConfigPlugin.PluginSpec;
 import opencodehx.externs.node.Fs;
@@ -252,7 +253,7 @@ class ConfigLoader {
 		info.logLevel = optionalString(data, "logLevel", source, issues);
 		info.server = optionalServer(data, source, issues);
 		info.command = optionalAny(data, "command");
-		info.skills = optionalAny(data, "skills");
+		info.skills = optionalSkills(data, source, issues);
 		info.watcher = optionalAny(data, "watcher");
 		info.snapshot = optionalBool(data, "snapshot", source, issues);
 		info.plugin = optionalPluginArray(data, "plugin", source, issues);
@@ -397,6 +398,26 @@ class ConfigLoader {
 			}
 		}
 		return result;
+	}
+
+	static function optionalSkills(data:Dynamic, source:String, issues:Array<String>):Null<SkillsConfig> {
+		if (!Reflect.hasField(data, "skills"))
+			return null;
+		final value = Reflect.field(data, "skills");
+		if (value == null || !Reflect.isObject(value) || Std.isOfType(value, Array)) {
+			issues.push("skills: expected object");
+			return null;
+		}
+		final skillIssues:Array<String> = [];
+		for (field in Reflect.fields(value)) {
+			if (["paths", "urls"].indexOf(field) == -1)
+				skillIssues.push('skills.${field}: unrecognized key');
+		}
+		final paths = optionalStringArray(value, "paths", source, skillIssues);
+		final urls = optionalStringArray(value, "urls", source, skillIssues);
+		for (issue in skillIssues)
+			issues.push(issue);
+		return {paths: paths, urls: urls};
 	}
 
 	static function optionalShare(data:Dynamic, source:String, issues:Array<String>):Null<ShareMode> {

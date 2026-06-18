@@ -125,6 +125,11 @@ typedef AgentInfo = {
 	@:optional final permission:PermissionConfig;
 }
 
+typedef SkillsConfig = {
+	@:optional final paths:Array<String>;
+	@:optional final urls:Array<String>;
+}
+
 class ConfigInfo {
 	public static inline final DEFAULT_SCHEMA = "https://opencode.ai/config.json";
 
@@ -132,8 +137,8 @@ class ConfigInfo {
 	public var logLevel:Null<String>;
 	public var server:Null<ServerConfig>;
 	public var command:Null<CommandMap>;
-	// Boundary debt: skills/watcher schemas are owned by later skill/file-watch slices.
-	public var skills:Dynamic;
+	public var skills:Null<SkillsConfig>;
+	// Boundary debt: watcher schema is owned by a later file-watch slice.
 	public var watcher:Dynamic;
 	public var snapshot:Null<Bool>;
 	public var plugin:Array<PluginSpec>;
@@ -183,7 +188,7 @@ class ConfigInfo {
 		if (next.command != null)
 			command = cast mergeObject(command, next.command);
 		if (next.skills != null)
-			skills = next.skills;
+			skills = mergeSkills(skills, next.skills);
 		if (next.watcher != null)
 			watcher = next.watcher;
 		if (next.snapshot != null)
@@ -252,6 +257,15 @@ class ConfigInfo {
 				result.push(item);
 		}
 		return result;
+	}
+
+	static function mergeSkills(current:Null<SkillsConfig>, next:SkillsConfig):SkillsConfig {
+		if (current == null)
+			return next;
+		return {
+			paths: next.paths != null ? concatUnique(current.paths, next.paths) : current.paths,
+			urls: next.urls != null ? concatUnique(current.urls, next.urls) : current.urls,
+		};
 	}
 
 	static function mergeObject(current:Dynamic, next:Dynamic):Dynamic {

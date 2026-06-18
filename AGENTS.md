@@ -81,6 +81,8 @@ For resource imports under NodeNext, prefer the explicit `opencodehx.resource.Re
 
 For markdown-backed config discovery, treat frontmatter parsing as an `unknown` boundary only at the parser. Command, agent, and mode loaders must immediately narrow owned fields into typed Haxe records, preserve only documented passthrough keys such as agent `options`, and avoid leaking broad `Dynamic`/`any` into app-facing config.
 
+For skills, keep local filesystem discovery in a typed registry (`SkillInfo`, dirs, sorted formatting) and treat remote skill index/download support as a separate network/cache concern. `skills.urls` may be parsed as config, but do not fake remote behavior with local assumptions; add a real discovery/cache seam when that slice lands.
+
 ## Repository Layout Policy
 
 Follow the `codex-hxrust` precedent: keep this repo as the owner of the port, not a mirror of sibling projects.
