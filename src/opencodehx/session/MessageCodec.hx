@@ -98,15 +98,24 @@ class MessageCodec {
 	}
 
 	public static function decodeCursor(value:String):Cursor {
-		final issues:Array<String> = [];
-		final data = Json.parse(NodeBuffer.fromBase64Url(value));
-		final cursor:Cursor = {
-			id: MessageID.make(requiredString(data, "id", issues, "cursor.id")),
-			time: requiredFloat(data, "time", issues, "cursor.time"),
-		};
-		if (issues.length > 0)
-			throw invalid("cursor", issues);
-		return cursor;
+		try {
+			final issues:Array<String> = [];
+			final data = Json.parse(NodeBuffer.fromBase64Url(value));
+			final cursor:Cursor = {
+				id: MessageID.make(requiredString(data, "id", issues, "cursor.id")),
+				time: requiredFloat(data, "time", issues, "cursor.time"),
+			};
+			if (issues.length > 0)
+				throw invalid("cursor", issues);
+			return cursor;
+		} catch (messageError:MessageException) {
+			throw messageError;
+		} catch (parseError:Dynamic) {
+			// Base64/JSON parsing crosses through JS runtime exceptions that do
+			// not share a Haxe type. Convert them immediately into the typed
+			// message-codec failure used by callers.
+			throw invalid("cursor", ['Invalid cursor: ${Std.string(parseError)}']);
+		}
 	}
 
 	static function decodeInfo(data:Dynamic, issues:Array<String>, path:String):Info {

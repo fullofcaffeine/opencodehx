@@ -50,8 +50,15 @@ class ServerSmoke {
 			body: Json.stringify({prompt: "Say hello from the server.", title: "Server fixture"}),
 		}))));
 		final sessionID = Std.string(Reflect.field(created, "id"));
-		eq(sessionID, "ses_server_one", "created session id");
+		eq(sessionID, "ses_server_1", "created session id");
 		eq(Reflect.field(created, "title"), "Server fixture", "created title");
+
+		final invalidCreate = await(server.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: 7}),
+		}));
+		eq(Reflect.field(invalidCreate, "status"), 400, "invalid create body status");
 
 		final list:Dynamic = await(jsonResponse(await(server.app.request("/session"))));
 		eq(Reflect.field(cast list[0], "id"), sessionID, "listed session id");
@@ -81,6 +88,39 @@ class ServerSmoke {
 			body: Json.stringify({sessionID: "invalid_session_id"}),
 		}));
 		eq(Reflect.field(invalidSelect, "status"), 400, "invalid select status");
+		final missingFieldSelect = await(server.app.request("/tui/select-session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({}),
+		}));
+		eq(Reflect.field(missingFieldSelect, "status"), 400, "missing select field status");
+		final missingSelect = await(server.app.request("/tui/select-session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({sessionID: "ses_missing"}),
+		}));
+		eq(Reflect.field(missingSelect, "status"), 404, "missing select session status");
+
+		final second = await(jsonResponse(await(server.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Second", title: "unique-search-term-abc"}),
+		}))));
+		final third = await(jsonResponse(await(server.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Third", title: "other-session-xyz"}),
+		}))));
+		eq(Reflect.field(second, "id"), "ses_server_2", "second session id");
+		eq(Reflect.field(third, "id"), "ses_server_3", "third session id");
+		final limited:Dynamic = await(jsonResponse(await(server.app.request("/session?limit=2"))));
+		eq(limited.length, 2, "session list limit");
+		eq(Reflect.field(cast limited[0], "id"), "ses_server_3", "newest limited session");
+		final searched:Dynamic = await(jsonResponse(await(server.app.request("/session?search=unique-search"))));
+		eq(searched.length, 1, "session search count");
+		eq(Reflect.field(cast searched[0], "id"), "ses_server_2", "session search id");
+		final future:Dynamic = await(jsonResponse(await(server.app.request("/session?start=9999999999999"))));
+		eq(future.length, 0, "future start filter");
 
 		final aborted = await(jsonResponse(await(server.app.request('/session/${sessionID}/abort', {method: "POST"}))));
 		eq(aborted, true, "abort route");
@@ -88,6 +128,7 @@ class ServerSmoke {
 		final eventResponse = await(server.app.request("/event"));
 		final eventText = await(textResponse(eventResponse));
 		eq(eventText.indexOf('"type":"server.connected"') != -1, true, "sse connected event");
+		eq(eventText.indexOf('"type":"server.heartbeat"') != -1, true, "sse heartbeat event");
 		eq(eventText.indexOf('"type":"session.created"') != -1, true, "sse session event");
 	}
 

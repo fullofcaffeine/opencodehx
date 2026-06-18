@@ -1,30 +1,27 @@
 package opencodehx.server;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
 import haxe.Json;
 import js.Syntax;
+import js.html.Response;
 import js.lib.Promise;
 import opencodehx.externs.hono.Hono;
 import opencodehx.externs.hono.Hono.HonoContext;
 import opencodehx.externs.hono.NodeWs;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketRuntime;
 import opencodehx.session.MessageCodec;
+import opencodehx.session.MessageError.MessageException;
 import opencodehx.session.SessionID;
-import opencodehx.session.SessionInfo.SessionInfo;
 import opencodehx.session.SessionProcessor;
+import opencodehx.server.ServerProtocol.DecodeResult;
+import opencodehx.server.ServerProtocol.ServerEvent;
+import opencodehx.server.ServerProtocol.SessionResponse;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.server.ServerTypes.ServerOptions;
 import opencodehx.storage.SessionStore;
 import opencodehx.storage.SqliteSessionStore;
-
-typedef ServerEvent = {
-	final type:String;
-	final properties:ServerEventProperties;
-}
-
-typedef ServerEventProperties = {
-	@:optional final sessionID:String;
-}
+import opencodehx.storage.StorageError.StorageException;
 
 class OpenCodeServer {
 	public final app:Hono;
@@ -34,6 +31,7 @@ class OpenCodeServer {
 	final directory:String;
 	final events:Array<ServerEvent> = [];
 	final sessionOrder:Array<String> = [];
+	var createdCount = 0;
 
 	public function new(options:ServerOptions) {
 		directory = options.directory;
@@ -65,42 +63,59 @@ class OpenCodeServer {
 	}
 
 	@:async
-	function createSession(c:HonoContext):Promise<Dynamic> {
-		final body:Dynamic = await(Syntax.code("{0}.req.json().catch(() => ({}))", c));
-		final prompt = stringField(body, "prompt", "Say hello from the fixture.");
-		final title = stringField(body, "title", prompt);
+	function createSession(c:HonoContext):Promise<Response> {
+		final decoded = ServerProtocol.decodeCreateSession(await(readJson(c)));
+		final request = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		createdCount += 1;
+		final sessionID = 'ses_server_${createdCount}';
 		final result = SessionProcessor.run({
-			prompt: prompt,
+			prompt: request.prompt,
 			directory: directory,
-			sessionID: "ses_server_one",
+			sessionID: sessionID,
 			projectID: "proj_server",
 			store: store,
 		});
 		final info = store.getSession(SessionID.make(result.request.sessionID));
-		final encoded = encodeSession(withTitle(info, title));
+		final updated = ServerProtocol.withTitle(info, request.title);
+		store.updateSession(updated);
+		final encoded = ServerProtocol.encodeSession(updated);
 		if (sessionOrder.indexOf(result.request.sessionID) == -1)
 			sessionOrder.push(result.request.sessionID);
-		events.push({type: "session.created", properties: {sessionID: result.request.sessionID}});
+		events.push(ServerProtocol.sessionEvent("session.created", result.request.sessionID));
 		return json(c, encoded);
 	}
 
-	function listSessions(c:HonoContext):Dynamic {
-		final items:Array<Dynamic> = [];
-		for (id in sessionOrder) {
+	function listSessions(c:HonoContext):Response {
+		final queryOptions = ServerProtocol.decodeSessionListQuery(name -> query(c, name));
+		final items:Array<SessionResponse> = [];
+		var count = 0;
+		final newestFirst = sessionOrder.copy();
+		newestFirst.reverse();
+		for (id in newestFirst) {
 			try {
-				items.push(encodeSession(store.getSession(SessionID.make(id))));
-			} catch (_:Dynamic) {}
+				final info = store.getSession(SessionID.make(id));
+				if (ServerProtocol.matchesSession(info, queryOptions)) {
+					items.push(ServerProtocol.encodeSession(info));
+					count += 1;
+				}
+				if (count >= queryOptions.limit)
+					break;
+			} catch (_:StorageException) {}
 		}
-		items.reverse();
 		return json(c, items);
 	}
 
-	function sessionMessages(c:HonoContext):Dynamic {
+	function sessionMessages(c:HonoContext):Response {
 		final sessionID = param(c, "sessionID");
 		if (!hasSession(sessionID))
-			return json(c, {error: "Session not found"}, 404);
+			return json(c, ServerProtocol.error("Session not found"), 404);
 		final rawLimit = query(c, "limit");
-		final limit = parseLimit(rawLimit);
+		final limit = ServerProtocol.decodeSessionListQuery(name -> name == "limit" ? rawLimit : null).limit;
 		final before = query(c, "before");
 		try {
 			final page = before == null
@@ -113,34 +128,43 @@ class OpenCodeServer {
 						"/session/" + sessionID + "/message", cursorValue);
 				}
 			}
+			// MessageCodec still emits upstream-shaped anonymous JS records.
+			// Keep that Dynamic at the serialization boundary for now; route
+			// validation and store access above remain typed.
 			final encodedItems:Array<Dynamic> = [];
 			for (item in page.items) {
 				encodedItems.push(MessageCodec.encodeWithParts(item));
 			}
 			return json(c, encodedItems);
-		} catch (_:Dynamic) {
-			return json(c, {error: "Invalid message cursor"}, 400);
+		} catch (_:MessageException) {
+			return json(c, ServerProtocol.error("Invalid message cursor"), 400);
+		} catch (_:StorageException) {
+			return json(c, ServerProtocol.error("Invalid message cursor"), 400);
 		}
 	}
 
 	@:async
-	function selectSession(c:HonoContext):Promise<Dynamic> {
-		final body:Dynamic = await(Syntax.code("{0}.req.json().catch(() => ({}))", c));
-		final sessionID = stringField(body, "sessionID", "");
-		if (!StringTools.startsWith(sessionID, "ses_"))
-			return json(c, {error: "Invalid session ID"}, 400);
-		if (!hasSession(sessionID))
-			return json(c, {error: "Session not found"}, 404);
-		events.push({type: "session.selected", properties: {sessionID: sessionID}});
+	function selectSession(c:HonoContext):Promise<Response> {
+		final decoded = ServerProtocol.decodeSelectSession(await(readJson(c)));
+		final request = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		if (!hasSession(request.sessionID))
+			return json(c, ServerProtocol.error("Session not found"), 404);
+		events.push(ServerProtocol.sessionEvent("session.selected", request.sessionID));
 		return json(c, true);
 	}
 
-	function eventStream(c:HonoContext):Dynamic {
+	function eventStream(c:HonoContext):Response {
 		Syntax.code("{0}.header('Cache-Control', 'no-cache, no-transform')", c);
 		Syntax.code("{0}.header('X-Accel-Buffering', 'no')", c);
-		var lines = "data: " + Json.stringify({type: "server.connected", properties: {}}) + "\n\n";
+		var lines = sseLine(ServerProtocol.connectedEvent());
+		lines += sseLine(ServerProtocol.heartbeatEvent());
 		for (event in events)
-			lines += "data: " + Json.stringify(event) + "\n\n";
+			lines += sseLine(event);
 		return Syntax.code("new Response({0}, { headers: { 'content-type': 'text/event-stream' } })", lines);
 	}
 
@@ -148,39 +172,30 @@ class OpenCodeServer {
 		try {
 			store.getSession(SessionID.make(sessionID));
 			return true;
-		} catch (_:Dynamic) {
+		} catch (_:StorageException) {
 			return false;
 		}
 	}
 
-	function withTitle(info:SessionInfo, title:String):SessionInfo {
-		final updated:Dynamic = info;
-		Reflect.setField(updated, "title", title);
-		store.updateSession(cast updated);
-		return cast updated;
+	@:async
+	static function readJson(c:HonoContext):Promise<Unknown> {
+		try {
+			// Hono parses untrusted request JSON at the host boundary; callers
+			// immediately pass it to ServerProtocol decoders before using fields.
+			return await(c.req.json());
+		} catch (_:Dynamic) {
+			// JS JSON parsing can throw arbitrary host errors here; treating
+			// unreadable bodies as an empty unknown object preserves upstream's
+			// tolerant route behavior while keeping field access in decoders.
+			return Unknown.fromBoundary({});
+		}
 	}
 
-	static function encodeSession(info:SessionInfo):Dynamic {
-		final result:Dynamic = {
-			id: info.id.toString(),
-			projectID: info.projectID,
-			slug: info.slug,
-			directory: info.directory,
-			title: info.title,
-			version: info.version,
-			time: {
-				created: info.time.created,
-				updated: info.time.updated,
-			},
-		};
-		if (info.workspaceID != null)
-			Reflect.setField(result, "workspaceID", info.workspaceID);
-		if (info.parentID != null)
-			Reflect.setField(result, "parentID", info.parentID.toString());
-		return result;
+	static inline function sseLine(event:ServerEvent):String {
+		return "data: " + Json.stringify(event) + "\n\n";
 	}
 
-	static function json(c:HonoContext, payload:Dynamic, ?status:Int):Dynamic {
+	static function json<T>(c:HonoContext, payload:T, ?status:Int):Response {
 		if (status == null)
 			return Syntax.code("{0}.json({1})", c, payload);
 		return Syntax.code("{0}.json({1}, {2})", c, payload, status);
@@ -192,21 +207,5 @@ class OpenCodeServer {
 
 	static function query(c:HonoContext, name:String):Null<String> {
 		return c.req.query(name).orNull();
-	}
-
-	static function parseLimit(value:Null<String>):Int {
-		if (value == null || value == "")
-			return 100000;
-		final parsed = Std.parseInt(value);
-		if (parsed == null || parsed <= 0)
-			return 100000;
-		return parsed;
-	}
-
-	static function stringField(data:Dynamic, name:String, fallback:String):String {
-		final value = Reflect.field(data, name);
-		if (value == null)
-			return fallback;
-		return Std.string(value);
 	}
 }
