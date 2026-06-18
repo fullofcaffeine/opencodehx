@@ -11,8 +11,6 @@ bd ready --json
 Primary local references:
 
 - `../opencode`: upstream OpenCode oracle
-- `../genes-ts`: intended sibling genes-ts compiler checkout
-- `../genes`: current nearby genes/genes-ts checkout if `../genes-ts` is absent
+- `../genes`: sibling Genes checkout containing the `genes-ts` compiler mode
 
 See [AGENTS.md](AGENTS.md) for project rules, Haxe design direction, and the `genes-ts` improvement loop.
-

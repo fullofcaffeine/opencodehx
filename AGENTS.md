@@ -7,7 +7,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 ## Work Surface
 
 - `../opencode` is the upstream OpenCode oracle. Inspect it for behavior, tests, structure, schemas, CLI/TUI UX, and fixtures. Do not edit it from this project unless explicitly asked.
-- `../genes-ts` is the intended sibling `genes-ts` compiler checkout. If that path is absent, verify the local compiler path before working; this workspace currently also has a nearby `../genes` checkout containing genes-ts sources and tests.
+- `../genes` is the sibling Genes checkout and contains the `genes-ts` compiler mode, sources, and tests.
 - OpenCodeHX and `genes-ts` are developed together. Compiler limitations discovered here should be fixed as generic `genes-ts` improvements, not worked around with OpenCode-specific hacks.
 - Keep any future Caf/Cafex work out of the Phase 1 core. Caf/Cafex is later adapter/preflight work after OpenCode parity exists.
 
@@ -48,7 +48,7 @@ If OpenCode relies on TypeScript features that Haxe lacks directly, try to model
 When OpenCodeHX exposes a compiler limitation:
 
 1. Reduce it to the smallest generic Haxe/`genes-ts` repro.
-2. Add or update a `genes-ts` test fixture in the sibling compiler repo.
+2. Add or update a `genes-ts` test fixture in `../genes`.
 3. Fix `genes-ts` generically; do not bake in OpenCode paths, names, or assumptions.
 4. Verify generated TS snapshots, `tsc`, and runtime smoke behavior where relevant.
 5. Return to OpenCodeHX, update the pin/manifest or notes, and unblock the port slice.
@@ -81,7 +81,7 @@ opencodehx/
 
 - `reference/` is for small provenance artifacts: pins, manifests, fixture indexes, upstream drift reports, and selected source/test inventories.
 - `vendor/` should stay empty except for documentation unless a Bead explicitly decides to vendor a narrow artifact.
-- Do not vendor `../opencode` or `../genes-ts` by default. Use sibling checkouts plus pinned commits/manifests.
+- Do not vendor `../opencode` or `../genes` by default. Use sibling checkouts plus pinned commits/manifests.
 - `src-gen/` and `dist/` are rebuildable generated output. Do not manually edit generated files.
 - If generated snapshots are checked in for review, record the `genes-ts` pin, Haxe version, TypeScript/Node versions, hxml, and generation command.
 

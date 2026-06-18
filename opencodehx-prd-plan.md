@@ -63,7 +63,7 @@ OpenCode test inventory is large enough to be used as the main oracle: `packages
 There are two genes-ts copies in the uploaded material:
 
 1. Standalone bundle: `repomix-output-genes-ts.xml`
-2. Cafetera vendored copy: `tools/cafetera/vendor/genes-ts/` inside `repomix-output-fullofcaffeine-cafetera.xml`
+2. Cafetera vendored copy: `tools/cafetera/vendor/genes-ts` inside `repomix-output-fullofcaffeine-cafetera.xml`
 
 Result:
 
@@ -213,7 +213,7 @@ Do **not** design the initial code as if Rust/Go parity were required now. Inste
 opencodehx/
   .beads/                         # Beads task graph
   upstream/opencode/              # pinned upstream snapshot or submodule/worktree
-  compiler/genes-ts/              # standalone genes-ts checkout or path dependency
+  reference/genes.pin.json        # records the sibling ../genes checkout used for genes-ts
   src/opencodehx/                 # Haxe source of the port
     cli/
     tui/
