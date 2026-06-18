@@ -9,7 +9,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 - `../opencode` is the upstream OpenCode oracle. Inspect it for behavior, tests, structure, schemas, CLI/TUI UX, and fixtures. Do not edit it from this project unless explicitly asked.
 - `../genes` is the sibling Genes checkout and contains the `genes-ts` compiler mode, sources, and tests.
 - OpenCodeHX and `genes-ts` are developed together. Compiler limitations discovered here should be fixed as generic `genes-ts` improvements, not worked around with OpenCode-specific hacks.
-- Keep any future Caf/Cafex work out of the Phase 1 core. Caf/Cafex is later adapter/preflight work after OpenCode parity exists.
+- Keep any future Caf/Cafex work out of the Phase 1 core. Caf/Cafex is later adapter/preflight work after OpenCode parity exists; see `docs/no-caf-integration-guardrail.md`.
 
 ## Core Product Rules
 
