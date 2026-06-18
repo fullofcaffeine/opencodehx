@@ -5,6 +5,7 @@ import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
+import opencodehx.tool.ToolPaths;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolPermissionDecision;
@@ -19,6 +20,7 @@ class ToolSmoke {
 			registrySurface(registry);
 			errorShapes(registry, context(root));
 			permissionShapes(registry, root);
+			bashExec(registry, context(root));
 			readExec(registry, context(root));
 			globExec(registry, context(root));
 			grepExec(registry, context(root));
@@ -39,9 +41,9 @@ class ToolSmoke {
 	}
 
 	static function registrySurface(registry:ToolRegistry):Void {
-		eq(registry.ids().join(","), "apply_patch,edit,glob,grep,invalid,read,write", "builtin ids");
-		eq(registry.all().length, 7, "builtin count");
-		eq(registry.all({disabled: ["grep"]}).length, 6, "filtered count");
+		eq(registry.ids().join(","), "apply_patch,bash,edit,glob,grep,invalid,read,write", "builtin ids");
+		eq(registry.all().length, 8, "builtin count");
+		eq(registry.all({disabled: ["grep"]}).length, 7, "filtered count");
 		eq(registry.get("glob").schema.parameters[0].name, "pattern", "glob schema");
 	}
 
@@ -85,6 +87,73 @@ class ToolSmoke {
 			}
 		}, "read permission denied");
 		eq(seen[0], "read:src/a.ts", "permission request shape");
+
+		final deniedBash = context(root, request -> {
+			return {allowed: false, reason: "no shell"};
+		});
+		expectToolFailure(() -> registry.execute("bash", {
+			command: "echo denied",
+			description: "Denied command"
+		}, deniedBash), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "bash" && message.indexOf("no shell") != -1;
+				case _: false;
+			}
+		}, "bash permission denied");
+	}
+
+	static function bashExec(registry:ToolRegistry, ctx:ToolContext):Void {
+		final hello = registry.execute("bash", {
+			command: "printf hello",
+			description: "Print hello"
+		}, ctx);
+		eq(hello.title, "Print hello", "bash title");
+		eq(hello.output, "hello", "bash output");
+		eq(Reflect.field(hello.metadata, "exit"), 0, "bash exit");
+
+		final cwd = registry.execute("bash", {
+			command: "node -e \"process.stdout.write(process.cwd())\"",
+			workdir: "src",
+			description: "Show cwd"
+		}, ctx);
+		eq(StringTools.endsWith(ToolPaths.normalize(cwd.output), ToolPaths.normalize(NodePath.join(NodePath.basename(ctx.directory), "src"))), true,
+			"bash cwd");
+
+		final env = registry.execute("bash", {
+			command: "node -e \"process.stdout.write(process.env.PATH ? 'env-ok' : 'missing')\"",
+			description: "Show env"
+		}, ctx);
+		eq(env.output, "env-ok", "bash env");
+
+		final truncated = registry.execute("bash", {
+			command: "node -e \"process.stdout.write('x'.repeat(31000))\"",
+			description: "Large output"
+		}, ctx);
+		eq(Reflect.field(truncated.metadata, "truncated"), true, "bash truncated metadata");
+		eq(truncated.output.indexOf("...output truncated...") == 0, true, "bash truncation output");
+
+		final timeout = registry.execute("bash", {
+			command: "node -e \"setTimeout(()=>{}, 200)\"",
+			timeout: 20,
+			description: "Timeout command"
+		}, ctx);
+		eq(timeout.output.indexOf("exceeding timeout 20 ms") != -1, true, "bash timeout metadata");
+
+		final externalCtx = context(ctx.directory, request -> {
+			if (request.permission == "external_directory")
+				return {allowed: false, reason: "external blocked"};
+			return {allowed: true};
+		});
+		expectToolFailure(() -> registry.execute("bash", {
+			command: "pwd",
+			workdir: Os.tmpdir(),
+			description: "External pwd"
+		}, externalCtx), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "bash" && message.indexOf("external blocked") != -1;
+				case _: false;
+			}
+		}, "bash external directory denied");
 	}
 
 	static function readExec(registry:ToolRegistry, ctx:ToolContext):Void {

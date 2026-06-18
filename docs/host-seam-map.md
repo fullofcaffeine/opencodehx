@@ -7,7 +7,7 @@
 
 OpenCodeHX should model OpenCode behavior in Haxe-facing modules, then isolate runtime-specific APIs in small host modules. The host layer starts with Node implementations because the first generated TypeScript target is NodeNext ESM. Bun support remains a classified seam, not a reason to block early parity.
 
-Current proof: `opencodehx.host.node.NodePath` wraps the `node:path` extern used by the smoke build. Future host modules should follow the same direction: narrow externs, named Haxe facades, and upstream parity fixtures.
+Current proof: `opencodehx.host.node.NodePath` wraps the `node:path` extern used by the smoke build, and `opencodehx.host.node.NodeProcess` wraps the first shell command execution seam. Future host modules should follow the same direction: narrow externs, named Haxe facades, and upstream parity fixtures.
 
 ## Runtime Class Meanings
 

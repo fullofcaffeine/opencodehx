@@ -21,6 +21,7 @@ class ToolRegistry {
 	public static function builtin():Array<ToolDef> {
 		return [
 			ApplyPatchTool.define(),
+			BashTool.define(),
 			EditTool.define(),
 			GlobTool.define(),
 			GrepTool.define(),
