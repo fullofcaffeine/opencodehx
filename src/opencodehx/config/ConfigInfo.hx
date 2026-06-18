@@ -89,6 +89,14 @@ typedef ConfigProviderModelLimitConfig = {
 typedef PermissionConfig = DynamicAccess<PermissionConfigValue>;
 typedef PermissionConfigValue = EitherType<String, DynamicAccess<String>>;
 
+typedef CompactionConfig = {
+	@:optional var auto:Bool;
+	@:optional var prune:Bool;
+	@:optional var tail_turns:Int;
+	@:optional var preserve_recent_tokens:Int;
+	@:optional var reserved:Int;
+}
+
 @:ts.type("unknown")
 abstract OpenConfigValue(Dynamic) from Dynamic to Dynamic {}
 
@@ -155,7 +163,7 @@ class ConfigInfo {
 	public var mode:Null<AgentMap>;
 	public var agent:Null<AgentMap>;
 	public var provider:Null<ConfigProviderMap>;
-	// Boundary debt: MCP/formatter/LSP/layout/enterprise/compaction/experimental owners are not ported yet.
+	// Boundary debt: MCP/formatter/LSP/layout/enterprise/experimental owners are not ported yet.
 	public var mcp:Dynamic;
 	public var formatter:Dynamic;
 	public var lsp:Dynamic;
@@ -164,7 +172,7 @@ class ConfigInfo {
 	public var permission:Null<PermissionConfig>;
 	public var tools:Null<DynamicAccess<Bool>>;
 	public var enterprise:Dynamic;
-	public var compaction:Dynamic;
+	public var compaction:Null<CompactionConfig>;
 	public var experimental:Dynamic;
 
 	public function new() {
@@ -244,7 +252,7 @@ class ConfigInfo {
 		if (next.enterprise != null)
 			enterprise = mergeObject(enterprise, next.enterprise);
 		if (next.compaction != null)
-			compaction = mergeObject(compaction, next.compaction);
+			compaction = cast mergeObject(compaction, next.compaction);
 		if (next.experimental != null)
 			experimental = mergeObject(experimental, next.experimental);
 		return this;

@@ -240,6 +240,8 @@ For permission work, preserve upstream's last-match wildcard rule semantics. Con
 
 For legacy top-level config `tools`, keep the input typed as `tool -> Bool` and normalize it after config sources merge. Map `write`, `edit`, and `patch` to the `edit` permission, convert booleans to `allow`/`deny`, and let explicit `permission` config override migrated tool permissions.
 
+For final config normalization, preserve upstream order: merge all config sources first, then apply `OPENCODE_PERMISSION`, migrate legacy `tools`, apply `autoshare: true` to `share: "auto"` only when `share` is absent, and finally apply compaction disable flags.
+
 For legacy config migrations, keep old-format parsing at a narrow documented boundary, immediately normalize into `ConfigInfo`, then write modern JSON/JSONC output. Prefer a `tink_json`-style typed decoder for known closed shapes, but preserve unknown rest fields explicitly when upstream migration semantics require round-tripping or merging data outside the known fields. Migration failure should be best-effort when upstream swallows it, but generated TS should still use `unknown`/typed records rather than broad `any`.
 
 Document non-obvious advanced Haxe features with concise hxdoc:

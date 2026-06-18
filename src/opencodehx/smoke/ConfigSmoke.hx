@@ -45,6 +45,7 @@ class ConfigSmoke {
 			legacyGlobalTomlMigration(root);
 			localUpdateWritesConfigJson(root);
 			legacyToolsMigration(root);
+			finalizationEnvFlags(root);
 			commandAgentDiscovery(root);
 			projectDisableSkipsDiscoveredEntries(root);
 			invalidJson(root);
@@ -381,6 +382,31 @@ disabled_providers = ["openai"]
 		eq(permission.get("bash"), "deny", "explicit permission overrides migrated tool");
 		eq(permission.get("edit"), "allow", "write/edit/patch tools collapse to edit permission");
 		eq(permission.get("read"), "deny", "legacy read tool migrates to permission");
+	}
+
+	static function finalizationEnvFlags(root:String):Void {
+		final dir = directory(root, "finalization-flags");
+		write(dir, "opencode.json", '{"autoshare":true,"permission":{"bash":"deny"},"compaction":{"auto":true,"prune":true,"tail_turns":3,"reserved":128}}');
+
+		final config = ConfigLoader.loadProject(dir, {
+			defaultUsername: "fixture-user",
+			env: {
+				OPENCODE_PERMISSION: '{"bash":"allow","read":"deny"}',
+				OPENCODE_DISABLE_AUTOCOMPACT: "1",
+				OPENCODE_DISABLE_PRUNE: "true",
+			},
+		});
+
+		eq(config.autoshare, true, "autoshare source preserved");
+		eq(config.share, ShareAuto, "autoshare migrates to share auto");
+		final permission = require(config.permission, "env permission");
+		eq(permission.get("bash"), "allow", "env permission overrides config permission");
+		eq(permission.get("read"), "deny", "env permission adds rule");
+		final compaction = require(config.compaction, "compaction flags");
+		eq(compaction.auto, false, "disable autocompact flag");
+		eq(compaction.prune, false, "disable prune flag");
+		eq(compaction.tail_turns, 3, "compaction tail turns preserved");
+		eq(compaction.reserved, 128, "compaction reserved preserved");
 	}
 
 	static function commandAgentDiscovery(root:String):Void {

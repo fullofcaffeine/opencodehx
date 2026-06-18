@@ -8,6 +8,7 @@ import js.Syntax;
 import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigInfo.AutoUpdate;
+import opencodehx.config.ConfigInfo.CompactionConfig;
 import opencodehx.config.ConfigInfo.PermissionConfig;
 import opencodehx.config.ConfigInfo.PermissionConfigValue;
 import opencodehx.config.ConfigInfo.ServerConfig;
@@ -109,7 +110,7 @@ class ConfigLoader {
 		if (content != null && content != "") {
 			result.merge(loadText(content, "OPENCODE_CONFIG_CONTENT", directory, withPluginScope(opts, PluginScopeLocal)));
 		}
-		finalizeConfig(result);
+		finalizeConfig(result, opts);
 		return result;
 	}
 
@@ -148,7 +149,7 @@ class ConfigLoader {
 			final source = url + "/api/config";
 			result.merge(loadText(Json.stringify(accountConfig.config), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
 		}
-		finalizeConfig(result);
+		finalizeConfig(result, withEnv(opts, env));
 		if (result.username == null)
 			result.username = defaultUsername(opts);
 		return result;
@@ -175,9 +176,12 @@ class ConfigLoader {
 		result.merge(discovered);
 	}
 
-	static function finalizeConfig(result:ConfigInfo):Void {
+	static function finalizeConfig(result:ConfigInfo, options:LoadOptions):Void {
 		promoteModes(result);
+		applyEnvPermission(result, options);
 		migrateLegacyTools(result);
+		applyAutoshare(result);
+		applyCompactionFlags(result, options);
 	}
 
 	static function promoteModes(result:ConfigInfo):Void {
@@ -229,6 +233,47 @@ class ConfigLoader {
 		}
 		final merged:PermissionConfig = cast ConfigInfo.mergeObject(migrated, result.permission);
 		result.permission = merged;
+	}
+
+	static function applyEnvPermission(result:ConfigInfo, options:LoadOptions):Void {
+		final raw = envValue(options, "OPENCODE_PERMISSION");
+		if (raw == null || raw == "")
+			return;
+		final parsed = Json.parse(raw);
+		if (parsed == null || !Reflect.isObject(parsed) || Std.isOfType(parsed, Array))
+			throw new ConfigException(InvalidError("OPENCODE_PERMISSION", ["Expected permission override to be an object"]));
+		final next:PermissionConfig = cast parsed;
+		result.permission = cast ConfigInfo.mergeObject(result.permission, next);
+	}
+
+	static function applyAutoshare(result:ConfigInfo):Void {
+		if (result.autoshare == true && result.share == null)
+			result.share = ShareAuto;
+	}
+
+	static function applyCompactionFlags(result:ConfigInfo, options:LoadOptions):Void {
+		final disableAuto = envFlag(options, "OPENCODE_DISABLE_AUTOCOMPACT");
+		final disablePrune = envFlag(options, "OPENCODE_DISABLE_PRUNE");
+		if (!disableAuto && !disablePrune)
+			return;
+		final next = copyCompaction(result.compaction);
+		if (disableAuto)
+			next.auto = false;
+		if (disablePrune)
+			next.prune = false;
+		result.compaction = next;
+	}
+
+	static function copyCompaction(current:Null<CompactionConfig>):CompactionConfig {
+		if (current == null)
+			return {};
+		return {
+			auto: current.auto,
+			prune: current.prune,
+			tail_turns: current.tail_turns,
+			preserve_recent_tokens: current.preserve_recent_tokens,
+			reserved: current.reserved,
+		};
 	}
 
 	static function projectDirectories(directory:String, ?worktree:String):Array<String> {
@@ -377,7 +422,7 @@ class ConfigLoader {
 		info.permission = optionalObject(data, "permission", issues);
 		info.tools = optionalBoolMap(data, "tools", issues);
 		info.enterprise = optionalAny(data, "enterprise");
-		info.compaction = optionalAny(data, "compaction");
+		info.compaction = optionalCompaction(data, source, issues);
 		info.experimental = optionalAny(data, "experimental");
 
 		if (issues.length > 0)
@@ -519,6 +564,42 @@ class ConfigLoader {
 		return result;
 	}
 
+	static function optionalCompaction(data:Dynamic, source:String, issues:Array<String>):Null<CompactionConfig> {
+		if (!Reflect.hasField(data, "compaction"))
+			return null;
+		final value = Reflect.field(data, "compaction");
+		if (value == null || !Reflect.isObject(value) || Std.isOfType(value, Array)) {
+			issues.push("compaction: expected object");
+			return null;
+		}
+		final compactionIssues:Array<String> = [];
+		for (field in Reflect.fields(value)) {
+			if (["auto", "prune", "tail_turns", "preserve_recent_tokens", "reserved"].indexOf(field) == -1)
+				compactionIssues.push('compaction.${field}: unrecognized key');
+		}
+		final auto = optionalBool(value, "auto", source, compactionIssues);
+		final prune = optionalBool(value, "prune", source, compactionIssues);
+		final tailTurns = optionalNonNegativeInt(value, "tail_turns", compactionIssues);
+		final preserveRecentTokens = optionalNonNegativeInt(value, "preserve_recent_tokens", compactionIssues);
+		final reserved = optionalNonNegativeInt(value, "reserved", compactionIssues);
+		for (issue in compactionIssues)
+			issues.push(issue);
+		return {
+			auto: auto,
+			prune: prune,
+			tail_turns: tailTurns,
+			preserve_recent_tokens: preserveRecentTokens,
+			reserved: reserved,
+		};
+	}
+
+	static function optionalNonNegativeInt(data:Dynamic, field:String, issues:Array<String>):Null<Int> {
+		final value = optionalInt(data, field, issues);
+		if (value != null && value < 0)
+			issues.push('${field}: expected non-negative integer');
+		return value;
+	}
+
 	static function optionalSkills(data:Dynamic, source:String, issues:Array<String>):Null<SkillsConfig> {
 		if (!Reflect.hasField(data, "skills"))
 			return null;
@@ -630,6 +711,11 @@ class ConfigLoader {
 			return value == null ? null : Std.string(value);
 		}
 		return Syntax.code("process.env[{0}] ?? null", key);
+	}
+
+	static function envFlag(options:LoadOptions, key:String):Bool {
+		final value = envValue(options, key);
+		return value != null && value != "" && value != "0" && value != "false";
 	}
 
 	static function ensureEnv(options:LoadOptions):ConfigEnv {
