@@ -8,6 +8,8 @@ import js.Syntax;
 import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigInfo.AutoUpdate;
+import opencodehx.config.ConfigInfo.PermissionConfig;
+import opencodehx.config.ConfigInfo.PermissionConfigValue;
 import opencodehx.config.ConfigInfo.ServerConfig;
 import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigInfo.SkillsConfig;
@@ -107,7 +109,7 @@ class ConfigLoader {
 		if (content != null && content != "") {
 			result.merge(loadText(content, "OPENCODE_CONFIG_CONTENT", directory, withPluginScope(opts, PluginScopeLocal)));
 		}
-		promoteModes(result);
+		finalizeConfig(result);
 		return result;
 	}
 
@@ -146,6 +148,7 @@ class ConfigLoader {
 			final source = url + "/api/config";
 			result.merge(loadText(Json.stringify(accountConfig.config), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
 		}
+		finalizeConfig(result);
 		if (result.username == null)
 			result.username = defaultUsername(opts);
 		return result;
@@ -170,6 +173,11 @@ class ConfigLoader {
 				ConfigPlugin.withOrigin(spec, directory, scope)
 		];
 		result.merge(discovered);
+	}
+
+	static function finalizeConfig(result:ConfigInfo):Void {
+		promoteModes(result);
+		migrateLegacyTools(result);
 	}
 
 	static function promoteModes(result:ConfigInfo):Void {
@@ -204,6 +212,23 @@ class ConfigLoader {
 			maxSteps: mode.maxSteps != null ? mode.maxSteps : current.maxSteps,
 			permission: mode.permission != null ? mode.permission : current.permission,
 		};
+	}
+
+	static function migrateLegacyTools(result:ConfigInfo):Void {
+		if (result.tools == null)
+			return;
+		final migrated = new DynamicAccess<PermissionConfigValue>();
+		for (tool in result.tools.keys()) {
+			final action = result.tools.get(tool) ? "allow" : "deny";
+			final permission = tool == "write" || tool == "edit" || tool == "patch" ? "edit" : tool;
+			migrated.set(permission, action);
+		}
+		if (result.permission == null) {
+			result.permission = migrated;
+			return;
+		}
+		final merged:PermissionConfig = cast ConfigInfo.mergeObject(migrated, result.permission);
+		result.permission = merged;
 	}
 
 	static function projectDirectories(directory:String, ?worktree:String):Array<String> {
@@ -350,7 +375,7 @@ class ConfigLoader {
 		info.instructions = optionalStringArray(data, "instructions", source, issues);
 		info.layout = optionalAny(data, "layout");
 		info.permission = optionalObject(data, "permission", issues);
-		info.tools = optionalAny(data, "tools");
+		info.tools = optionalBoolMap(data, "tools", issues);
 		info.enterprise = optionalAny(data, "enterprise");
 		info.compaction = optionalAny(data, "compaction");
 		info.experimental = optionalAny(data, "experimental");
@@ -469,6 +494,26 @@ class ConfigLoader {
 				result.push(item);
 			} else {
 				issues.push('${field}: expected string entries');
+			}
+		}
+		return result;
+	}
+
+	static function optionalBoolMap(data:Dynamic, field:String, issues:Array<String>):Null<DynamicAccess<Bool>> {
+		if (!Reflect.hasField(data, field))
+			return null;
+		final value = Reflect.field(data, field);
+		if (value == null || !Reflect.isObject(value) || Std.isOfType(value, Array)) {
+			issues.push('${field}: expected object');
+			return null;
+		}
+		final result = new DynamicAccess<Bool>();
+		for (key in Reflect.fields(value)) {
+			final item = Reflect.field(value, key);
+			if (Std.isOfType(item, Bool)) {
+				result.set(key, item);
+			} else {
+				issues.push('${field}.${key}: expected boolean');
 			}
 		}
 		return result;

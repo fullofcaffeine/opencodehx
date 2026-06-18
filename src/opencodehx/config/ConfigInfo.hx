@@ -155,14 +155,14 @@ class ConfigInfo {
 	public var mode:Null<AgentMap>;
 	public var agent:Null<AgentMap>;
 	public var provider:Null<ConfigProviderMap>;
-	// Boundary debt: MCP/formatter/LSP/layout/tool/enterprise/compaction/experimental owners are not ported yet.
+	// Boundary debt: MCP/formatter/LSP/layout/enterprise/compaction/experimental owners are not ported yet.
 	public var mcp:Dynamic;
 	public var formatter:Dynamic;
 	public var lsp:Dynamic;
 	public var instructions:Null<Array<String>>;
 	public var layout:Dynamic;
 	public var permission:Null<PermissionConfig>;
-	public var tools:Dynamic;
+	public var tools:Null<DynamicAccess<Bool>>;
 	public var enterprise:Dynamic;
 	public var compaction:Dynamic;
 	public var experimental:Dynamic;
@@ -238,9 +238,9 @@ class ConfigInfo {
 		if (next.layout != null)
 			layout = next.layout;
 		if (next.permission != null)
-			permission = next.permission;
+			permission = cast mergeObject(permission, next.permission);
 		if (next.tools != null)
-			tools = mergeObject(tools, next.tools);
+			tools = cast mergeObject(tools, next.tools);
 		if (next.enterprise != null)
 			enterprise = mergeObject(enterprise, next.enterprise);
 		if (next.compaction != null)
@@ -268,7 +268,7 @@ class ConfigInfo {
 		};
 	}
 
-	static function mergeObject(current:Dynamic, next:Dynamic):Dynamic {
+	public static function mergeObject(current:Dynamic, next:Dynamic):Dynamic {
 		if (current == null)
 			return next;
 		if (!isObjectRecord(current) || !isObjectRecord(next))

@@ -34,16 +34,17 @@ Implemented:
 - Strict top-level key rejection for the known upstream config field set.
 - Typed provider config records for provider entries, model entries, model API override, modalities, cost, limits, headers, variants, whitelist, and blacklist. Provider SDK `options` and `variants` stay open as documented passthrough maps.
 - Typed permission config as the upstream-shaped `permission -> action | pattern map` record, with runtime narrowing isolated in `PermissionRules.fromConfig`.
+- Typed top-level legacy `tools` config as `tool -> enabled` and normalize it into `permission`, with write/edit/patch collapsing to `edit` and explicit permission config taking precedence.
 - Typed `skills` config for local extra skill paths and remote skill index URLs. Local path consumption is covered by `docs/skill-registry-port.md`; remote URL discovery is deferred.
 - Narrow Node fs/os/url externs used only by the config smoke and host boundary.
 
-Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, remote well-known config, remote account config token substitution, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, plugin directory discovery, global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, command/agent/mode markdown discovery, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
+Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, remote well-known config, remote account config token substitution, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, plugin directory discovery, global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, top-level legacy tools migration, command/agent/mode markdown discovery, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
 
 ## Deliberate Boundaries
 
 Provider and permission config are now typed at the Haxe boundary because their owner slices exist. Provider `options`, model `options`, headers, and variants remain open maps only where upstream treats them as provider-SDK passthrough data.
 
-MCP, formatter, LSP, watcher, tools, enterprise, compaction, layout, and experimental nested shapes are still accepted as documented boundary debt because their authoritative schemas belong to later port slices. They should be tightened as those modules are ported.
+MCP, formatter, LSP, watcher, enterprise, compaction, layout, and experimental nested shapes are still accepted as documented boundary debt because their authoritative schemas belong to later port slices. They should be tightened as those modules are ported.
 
 Markdown frontmatter is intentionally typed as an `unknown` boundary at parse time. Command and agent loaders immediately narrow the fields they own into typed Haxe records; unknown agent frontmatter keys survive only through the documented `options` passthrough.
 

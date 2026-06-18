@@ -44,6 +44,7 @@ class ConfigSmoke {
 			globalLoadAndUpdate(root);
 			legacyGlobalTomlMigration(root);
 			localUpdateWritesConfigJson(root);
+			legacyToolsMigration(root);
 			commandAgentDiscovery(root);
 			projectDisableSkipsDiscoveredEntries(root);
 			invalidJson(root);
@@ -368,6 +369,18 @@ disabled_providers = ["openai"]
 		final text = Fs.readFileSync(NodePath.join(dir, "config.json"), "utf8");
 		contains(text, '"model": "new/model"', "local update writes config.json");
 		contains(text, '"bash": "allow"', "local update merges permission");
+	}
+
+	static function legacyToolsMigration(root:String):Void {
+		final dir = directory(root, "legacy-tools");
+		write(dir, "opencode.json", '{"permission":{"glob":"allow","bash":"deny"},"tools":{"bash":true,"write":false,"read":false,"patch":true}}');
+
+		final config = ConfigLoader.loadProject(dir, {defaultUsername: "fixture-user"});
+		final permission = require(config.permission, "legacy tools permission");
+		eq(permission.get("glob"), "allow", "legacy tools preserves explicit permission");
+		eq(permission.get("bash"), "deny", "explicit permission overrides migrated tool");
+		eq(permission.get("edit"), "allow", "write/edit/patch tools collapse to edit permission");
+		eq(permission.get("read"), "deny", "legacy read tool migrates to permission");
 	}
 
 	static function commandAgentDiscovery(root:String):Void {
