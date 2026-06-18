@@ -7,6 +7,7 @@ import opencodehx.fixtures.DynamicFixture;
 import opencodehx.fx.Task;
 import opencodehx.host.node.NodePath;
 import opencodehx.smoke.ConfigSmoke;
+import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.StorageSmoke;
 import opencodehx.smoke.UtilSmoke;
@@ -28,6 +29,8 @@ class Main {
 		Syntax.code("console.log({0})", "util-smoke:ok");
 		ConfigSmoke.run();
 		Syntax.code("console.log({0})", "config-smoke:ok");
+		FileSmoke.run();
+		Syntax.code("console.log({0})", "file-smoke:ok");
 		MessageSmoke.run();
 		Syntax.code("console.log({0})", "message-smoke:ok");
 		StorageSmoke.run();

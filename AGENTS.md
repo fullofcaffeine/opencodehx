@@ -90,6 +90,7 @@ opencodehx/
 - `src-gen/` and `dist/` are rebuildable generated output. Do not manually edit generated files.
 - If generated snapshots are checked in for review, record the `genes-ts` pin, Haxe version, TypeScript/Node versions, hxml, and generation command.
 - Keep storage access behind narrow host seams. Upstream may use `node:sqlite`, Bun SQLite, or Drizzle, but OpenCodeHX session logic should depend on Haxe store interfaces so driver swaps do not rewrite product behavior.
+- Keep process-backed file search behind a narrow seam. Early slices may shell out to local `rg`; pinned ripgrep download/bootstrap is packaging work unless a tool parity fixture requires it sooner.
 
 ## Upstream Oracle Policy
 

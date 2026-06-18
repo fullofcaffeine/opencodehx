@@ -8,4 +8,11 @@ extern class Fs {
 	static function mkdirSync(path:String, ?options:Dynamic):Void;
 	static function mkdtempSync(prefix:String):String;
 	static function rmSync(path:String, ?options:Dynamic):Void;
+	static function readdirSync(path:String, ?options:Dynamic):Array<Dynamic>;
+	static function statSync(path:String):FsStats;
+}
+
+extern class FsStats {
+	function isDirectory():Bool;
+	function isFile():Bool;
 }
