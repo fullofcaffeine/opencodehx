@@ -19,7 +19,15 @@ class ToolRegistry {
 	}
 
 	public static function builtin():Array<ToolDef> {
-		return [InvalidTool.define(), GlobTool.define(), GrepTool.define()];
+		return [
+			ApplyPatchTool.define(),
+			EditTool.define(),
+			GlobTool.define(),
+			GrepTool.define(),
+			InvalidTool.define(),
+			ReadTool.define(),
+			WriteTool.define()
+		];
 	}
 
 	public function register(def:ToolDef):Void {

@@ -33,4 +33,31 @@ class ToolValidation {
 		}
 		return text;
 	}
+
+	public static function optionalInt(args:Dynamic, field:String, issues:Array<String>):Null<Int> {
+		if (!Reflect.hasField(args, field) || Reflect.field(args, field) == null)
+			return null;
+		final value:Dynamic = Reflect.field(args, field);
+		if (!Std.isOfType(value, Int) && !Std.isOfType(value, Float)) {
+			issues.push('${field}: expected integer');
+			return null;
+		}
+		final number = Std.int(value);
+		if (number != value) {
+			issues.push('${field}: expected integer');
+			return null;
+		}
+		return number;
+	}
+
+	public static function optionalBool(args:Dynamic, field:String, issues:Array<String>):Null<Bool> {
+		if (!Reflect.hasField(args, field) || Reflect.field(args, field) == null)
+			return null;
+		final value:Dynamic = Reflect.field(args, field);
+		if (!Std.isOfType(value, Bool)) {
+			issues.push('${field}: expected boolean');
+			return null;
+		}
+		return value;
+	}
 }

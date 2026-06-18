@@ -4,6 +4,7 @@ enum ToolFailure {
 	UnknownTool(id:String);
 	DisabledTool(id:String);
 	InvalidArguments(id:String, issues:Array<String>);
+	PermissionDenied(id:String, message:String);
 	ExecutionFailed(id:String, message:String);
 }
 
@@ -23,6 +24,8 @@ class ToolException extends haxe.Exception {
 				'Tool is disabled: ${id}';
 			case InvalidArguments(id, issues):
 				'The ${id} tool was called with invalid arguments: ${issues.join("; ")}.\nPlease rewrite the input so it satisfies the expected schema.';
+			case PermissionDenied(id, message):
+				'The ${id} tool was denied permission: ${message}';
 			case ExecutionFailed(id, message):
 				'The ${id} tool failed: ${message}';
 		}

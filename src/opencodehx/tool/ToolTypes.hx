@@ -7,6 +7,19 @@ typedef ToolContext = {
 	@:optional final messageID:String;
 	@:optional final agent:String;
 	@:optional final callID:String;
+	@:optional final ask:(ToolPermissionRequest) -> ToolPermissionDecision;
+}
+
+typedef ToolPermissionRequest = {
+	final permission:String;
+	final patterns:Array<String>;
+	final always:Array<String>;
+	final metadata:Dynamic;
+}
+
+typedef ToolPermissionDecision = {
+	final allowed:Bool;
+	@:optional final reason:String;
 }
 
 typedef ToolResult = {

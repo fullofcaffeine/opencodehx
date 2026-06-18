@@ -7,6 +7,8 @@ import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
+import opencodehx.tool.ToolTypes.ToolPermissionDecision;
+import opencodehx.tool.ToolTypes.ToolPermissionRequest;
 
 class ToolSmoke {
 	public static function run():Void {
@@ -16,8 +18,13 @@ class ToolSmoke {
 			final registry = new ToolRegistry();
 			registrySurface(registry);
 			errorShapes(registry, context(root));
+			permissionShapes(registry, root);
+			readExec(registry, context(root));
 			globExec(registry, context(root));
 			grepExec(registry, context(root));
+			writeExec(registry, context(root));
+			editExec(registry, context(root));
+			applyPatchExec(registry, context(root));
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			Fs.rmSync(root, {recursive: true, force: true});
@@ -32,9 +39,9 @@ class ToolSmoke {
 	}
 
 	static function registrySurface(registry:ToolRegistry):Void {
-		eq(registry.ids().join(","), "glob,grep,invalid", "builtin ids");
-		eq(registry.all().length, 3, "builtin count");
-		eq(registry.all({disabled: ["grep"]}).length, 2, "filtered count");
+		eq(registry.ids().join(","), "apply_patch,edit,glob,grep,invalid,read,write", "builtin ids");
+		eq(registry.all().length, 7, "builtin count");
+		eq(registry.all({disabled: ["grep"]}).length, 6, "filtered count");
 		eq(registry.get("glob").schema.parameters[0].name, "pattern", "glob schema");
 	}
 
@@ -65,6 +72,39 @@ class ToolSmoke {
 		eq(invalid.output.indexOf("bad pattern") != -1, true, "invalid output");
 	}
 
+	static function permissionShapes(registry:ToolRegistry, root:String):Void {
+		final seen:Array<String> = [];
+		final ctx = context(root, request -> {
+			seen.push(request.permission + ":" + request.patterns.join(","));
+			return {allowed: false, reason: "blocked by smoke"};
+		});
+		expectToolFailure(() -> registry.execute("read", {filePath: "src/a.ts"}, ctx), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "read" && message.indexOf("blocked") != -1;
+				case _: false;
+			}
+		}, "read permission denied");
+		eq(seen[0], "read:src/a.ts", "permission request shape");
+	}
+
+	static function readExec(registry:ToolRegistry, ctx:ToolContext):Void {
+		final file = registry.execute("read", {filePath: "src/a.ts", limit: 1}, ctx);
+		eq(Reflect.field(file.metadata, "truncated"), false, "read file not truncated");
+		eq(file.output.indexOf("<type>file</type>") != -1, true, "read file type");
+		eq(file.output.indexOf("1: export const needle = 1;") != -1, true, "read line");
+
+		final dir = registry.execute("read", {filePath: "src"}, ctx);
+		eq(dir.output.indexOf("<type>directory</type>") != -1, true, "read directory type");
+		eq(dir.output.indexOf("a.ts") != -1, true, "read directory entry");
+
+		expectToolFailure(() -> registry.execute("read", {filePath: "../outside.ts"}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "read" && message.indexOf("escapes project") != -1;
+				case _: false;
+			}
+		}, "read escape failure");
+	}
+
 	static function globExec(registry:ToolRegistry, ctx:ToolContext):Void {
 		final result = registry.execute("glob", {pattern: "*.ts", path: "src"}, ctx);
 		eq(Reflect.field(result.metadata, "count"), 2, "glob count");
@@ -92,13 +132,63 @@ class ToolSmoke {
 		eq(none.output, "No files found", "grep no matches");
 	}
 
-	static function context(root:String):ToolContext {
+	static function writeExec(registry:ToolRegistry, ctx:ToolContext):Void {
+		final result = registry.execute("write", {filePath: "src/new.txt", content: "fresh\n"}, ctx);
+		eq(result.output, "Wrote file successfully.", "write output");
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/new.txt"), "utf8"), "fresh\n", "write content");
+		eq(Reflect.field(result.metadata, "exists"), false, "write existed metadata");
+	}
+
+	static function editExec(registry:ToolRegistry, ctx:ToolContext):Void {
+		final single = registry.execute("edit", {filePath: "src/a.ts", oldString: "needle", newString: "pin"}, ctx);
+		eq(single.output, "Edit applied successfully.", "edit output");
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/a.ts"), "utf8").indexOf("pin") != -1, true, "edit content");
+
+		write(ctx.directory, "src/repeat.txt", "x\nx\n");
+		registry.execute("edit", {
+			filePath: "src/repeat.txt",
+			oldString: "x",
+			newString: "y",
+			replaceAll: true
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/repeat.txt"), "utf8"), "y\ny\n", "edit replace all");
+
+		expectToolFailure(() -> registry.execute("edit", {filePath: "src/repeat.txt", oldString: "y", newString: "z"}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "edit" && message.indexOf("multiple matches") != -1;
+				case _: false;
+			}
+		}, "edit multiple failure");
+	}
+
+	static function applyPatchExec(registry:ToolRegistry, ctx:ToolContext):Void {
+		final patch = [
+			"*** Begin Patch",
+			"*** Add File: src/patch-added.txt",
+			"+one",
+			"+two",
+			"*** Update File: src/c.ts",
+			"@@",
+			"-export const other = 2;",
+			"+export const other = 3;",
+			"*** Delete File: src/b.txt",
+			"*** End Patch",
+		].join("\n");
+		final result = registry.execute("apply_patch", {patchText: patch}, ctx);
+		eq(result.output.indexOf("A src/patch-added.txt") != -1, true, "patch add summary");
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/patch-added.txt"), "utf8"), "one\ntwo\n", "patch add content");
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/c.ts"), "utf8").indexOf("other = 3") != -1, true, "patch update content");
+		eq(Fs.existsSync(NodePath.join(ctx.directory, "src/b.txt")), false, "patch delete content");
+	}
+
+	static function context(root:String, ?ask:(ToolPermissionRequest) -> ToolPermissionDecision):ToolContext {
 		return {
 			directory: root,
 			worktree: root,
 			sessionID: "ses_tool",
 			messageID: "msg_tool",
 			agent: "build",
+			ask: ask,
 		};
 	}
 

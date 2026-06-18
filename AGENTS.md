@@ -122,6 +122,8 @@ Do not port external npm libraries wholesale early. Start with narrow externs/fa
 
 Prefer small typed externs. Allow `Dynamic` only where the upstream API is truly dynamic or the boundary is explicitly temporary and tracked.
 
+Keep tool permission flow typed at the boundary. Tool code should emit `ToolPermissionRequest` records and let the session/runtime layer decide; do not inline permission policy into individual tools.
+
 ## Host Seam Policy
 
 The initial host seam map is in `docs/host-seam-map.md`. Keep OpenCodeHX app-facing modules portable by routing Node, Bun, browser, filesystem, process, PTY, clock, crypto, terminal, and resource behavior through narrow host facades. When a port slice discovers a durable runtime quirk, update the seam map in the same change.
@@ -176,6 +178,8 @@ bd sync
 ## Documentation and Lessons
 
 Keep this file current. When the port teaches a durable lesson about Haxe modeling, `genes-ts`, externs, OpenCode behavior, runtime seams, generated TS quality, or testing gates, update `AGENTS.md` or the relevant doc in the same change.
+
+Current generated-TS hygiene lesson: avoid dense `Array.map` plus switch-expression summaries in large tool functions until `genes-ts` temp-name hygiene is fixed. Simple typed loops are clearer here and emit strict-checkable TypeScript.
 
 Document non-obvious advanced Haxe features with concise hxdoc:
 

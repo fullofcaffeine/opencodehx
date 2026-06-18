@@ -15,6 +15,6 @@ This slice adds the first Haxe-owned tool surface:
 
 ## Deliberate Boundaries
 
-This is not the full upstream Effect/Zod/plugin registry. Dynamic description hooks, provider/model filtering, plugin-defined tools, truncation integration, permissions, LSP/MCP tools, bash/PTY, edit/write/apply_patch, and task/subagent descriptions are deferred to their owning beads.
+This is not the full upstream Effect/Zod/plugin registry. Dynamic description hooks, provider/model filtering, plugin-defined tools, truncation integration, LSP/MCP tools, bash/PTY, and task/subagent descriptions are deferred to their owning beads. Core file tool permissions and read/write/edit/apply_patch scaffolding live in `docs/core-file-tools-port.md`.
 
 The registry keeps validation explicit rather than depending on Zod externs. If more tools repeat schema boilerplate, derive simple validators with a macro instead of expanding broad `Dynamic` usage.
