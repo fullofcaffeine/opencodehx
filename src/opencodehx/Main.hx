@@ -10,6 +10,7 @@ import opencodehx.smoke.ConfigSmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.StorageSmoke;
+import opencodehx.smoke.ToolSmoke;
 import opencodehx.smoke.UtilSmoke;
 
 typedef SmokeResource = {
@@ -35,6 +36,8 @@ class Main {
 		Syntax.code("console.log({0})", "message-smoke:ok");
 		StorageSmoke.run();
 		Syntax.code("console.log({0})", "storage-smoke:ok");
+		ToolSmoke.run();
+		Syntax.code("console.log({0})", "tool-smoke:ok");
 		Genes.dynamicImport(DynamicFixture -> DynamicFixture.label()).then(label -> {
 			Syntax.code("console.log({0})", label);
 			return null;

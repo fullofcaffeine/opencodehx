@@ -33,6 +33,7 @@ This is a Haxe port, not TypeScript written with Haxe syntax.
 - Keep strings at the boundary: JSON, CLI, filesystem paths, environment variables, npm APIs, and upstream compatibility. Convert to typed values as soon as practical.
 - Prefer a more functional style for pure transformations, but do not force functional purity across host seams where OpenCode behavior depends on effects.
 - For stored protocol DTOs such as Message V2, decode JSON objects into Haxe discriminated enums at the boundary, then encode back to upstream discriminant strings. Keep free-form provider metadata, errors, and tool payloads as documented boundary debt until their owning schemas are ported.
+- For tools, model the registry and failure modes explicitly in Haxe first. Zod/plugin/Effect compatibility belongs at the boundary; core tool definitions should expose typed schemas, typed failures, and deterministic smoke fixtures.
 
 ## TypeScript Feature Emulation
 

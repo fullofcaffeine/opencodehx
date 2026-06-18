@@ -23,6 +23,7 @@ Use one table row per discovered compiler limitation:
 | `cjs-extern-type-001` | `opencodehx-014` | `@:jsRequire("better-sqlite3")` extern constructor used as a field type emitted TS2709 against export-equals declarations | `genes-6za` | `open` | OpenCodeHX is unblocked by keeping the driver field `Dynamic` inside the host seam. `genes-ts` should support or document a generic CJS constructor extern pattern for NodeNext strict output. |
 | `array-temp-collision-001` | `opencodehx-015` | Ripgrep file listing used a local `result` followed by generated `filter(...).map(...)`, causing duplicate TS local declarations | `genes-zjj` | `open` | OpenCodeHX is unblocked by replacing the combinator chain with an explicit loop. `genes-ts` should generate unique locals for array helper temporaries. |
 | `optional-array-narrowing-001` | `opencodehx-015` | Iterating optional array fields after null guards still emitted `string[] \| null` temporaries under strict TS | `genes-6rs` | `open` | OpenCodeHX is unblocked with small `Dynamic` normalization helpers for optional arrays. `genes-ts` should preserve Haxe null-guard narrowing or emit non-null temporaries. |
+| `secondary-extern-return-001` | `opencodehx-016` | Node fs extern `statSync():FsStats` returned a secondary extern class that generated TS referenced without an import | `genes-ast` | `open` | OpenCodeHX is unblocked by loosening `statSync` to `Dynamic` inside the Node seam. `genes-ts` should import or qualify secondary extern return types correctly. |
 
 ## Required Fields
 
