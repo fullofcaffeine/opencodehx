@@ -187,6 +187,8 @@ For CLI parity, keep the command dispatcher pure enough to smoke test without sp
 
 For overload-heavy Node APIs such as `spawnSync`, keep raw extern calls dynamic at the host boundary and expose typed Haxe facades to app/tool code. This keeps generated TypeScript strict-checkable without weakening the app-facing model.
 
+For permission work, preserve upstream's last-match wildcard rule semantics. Config-derived wildcard permission keys should sort before specific keys so specific rules override fallback rules regardless of JSON key order.
+
 Document non-obvious advanced Haxe features with concise hxdoc:
 
 - why the feature is used,
