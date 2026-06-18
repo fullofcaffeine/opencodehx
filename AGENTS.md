@@ -234,6 +234,8 @@ For remote well-known config, keep network fetching in an explicit async loader 
 
 For remote account/org config, preserve the upstream order: load active account config after project/config-dir/content sources, inject `OPENCODE_CONSOLE_TOKEN` into the substitution env before parsing, and treat the real account repo/service as a separate runtime slice. Until that service exists, use explicit typed remote source records rather than hidden globals or broad `Dynamic`.
 
+For managed config, keep MDM/mobileconfig parsing pure and explicit: strip platform metadata keys before normal config parsing, merge the managed source after user/remote sources and before final normalization, and leave OS-specific managed preference discovery to a host seam slice.
+
 For overload-heavy Node APIs such as `spawnSync`, keep raw extern calls dynamic at the host boundary and expose typed Haxe facades to app/tool code. This keeps generated TypeScript strict-checkable without weakening the app-facing model.
 
 For permission work, preserve upstream's last-match wildcard rule semantics. Config-derived wildcard permission keys should sort before specific keys so specific rules override fallback rules regardless of JSON key order.

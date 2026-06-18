@@ -14,6 +14,7 @@ import opencodehx.config.ConfigInfo.PermissionConfigValue;
 import opencodehx.config.ConfigInfo.ServerConfig;
 import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigInfo.SkillsConfig;
+import opencodehx.config.ConfigManaged.ManagedConfigSource;
 import opencodehx.config.ConfigPlugin.PluginScope;
 import opencodehx.config.ConfigPlugin.PluginSpec;
 import opencodehx.externs.node.Fs;
@@ -29,6 +30,7 @@ typedef LoadOptions = {
 	@:optional final includeDefaultUsername:Bool;
 	@:optional final worktree:String;
 	@:optional final pluginScope:PluginScope;
+	@:optional final managedConfig:ManagedConfigSource;
 }
 
 @:ts.type("{[key: string]: string | null | undefined}")
@@ -110,6 +112,7 @@ class ConfigLoader {
 		if (content != null && content != "") {
 			result.merge(loadText(content, "OPENCODE_CONFIG_CONTENT", directory, withPluginScope(opts, PluginScopeLocal)));
 		}
+		mergeManagedConfig(result, opts);
 		finalizeConfig(result, opts);
 		return result;
 	}
@@ -149,10 +152,18 @@ class ConfigLoader {
 			final source = url + "/api/config";
 			result.merge(loadText(Json.stringify(accountConfig.config), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
 		}
+		mergeManagedConfig(result, withEnv(opts, env));
 		finalizeConfig(result, withEnv(opts, env));
 		if (result.username == null)
 			result.username = defaultUsername(opts);
 		return result;
+	}
+
+	static function mergeManagedConfig(result:ConfigInfo, options:LoadOptions):Void {
+		final managed = options.managedConfig;
+		if (managed == null)
+			return;
+		result.merge(loadText(managed.text, managed.source, managed.source, withPluginScope(options, PluginScopeGlobal)));
 	}
 
 	static function mergeConfigFiles(result:ConfigInfo, directory:String, options:LoadOptions):Void {
@@ -735,6 +746,7 @@ class ConfigLoader {
 			includeDefaultUsername: options.includeDefaultUsername,
 			worktree: options.worktree,
 			pluginScope: options.pluginScope,
+			managedConfig: options.managedConfig,
 		};
 	}
 
@@ -745,6 +757,7 @@ class ConfigLoader {
 			includeDefaultUsername: false,
 			worktree: options.worktree,
 			pluginScope: options.pluginScope,
+			managedConfig: options.managedConfig,
 		};
 	}
 
@@ -755,6 +768,7 @@ class ConfigLoader {
 			includeDefaultUsername: options.includeDefaultUsername,
 			worktree: options.worktree,
 			pluginScope: scope,
+			managedConfig: options.managedConfig,
 		};
 	}
 

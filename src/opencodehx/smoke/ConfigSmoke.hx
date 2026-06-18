@@ -12,6 +12,7 @@ import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigLoader.ConfigEnv;
 import opencodehx.config.ConfigLoader;
+import opencodehx.config.ConfigManaged;
 import opencodehx.config.ConfigPlugin;
 import opencodehx.config.ConfigPlugin.PluginOrigin;
 import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeLocal;
@@ -46,6 +47,7 @@ class ConfigSmoke {
 			localUpdateWritesConfigJson(root);
 			legacyToolsMigration(root);
 			finalizationEnvFlags(root);
+			managedConfig(root);
 			commandAgentDiscovery(root);
 			projectDisableSkipsDiscoveredEntries(root);
 			invalidJson(root);
@@ -407,6 +409,39 @@ disabled_providers = ["openai"]
 		eq(compaction.prune, false, "disable prune flag");
 		eq(compaction.tail_turns, 3, "compaction tail turns preserved");
 		eq(compaction.reserved, 128, "compaction reserved preserved");
+	}
+
+	static function managedConfig(root:String):Void {
+		final dir = directory(root, "managed-config");
+		write(dir, "opencode.json", '{"model":"user/model","share":"auto","enabled_providers":["openai"],"server":{"hostname":"0.0.0.0"}}');
+		final managedText = ConfigManaged.parseManagedPlist('{
+  "PayloadDisplayName": "OpenCode Managed",
+  "PayloadIdentifier": "ai.opencode.managed.test",
+  "PayloadType": "ai.opencode.managed",
+  "PayloadUUID": "AAAA-BBBB-CCCC",
+  "PayloadVersion": 1,
+  "_manualProfile": true,
+  "model": "managed/model",
+  "share": "disabled",
+  "enabled_providers": ["anthropic", "google"],
+  "server": {"hostname": "127.0.0.1", "mdns": false},
+  "permission": {"*": "ask", "grep": "allow"}
+}');
+		final config = ConfigLoader.loadProject(dir, {
+			defaultUsername: "fixture-user",
+			managedConfig: {text: managedText, source: "test:mobileconfig"},
+		});
+
+		eq(config.model, "managed/model", "managed config overrides model");
+		eq(config.share, ShareDisabled, "managed config overrides share");
+		eq(config.enabledProviders.join(","), "anthropic,google", "managed enabled providers");
+		eq(config.server.hostname, "127.0.0.1", "managed server hostname");
+		eq(config.server.mdns, false, "managed server mdns");
+		final permission = require(config.permission, "managed permission");
+		eq(permission.get("*"), "ask", "managed wildcard permission");
+		eq(permission.get("grep"), "allow", "managed grep permission");
+		notContains(managedText, "PayloadUUID", "managed metadata stripped");
+		notContains(managedText, "_manualProfile", "managed manual profile stripped");
 	}
 
 	static function commandAgentDiscovery(root:String):Void {
