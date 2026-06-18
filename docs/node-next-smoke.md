@@ -27,7 +27,7 @@ npm run build && npm run smoke
 Observed result:
 
 ```text
-opencodehx 0.0.0
+opencodehx 0.0.0 opencodehx/smoke
 ```
 
 This proves:
@@ -37,6 +37,7 @@ This proves:
 - `tsc -p tsconfig.json` passes under NodeNext.
 - `node --enable-source-maps dist/index.js` runs the generated output.
 - Generated import specifiers use explicit `.js` suffixes, for example `./opencodehx/Main.js` and `./BuildInfo.js`.
+- The first Node built-in extern imports `node:path` and runs through the host facade.
 
 ## Notes
 
