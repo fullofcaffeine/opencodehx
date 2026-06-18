@@ -6,6 +6,8 @@ import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigLoader;
+import opencodehx.config.ConfigPlugin;
+import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeLocal;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
@@ -21,6 +23,7 @@ class ConfigSmoke {
 			projectDiscovery(root);
 			configDirAndProjectDisable(root);
 			schemaAutoAddPreservesTokens(root);
+			pluginMergeAndOrigins(root);
 			invalidJson(root);
 			invalidSchema(root);
 			fileSubstitution(root);
@@ -140,6 +143,30 @@ class ConfigSmoke {
 		contains(updated, "$schema", "schema auto-add writes schema");
 		contains(updated, "{env:PRESERVE_USER}", "schema auto-add preserves raw env token");
 		notContains(updated, "secret-user", "schema auto-add does not leak expanded env value");
+	}
+
+	static function pluginMergeAndOrigins(root:String):Void {
+		final worktree = directory(root, "plugin-merge");
+		final project = directory(worktree, "project");
+		write(worktree, "opencode.json",
+			'{"' + "$" +
+			'schema":"${ConfigInfo.DEFAULT_SCHEMA}","plugin":[["shared-plugin@1.0.0",{"source":"root"}],"global-only@1.0.0","file:///tmp/opencodehx-plugin.js"]}');
+		final opencodeDir = directory(project, ".opencode");
+		write(opencodeDir, "opencode.json",
+			'{"' + "$" +
+			'schema":"${ConfigInfo.DEFAULT_SCHEMA}","plugin":[["shared-plugin@2.0.0",{"source":"local"}],"local-only@1.0.0","file:///tmp/opencodehx-plugin.js"]}');
+
+		final config = ConfigLoader.loadProject(project, {defaultUsername: "fixture-user", worktree: worktree});
+		final names = [for (plugin in config.plugin) ConfigPlugin.specifier(plugin)];
+		eq(names.join(","), "global-only@1.0.0,shared-plugin@2.0.0,local-only@1.0.0,file:///tmp/opencodehx-plugin.js", "plugin merge/dedupe order");
+		eq(config.pluginOrigins.length, config.plugin.length, "plugin origins align length");
+		for (index in 0...config.plugin.length) {
+			eq(ConfigPlugin.specifier(config.pluginOrigins[index].spec), ConfigPlugin.specifier(config.plugin[index]), 'plugin origin aligns ${index}');
+		}
+		final shared = config.pluginOrigins[1];
+		eq(shared.scope, PluginScopeLocal, "plugin origin scope");
+		contains(shared.source, ".opencode", "plugin origin source");
+		eq(Reflect.field(shared.spec.options, "source"), "local", "plugin tuple options preserved");
 	}
 
 	static function invalidJson(root:String):Void {

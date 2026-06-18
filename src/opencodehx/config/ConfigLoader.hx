@@ -6,6 +6,8 @@ import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ServerConfig;
 import opencodehx.config.ConfigInfo.ShareMode;
+import opencodehx.config.ConfigPlugin.PluginScope;
+import opencodehx.config.ConfigPlugin.PluginSpec;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
@@ -14,6 +16,7 @@ typedef LoadOptions = {
 	@:optional final env:Dynamic;
 	@:optional final defaultUsername:String;
 	@:optional final worktree:String;
+	@:optional final pluginScope:PluginScope;
 }
 
 class ConfigLoader {
@@ -61,21 +64,21 @@ class ConfigLoader {
 
 		if (!projectConfigDisabled(opts)) {
 			for (dir in projectDirectories(directory, opts.worktree)) {
-				mergeConfigFiles(result, dir, opts);
+				mergeConfigFiles(result, dir, withPluginScope(opts, PluginScopeLocal));
 			}
 			for (dir in opencodeDirectories(directory, opts.worktree)) {
-				mergeConfigFiles(result, dir, opts);
+				mergeConfigFiles(result, dir, withPluginScope(opts, PluginScopeLocal));
 			}
 		}
 
 		final configDir = envValue(opts, "OPENCODE_CONFIG_DIR");
 		if (configDir != null && configDir != "") {
-			mergeConfigFiles(result, configDir, opts);
+			mergeConfigFiles(result, configDir, withPluginScope(opts, PluginScopeGlobal));
 		}
 
 		final content = envValue(opts, "OPENCODE_CONFIG_CONTENT");
 		if (content != null && content != "") {
-			result.merge(loadText(content, "OPENCODE_CONFIG_CONTENT", directory, opts));
+			result.merge(loadText(content, "OPENCODE_CONFIG_CONTENT", directory, withPluginScope(opts, PluginScopeLocal)));
 		}
 		return result;
 	}
@@ -176,10 +179,10 @@ class ConfigLoader {
 		final opts:LoadOptions = options == null ? {} : options;
 		final expanded = ConfigVariable.substitute(text, {dir: directory, env: opts.env});
 		final data = Jsonc.parse(expanded, source);
-		return fromDynamic(normalizeLegacyTui(data), source);
+		return fromDynamic(normalizeLegacyTui(data), source, pluginScope(opts));
 	}
 
-	static function fromDynamic(data:Dynamic, source:String):ConfigInfo {
+	static function fromDynamic(data:Dynamic, source:String, scope:PluginScope):ConfigInfo {
 		if (!Reflect.isObject(data) || Std.isOfType(data, Array)) {
 			throw new ConfigException(InvalidError(source, ["Expected config root to be an object"]));
 		}
@@ -200,7 +203,8 @@ class ConfigLoader {
 		info.skills = optionalAny(data, "skills");
 		info.watcher = optionalAny(data, "watcher");
 		info.snapshot = optionalBool(data, "snapshot", source, issues);
-		info.plugin = optionalArrayAny(data, "plugin", source, issues);
+		info.plugin = optionalPluginArray(data, "plugin", source, issues);
+		info.pluginOrigins = [for (spec in info.plugin) ConfigPlugin.withOrigin(spec, source, scope)];
 		info.share = optionalShare(data, source, issues);
 		info.autoshare = optionalBool(data, "autoshare", source, issues);
 		info.autoupdate = optionalAutoUpdate(data, source, issues);
@@ -281,6 +285,47 @@ class ConfigLoader {
 			return cast value;
 		issues.push('${field}: expected array');
 		return [];
+	}
+
+	static function optionalPluginArray(data:Dynamic, field:String, source:String, issues:Array<String>):Array<PluginSpec> {
+		if (!Reflect.hasField(data, field))
+			return [];
+		final value = Reflect.field(data, field);
+		if (!Std.isOfType(value, Array)) {
+			issues.push('${field}: expected array');
+			return [];
+		}
+		final result:Array<PluginSpec> = [];
+		final items:Array<Dynamic> = cast value;
+		for (index in 0...items.length) {
+			final spec = pluginSpec(items[index], '${field}[${index}]', issues);
+			if (spec != null)
+				result.push(spec);
+		}
+		return result;
+	}
+
+	static function pluginSpec(value:Dynamic, label:String, issues:Array<String>):Null<PluginSpec> {
+		if (Std.isOfType(value, String))
+			return {specifier: value};
+		if (Std.isOfType(value, Array)) {
+			final tuple:Array<Dynamic> = cast value;
+			if (tuple.length != 2) {
+				issues.push('${label}: expected [specifier, options]');
+				return null;
+			}
+			if (!Std.isOfType(tuple[0], String)) {
+				issues.push('${label}[0]: expected string');
+				return null;
+			}
+			if (tuple[1] == null || !Reflect.isObject(tuple[1]) || Std.isOfType(tuple[1], Array)) {
+				issues.push('${label}[1]: expected object');
+				return null;
+			}
+			return {specifier: tuple[0], options: cast tuple[1]};
+		}
+		issues.push('${label}: expected string or [specifier, options]');
+		return null;
 	}
 
 	static function optionalStringArray(data:Dynamic, field:String, source:String, issues:Array<String>):Null<Array<String>> {
@@ -389,5 +434,19 @@ class ConfigLoader {
 			return value == null ? null : Std.string(value);
 		}
 		return Syntax.code("process.env[{0}] ?? null", key);
+	}
+
+	static function withPluginScope(options:LoadOptions, scope:PluginScope):LoadOptions {
+		return {
+			env: options.env,
+			defaultUsername: options.defaultUsername,
+			worktree: options.worktree,
+			pluginScope: scope,
+		};
+	}
+
+	static function pluginScope(options:LoadOptions):PluginScope {
+		final scope = options.pluginScope;
+		return scope == PluginScopeGlobal ? PluginScopeGlobal : PluginScopeLocal;
 	}
 }

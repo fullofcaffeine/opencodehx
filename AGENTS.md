@@ -213,6 +213,8 @@ Keep this file current. When the port teaches a durable lesson about Haxe modeli
 
 Current generated-TS hygiene lesson: avoid dense `Array.map` plus switch-expression summaries in large tool functions until `genes-ts` temp-name hygiene is fixed. Simple typed loops are clearer here and emit strict-checkable TypeScript.
 
+Current `genes-ts` temp-local lesson: Haxe compiler temps such as `_g`, `_g1`, and catch locals can collide in TypeScript because TS is stricter about block/function scopes and catch parameters. Fix these in `../genes` with stable typed-local emission and generic fixtures; do not contort OpenCodeHX source just to avoid compiler-generated temp names.
+
 For provider/session parity, keep transcript fixtures deterministic and credential-free. Early harnesses may use upstream-shaped oracle scripts, but each one must document when it should be replaced by a real upstream command runner.
 
 For CLI parity, keep the command dispatcher pure enough to smoke test without spawning Node; use separate harness scripts for generated-binary behavior such as stdout, stderr, and exit codes.

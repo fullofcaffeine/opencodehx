@@ -2,6 +2,9 @@ package opencodehx.config;
 
 import haxe.DynamicAccess;
 import haxe.extern.EitherType;
+import opencodehx.config.ConfigPlugin.PluginOrigin;
+import opencodehx.config.ConfigPlugin.PluginScope;
+import opencodehx.config.ConfigPlugin.PluginSpec;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
 import opencodehx.provider.ProviderTypes.ProviderInterleaved;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
@@ -97,8 +100,8 @@ class ConfigInfo {
 	public var skills:Dynamic;
 	public var watcher:Dynamic;
 	public var snapshot:Null<Bool>;
-	// Boundary debt: plugin entries are external module/path descriptors until plugin loading is ported.
-	public var plugin:Array<Dynamic>;
+	public var plugin:Array<PluginSpec>;
+	public var pluginOrigins:Array<PluginOrigin>;
 	public var share:Null<ShareMode>;
 	public var autoshare:Null<Bool>;
 	public var autoupdate:Null<AutoUpdate>;
@@ -126,6 +129,7 @@ class ConfigInfo {
 
 	public function new() {
 		plugin = [];
+		pluginOrigins = [];
 	}
 
 	public static function empty(username:String):ConfigInfo {
@@ -149,8 +153,16 @@ class ConfigInfo {
 			watcher = next.watcher;
 		if (next.snapshot != null)
 			snapshot = next.snapshot;
-		if (next.plugin.length > 0)
-			plugin = next.plugin.copy();
+		if (next.pluginOrigins.length > 0) {
+			pluginOrigins = ConfigPlugin.deduplicateOrigins(pluginOrigins.concat(next.pluginOrigins));
+			plugin = [for (origin in pluginOrigins) origin.spec];
+		} else if (next.plugin.length > 0) {
+			pluginOrigins = ConfigPlugin.deduplicateOrigins(pluginOrigins.concat([
+				for (spec in next.plugin)
+					ConfigPlugin.withOrigin(spec, "", PluginScopeLocal)
+			]));
+			plugin = [for (origin in pluginOrigins) origin.spec];
+		}
 		if (next.share != null)
 			share = next.share;
 		if (next.autoshare != null)
