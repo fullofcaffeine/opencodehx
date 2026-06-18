@@ -1,0 +1,21 @@
+{
+  "name": "opencodehx",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Haxe-authored OpenCode port emitting TypeScript through genes-ts.",
+  "license": "MIT",
+  "scripts": {
+    "format:haxe": "bash scripts/lint/hx_format_guard.sh --write",
+    "format:haxe:check": "bash scripts/lint/hx_format_guard.sh",
+    "security:gitleaks": "bash scripts/security/run-gitleaks.sh",
+    "security:gitleaks:staged": "bash scripts/security/run-gitleaks.sh --staged",
+    "hooks:install": "bash scripts/hooks/install.sh",
+    "public:precommit": "npm run format:haxe:check && npm run security:gitleaks",
+    "test": "npm run public:precommit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fullofcaffeine/opencodehx.git"
+  }
+}
+

@@ -1,12 +1,17 @@
 .DS_Store
 node_modules/
+npm-debug.log*
 
 # Build and generated artifacts
 dist/
 src-gen/
 generated/
+out/
+dump/
 coverage/
 test-results/
+playwright-report/
+test/.generated/
 
 # Local environment
 .env
@@ -19,3 +24,6 @@ test-results/
 .turbo/
 .vite/
 
+# Local analysis artifacts
+repomix-output*.xml
+repomix-output*.zip

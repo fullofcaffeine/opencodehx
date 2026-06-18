@@ -1,0 +1,12 @@
+title = "opencodehx gitleaks config"
+
+[allowlist]
+description = "Allow deterministic local artifacts and generated output"
+paths = [
+  '''^dist/''',
+  '''^src-gen/''',
+  '''^generated/''',
+  '''^node_modules/''',
+  '''^test/\.generated/'''
+]
+

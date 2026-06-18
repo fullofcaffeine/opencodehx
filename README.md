@@ -14,3 +14,19 @@ Primary local references:
 - `../genes`: sibling Genes checkout containing the `genes-ts` compiler mode
 
 See [AGENTS.md](AGENTS.md) for project rules, Haxe design direction, and the `genes-ts` improvement loop.
+
+## Local Hooks
+
+Install the repo-managed pre-commit hook:
+
+```sh
+haxelib install formatter
+brew install gitleaks # or use another gitleaks install method
+npm run hooks:install
+```
+
+The hook runs staged `gitleaks` and formats staged `.hx` files with haxe-formatter. CI runs a dedicated gitleaks workflow, and local public-readiness checks run with:
+
+```sh
+npm run public:precommit
+```
