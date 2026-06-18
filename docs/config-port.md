@@ -23,6 +23,7 @@ Implemented:
 - Global config loading with upstream precedence (`config.json`, then `opencode.json`, then `opencode.jsonc`), and global update target selection (`opencode.jsonc`, `opencode.json`, `config.json`, falling back to a new `opencode.jsonc`).
 - Local config updates that merge writable config into `config.json`, matching the server route's instance update target.
 - JSONC-preserving global updates through upstream's `jsonc-parser` behavior, with plugin provenance omitted from persisted config.
+- Best-effort legacy global TOML migration from extensionless `config`, including `provider`/`model` to `model` translation, modern `config.json` write-back, and legacy file removal.
 - Markdown-backed command discovery from `command/**/*.md` and `commands/**/*.md`, including nested path-derived names and typed command records.
 - Markdown-backed agent discovery from `agent/**/*.md` and `agents/**/*.md`, including nested path-derived names, typed agent records, tool-to-permission migration, color, options passthrough, and primary-mode promotion.
 - Markdown-backed mode discovery from `mode/*.md` and `modes/*.md`, promoted into `agent` entries with `mode: "primary"` like upstream.
@@ -33,7 +34,7 @@ Implemented:
 - Typed `skills` config for local extra skill paths and remote skill index URLs. Local path consumption is covered by `docs/skill-registry-port.md`; remote URL discovery is deferred.
 - Narrow Node fs/os externs used only by the config smoke and host boundary.
 
-Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, global load/update precedence, JSONC comment-preserving global writes, local `config.json` writes, command/agent/mode markdown discovery, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
+Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, command/agent/mode markdown discovery, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
 
 ## Deliberate Boundaries
 
@@ -45,7 +46,7 @@ Markdown frontmatter is intentionally typed as an `unknown` boundary at parse ti
 
 Plugin options remain open passthrough maps because upstream models them as `Record<string, unknown>` for plugin packages to consume. This slice does not resolve path plugin targets, load plugin modules, install npm dependencies, or scan plugin directories; those belong to the plugin/runtime slices.
 
-This slice does not reimplement upstream's Effect service layer, remote account config, npm dependency install side effects, legacy TOML global config migration, remote skill URL downloads, plugin runtime loading/path resolution, or TUI migration. Those should be added when the dependent session/provider/server/TUI slices need them.
+This slice does not reimplement upstream's Effect service layer, remote account config, npm dependency install side effects, remote skill URL downloads, plugin runtime loading/path resolution, or TUI migration. Those should be added when the dependent session/provider/server/TUI slices need them.
 
 The writable JSON tree in `ConfigWriter` is intentionally typed as an `unknown` boundary in generated TypeScript. It exists only to round-trip arbitrary JSON/JSONC fields whose owning modules are not ported yet; app-facing code should stay on `ConfigInfo` and typed nested records.
 

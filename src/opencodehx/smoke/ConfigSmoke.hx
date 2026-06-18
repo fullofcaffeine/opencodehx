@@ -26,6 +26,7 @@ class ConfigSmoke {
 			schemaAutoAddPreservesTokens(root);
 			pluginMergeAndOrigins(root);
 			globalLoadAndUpdate(root);
+			legacyGlobalTomlMigration(root);
 			localUpdateWritesConfigJson(root);
 			commandAgentDiscovery(root);
 			projectDisableSkipsDiscoveredEntries(root);
@@ -211,6 +212,30 @@ class ConfigSmoke {
 		fresh.model = "fresh/model";
 		ConfigWriter.updateGlobal(freshDir, fresh);
 		eq(Fs.existsSync(NodePath.join(freshDir, "opencode.jsonc")), true, "global update creates opencode.jsonc");
+	}
+
+	static function legacyGlobalTomlMigration(root:String):Void {
+		final dir = directory(root, "legacy-global-toml");
+		write(dir, "opencode.jsonc", '{
+  "instructions": ["jsonc.md"],
+  "model": "jsonc/model"
+}');
+		write(dir, "config", 'provider = "anthropic"
+model = "claude-sonnet-4-5"
+instructions = ["legacy.md"]
+disabled_providers = ["openai"]
+');
+
+		final migrated = ConfigWriter.loadGlobal(dir);
+		eq(migrated.model, "anthropic/claude-sonnet-4-5", "legacy toml provider/model migration");
+		eq(migrated.instructions.join(","), "jsonc.md,legacy.md", "legacy toml merges rest fields");
+		eq(migrated.schema, ConfigInfo.DEFAULT_SCHEMA, "legacy toml writes schema");
+		eq(Fs.existsSync(NodePath.join(dir, "config")), false, "legacy toml file removed");
+		eq(Fs.existsSync(NodePath.join(dir, "config.json")), true, "legacy toml writes config.json");
+
+		final written = Fs.readFileSync(NodePath.join(dir, "config.json"), "utf8");
+		contains(written, '"model": "anthropic/claude-sonnet-4-5"', "legacy toml written model");
+		contains(written, '"disabled_providers": [', "legacy toml writes rest fields");
 	}
 
 	static function localUpdateWritesConfigJson(root:String):Void {

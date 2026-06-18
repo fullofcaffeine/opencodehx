@@ -230,6 +230,8 @@ For overload-heavy Node APIs such as `spawnSync`, keep raw extern calls dynamic 
 
 For permission work, preserve upstream's last-match wildcard rule semantics. Config-derived wildcard permission keys should sort before specific keys so specific rules override fallback rules regardless of JSON key order.
 
+For legacy config migrations, keep old-format parsing at a narrow documented boundary, immediately normalize into `ConfigInfo`, then write modern JSON/JSONC output. Prefer a `tink_json`-style typed decoder for known closed shapes, but preserve unknown rest fields explicitly when upstream migration semantics require round-tripping or merging data outside the known fields. Migration failure should be best-effort when upstream swallows it, but generated TS should still use `unknown`/typed records rather than broad `any`.
+
 Document non-obvious advanced Haxe features with concise hxdoc:
 
 - why the feature is used,

@@ -10,6 +10,9 @@ import opencodehx.config.ConfigPlugin.PluginScope;
 import opencodehx.config.ConfigPlugin.PluginSpec;
 import opencodehx.externs.jsonc.JsoncParser;
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.toml.Toml;
+import opencodehx.externs.toml.TomlObject;
+import opencodehx.externs.toml.TomlObject.TomlValue;
 import opencodehx.host.node.NodePath;
 
 // Boundary debt: config updates must round-trip arbitrary JSON/JSONC subtrees for
@@ -29,6 +32,7 @@ class ConfigWriter {
 			if (Fs.existsSync(path))
 				result.merge(ConfigLoader.loadFile(path, withGlobalScope(options)));
 		}
+		migrateLegacyToml(globalDir, result, options);
 		return result;
 	}
 
@@ -68,6 +72,37 @@ class ConfigWriter {
 	static function parseWritable(text:String, file:String):WritableConfigJson {
 		final existing = ConfigLoader.loadParsedData(Jsonc.parse(text, file), file);
 		return writableDynamic(existing);
+	}
+
+	static function migrateLegacyToml(globalDir:String, result:ConfigInfo, ?options:LoadOptions):Void {
+		final legacy = NodePath.join(globalDir, "config");
+		if (!Fs.existsSync(legacy))
+			return;
+		try {
+			// Legacy OpenCode config used extensionless TOML. The parsed object is kept
+			// at this migration boundary, then normalized into ConfigInfo immediately.
+			final parsed:TomlObject = Toml.parse(Fs.readFileSync(legacy, "utf8"));
+			final provider = tomlString(parsed.get("provider"));
+			final model = tomlString(parsed.get("model"));
+			parsed.remove("provider");
+			parsed.remove("model");
+			parsed.set("$schema", ConfigInfo.DEFAULT_SCHEMA);
+			if (provider != null && model != null)
+				parsed.set("model", provider + "/" + model);
+
+			result.merge(ConfigLoader.loadParsedData(parsed, legacy, withGlobalScope(options)));
+			Fs.writeFileSync(NodePath.join(globalDir, "config.json"), Json.stringify(writableDynamic(result), null, "  "));
+			Fs.unlinkSync(legacy);
+		} catch (_:Dynamic) {
+			// Upstream treats legacy migration as best-effort and falls back to the
+			// already loaded JSON/JSONC global config if TOML parsing or writing fails.
+		}
+	}
+
+	static function tomlString(value:Null<TomlValue>):Null<String> {
+		if (Std.isOfType(value, String))
+			return cast value;
+		return null;
 	}
 
 	static function patchJsonc(input:String, patch:WritableConfigJson, ?path:Array<String>):String {
