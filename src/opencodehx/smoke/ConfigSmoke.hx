@@ -15,6 +15,7 @@ import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigManaged;
 import opencodehx.config.ConfigPlugin;
 import opencodehx.config.ConfigPlugin.PluginOrigin;
+import opencodehx.config.ConfigPlugin.PluginOptionValue;
 import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeLocal;
 import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeGlobal;
 import opencodehx.config.ConfigWriter;
@@ -42,6 +43,7 @@ class ConfigSmoke {
 			schemaAutoAddPreservesTokens(root);
 			pluginMergeAndOrigins(root);
 			pluginDirectoryDiscovery(root);
+			pluginPathResolution(root);
 			globalLoadAndUpdate(root);
 			legacyGlobalTomlMigration(root);
 			localUpdateWritesConfigJson(root);
@@ -290,6 +292,43 @@ class ConfigSmoke {
 		final globalOrigin = require(findOrigin(config.pluginOrigins, global), "global plugin origin");
 		eq(globalOrigin.scope, PluginScopeGlobal, "config dir discovered plugin scope");
 		eq(globalOrigin.source, configDir, "config dir discovered plugin source");
+	}
+
+	static function pluginPathResolution(root:String):Void {
+		final worktree = directory(root, "plugin-resolution");
+		final project = directory(worktree, "project");
+		final opencodeDir = directory(project, ".opencode");
+		write(opencodeDir, "plugin.ts", "export default {}");
+
+		final packageDir = directory(opencodeDir, "package-plugin");
+		write(packageDir, "package.json", '{"name":"package-plugin"}');
+		write(packageDir, "index.ts", "export default {}");
+
+		final indexDir = directory(opencodeDir, "index-plugin");
+		write(indexDir, "index.ts", "export default {}");
+
+		write(opencodeDir, "opencode.json",
+			'{"plugin":["oh-my-opencode@2.4.3","@scope/pkg","./plugin.ts","./package-plugin",["./index-plugin",{"source":"tuple"}]]}');
+
+		final config = ConfigLoader.loadProject(project, {defaultUsername: "fixture-user", worktree: worktree});
+		final fileUrl = Url.pathToFileURL(NodePath.join(opencodeDir, "plugin.ts")).href;
+		final packageUrl = Url.pathToFileURL(packageDir).href;
+		final indexUrl = Url.pathToFileURL(NodePath.join(indexDir, "index.ts")).href;
+		final names = [for (plugin in config.plugin) ConfigPlugin.specifier(plugin)];
+		eq(names.indexOf("oh-my-opencode@2.4.3") != -1, true, "plugin package spec preserved");
+		eq(names.indexOf("@scope/pkg") != -1, true, "plugin scoped package spec preserved");
+		eq(names.indexOf(fileUrl) != -1, true, "relative plugin file resolved");
+		eq(names.indexOf(packageUrl) != -1, true, "plugin package directory resolved");
+		eq(names.indexOf(indexUrl) != -1, true, "plugin directory index fallback resolved");
+
+		final tuple = require(findOrigin(config.pluginOrigins, indexUrl), "resolved tuple plugin origin");
+		eq(Reflect.field(tuple.spec.options, "source"), "tuple", "resolved plugin tuple options preserved");
+
+		final option = new DynamicAccess<PluginOptionValue>();
+		option.set("source", "direct");
+		final direct = ConfigPlugin.resolveSpec({specifier: "./plugin.ts", options: option}, NodePath.join(opencodeDir, "opencode.json"));
+		eq(ConfigPlugin.specifier(direct), fileUrl, "direct plugin resolver");
+		eq(Reflect.field(direct.options, "source"), "direct", "direct resolver preserves options");
 	}
 
 	static function globalLoadAndUpdate(root:String):Void {

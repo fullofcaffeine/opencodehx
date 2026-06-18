@@ -228,7 +228,7 @@ For provider/session parity, keep transcript fixtures deterministic and credenti
 
 For CLI parity, keep the command dispatcher pure enough to smoke test without spawning Node; use separate harness scripts for generated-binary behavior such as stdout, stderr, and exit codes.
 
-For plugin config discovery, scan only the upstream-shaped immediate `plugin/*.{ts,js}` and `plugins/*.{ts,js}` roots, normalize discovered local files to file URL specs, and attach provenance before dedupe. Loading plugin modules, resolving relative path specs, and npm dependency installation are separate runtime slices.
+For plugin config discovery, scan only the upstream-shaped immediate `plugin/*.{ts,js}` and `plugins/*.{ts,js}` roots, normalize discovered local files to file URL specs, and attach provenance before dedupe. For file-backed config entries, resolve path-like plugin specs (`file://`, relative `.` specs, absolute POSIX paths, and Windows-drive paths) relative to the declaring config file before merge/dedupe, including package-directory and index-file target handling. Loading plugin modules and npm dependency installation remain separate runtime slices.
 
 For remote well-known config, keep network fetching in an explicit async loader path. Fetch `/.well-known/opencode` from normalized base URLs, inject advertised auth tokens into the substitution env before parsing, merge remote config before local project config, and avoid letting default-only local fields override remote-provided fields.
 

@@ -334,7 +334,7 @@ class ConfigLoader {
 	public static function loadFile(path:String, ?options:LoadOptions):ConfigInfo {
 		try {
 			final text = Fs.readFileSync(path, "utf8");
-			final info = loadText(text, path, NodePath.dirname(path), options);
+			final info = loadText(text, path, NodePath.dirname(path), options, path);
 			ensureSchema(path, text, info);
 			return info;
 		} catch (configError:ConfigException) {
@@ -378,19 +378,19 @@ class ConfigLoader {
 		return code == 0x20 || code == 0x09 || code == 0x0A || code == 0x0D;
 	}
 
-	public static function loadText(text:String, source:String, directory:String, ?options:LoadOptions):ConfigInfo {
+	public static function loadText(text:String, source:String, directory:String, ?options:LoadOptions, ?pluginConfigFile:String):ConfigInfo {
 		final opts:LoadOptions = options == null ? {} : options;
 		final expanded = ConfigVariable.substitute(text, {dir: directory, env: opts.env});
 		final data = Jsonc.parse(expanded, source);
-		return loadParsedData(data, source, opts);
+		return loadParsedData(data, source, opts, pluginConfigFile);
 	}
 
-	public static function loadParsedData(data:Dynamic, source:String, ?options:LoadOptions):ConfigInfo {
+	public static function loadParsedData(data:Dynamic, source:String, ?options:LoadOptions, ?pluginConfigFile:String):ConfigInfo {
 		final opts:LoadOptions = options == null ? {} : options;
-		return fromDynamic(normalizeLegacyTui(data), source, pluginScope(opts));
+		return fromDynamic(normalizeLegacyTui(data), source, pluginScope(opts), pluginConfigFile);
 	}
 
-	static function fromDynamic(data:Dynamic, source:String, scope:PluginScope):ConfigInfo {
+	static function fromDynamic(data:Dynamic, source:String, scope:PluginScope, ?pluginConfigFile:String):ConfigInfo {
 		if (!Reflect.isObject(data) || Std.isOfType(data, Array)) {
 			throw new ConfigException(InvalidError(source, ["Expected config root to be an object"]));
 		}
@@ -411,7 +411,7 @@ class ConfigLoader {
 		info.skills = optionalSkills(data, source, issues);
 		info.watcher = optionalAny(data, "watcher");
 		info.snapshot = optionalBool(data, "snapshot", source, issues);
-		info.plugin = optionalPluginArray(data, "plugin", source, issues);
+		info.plugin = optionalPluginArray(data, "plugin", source, issues, pluginConfigFile);
 		info.pluginOrigins = [for (spec in info.plugin) ConfigPlugin.withOrigin(spec, source, scope)];
 		info.share = optionalShare(data, source, issues);
 		info.autoshare = optionalBool(data, "autoshare", source, issues);
@@ -495,7 +495,7 @@ class ConfigLoader {
 		return [];
 	}
 
-	static function optionalPluginArray(data:Dynamic, field:String, source:String, issues:Array<String>):Array<PluginSpec> {
+	static function optionalPluginArray(data:Dynamic, field:String, source:String, issues:Array<String>, ?pluginConfigFile:String):Array<PluginSpec> {
 		if (!Reflect.hasField(data, field))
 			return [];
 		final value = Reflect.field(data, field);
@@ -507,8 +507,10 @@ class ConfigLoader {
 		final items:Array<Dynamic> = cast value;
 		for (index in 0...items.length) {
 			final spec = pluginSpec(items[index], '${field}[${index}]', issues);
-			if (spec != null)
-				result.push(spec);
+			if (spec != null) {
+				final resolved = pluginConfigFile == null ? spec : ConfigPlugin.resolveSpec(spec, pluginConfigFile);
+				result.push(resolved);
+			}
 		}
 		return result;
 	}

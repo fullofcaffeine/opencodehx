@@ -31,6 +31,8 @@ typedef PluginOrigin = {
 }
 
 class ConfigPlugin {
+	static final INDEX_FILES:Array<String> = ["index.ts", "index.tsx", "index.js", "index.mjs", "index.cjs"];
+
 	public static function load(dir:String):Array<PluginSpec> {
 		final result:Array<PluginSpec> = [];
 		for (root in ["plugin", "plugins"]) {
@@ -50,6 +52,57 @@ class ConfigPlugin {
 
 	public static function specifier(spec:PluginSpec):String {
 		return spec.specifier;
+	}
+
+	public static function resolveSpec(spec:PluginSpec, configFilepath:String):PluginSpec {
+		final raw = specifier(spec);
+		if (!isPathSpec(raw))
+			return spec;
+
+		final base = NodePath.dirname(configFilepath);
+		final file = if (StringTools.startsWith(raw, "file://")) {
+			raw;
+		} else if (isAbsolutePath(raw)) {
+			Url.pathToFileURL(raw).href;
+		} else {
+			Url.pathToFileURL(NodePath.resolve(base, raw)).href;
+		}
+
+		final resolved = try {
+			resolvePathPluginTarget(file);
+		} catch (_:Dynamic) {
+			file;
+		}
+
+		if (resolved == raw)
+			return spec;
+		if (spec.options == null)
+			return {specifier: resolved};
+		return {specifier: resolved, options: spec.options};
+	}
+
+	public static function resolvePathPluginTarget(spec:String):String {
+		final startedAsFileUrl = StringTools.startsWith(spec, "file://");
+		final raw = startedAsFileUrl ? Url.fileURLToPath(spec) : spec;
+		final file = isAbsolutePath(raw) ? raw : NodePath.resolve(".", raw);
+		final asUrl = startedAsFileUrl ? spec : Url.pathToFileURL(file).href;
+		if (!Fs.existsSync(file))
+			return asUrl;
+
+		final stat = Fs.statSync(file);
+		if (!stat.isDirectory())
+			return asUrl;
+
+		if (Fs.existsSync(NodePath.join(file, "package.json")))
+			return Url.pathToFileURL(file).href;
+
+		for (name in INDEX_FILES) {
+			final index = NodePath.join(file, name);
+			if (Fs.existsSync(index))
+				return Url.pathToFileURL(index).href;
+		}
+
+		throw 'Plugin directory ${file} is missing package.json or index file';
 	}
 
 	public static function withOrigin(spec:PluginSpec, source:String, scope:PluginScope):PluginOrigin {
@@ -86,6 +139,24 @@ class ConfigPlugin {
 
 	static function isPluginFile(name:String):Bool {
 		return StringTools.endsWith(name, ".ts") || StringTools.endsWith(name, ".js");
+	}
+
+	static function isPathSpec(raw:String):Bool {
+		return StringTools.startsWith(raw, "file://") || StringTools.startsWith(raw, ".") || isAbsolutePath(raw);
+	}
+
+	static function isAbsolutePath(raw:String):Bool {
+		return NodePath.isAbsolute(raw) || isWindowsAbsolutePath(raw);
+	}
+
+	static function isWindowsAbsolutePath(raw:String):Bool {
+		if (raw.length < 3)
+			return false;
+		final drive = raw.charCodeAt(0);
+		final colon = raw.charAt(1) == ":";
+		final slash = raw.charAt(2) == "\\" || raw.charAt(2) == "/";
+		final letter = (drive >= 0x41 && drive <= 0x5A) || (drive >= 0x61 && drive <= 0x7A);
+		return letter && colon && slash;
 	}
 
 	static function packageName(raw:String):String {
