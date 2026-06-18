@@ -13,6 +13,7 @@ import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
 import opencodehx.smoke.ProviderSmoke;
+import opencodehx.smoke.SessionProcessorSmoke;
 import opencodehx.smoke.StorageSmoke;
 import opencodehx.smoke.ToolSmoke;
 import opencodehx.smoke.UtilSmoke;
@@ -53,6 +54,8 @@ class Main {
 		Syntax.code("console.log({0})", "tool-smoke:ok");
 		ProviderSmoke.run();
 		Syntax.code("console.log({0})", "provider-smoke:ok");
+		SessionProcessorSmoke.run();
+		Syntax.code("console.log({0})", "session-processor-smoke:ok");
 		Genes.dynamicImport(DynamicFixture -> DynamicFixture.label()).then(label -> {
 			Syntax.code("console.log({0})", label);
 			return null;

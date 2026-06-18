@@ -1,0 +1,404 @@
+package opencodehx.session;
+
+import opencodehx.BuildInfo;
+import opencodehx.provider.FakeProvider;
+import opencodehx.provider.FakeProvider.FakeProviderEvent;
+import opencodehx.session.MessageTypes.AssistantMessage;
+import opencodehx.session.MessageTypes.Info;
+import opencodehx.session.MessageTypes.Part;
+import opencodehx.session.MessageTypes.TextPartData;
+import opencodehx.session.MessageTypes.TokenUsage;
+import opencodehx.session.MessageTypes.ToolState;
+import opencodehx.session.MessageTypes.UserMessage;
+import opencodehx.session.MessageTypes.WithParts;
+import opencodehx.session.SessionInfo.SessionInfo;
+import opencodehx.storage.SessionStore;
+import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolRegistry;
+import opencodehx.tool.ToolTypes.ToolContext;
+import opencodehx.tool.ToolTypes.ToolResult;
+
+typedef SessionToolCall = {
+	final id:String;
+	final tool:String;
+	final input:Dynamic;
+}
+
+typedef SessionToolOutcome = {
+	final call:SessionToolCall;
+	final part:Part;
+	final success:Bool;
+	@:optional final result:ToolResult;
+	@:optional final error:String;
+}
+
+typedef SessionProcessorInput = {
+	final prompt:String;
+	final directory:String;
+	@:optional final sessionID:String;
+	@:optional final projectID:String;
+	@:optional final agent:String;
+	@:optional final store:SessionStore;
+	@:optional final provider:FakeProvider;
+	@:optional final registry:ToolRegistry;
+	@:optional final permission:opencodehx.permission.PermissionRuntime;
+	@:optional final toolCall:SessionToolCall;
+}
+
+typedef SessionProcessorResult = {
+	final provider:{
+		final id:String;
+		final modelID:String;
+		final source:String;
+	};
+	final request:{
+		final sessionID:String;
+		final prompt:String;
+		final system:Array<String>;
+		final tools:Array<String>;
+	};
+	final events:Array<Dynamic>;
+	final messages:Array<WithParts>;
+	@:optional final tool:SessionToolOutcome;
+}
+
+class SessionProcessor {
+	public static inline final FIXTURE_DIRECTORY = "/workspace/opencodehx-fixture";
+	public static inline final SESSION_ID = "ses_fake_one";
+	public static inline final USER_ID = "msg_user_one";
+	public static inline final ASSISTANT_ID = "msg_assistant_one";
+	public static inline final USER_PART_ID = "prt_user_text";
+	public static inline final ASSISTANT_PART_ID = "prt_assistant_text";
+	public static inline final STEP_START_PART_ID = "prt_step_start";
+	public static inline final STEP_FINISH_PART_ID = "prt_step_finish";
+	public static inline final TOOL_PART_ID = "prt_tool_call";
+	public static inline final CREATED_USER = 1000.0;
+	public static inline final CREATED_ASSISTANT = 1001.0;
+	public static inline final COMPLETED_ASSISTANT = 1002.0;
+	static inline final TOOL_STARTED = 1001.25;
+	static inline final TOOL_ENDED = 1001.75;
+
+	public static function run(input:SessionProcessorInput):SessionProcessorResult {
+		final prompt = normalizePrompt(input.prompt);
+		final sessionIDText = fallback(input.sessionID, SESSION_ID);
+		final projectID = fallback(input.projectID, "proj_fixture");
+		final agent = fallback(input.agent, "fixture");
+		final provider = input.provider == null ? new FakeProvider() : input.provider;
+		final registry = input.registry == null ? new ToolRegistry() : input.registry;
+		final events = encodeEvents(provider.stream(prompt));
+		final assistantText = collectText(events);
+		final userMessage = userWithParts(sessionIDText, prompt, agent, provider);
+		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, assistantText, input.directory, agent, provider, input.toolCall,
+			registry, input.permission, events);
+
+		if (input.store != null) {
+			persist(input.store, projectID, sessionIDText, input.directory, userMessage, assistantMessage.message);
+		}
+
+		final result:Dynamic = {
+			provider: {
+				id: provider.info.id,
+				modelID: provider.model.id,
+				source: provider.info.source,
+			},
+			request: {
+				sessionID: sessionIDText,
+				prompt: prompt,
+				system: ["You are a deterministic fixture provider."],
+				tools: transcriptTools(),
+			},
+			events: events,
+			messages: [userMessage, assistantMessage.message],
+		};
+		if (assistantMessage.tool != null)
+			Reflect.setField(result, "tool", assistantMessage.tool);
+		return cast result;
+	}
+
+	public static function toTranscript(processed:SessionProcessorResult):Dynamic {
+		final encodedMessages:Array<Dynamic> = [];
+		for (message in processed.messages) {
+			encodedMessages.push(MessageCodec.encodeWithParts(message));
+		}
+		return {
+			provider: processed.provider,
+			request: processed.request,
+			events: processed.events,
+			messages: encodedMessages,
+		};
+	}
+
+	static function userWithParts(sessionIDText:String, prompt:String, agent:String, provider:FakeProvider):WithParts {
+		final sessionID = SessionID.make(sessionIDText);
+		final messageID = MessageID.make(USER_ID);
+		final info:UserMessage = {
+			id: messageID,
+			sessionID: sessionID,
+			role: "user",
+			time: {created: CREATED_USER},
+			agent: agent,
+			model: {providerID: provider.info.id, modelID: provider.model.id},
+			format: OutputText,
+			tools: {
+				read: true,
+				write: true,
+				edit: true,
+				apply_patch: true
+			},
+		};
+		final text:TextPartData = {
+			id: PartID.make(USER_PART_ID),
+			sessionID: sessionID,
+			messageID: messageID,
+			type: "text",
+			text: prompt,
+			time: {start: CREATED_USER, end: CREATED_USER},
+		};
+		return {info: UserInfo(info), parts: [TextPart(text)]};
+	}
+
+	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:FakeProvider,
+			toolCall:Null<SessionToolCall>, registry:ToolRegistry, permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<Dynamic>):{
+		final message:WithParts;
+		final tool:Null<SessionToolOutcome>;
+	} {
+		final sessionID = SessionID.make(sessionIDText);
+		final messageID = MessageID.make(ASSISTANT_ID);
+		final parentID = userID(parentInfo);
+		final tokens = tokenUsage();
+		final info:AssistantMessage = {
+			id: messageID,
+			sessionID: sessionID,
+			role: "assistant",
+			time: {created: CREATED_ASSISTANT, completed: COMPLETED_ASSISTANT},
+			parentID: parentID,
+			modelID: provider.model.id,
+			providerID: provider.info.id,
+			mode: "primary",
+			agent: agent,
+			path: {cwd: directory, root: directory},
+			cost: 0,
+			tokens: tokens,
+			finish: "stop",
+		};
+
+		final parts:Array<Part> = [];
+		var toolOutcome:Null<SessionToolOutcome> = null;
+		if (toolCall != null) {
+			parts.push(StepStartPart({
+				id: PartID.make(STEP_START_PART_ID),
+				sessionID: sessionID,
+				messageID: messageID,
+				type: "step-start",
+			}));
+			toolOutcome = executeTool(sessionID, messageID, directory, agent, toolCall, registry, permission, events);
+			parts.push(toolOutcome.part);
+		}
+
+		parts.push(TextPart({
+			id: PartID.make(ASSISTANT_PART_ID),
+			sessionID: sessionID,
+			messageID: messageID,
+			type: "text",
+			text: text,
+			time: {start: CREATED_ASSISTANT, end: COMPLETED_ASSISTANT},
+		}));
+
+		if (toolCall != null) {
+			parts.push(StepFinishPart({
+				id: PartID.make(STEP_FINISH_PART_ID),
+				sessionID: sessionID,
+				messageID: messageID,
+				type: "step-finish",
+				reason: "stop",
+				cost: 0,
+				tokens: tokens,
+			}));
+		}
+
+		return {
+			message: {info: AssistantInfo(info), parts: parts},
+			tool: toolOutcome,
+		};
+	}
+
+	static function executeTool(sessionID:SessionID, messageID:MessageID, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,
+			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<Dynamic>):SessionToolOutcome {
+		events.push({type: "tool-call-start", callID: call.id, tool: call.tool});
+		final ctx:ToolContext = {
+			directory: directory,
+			worktree: directory,
+			sessionID: sessionID.toString(),
+			messageID: messageID.toString(),
+			callID: call.id,
+			agent: agent,
+		};
+		if (permission != null)
+			Reflect.setField(ctx, "ask", permission.toToolAsk());
+		try {
+			final toolResult = registry.execute(call.tool, call.input, ctx);
+			final part = completedToolPart(sessionID, messageID, call, toolResult);
+			events.push({
+				type: "tool-call-finish",
+				callID: call.id,
+				tool: call.tool,
+				status: "completed"
+			});
+			return {
+				call: call,
+				part: part,
+				success: true,
+				result: toolResult
+			};
+		} catch (error:ToolException) {
+			final message = error.message == null ? Std.string(error.failure) : error.message;
+			final part = erroredToolPart(sessionID, messageID, call, message);
+			events.push({
+				type: "tool-call-finish",
+				callID: call.id,
+				tool: call.tool,
+				status: "error",
+				error: message
+			});
+			return {
+				call: call,
+				part: part,
+				success: false,
+				error: message
+			};
+		}
+	}
+
+	static function completedToolPart(sessionID:SessionID, messageID:MessageID, call:SessionToolCall, result:ToolResult):Part {
+		final state:ToolState = ToolCompleted({
+			status: "completed",
+			input: call.input,
+			output: result.output,
+			title: result.title,
+			metadata: result.metadata == null ? {} : result.metadata,
+			time: {
+				start: TOOL_STARTED,
+				end: TOOL_ENDED
+			},
+		});
+		return ToolPart({
+			id: PartID.make(TOOL_PART_ID),
+			sessionID: sessionID,
+			messageID: messageID,
+			type: "tool",
+			callID: call.id,
+			tool: call.tool,
+			state: state,
+		});
+	}
+
+	static function erroredToolPart(sessionID:SessionID, messageID:MessageID, call:SessionToolCall, message:String):Part {
+		final state:ToolState = ToolErrored({
+			status: "error",
+			input: call.input,
+			error: message,
+			metadata: {},
+			time: {start: TOOL_STARTED, end: TOOL_ENDED},
+		});
+		return ToolPart({
+			id: PartID.make(TOOL_PART_ID),
+			sessionID: sessionID,
+			messageID: messageID,
+			type: "tool",
+			callID: call.id,
+			tool: call.tool,
+			state: state,
+		});
+	}
+
+	static function persist(store:SessionStore, projectID:String, sessionIDText:String, directory:String, userMessage:WithParts,
+			assistantMessage:WithParts):Void {
+		store.upsertProject({id: projectID, worktree: directory, name: "OpenCodeHX fixture"});
+		store.createSession(sessionInfo(projectID, sessionIDText, directory));
+		persistMessage(store, userMessage, CREATED_USER);
+		persistMessage(store, assistantMessage, CREATED_ASSISTANT);
+	}
+
+	static function persistMessage(store:SessionStore, message:WithParts, created:Float):Void {
+		store.upsertMessage(message.info);
+		var offset = 0.0;
+		for (part in message.parts) {
+			store.upsertPart(part, created + offset);
+			offset += 0.01;
+		}
+	}
+
+	static function sessionInfo(projectID:String, sessionIDText:String, directory:String):SessionInfo {
+		return {
+			id: SessionID.make(sessionIDText),
+			slug: "fixture-slug",
+			projectID: projectID,
+			directory: directory,
+			title: "Say hello from the fixture.",
+			version: BuildInfo.version,
+			time: {
+				created: CREATED_USER,
+				updated: COMPLETED_ASSISTANT,
+			},
+		};
+	}
+
+	static function encodeEvents(events:Array<FakeProviderEvent>):Array<Dynamic> {
+		final encoded:Array<Dynamic> = [];
+		for (event in events) {
+			switch event {
+				case StreamStart:
+					encoded.push({type: "start"});
+				case TextDelta(text):
+					encoded.push({type: "text-delta", text: text});
+				case Finish(reason):
+					encoded.push({type: "finish", reason: reason});
+			}
+		}
+		return encoded;
+	}
+
+	static function collectText(events:Array<Dynamic>):String {
+		final parts:Array<String> = [];
+		for (event in events) {
+			if (Reflect.field(event, "type") == "text-delta")
+				parts.push(Std.string(Reflect.field(event, "text")));
+		}
+		return parts.join("");
+	}
+
+	static function tokenUsage():TokenUsage {
+		return {
+			total: 12,
+			input: 7,
+			output: 5,
+			reasoning: 0,
+			cache: {read: 0, write: 0},
+		};
+	}
+
+	static function userID(info:Info):MessageID {
+		return switch info {
+			case UserInfo(userData):
+				userData.id;
+			case AssistantInfo(assistantData):
+				assistantData.id;
+		}
+	}
+
+	static function normalizePrompt(input:String):String {
+		if (input == null || StringTools.trim(input) == "")
+			return "Say hello from the fixture.";
+		return input;
+	}
+
+	static function fallback(value:Null<String>, fallbackValue:String):String {
+		if (value == null || value == "")
+			return fallbackValue;
+		return value;
+	}
+
+	static function transcriptTools():Array<String> {
+		return ["read", "write", "edit", "apply_patch"];
+	}
+}

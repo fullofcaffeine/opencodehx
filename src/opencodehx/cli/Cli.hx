@@ -2,6 +2,7 @@ package opencodehx.cli;
 
 import opencodehx.BuildInfo;
 import opencodehx.harness.TranscriptHarness;
+import opencodehx.session.SessionProcessor;
 
 typedef CliResult = {
 	final handled:Bool;
@@ -37,10 +38,15 @@ class Cli {
 		final prompt = message(args);
 		if (StringTools.trim(prompt) == "")
 			return fail("You must provide a message or a command");
+		final processed = SessionProcessor.run({
+			prompt: prompt,
+			directory: SessionProcessor.FIXTURE_DIRECTORY,
+		});
+		final transcript:Dynamic = SessionProcessor.toTranscript(processed);
 		if (format == "json")
-			return ok(TranscriptHarness.oneTurnJson(prompt));
-		final transcript = TranscriptHarness.oneTurn(prompt);
-		final assistant = cast transcript.messages[1];
+			return ok(haxe.Json.stringify(transcript, null, "  "));
+		final messages:Array<Dynamic> = Reflect.field(transcript, "messages");
+		final assistant = messages[1];
 		final parts:Array<Dynamic> = Reflect.field(assistant, "parts");
 		final text = Std.string(Reflect.field(parts[0], "text"));
 		return ok(text);
