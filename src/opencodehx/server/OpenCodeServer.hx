@@ -2,7 +2,6 @@ package opencodehx.server;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
-import haxe.Json;
 import js.Syntax;
 import js.html.Response;
 import js.lib.Promise;
@@ -16,7 +15,6 @@ import opencodehx.session.SessionID;
 import opencodehx.session.SessionProcessor;
 import opencodehx.server.ServerProtocol.DecodeResult;
 import opencodehx.server.ServerProtocol.GlobalSessionResponse;
-import opencodehx.server.ServerProtocol.ServerEvent;
 import opencodehx.server.ServerProtocol.SessionResponse;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.server.ServerTypes.ServerOptions;
@@ -30,7 +28,7 @@ class OpenCodeServer {
 	final ws:NodeWebSocketRuntime;
 	final store:SessionStore;
 	final directory:String;
-	final events:Array<ServerEvent> = [];
+	final eventBus = new ServerEventBus();
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
 
@@ -88,7 +86,7 @@ class OpenCodeServer {
 		final encoded = ServerProtocol.encodeSession(updated);
 		if (sessionOrder.indexOf(result.request.sessionID) == -1)
 			sessionOrder.push(result.request.sessionID);
-		events.push(ServerProtocol.sessionEvent("session.created", result.request.sessionID));
+		eventBus.publish(ServerProtocol.sessionEvent("session.created", result.request.sessionID));
 		return json(c, encoded);
 	}
 
@@ -180,18 +178,15 @@ class OpenCodeServer {
 		};
 		if (!hasSession(request.sessionID))
 			return json(c, ServerProtocol.error("Session not found"), 404);
-		events.push(ServerProtocol.sessionEvent("session.selected", request.sessionID));
+		eventBus.publish(ServerProtocol.sessionEvent("session.selected", request.sessionID));
 		return json(c, true);
 	}
 
 	function eventStream(c:HonoContext):Response {
 		Syntax.code("{0}.header('Cache-Control', 'no-cache, no-transform')", c);
 		Syntax.code("{0}.header('X-Accel-Buffering', 'no')", c);
-		var lines = sseLine(ServerProtocol.connectedEvent());
-		lines += sseLine(ServerProtocol.heartbeatEvent());
-		for (event in events)
-			lines += sseLine(event);
-		return Syntax.code("new Response({0}, { headers: { 'content-type': 'text/event-stream' } })", lines);
+		Syntax.code("{0}.header('X-Content-Type-Options', 'nosniff')", c);
+		return ServerEventStream.response(eventBus.snapshot(), eventBus.subscribe);
 	}
 
 	function hasSession(sessionID:String):Bool {
@@ -215,10 +210,6 @@ class OpenCodeServer {
 			// tolerant route behavior while keeping field access in decoders.
 			return Unknown.fromBoundary({});
 		}
-	}
-
-	static inline function sseLine(event:ServerEvent):String {
-		return "data: " + Json.stringify(event) + "\n\n";
 	}
 
 	static function json<T>(c:HonoContext, payload:T, ?status:Int):Response {

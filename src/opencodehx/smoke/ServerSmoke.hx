@@ -3,6 +3,7 @@ package opencodehx.smoke;
 import genes.js.Async.await;
 import haxe.Json;
 import js.Syntax;
+import js.html.Response;
 import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
@@ -31,6 +32,8 @@ class ServerSmoke {
 			server.close();
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
+			// Smoke cleanup catches arbitrary JS/Haxe failures from the route,
+			// fetch, and WebSocket host APIs, then rethrows the original error.
 			if (listener != null)
 				await(listener.stop(true));
 			server.close();
@@ -142,26 +145,52 @@ class ServerSmoke {
 		eq(aborted, true, "abort route");
 
 		final eventResponse = await(server.app.request("/event"));
-		final eventText = await(textResponse(eventResponse));
+		final eventText = await(readSseEvents(eventResponse, 6));
 		eq(eventText.indexOf('"type":"server.connected"') != -1, true, "sse connected event");
 		eq(eventText.indexOf('"type":"server.heartbeat"') != -1, true, "sse heartbeat event");
 		eq(eventText.indexOf('"type":"session.created"') != -1, true, "sse session event");
+
+		final liveEventResponse = await(server.app.request("/event"));
+		final fourth = await(jsonResponse(await(server.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Fourth", title: "live-event-session"}),
+		}))));
+		eq(Reflect.field(fourth, "id"), "ses_server_4", "live event session id");
+		final liveEventText = await(readSseEvents(liveEventResponse, 8));
+		eq(liveEventText.indexOf('"sessionID":"ses_server_4"') != -1, true, "sse live session event");
 	}
 
 	@:async
 	static function fetchJson(url:String):Promise<Dynamic> {
-		final response:Dynamic = await(Syntax.code("fetch({0})", url));
+		final response:Response = await(Syntax.code("fetch({0})", url));
 		return jsonResponse(response);
 	}
 
 	@:async
-	static function jsonResponse(response:Dynamic):Promise<Dynamic> {
+	static function jsonResponse(response:Response):Promise<Dynamic> {
+		// Parsed JSON in this smoke is intentionally inspected as an untrusted
+		// boundary payload; keep Dynamic local to assertions over response shape.
 		return await(Syntax.code("{0}.json()", response));
 	}
 
-	@:async
-	static function textResponse(response:Dynamic):Promise<String> {
-		return await(Syntax.code("{0}.text()", response));
+	static function readSseEvents(response:Response, eventCount:Int):Promise<String> {
+		return Syntax.code("(async () => {
+			const reader = {0}.body?.getReader();
+			if (!reader) return '';
+			const decoder = new TextDecoder();
+			let text = '';
+			try {
+				while ((text.match(/\\n\\n/g)?.length ?? 0) < {1}) {
+					const result = await reader.read();
+					if (result.done) break;
+					text += decoder.decode(result.value, { stream: true });
+				}
+				return text;
+			} finally {
+				await reader.cancel();
+			}
+		})()", response, eventCount);
 	}
 
 	static function websocketEcho(url:String, message:String):Promise<String> {
