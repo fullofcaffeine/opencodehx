@@ -1,0 +1,48 @@
+{
+  "schema": "opencodehx.reference.genes-pin.v1",
+  "recorded_at": "2026-06-18T03:22:45Z",
+  "bead": "opencodehx-002",
+  "canonical_checkout": {
+    "path": "../genes",
+    "role": "canonical Genes checkout for genes-ts compiler work",
+    "branch": "main",
+    "commit": "d8601fafe66aab3b39c824cfb71e28aabfa660b4",
+    "remotes": {
+      "origin": "git@github.com:fullofcaffeine/genes-ts.git",
+      "upstream": "git@github.com:benmerckx/genes.git"
+    },
+    "package_version": "1.11.0",
+    "haxelib_name": "genes-ts",
+    "haxelib_version": "1.11.0",
+    "dirty_state": {
+      "tracked_changes": false,
+      "untracked_paths": [
+        "genes-ts.xml",
+        "repomix-output-genes-ts 9.25.13\\u202fp.m..xml",
+        "repomix-output-genes-ts.xml.zip"
+      ]
+    }
+  },
+  "integration_reference": {
+    "path": "../fullofcaffeine/tools/cafetera/vendor/genes-ts",
+    "role": "Cafetera vendored integration reference only",
+    "branch": "master",
+    "commit": "d9d936ca4140fe9907476e1f0c5e18a060ad2a55",
+    "package_version": "1.11.0",
+    "haxelib_name": "genes-ts",
+    "haxelib_version": "1.11.0"
+  },
+  "source_comparison": {
+    "compared_paths": [
+      "../genes/src",
+      "../fullofcaffeine/tools/cafetera/vendor/genes-ts/src"
+    ],
+    "source_file_count": 33,
+    "recursive_diff": "no differences",
+    "relative_path_sha256_manifest_hash": "0691b042d1bda69ca6496ccc534810fa78b24ebcdb28ad309a54421f03bf380e"
+  },
+  "decision": {
+    "canonical_dependency": "../genes",
+    "policy": "Fix genes-ts limitations directly in ../genes as generic compiler work, then update this pin after OpenCodeHX gates pass. Do not vendor Genes into opencodehx by default."
+  }
+}
