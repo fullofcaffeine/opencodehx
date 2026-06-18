@@ -63,7 +63,10 @@ class Main {
 		Syntax.code("console.log({0})", "skill-smoke:ok");
 		SessionProcessorSmoke.run();
 		Syntax.code("console.log({0})", "session-processor-smoke:ok");
-		ConfigSmoke.runRemote().then(_ -> {
+		SkillSmoke.runRemote().then(_ -> {
+			Syntax.code("console.log({0})", "skill-remote-smoke:ok");
+			return ConfigSmoke.runRemote();
+		}).then(_ -> {
 			Syntax.code("console.log({0})", "config-remote-smoke:ok");
 			return ServerSmoke.run();
 		}).then(_ -> {

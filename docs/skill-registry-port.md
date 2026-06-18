@@ -13,17 +13,18 @@ Implemented:
 - `.opencode/skill/**/SKILL.md` and `.opencode/skills/**/SKILL.md` discovery.
 - Project and global external skill discovery from `.claude/skills/**/SKILL.md` and `.agents/skills/**/SKILL.md`.
 - `skills.paths` config support for extra local skill roots.
+- `skills.urls` remote discovery through `SkillRemoteDiscovery`, including `index.json` fetching, listed file downloads into a cache directory, `SKILL.md` requirement filtering, trailing-slash normalization, cache reuse, and cache path containment.
 - Missing-frontmatter or missing-required-field skills are skipped, matching upstream's permissive registry behavior.
 - Duplicate names resolve later by discovery order, matching the upstream map assignment behavior.
 - `dirs` returns directories for discovered `SKILL.md` files, including invalid skill files, because upstream records dirs during scanning before validation.
 - Stable name-sorted skill lists and verbose XML-ish formatting with file URLs.
 - `SkillRegistry.available(discovery, agent)` filters the sorted list through agent `permission.skill` rules, using the skill name as the permission pattern and preserving upstream last-match wildcard behavior.
 
-Smoke coverage lives in `opencodehx.smoke.SkillSmoke` and exercises local `.opencode` skills, invalid skill skipping, discovered dirs, external `.claude`/`.agents` skills, global-home external skills, `disableExternal`, `skills.paths`, sorted verbose formatting, and permission-filtered availability.
+Smoke coverage lives in `opencodehx.smoke.SkillSmoke` and exercises local `.opencode` skills, invalid skill skipping, discovered dirs, external `.claude`/`.agents` skills, global-home external skills, `disableExternal`, `skills.paths`, remote `skills.urls`, sorted verbose formatting, and permission-filtered availability.
 
 ## Deliberate Boundaries
 
-Remote `skills.urls` discovery and cache/download behavior remain deferred to the network/cache slice. The typed config shape preserves `urls` now, but `SkillRegistry` intentionally does not fetch them yet.
+Remote skill downloads currently write text payloads through the Node fs seam because the first upstream fixtures are markdown/resource files. If binary bundled resources become required, add a typed `ArrayBuffer`/`Uint8Array` write path rather than widening the app-facing skill model.
 
 Integration with the final session system prompt service remains deferred until the agent/session layers own that behavior. The current `format` and `available` helpers cover the sorted and permission-filtered output shapes used by upstream system prompt tests.
 

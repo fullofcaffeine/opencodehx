@@ -83,7 +83,7 @@ For resource imports under NodeNext, prefer the explicit `opencodehx.resource.Re
 
 For markdown-backed config discovery, treat frontmatter parsing as an `unknown` boundary only at the parser. Command, agent, and mode loaders must immediately narrow owned fields into typed Haxe records, preserve only documented passthrough keys such as agent `options`, and avoid leaking broad `Dynamic`/`any` into app-facing config.
 
-For skills, keep local filesystem discovery in a typed registry (`SkillInfo`, dirs, sorted formatting) and treat remote skill index/download support as a separate network/cache concern. `SkillRegistry.available` should filter with `permission.skill` rules using the skill name as the pattern, preserving last-match wildcard semantics through `PermissionRules`. `skills.urls` may be parsed as config, but do not fake remote behavior with local assumptions; add a real discovery/cache seam when that slice lands.
+For skills, keep filesystem and remote discovery in typed registries (`SkillInfo`, dirs, sorted formatting). `SkillRegistry.available` should filter with `permission.skill` rules using the skill name as the pattern, preserving last-match wildcard semantics through `PermissionRules`. Remote `skills.urls` must go through an explicit discovery/cache seam: fetch `index.json`, require `SKILL.md`, cache listed files under a contained root, and do not let remote file paths escape the cache. The current remote download seam writes text files; add a typed `ArrayBuffer`/`Uint8Array` fs path before claiming arbitrary binary skill resources.
 
 ## Repository Layout Policy
 

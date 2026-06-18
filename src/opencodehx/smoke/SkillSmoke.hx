@@ -1,12 +1,18 @@
 package opencodehx.smoke;
 
+import genes.js.Async.await;
 import haxe.DynamicAccess;
+import haxe.Json;
+import js.lib.Promise;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.AgentInfo;
 import opencodehx.config.ConfigInfo.PermissionConfigValue;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
+import opencodehx.skill.SkillRemoteDiscovery.SkillFetchFunction;
+import opencodehx.skill.SkillRemoteDiscovery.SkillFetchResponse;
+import opencodehx.skill.SkillRemoteDiscovery.SkillIndexPayload;
 import opencodehx.skill.SkillRegistry;
 import opencodehx.skill.SkillRegistry.SkillInfo;
 
@@ -18,6 +24,69 @@ class SkillSmoke {
 			externalAndGlobalSkills(root);
 			configSkillPaths(root);
 			availableSkills(root);
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
+	@:async
+	public static function runRemote():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-skill-remote-"));
+		try {
+			final fixture = directory(root, "fixture");
+			final cache = directory(root, "cache");
+			final baseUrl = "https://example.com/.well-known/skills/";
+			write(fixture, "index.json", Json.stringify({
+				skills: [
+					{name: "remote-alpha", files: ["SKILL.md", "references/guide.md"]},
+					{name: "remote-missing", files: ["README.md"]},
+					{name: "remote-safe", files: ["SKILL.md", "../escape.md"]},
+				]
+			}));
+			write(NodePath.join(fixture, "remote-alpha"), "SKILL.md", '---
+name: remote-alpha
+description: Alpha remote skill.
+---
+
+# Remote Alpha
+');
+			write(join(fixture, "remote-alpha", "references"), "guide.md", "# Guide\n");
+			write(NodePath.join(fixture, "remote-missing"), "README.md", "# Missing Skill\n");
+			write(NodePath.join(fixture, "remote-safe"), "SKILL.md", '---
+name: remote-safe
+description: Safe remote skill.
+---
+
+# Remote Safe
+');
+
+			var downloadCount = 0;
+			final fetcher = skillFetcher(baseUrl, fixture, () -> downloadCount++);
+			final config = new ConfigInfo();
+			config.skills = {urls: [baseUrl.substr(0, baseUrl.length - 1)]};
+
+			final discovery = @:await SkillRegistry.discoverWithRemote(root, cache, {
+				home: root,
+				worktree: root,
+				config: config,
+				fetcher: fetcher
+			});
+			eq(skillNames(discovery.skills), "remote-alpha,remote-safe", "remote skill discovery filters and sorts");
+			eq(Fs.existsSync(join(cache, "remote-alpha", "references", "guide.md")), true, "remote skill reference downloaded");
+			eq(Fs.existsSync(NodePath.join(cache, "escape.md")), false, "remote skill cache path stays contained");
+			final firstCount = downloadCount;
+			eq(firstCount > 0, true, "remote skill initial download count");
+
+			final second = @:await SkillRegistry.discoverWithRemote(root, cache, {
+				home: root,
+				worktree: root,
+				config: config,
+				fetcher: fetcher
+			});
+			eq(skillNames(second.skills), "remote-alpha,remote-safe", "remote skill cache second discovery");
+			eq(downloadCount, firstCount, "remote skill files reused from cache");
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			Fs.rmSync(root, {recursive: true, force: true});
@@ -173,6 +242,36 @@ description: Gamma skill.
 
 	static function skillNames(skills:Array<SkillInfo>):String {
 		return [for (skill in skills) skill.name].join(",");
+	}
+
+	static function skillFetcher(baseUrl:String, fixture:String, countDownload:() -> Void):SkillFetchFunction {
+		return function(url:String):Promise<SkillFetchResponse> {
+			if (!StringTools.startsWith(url, baseUrl))
+				return Promise.resolve(skillResponse(404, "Not Found"));
+			final relative = url.substr(baseUrl.length);
+			final file = NodePath.join(fixture, relative);
+			if (!Fs.existsSync(file))
+				return Promise.resolve(skillResponse(404, "Not Found"));
+			if (!StringTools.endsWith(relative, "index.json"))
+				countDownload();
+			return Promise.resolve(skillResponse(200, Fs.readFileSync(file, "utf8")));
+		};
+	}
+
+	static function skillResponse(status:Int, body:String):SkillFetchResponse {
+		return {
+			ok: status >= 200 && status < 300,
+			status: status,
+			text: function():Promise<String> {
+				return Promise.resolve(body);
+			},
+			json: function():Promise<SkillIndexPayload> {
+				// Test fetch boundary: the production puller validates the index shape
+				// before using it, while this fake response mirrors Response.json().
+				final parsed:SkillIndexPayload = cast Json.parse(body);
+				return Promise.resolve(parsed);
+			},
+		};
 	}
 
 	static function directory(root:String, name:String):String {

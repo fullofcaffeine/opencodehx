@@ -11,6 +11,9 @@ import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodePath;
 import opencodehx.permission.PermissionRules;
+import opencodehx.skill.SkillRemoteDiscovery.SkillFetchFunction;
+import js.lib.Promise;
+import genes.js.Async.await;
 
 typedef SkillInfo = {
 	final name:String;
@@ -25,6 +28,7 @@ typedef SkillDiscoveryOptions = {
 	@:optional final config:ConfigInfo;
 	@:optional final configDirs:Array<String>;
 	@:optional final disableExternal:Bool;
+	@:optional final fetcher:SkillFetchFunction;
 }
 
 typedef SkillDiscovery = {
@@ -73,6 +77,45 @@ class SkillRegistry {
 			final skill = byName.get(name);
 			if (skill != null)
 				skills.push(skill);
+		}
+		skills.sort((a, b) -> Reflect.compare(a.name, b.name));
+		return {
+			skills: skills,
+			dirs: unique(dirs),
+		};
+	}
+
+	@:async
+	public static function discoverWithRemote(directory:String, cacheDir:String, ?options:SkillDiscoveryOptions):Promise<SkillDiscovery> {
+		final opts:SkillDiscoveryOptions = options == null ? {} : options;
+		final local = discover(directory, options);
+		final dirs = local.dirs.copy();
+		final byName = new DynamicAccess<SkillInfo>();
+		for (localSkill in local.skills)
+			byName.set(localSkill.name, localSkill);
+
+		final cfg = opts.config;
+		final urls = cfg != null && cfg.skills != null ? cfg.skills.urls : null;
+		if (urls != null) {
+			for (url in urls) {
+				final pulled = @:await SkillRemoteDiscovery.pull(url, cacheDir, opts.fetcher);
+				for (dir in pulled) {
+					final matches:Array<String> = [];
+					scanAnySkillFiles(dir, matches, dirs);
+					for (match in unique(matches)) {
+						final remoteSkill = load(match);
+						if (remoteSkill != null)
+							byName.set(remoteSkill.name, remoteSkill);
+					}
+				}
+			}
+		}
+
+		final skills:Array<SkillInfo> = [];
+		for (name in byName.keys()) {
+			final namedSkill = byName.get(name);
+			if (namedSkill != null)
+				skills.push(namedSkill);
 		}
 		skills.sort((a, b) -> Reflect.compare(a.name, b.name));
 		return {
