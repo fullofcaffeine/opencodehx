@@ -20,6 +20,7 @@ class ConfigSmoke {
 			legacyTuiKeys(root);
 			projectDiscovery(root);
 			configDirAndProjectDisable(root);
+			schemaAutoAddPreservesTokens(root);
 			invalidJson(root);
 			invalidSchema(root);
 			fileSubstitution(root);
@@ -122,6 +123,25 @@ class ConfigSmoke {
 		eq(enabled.model, "configdir/model", "OPENCODE_CONFIG_DIR overrides project .opencode");
 	}
 
+	static function schemaAutoAddPreservesTokens(root:String):Void {
+		final dir = directory(root, "schema-preserves-tokens");
+		final path = NodePath.join(dir, "opencode.json");
+		write(dir, "opencode.json", '{"username":"{env:PRESERVE_USER}","model":"schema/model"}');
+		final config = ConfigLoader.loadProject(dir, {
+			defaultUsername: "fixture-user",
+			env: {
+				PRESERVE_USER: "secret-user"
+			}
+		});
+		eq(config.schema, ConfigInfo.DEFAULT_SCHEMA, "schema auto-add model value");
+		eq(config.username, "secret-user", "schema auto-add parsed env value");
+
+		final updated = Fs.readFileSync(path, "utf8");
+		contains(updated, "$schema", "schema auto-add writes schema");
+		contains(updated, "{env:PRESERVE_USER}", "schema auto-add preserves raw env token");
+		notContains(updated, "secret-user", "schema auto-add does not leak expanded env value");
+	}
+
 	static function invalidJson(root:String):Void {
 		final dir = directory(root, "bad-json");
 		write(dir, "opencode.json", "{ invalid json }");
@@ -177,5 +197,15 @@ class ConfigSmoke {
 		if (actual != expected) {
 			throw '$label: expected ${expected}, got ${actual}';
 		}
+	}
+
+	static function contains(text:String, needle:String, label:String):Void {
+		if (text.indexOf(needle) == -1)
+			throw '$label: expected to contain ${needle}';
+	}
+
+	static function notContains(text:String, needle:String, label:String):Void {
+		if (text.indexOf(needle) != -1)
+			throw '$label: expected not to contain ${needle}';
 	}
 }

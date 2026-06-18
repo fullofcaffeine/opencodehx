@@ -127,12 +127,49 @@ class ConfigLoader {
 
 	public static function loadFile(path:String, ?options:LoadOptions):ConfigInfo {
 		try {
-			return loadText(Fs.readFileSync(path, "utf8"), path, NodePath.dirname(path), options);
+			final text = Fs.readFileSync(path, "utf8");
+			final info = loadText(text, path, NodePath.dirname(path), options);
+			ensureSchema(path, text, info);
+			return info;
 		} catch (configError:ConfigException) {
 			throw configError;
 		} catch (ioError:Dynamic) {
 			throw new ConfigException(IoError(path, Std.string(ioError)));
 		}
+	}
+
+	static function ensureSchema(path:String, text:String, info:ConfigInfo):Void {
+		if (info.schema != null)
+			return;
+		info.schema = ConfigInfo.DEFAULT_SCHEMA;
+		try {
+			Fs.writeFileSync(path, addDefaultSchema(text), "utf8");
+		} catch (writeError:Dynamic) {
+			// Node fs write errors are intentionally swallowed here to match upstream's
+			// best-effort schema write-back while preserving successful config loading.
+		}
+	}
+
+	static function addDefaultSchema(text:String):String {
+		final brace = firstRootObjectBrace(text);
+		if (brace == -1)
+			return text;
+		return text.substr(0, brace + 1) + '\n  "' + "$" + 'schema": "${ConfigInfo.DEFAULT_SCHEMA}",' + text.substr(brace + 1);
+	}
+
+	static function firstRootObjectBrace(text:String):Int {
+		var index = 0;
+		while (index < text.length) {
+			final code = text.charCodeAt(index);
+			if (!isJsonWhitespace(code))
+				return text.charAt(index) == "{" ? index : -1;
+			index++;
+		}
+		return -1;
+	}
+
+	static inline function isJsonWhitespace(code:Int):Bool {
+		return code == 0x20 || code == 0x09 || code == 0x0A || code == 0x0D;
 	}
 
 	public static function loadText(text:String, source:String, directory:String, ?options:LoadOptions):ConfigInfo {
