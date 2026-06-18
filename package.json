@@ -15,6 +15,7 @@
     "smoke": "node --enable-source-maps dist/index.js",
     "transcript:parity": "npm run build && node scripts/harness/transcript-parity.mjs",
     "cli:smoke": "npm run build && node scripts/harness/cli-smoke.mjs",
+    "test:haxe:unit": "node scripts/harness/haxe-unit-specs.mjs",
     "format:haxe": "bash scripts/lint/hx_format_guard.sh --write",
     "format:haxe:check": "bash scripts/lint/hx_format_guard.sh",
     "security:gitleaks": "bash scripts/security/run-gitleaks.sh",

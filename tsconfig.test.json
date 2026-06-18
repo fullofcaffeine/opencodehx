@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./test/generated/unit",
+    "outDir": "./test/generated/dist",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": [
+    "test/generated/unit/**/*.ts",
+    "test/types/**/*.d.ts"
+  ]
+}
