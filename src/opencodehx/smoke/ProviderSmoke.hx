@@ -181,7 +181,8 @@ class ProviderSmoke {
 		info.enabledProviders = strings(Reflect.field(data, "enabled_providers"));
 		info.model = stringField(data, "model");
 		info.smallModel = stringField(data, "small_model");
-		info.provider = Reflect.field(data, "provider");
+		// Fixture boundary: test object literals mirror JSON config and are narrowed by the app types.
+		info.provider = cast Reflect.field(data, "provider");
 		return info;
 	}
 

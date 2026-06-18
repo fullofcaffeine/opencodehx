@@ -3,12 +3,19 @@ package opencodehx.provider;
 import haxe.Json;
 import js.Syntax;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigInfo.ConfigProviderConfig;
+import opencodehx.config.ConfigInfo.ConfigProviderMap;
+import opencodehx.config.ConfigInfo.ConfigProviderModelConfig;
+import opencodehx.config.ConfigInfo.ConfigProviderModelCostConfig;
+import opencodehx.config.ConfigInfo.ConfigProviderModelLimitConfig;
+import opencodehx.config.ConfigInfo.ConfigProviderModalitiesConfig;
 import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ParsedModelRef;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
+import opencodehx.provider.ProviderTypes.ProviderInterleaved;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 
@@ -17,6 +24,11 @@ typedef ProviderRegistryInput = {
 	@:optional final env:Dynamic;
 	@:optional final auth:Dynamic;
 	@:optional final database:Map<String, ProviderInfo>;
+}
+
+typedef DefaultModelFlags = {
+	@:optional final reasoning:Bool;
+	@:optional final attachment:Bool;
 }
 
 class ProviderRegistry {
@@ -207,16 +219,16 @@ class ProviderRegistry {
 		return providers;
 	}
 
-	static function providerFromConfig(id:String, config:Dynamic, existing:Null<ProviderInfo>):ProviderInfo {
+	static function providerFromConfig(id:String, config:ConfigProviderConfig, existing:Null<ProviderInfo>):ProviderInfo {
 		final providerID = ProviderID.make(id);
-		final env = strings(Reflect.field(config, "env"), existing == null ? [] : existing.env);
-		final name = stringOr(Reflect.field(config, "name"), existing == null ? id : existing.name);
-		final options:ProviderOptions = cast mergeObject(existing == null ? {} : existing.options, Reflect.field(config, "options"));
+		final env = strings(config.env, existing == null ? [] : existing.env);
+		final name = stringOr(config.name, existing == null ? id : existing.name);
+		final options:ProviderOptions = cast mergeObject(existing == null ? {} : existing.options, config.options);
 		final models = existing == null ? new Map<String, ProviderModel>() : cloneModels(existing.models);
-		final modelConfig:Dynamic = Reflect.field(config, "models");
-		if (isRecord(modelConfig)) {
-			for (modelID in Reflect.fields(modelConfig)) {
-				final modelData = Reflect.field(modelConfig, modelID);
+		final modelConfig = config.models;
+		if (modelConfig != null) {
+			for (modelID in modelConfig.keys()) {
+				final modelData = modelConfig.get(modelID);
 				models.set(modelID, modelFromConfig(providerID, modelID, modelData, models.get(modelID), config, existing));
 			}
 		}
@@ -230,42 +242,41 @@ class ProviderRegistry {
 		};
 	}
 
-	static function modelFromConfig(providerID:ProviderID, modelID:String, data:Dynamic, existing:Null<ProviderModel>, providerConfig:Dynamic,
-			existingProvider:Null<ProviderInfo>):ProviderModel {
-		final upstreamID = stringOr(Reflect.field(data, "id"), existing == null ? modelID : existing.api.id);
-		final modelName = stringOr(Reflect.field(data, "name"), existing == null ? modelID : existing.name);
-		final apiConfig:Dynamic = Reflect.field(data, "provider");
-		final npm = stringOr(isRecord(apiConfig) ? Reflect.field(apiConfig, "npm") : null,
-			stringOr(Reflect.field(providerConfig, "npm"), existing == null ? "@ai-sdk/openai-compatible" : existing.api.npm));
-		final apiUrl = stringOr(isRecord(apiConfig) ? Reflect.field(apiConfig, "api") : null,
-			stringOr(Reflect.field(providerConfig, "api"), existing == null ? "" : existing.api.url));
+	static function modelFromConfig(providerID:ProviderID, modelID:String, data:ConfigProviderModelConfig, existing:Null<ProviderModel>,
+			providerConfig:ConfigProviderConfig, existingProvider:Null<ProviderInfo>):ProviderModel {
+		final upstreamID = stringOr(data.id, existing == null ? modelID : existing.api.id);
+		final modelName = stringOr(data.name, existing == null ? modelID : existing.name);
+		final apiConfig = data.provider;
+		final npm = stringOr(apiConfig == null ? null : apiConfig.npm,
+			stringOr(providerConfig.npm, existing == null ? "@ai-sdk/openai-compatible" : existing.api.npm));
+		final apiUrl = stringOr(apiConfig == null ? null : apiConfig.api, stringOr(providerConfig.api, existing == null ? "" : existing.api.url));
+		final interleaved = interleavedOr(data.interleaved, existing == null ? false : existing.capabilities.interleaved);
 		return {
 			id: ModelID.make(modelID),
 			providerID: providerID,
 			name: modelName,
-			family: stringOr(Reflect.field(data, "family"), existing == null ? "" : existing.family),
+			family: stringOr(data.family, existing == null ? "" : existing.family),
 			api: {
 				id: upstreamID,
 				url: apiUrl,
 				npm: npm
 			},
-			status: stringOr(Reflect.field(data, "status"), existing == null ? "active" : existing.status),
+			status: stringOr(data.status, existing == null ? "active" : existing.status),
 			capabilities: {
-				temperature: boolOr(Reflect.field(data, "temperature"), existing == null ? false : existing.capabilities.temperature),
-				reasoning: boolOr(Reflect.field(data, "reasoning"), existing == null ? false : existing.capabilities.reasoning),
-				attachment: boolOr(Reflect.field(data, "attachment"), existing == null ? false : existing.capabilities.attachment),
-				toolcall: boolOr(Reflect.field(data, "tool_call"), existing == null ? true : existing.capabilities.toolcall),
-				input: modality(Reflect.field(data, "modalities"), "input", existing == null ? null : existing.capabilities.input, true),
-				output: modality(Reflect.field(data, "modalities"), "output", existing == null ? null : existing.capabilities.output, true),
-				interleaved: Reflect.hasField(data,
-					"interleaved") ? Reflect.field(data, "interleaved") : existing == null ? false : existing.capabilities.interleaved,
+				temperature: boolOr(data.temperature, existing == null ? false : existing.capabilities.temperature),
+				reasoning: boolOr(data.reasoning, existing == null ? false : existing.capabilities.reasoning),
+				attachment: boolOr(data.attachment, existing == null ? false : existing.capabilities.attachment),
+				toolcall: boolOr(data.tool_call, existing == null ? true : existing.capabilities.toolcall),
+				input: modality(data.modalities, "input", existing == null ? null : existing.capabilities.input, true),
+				output: modality(data.modalities, "output", existing == null ? null : existing.capabilities.output, true),
+				interleaved: interleaved,
 			},
-			cost: costFrom(Reflect.field(data, "cost"), existing == null ? null : existing.cost),
-			options: cast mergeObject(existing == null ? {} : existing.options, Reflect.field(data, "options")),
-			headers: cast mergeObject(existing == null ? {} : existing.headers, Reflect.field(data, "headers")),
-			limit: limitFrom(Reflect.field(data, "limit"), existing == null ? null : existing.limit),
-			release_date: stringOr(Reflect.field(data, "release_date"), existing == null ? "" : existing.release_date),
-			variants: cast mergeObject(existing == null ? {} : existing.variants, Reflect.field(data, "variants")),
+			cost: costFrom(data.cost, existing == null ? null : existing.cost),
+			options: cast mergeObject(existing == null ? {} : existing.options, data.options),
+			headers: cast mergeObject(existing == null ? {} : existing.headers, data.headers),
+			limit: limitFrom(data.limit, existing == null ? null : existing.limit),
+			release_date: stringOr(data.release_date, existing == null ? "" : existing.release_date),
+			variants: cast mergeObject(existing == null ? {} : existing.variants, data.variants),
 		};
 	}
 
@@ -318,9 +329,10 @@ class ProviderRegistry {
 		};
 	}
 
-	static function model(providerID:String, id:String, name:String, npm:String, url:String, context:Float, output:Float, flags:Dynamic):ProviderModel {
-		final reasoning = boolOr(Reflect.field(flags, "reasoning"), false);
-		final attachment = boolOr(Reflect.field(flags, "attachment"), false);
+	static function model(providerID:String, id:String, name:String, npm:String, url:String, context:Float, output:Float,
+			flags:DefaultModelFlags):ProviderModel {
+		final reasoning = boolOr(flags.reasoning, false);
+		final attachment = boolOr(flags.attachment, false);
 		return {
 			id: ModelID.make(id),
 			providerID: ProviderID.make(providerID),
@@ -357,11 +369,11 @@ class ProviderRegistry {
 		};
 	}
 
-	static function filterProviderModels(provider:ProviderInfo, configEntry:Dynamic):ProviderInfo {
+	static function filterProviderModels(provider:ProviderInfo, configEntry:Null<ConfigProviderConfig>):ProviderInfo {
 		final models = new Map<String, ProviderModel>();
-		final whitelistValues = configEntry == null ? null : optionalStrings(Reflect.field(configEntry, "whitelist"));
+		final whitelistValues = configEntry == null ? null : configEntry.whitelist;
 		final whitelist = whitelistValues == null ? null : stringSet(whitelistValues);
-		final blacklistValues = configEntry == null ? null : optionalStrings(Reflect.field(configEntry, "blacklist"));
+		final blacklistValues = configEntry == null ? null : configEntry.blacklist;
 		final blacklist = blacklistValues == null ? new Map<String, Bool>() : stringSet(blacklistValues);
 		for (modelID in provider.models.keys()) {
 			final model = provider.models.get(modelID);
@@ -403,12 +415,12 @@ class ProviderRegistry {
 		return -1;
 	}
 
-	static function providerConfigEntries(data:Dynamic):Map<String, Dynamic> {
-		final result = new Map<String, Dynamic>();
-		if (!isRecord(data))
+	static function providerConfigEntries(data:Null<ConfigProviderMap>):Map<String, ConfigProviderConfig> {
+		final result = new Map<String, ConfigProviderConfig>();
+		if (data == null)
 			return result;
-		for (id in Reflect.fields(data))
-			result.set(id, Reflect.field(data, id));
+		for (id in data.keys())
+			result.set(id, data.get(id));
 		return result;
 	}
 
@@ -503,8 +515,9 @@ class ProviderRegistry {
 		return null;
 	}
 
-	static function modality(data:Dynamic, field:String, existing:Dynamic, defaultText:Bool):opencodehx.provider.ProviderTypes.ProviderCapabilityIO {
-		final values = isRecord(data) ? Reflect.field(data, field) : null;
+	static function modality(data:Null<ConfigProviderModalitiesConfig>, field:String, existing:Dynamic,
+			defaultText:Bool):opencodehx.provider.ProviderTypes.ProviderCapabilityIO {
+		final values = data == null ? null : field == "input" ? data.input : data.output;
 		return {
 			text: contains(values, "text", existing == null ? defaultText : existing.text),
 			audio: contains(values, "audio", existing == null ? false : existing.audio),
@@ -525,23 +538,27 @@ class ProviderRegistry {
 		return false;
 	}
 
-	static function costFrom(data:Dynamic, existing:Dynamic):opencodehx.provider.ProviderTypes.ProviderCost {
+	static function interleavedOr(value:Null<ProviderInterleaved>, fallback:ProviderInterleaved):ProviderInterleaved {
+		return value == null ? fallback : value;
+	}
+
+	static function costFrom(data:Null<ConfigProviderModelCostConfig>, existing:Dynamic):opencodehx.provider.ProviderTypes.ProviderCost {
 		return {
-			input: numberOr(Reflect.field(data, "input"), existing == null ? 0 : existing.input),
-			output: numberOr(Reflect.field(data, "output"), existing == null ? 0 : existing.output),
+			input: numberOr(data == null ? null : data.input, existing == null ? 0 : existing.input),
+			output: numberOr(data == null ? null : data.output, existing == null ? 0 : existing.output),
 			cache: {
-				read: numberOr(Reflect.field(data, "cache_read"), existing == null ? 0 : existing.cache.read),
-				write: numberOr(Reflect.field(data, "cache_write"), existing == null ? 0 : existing.cache.write),
+				read: numberOr(data == null ? null : data.cache_read, existing == null ? 0 : existing.cache.read),
+				write: numberOr(data == null ? null : data.cache_write, existing == null ? 0 : existing.cache.write),
 			},
 		};
 	}
 
-	static function limitFrom(data:Dynamic, existing:Dynamic):opencodehx.provider.ProviderTypes.ProviderLimit {
+	static function limitFrom(data:Null<ConfigProviderModelLimitConfig>, existing:Dynamic):opencodehx.provider.ProviderTypes.ProviderLimit {
 		final result:Dynamic = {
-			context: numberOr(Reflect.field(data, "context"), existing == null ? 0 : existing.context),
-			output: numberOr(Reflect.field(data, "output"), existing == null ? 0 : existing.output),
+			context: numberOr(data == null ? null : data.context, existing == null ? 0 : existing.context),
+			output: numberOr(data == null ? null : data.output, existing == null ? 0 : existing.output),
 		};
-		final input = numberOr(Reflect.field(data, "input"), existing == null || existing.input == null ? -1 : existing.input);
+		final input = numberOr(data == null ? null : data.input, existing == null || existing.input == null ? -1 : existing.input);
 		if (input >= 0)
 			Reflect.setField(result, "input", input);
 		return cast result;

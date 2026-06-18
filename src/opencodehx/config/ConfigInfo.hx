@@ -1,5 +1,12 @@
 package opencodehx.config;
 
+import haxe.DynamicAccess;
+import haxe.extern.EitherType;
+import opencodehx.provider.ProviderTypes.ProviderHeaders;
+import opencodehx.provider.ProviderTypes.ProviderInterleaved;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
+import opencodehx.provider.ProviderTypes.ProviderVariants;
+
 enum ShareMode {
 	ShareManual;
 	ShareAuto;
@@ -20,16 +27,77 @@ typedef ServerConfig = {
 	@:optional final cors:Array<String>;
 }
 
+typedef ConfigProviderMap = DynamicAccess<ConfigProviderConfig>;
+
+typedef ConfigProviderConfig = {
+	@:optional final name:String;
+	@:optional final env:Array<String>;
+	@:optional final api:String;
+	@:optional final npm:String;
+	@:optional final options:ProviderOptions;
+	@:optional final models:DynamicAccess<ConfigProviderModelConfig>;
+	@:optional final whitelist:Array<String>;
+	@:optional final blacklist:Array<String>;
+}
+
+typedef ConfigProviderModelConfig = {
+	@:optional final id:String;
+	@:optional final name:String;
+	@:optional final family:String;
+	@:optional final status:String;
+	@:optional final provider:ConfigProviderModelApiConfig;
+	@:optional final temperature:Bool;
+	@:optional final reasoning:Bool;
+	@:optional final attachment:Bool;
+	@:optional final tool_call:Bool;
+	@:optional final modalities:ConfigProviderModalitiesConfig;
+	@:optional final interleaved:ProviderInterleaved;
+	@:optional final cost:ConfigProviderModelCostConfig;
+	@:optional final limit:ConfigProviderModelLimitConfig;
+	@:optional final release_date:String;
+	@:optional final options:ProviderOptions;
+	@:optional final headers:ProviderHeaders;
+	@:optional final variants:ProviderVariants;
+}
+
+typedef ConfigProviderModelApiConfig = {
+	@:optional final api:String;
+	@:optional final npm:String;
+}
+
+typedef ConfigProviderModalitiesConfig = {
+	@:optional final input:Array<String>;
+	@:optional final output:Array<String>;
+}
+
+typedef ConfigProviderModelCostConfig = {
+	@:optional final input:Float;
+	@:optional final output:Float;
+	@:optional final cache_read:Float;
+	@:optional final cache_write:Float;
+}
+
+typedef ConfigProviderModelLimitConfig = {
+	@:optional final context:Float;
+	@:optional final output:Float;
+	@:optional final input:Float;
+}
+
+typedef PermissionConfig = DynamicAccess<PermissionConfigValue>;
+typedef PermissionConfigValue = EitherType<String, DynamicAccess<String>>;
+
 class ConfigInfo {
 	public static inline final DEFAULT_SCHEMA = "https://opencode.ai/config.json";
 
 	public var schema:Null<String>;
 	public var logLevel:Null<String>;
 	public var server:Null<ServerConfig>;
+	// Boundary debt: these nested schemas are owned by later command/skill/file-watch/plugin slices.
 	public var command:Dynamic;
 	public var skills:Dynamic;
 	public var watcher:Dynamic;
 	public var snapshot:Null<Bool>;
+	// Boundary debt: plugin entries are external module/path descriptors until plugin loading is ported.
 	public var plugin:Array<Dynamic>;
 	public var share:Null<ShareMode>;
 	public var autoshare:Null<Bool>;
@@ -40,15 +108,17 @@ class ConfigInfo {
 	public var smallModel:Null<String>;
 	public var defaultAgent:Null<String>;
 	public var username:Null<String>;
+	// Boundary debt: mode/agent schemas become precise with the agent/session orchestration slice.
 	public var mode:Dynamic;
 	public var agent:Dynamic;
-	public var provider:Dynamic;
+	public var provider:Null<ConfigProviderMap>;
+	// Boundary debt: MCP/formatter/LSP/layout/tool/enterprise/compaction/experimental owners are not ported yet.
 	public var mcp:Dynamic;
 	public var formatter:Dynamic;
 	public var lsp:Dynamic;
 	public var instructions:Null<Array<String>>;
 	public var layout:Dynamic;
-	public var permission:Dynamic;
+	public var permission:Null<PermissionConfig>;
 	public var tools:Dynamic;
 	public var enterprise:Dynamic;
 	public var compaction:Dynamic;

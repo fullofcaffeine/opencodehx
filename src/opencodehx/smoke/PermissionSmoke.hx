@@ -2,7 +2,6 @@ package opencodehx.smoke;
 
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Fs;
-import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
 import opencodehx.permission.PermissionRules;
 import opencodehx.permission.PermissionRuntime;
@@ -21,7 +20,7 @@ class PermissionSmoke {
 	}
 
 	static function fromConfigAndEvaluate():Void {
-		final rules = PermissionRules.fromConfig({
+		final rules = PermissionRules.fromConfig(cast {
 			"*": "ask",
 			bash: {"*": "allow", "rm *": "deny"},
 			edit: "deny",
@@ -33,7 +32,7 @@ class PermissionSmoke {
 		eq(PermissionRules.evaluate("read", "src/a.ts", [rules]).action, "ask", "wildcard fallback");
 		eq(PermissionRules.evaluate("external_directory", NodePath.join(Os.homedir(), "projects/x"), [rules]).action, "allow", "home expansion");
 
-		final reversed = PermissionRules.fromConfig({bash: "allow", "*": "deny"});
+		final reversed = PermissionRules.fromConfig(cast {bash: "allow", "*": "deny"});
 		eq(PermissionRules.evaluate("bash", "ls", [reversed]).action, "allow", "specific beats wildcard");
 	}
 

@@ -1,5 +1,7 @@
 package opencodehx.permission;
 
+import haxe.DynamicAccess;
+import opencodehx.config.ConfigInfo.PermissionConfig;
 import opencodehx.externs.node.Os;
 import opencodehx.permission.PermissionTypes.PermissionRule;
 import opencodehx.util.Wildcard;
@@ -47,7 +49,7 @@ class PermissionRules {
 		return result;
 	}
 
-	public static function fromConfig(config:Dynamic):Array<PermissionRule> {
+	public static function fromConfig(config:Null<PermissionConfig>):Array<PermissionRule> {
 		if (config == null)
 			return [];
 		final keys = Reflect.fields(config);
@@ -60,18 +62,21 @@ class PermissionRules {
 		});
 		final result:Array<PermissionRule> = [];
 		for (key in keys) {
-			final value:Dynamic = Reflect.field(config, key);
+			// Runtime JSON can hold either a direct action string or a pattern map.
+			// This localized Dynamic read is the narrowing point for that union.
+			final value:Dynamic = config.get(key);
 			if (Std.isOfType(value, String)) {
 				result.push({permission: key, pattern: "*", action: Std.string(value)});
 				continue;
 			}
 			if (value == null || !Reflect.isObject(value))
 				continue;
-			for (pattern in Reflect.fields(value)) {
+			final patterns:DynamicAccess<String> = cast value;
+			for (pattern in patterns.keys()) {
 				result.push({
 					permission: key,
 					pattern: expand(pattern),
-					action: Std.string(Reflect.field(value, pattern)),
+					action: Std.string(patterns.get(pattern)),
 				});
 			}
 		}

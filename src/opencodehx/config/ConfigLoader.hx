@@ -121,13 +121,13 @@ class ConfigLoader {
 		info.username = optionalString(data, "username", source, issues);
 		info.mode = optionalAny(data, "mode");
 		info.agent = optionalAny(data, "agent");
-		info.provider = optionalAny(data, "provider");
+		info.provider = optionalObject(data, "provider", issues);
 		info.mcp = optionalAny(data, "mcp");
 		info.formatter = optionalAny(data, "formatter");
 		info.lsp = optionalAny(data, "lsp");
 		info.instructions = optionalStringArray(data, "instructions", source, issues);
 		info.layout = optionalAny(data, "layout");
-		info.permission = optionalAny(data, "permission");
+		info.permission = optionalObject(data, "permission", issues);
 		info.tools = optionalAny(data, "tools");
 		info.enterprise = optionalAny(data, "enterprise");
 		info.compaction = optionalAny(data, "compaction");
@@ -150,6 +150,16 @@ class ConfigLoader {
 
 	static function optionalAny(data:Dynamic, field:String):Dynamic {
 		return Reflect.hasField(data, field) ? Reflect.field(data, field) : null;
+	}
+
+	static function optionalObject<T>(data:Dynamic, field:String, issues:Array<String>):Null<haxe.DynamicAccess<T>> {
+		if (!Reflect.hasField(data, field))
+			return null;
+		final value = Reflect.field(data, field);
+		if (value != null && Reflect.isObject(value) && !Std.isOfType(value, Array))
+			return cast value;
+		issues.push('${field}: expected object');
+		return null;
 	}
 
 	static function optionalString(data:Dynamic, field:String, source:String, issues:Array<String>):Null<String> {
