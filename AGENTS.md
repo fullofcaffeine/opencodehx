@@ -52,7 +52,7 @@ When OpenCodeHX exposes a compiler limitation:
 3. Fix `genes-ts` generically; do not bake in OpenCode paths, names, or assumptions.
 4. Verify generated TS snapshots, `tsc`, and runtime smoke behavior where relevant.
 5. Return to OpenCodeHX, update the pin/manifest or notes, and unblock the port slice.
-6. Record the limitation and fix status in Beads or `genes-ts-limitation-ledger.md` until Beads fully represents it.
+6. Record the limitation and fix status in Beads or `docs/genes-ts-limitation-ledger.md` until Beads fully represents it.
 
 Generated TS quality problems are compiler work, not source contortion work, when the Haxe source is otherwise a good model.
 
