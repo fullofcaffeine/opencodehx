@@ -138,8 +138,9 @@ function nextBeadFor(path, area) {
   if (area === "tool" || area === "patch" || area === "snapshot") return "opencodehx-u5i"
   if (area === "shell" || area === "pty") return "opencodehx-3qi"
   if (area === "permission") return "opencodehx-049"
-  if (area === "config" || area === "project" || area === "workspace" || area === "git" || area === "installation" || area === "sync")
-    return "opencodehx-zr1/opencodehx-ajd"
+  if (area === "config") return "opencodehx-zr1"
+  if (area === "project" || area === "workspace" || area === "git" || area === "installation" || area === "sync")
+    return "opencodehx-who"
   if (area === "mcp" || area === "acp") return "opencodehx-028"
   if (area === "lsp" || area === "ide") return "opencodehx-029"
   if (area === "plugin" || area === "skill") return "opencodehx-030"
