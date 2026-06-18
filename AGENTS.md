@@ -117,6 +117,18 @@ Use upstream OpenCode as the behavioral authority:
 - Treat upstream OpenCode tests as oracle inputs. Adapt them into Haxe-owned fixtures or differential harnesses rather than copying blindly.
 - Use `docs/ts2hx-opencode-audit.md` as the current ts2hx evidence. ts2hx is useful for inventory, dependency ordering, and small repros, but broad OpenCode conversion should be Haxe-native and parity-led rather than a blind generated rewrite.
 
+## Haxe-Authored Testing Strategy
+
+Use `../haxe.ruby` as the local precedent for typed source tests that generate native target tests. The goal is not to replace the host ecosystem's runners; it is to author more of the durable test intent in Haxe while still emitting idiomatic Jest/Vitest/Playwright specs that OpenCode maintainers can read and run normally.
+
+- Native target tests remain first-class. Upstream OpenCode tests, generated TypeScript tests, Jest/Vitest-compatible specs, Playwright specs, shell smokes, and transcript fixtures are all valid oracle evidence.
+- Haxe-authored test layers should add value through types: typed fixtures, API routes, event names, provider/model IDs, permission outcomes, selector contracts, tool input/output records, and generated golden helpers.
+- Prefer explicit declaration hosts and metadata over magic discovery. A future test facade should make the generated file path, runner kind, and target shape obvious at the Haxe call site.
+- Generate normal target-runner files. Jest/Vitest output should look like careful handwritten TypeScript tests; Playwright output should import from `@playwright/test` and use standard `test`, `expect`, fixtures, and `Page` typing.
+- Keep tests thin at host seams. Browser/TUI tests should assert visible behavior and stable events, while pure transformations and DTO invariants should stay in fast Haxe/TS unit fixtures.
+- Use Haxe facades to reduce drift, not hide behavior. Selectors, server paths, event discriminants, config keys, and transcript step kinds should be typed where practical, but the generated spec should still reveal the user-facing action being tested.
+- Any compiler feature needed for test generation, such as async fixtures, TSX, import typing, erased declaration hosts, or snapshot-friendly output, belongs in `../genes` with a minimal generic fixture before depending on it broadly here.
+
 ## Extern and Interop Policy
 
 Do not port external npm libraries wholesale early. Start with narrow externs/facades for used APIs:
