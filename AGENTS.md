@@ -183,6 +183,8 @@ Current generated-TS hygiene lesson: avoid dense `Array.map` plus switch-express
 
 For provider/session parity, keep transcript fixtures deterministic and credential-free. Early harnesses may use upstream-shaped oracle scripts, but each one must document when it should be replaced by a real upstream command runner.
 
+For CLI parity, keep the command dispatcher pure enough to smoke test without spawning Node; use separate harness scripts for generated-binary behavior such as stdout, stderr, and exit codes.
+
 Document non-obvious advanced Haxe features with concise hxdoc:
 
 - why the feature is used,

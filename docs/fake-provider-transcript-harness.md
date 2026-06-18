@@ -10,6 +10,7 @@ This slice adds a credential-free provider fixture and transcript comparison har
 - `opencodehx.provider.FakeProvider` mirrors the upstream test provider's default provider/model IDs, capability flags, model limits, and zero-cost shape.
 - `opencodehx.harness.TranscriptHarness` emits a deterministic one-turn user/assistant transcript using the Haxe Message V2 codec.
 - `node dist/index.js --transcript-fixture` prints the OpenCodeHX transcript JSON without running the normal smoke suite.
+- `node dist/index.js run --format json --model openai/gpt-5.2 "Say hello from the fixture."` now emits the same transcript through the headless run scaffold.
 - `scripts/harness/upstream-fake-provider-oracle.mjs` emits the upstream-shaped oracle transcript.
 - `scripts/harness/transcript-parity.mjs` compares the upstream oracle, OpenCodeHX output, and `fixtures/transcripts/one-turn.golden.json`.
 
@@ -35,7 +36,7 @@ node scripts/harness/transcript-parity.mjs
 
 OpenCodeHX does not have the headless session processor yet, so the upstream side is an upstream-shaped oracle script rather than the real `opencode run` flow. That is deliberate: it gives the next session slice a stable credential-free target while keeping this bead limited to provider and transcript mechanics.
 
-Once `opencodehx-021` lands, replace or augment the oracle script with a real upstream command runner and keep the normalized JSON diff contract.
+`opencodehx-021` added the OpenCodeHX `run --format json` side of the comparison. The upstream side is still an oracle script; replace or augment it with a real upstream command runner once a stable upstream fake-provider run path is available.
 
 ## Haxe Modeling Lesson
 

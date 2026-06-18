@@ -41,12 +41,12 @@ class TranscriptHarness {
 	static inline final CREATED_ASSISTANT = 1001.0;
 	static inline final COMPLETED_ASSISTANT = 1002.0;
 
-	public static function oneTurnJson():String {
-		return Json.stringify(oneTurn(), null, "  ");
+	public static function oneTurnJson(?prompt:String):String {
+		return Json.stringify(oneTurn(prompt), null, "  ");
 	}
 
-	public static function oneTurn():TranscriptTurn {
-		final prompt = "Say hello from the fixture.";
+	public static function oneTurn(?inputPrompt:String):TranscriptTurn {
+		final prompt = inputPrompt == null || StringTools.trim(inputPrompt) == "" ? "Say hello from the fixture." : inputPrompt;
 		final provider = new FakeProvider();
 		final events = encodeEvents(provider.stream(prompt));
 		final assistantText = collectText(events);

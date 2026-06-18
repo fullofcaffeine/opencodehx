@@ -43,11 +43,17 @@ function flattenKeys(value, keys = {}) {
 
 const upstream = runJson("node", ["scripts/harness/upstream-fake-provider-oracle.mjs"], "upstream fake-provider oracle");
 const hx = runJson("node", ["dist/index.js", "--transcript-fixture"], "OpenCodeHX transcript fixture");
+const hxRun = runJson(
+  "node",
+  ["dist/index.js", "run", "--format", "json", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."],
+  "OpenCodeHX run transcript",
+);
 const goldenPath = path.join(root, "fixtures/transcripts/one-turn.golden.json");
 const golden = JSON.parse(readFileSync(goldenPath, "utf8"));
 
 assert.equal(canonical(upstream), canonical(golden), "upstream oracle drifted from golden transcript");
 assert.equal(canonical(hx), canonical(golden), "OpenCodeHX transcript drifted from golden transcript");
+assert.equal(canonical(hxRun), canonical(golden), "OpenCodeHX run transcript drifted from golden transcript");
 assert.equal(canonical(hx), canonical(upstream), "OpenCodeHX transcript differs from upstream oracle");
 
 console.log("transcript-parity:ok");

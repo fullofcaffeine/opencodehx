@@ -13,6 +13,7 @@
     "build": "npm run clean && npm run build:haxe && npm run copy:resources && npm run typecheck",
     "smoke": "node --enable-source-maps dist/index.js",
     "transcript:parity": "npm run build && node scripts/harness/transcript-parity.mjs",
+    "cli:smoke": "npm run build && node scripts/harness/cli-smoke.mjs",
     "format:haxe": "bash scripts/lint/hx_format_guard.sh --write",
     "format:haxe:check": "bash scripts/lint/hx_format_guard.sh",
     "security:gitleaks": "bash scripts/security/run-gitleaks.sh",
