@@ -13,6 +13,7 @@ import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
 import opencodehx.smoke.ProviderSmoke;
+import opencodehx.smoke.ResourceSmoke;
 import opencodehx.smoke.ServerSmoke;
 import opencodehx.smoke.SessionProcessorSmoke;
 import opencodehx.smoke.StorageSmoke;
@@ -45,6 +46,8 @@ class Main {
 		Syntax.code("console.log({0})", "config-smoke:ok");
 		FileSmoke.run();
 		Syntax.code("console.log({0})", "file-smoke:ok");
+		ResourceSmoke.run();
+		Syntax.code("console.log({0})", "resource-smoke:ok");
 		MessageSmoke.run();
 		Syntax.code("console.log({0})", "message-smoke:ok");
 		PermissionSmoke.run();

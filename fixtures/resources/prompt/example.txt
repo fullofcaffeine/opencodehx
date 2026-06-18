@@ -1,0 +1,3 @@
+OpenCodeHX prompt fixture.
+
+This text file exercises upstream-style prompt/template resource loading under NodeNext.

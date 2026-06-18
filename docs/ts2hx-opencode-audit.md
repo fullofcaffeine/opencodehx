@@ -52,8 +52,8 @@ The AST audit scanned 446 `.ts`/`.tsx` files. It confirms that ts2hx can be usef
 - `tsx-jsx-requires-hxx-or-tsx-compiler-fixtures`: 1099 JSX nodes across TUI files.
 - `satisfies-needs-type-directed-haxe-modeling`: 60 sites, often registries and typed constants.
 - `advanced-type-level-ts-manual-or-extern`: 34 sites covering conditional, mapped, and template literal types.
-- `resource-txt-needs-copy-or-loader`: 34 prompt/description imports.
-- `resource-wav-needs-copy-or-loader`: 4 TUI sound imports.
+- `resource-txt-needs-copy-or-loader`: 34 prompt/description imports. OpenCodeHX now has a Node runtime adapter for copied text resources; direct import syntax remains manual.
+- `resource-wav-needs-copy-or-loader`: 4 TUI sound imports. OpenCodeHX now has a Node runtime adapter for copied file-path resources; direct `type:file` import syntax remains manual.
 
 ## Conversion Guidance
 

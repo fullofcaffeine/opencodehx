@@ -21,6 +21,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 5. **Classify seams before abstracting.** Mark runtime classes such as `portable`, `node-host`, `bun-host`, `tsx`, `browser`, `resource`, or `generated-ts-only`. Add abstractions only when they reduce real coupling.
 6. **Parity is empirical.** Prefer upstream tests, golden transcripts, API fixtures, terminal replays, generated TS snapshots, and smoke commands over intuition.
 7. **No "it compiles" success.** A slice is done only when behavior, generated output quality, and the relevant gates are proven.
+8. **Upstream tests are standing oracles.** Every upstream OpenCode test should eventually pass against OpenCodeHX directly or through an adapted Haxe-owned/differential harness. Until then, each test must stay represented in the port matrix with current evidence, missing scope, and an owning Bead.
 
 ## Haxe Design Direction
 
@@ -71,6 +72,8 @@ When a macro-generated TypeScript boundary needs a TS-only shape, prefer a small
 When Haxe std reflection or extern aliases expose generated TS type leaks, fix the alias lowering in `genes-ts` rather than avoiding the Haxe API. The config port exposed `Reflect.fields` emitting `unsafeCast<Rest<any>>`; `../genes` now normalizes `haxe.extern.Rest<T>` aliases to `T[]` and guards the full fixture against unresolved `Rest` casts.
 
 For provider registry work, model stable provider facts in Haxe first: provider/model IDs as abstracts, capabilities/costs/limits/headers as typed records, and upstream unions such as `interleaved` as Haxe union-friendly types. Keep provider `options` and `variants` open only because upstream treats them as provider-SDK passthrough `Record<string, any>` data, and narrow provider-specific options through facades when a runtime path owns them.
+
+For resource imports under NodeNext, prefer the explicit `opencodehx.resource.Resources` adapter until `genes-ts` has a proven generic import story for `.txt`, `type:file`, and dynamic `.wasm` assets. JSON import attributes are already covered by `genes.ts.Imports.defaultImportWith(...)`; arbitrary text/file/WASM imports should resolve to copied resources and typed runtime helpers rather than hidden bundler assumptions.
 
 ## Repository Layout Policy
 

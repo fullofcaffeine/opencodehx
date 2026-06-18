@@ -7,7 +7,9 @@ const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, "../..");
 
 const source = path.join(root, "fixtures/resources");
-const target = path.join(root, "src-gen/resources");
+const targets = [path.join(root, "src-gen/resources"), path.join(root, "dist/resources")];
 
-rmSync(target, { recursive: true, force: true });
-cpSync(source, target, { recursive: true });
+for (const target of targets) {
+  rmSync(target, { recursive: true, force: true });
+  cpSync(source, target, { recursive: true });
+}
