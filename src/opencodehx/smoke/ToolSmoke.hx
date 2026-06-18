@@ -228,6 +228,46 @@ class ToolSmoke {
 				case _: false;
 			}
 		}, "edit multiple failure");
+
+		write(ctx.directory, "src/line-trimmed.txt", "function run() {\n  return 1;\n}\n");
+		registry.execute("edit", {
+			filePath: "src/line-trimmed.txt",
+			oldString: "function run() {\nreturn 1;\n}",
+			newString: "function run() {\n  return 2;\n}"
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/line-trimmed.txt"), "utf8"), "function run() {\n  return 2;\n}\n", "edit line-trimmed");
+
+		write(ctx.directory, "src/block-anchor.txt", "start\nactual middle\nfinish\n");
+		registry.execute("edit", {
+			filePath: "src/block-anchor.txt",
+			oldString: "start\nstale middle\nfinish",
+			newString: "start\nfresh middle\nfinish"
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/block-anchor.txt"), "utf8"), "start\nfresh middle\nfinish\n", "edit block anchor");
+
+		write(ctx.directory, "src/whitespace.txt", "const pair = alpha   +\t beta;\n");
+		registry.execute("edit", {
+			filePath: "src/whitespace.txt",
+			oldString: "const pair = alpha + beta;",
+			newString: "const pair = gamma;"
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/whitespace.txt"), "utf8"), "const pair = gamma;\n", "edit whitespace-normalized");
+
+		write(ctx.directory, "src/indent.txt", "    alpha\n      beta\n    gamma\n");
+		registry.execute("edit", {
+			filePath: "src/indent.txt",
+			oldString: "alpha\n  beta\ngamma",
+			newString: "delta"
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/indent.txt"), "utf8"), "delta\n", "edit indentation-flexible");
+
+		write(ctx.directory, "src/escaped.txt", "const value = \"a\\nb\";\n");
+		registry.execute("edit", {
+			filePath: "src/escaped.txt",
+			oldString: "const value = \"a\\\\nb\";",
+			newString: "const value = \"c\";"
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/escaped.txt"), "utf8"), "const value = \"c\";\n", "edit escape-normalized");
 	}
 
 	static function applyPatchExec(registry:ToolRegistry, ctx:ToolContext):Void {
@@ -248,6 +288,75 @@ class ToolSmoke {
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/patch-added.txt"), "utf8"), "one\ntwo\n", "patch add content");
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/c.ts"), "utf8").indexOf("other = 3") != -1, true, "patch update content");
 		eq(Fs.existsSync(NodePath.join(ctx.directory, "src/b.txt")), false, "patch delete content");
+		final files = cast Reflect.field(result.metadata, "files");
+		eq(Reflect.field(files[0], "type"), "add", "patch metadata type");
+
+		write(ctx.directory, "src/move-from.txt", "move me\n");
+		registry.execute("apply_patch", {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/move-from.txt",
+				"*** Move to: src/moved/move-to.txt",
+				"@@",
+				"-move me",
+				"+moved",
+				"*** End Patch",
+			].join("\n")
+		}, ctx);
+		eq(Fs.existsSync(NodePath.join(ctx.directory, "src/move-from.txt")), false, "patch move removes source");
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/moved/move-to.txt"), "utf8"), "moved\n", "patch move writes target");
+
+		write(ctx.directory, "src/eof.txt", "start\nmarker\nmiddle\nmarker\nend\n");
+		registry.execute("apply_patch", {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/eof.txt",
+				"@@",
+				"-marker",
+				"-end",
+				"+marker-changed",
+				"+end",
+				"*** End of File",
+				"*** End Patch",
+			].join("\n")
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/eof.txt"), "utf8"), "start\nmarker\nmiddle\nmarker-changed\nend\n", "patch EOF anchor");
+
+		registry.execute("apply_patch", {
+			patchText: "cat <<'EOF'\n*** Begin Patch\n*** Add File: src/heredoc.txt\n+wrapped\n*** End Patch\nEOF"
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/heredoc.txt"), "utf8"), "wrapped\n", "patch heredoc");
+
+		write(ctx.directory, "src/unicode.txt", "He said \u201Chello\u201D\nsome\u2014dash\nend\n");
+		registry.execute("apply_patch", {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/unicode.txt",
+				"@@",
+				"-He said \"hello\"",
+				"+He said \"hi\"",
+				"*** End Patch",
+			].join("\n")
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/unicode.txt"), "utf8"), "He said \"hi\"\nsome\u2014dash\nend\n", "patch unicode-normalized");
+
+		expectToolFailure(() -> registry.execute("apply_patch", {patchText: "*** Begin Patch\n*** Frobnicate File: foo\n*** End Patch"}, ctx),
+			function(failure) {
+				return switch failure {
+					case ExecutionFailed(id, message): id == "apply_patch" && message.indexOf("no hunks found") != -1;
+					case _: false;
+				}
+			}, "patch malformed header");
+
+		expectToolFailure(() -> registry.execute("apply_patch", {
+			patchText: "*** Begin Patch\n*** Add File: src/should-not-exist.txt\n+hello\n*** Update File: src/missing.txt\n@@\n-old\n+new\n*** End Patch"
+		}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "apply_patch" && message.indexOf("Failed to read file to update") != -1;
+				case _: false;
+			}
+		}, "patch verification no side effects");
+		eq(Fs.existsSync(NodePath.join(ctx.directory, "src/should-not-exist.txt")), false, "patch no side effects");
 	}
 
 	static function context(root:String, ?ask:(ToolPermissionRequest) -> ToolPermissionDecision):ToolContext {

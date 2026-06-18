@@ -9,13 +9,13 @@ This slice extends the Haxe-owned tool registry with the first mutating filesyst
 
 - `read` for file previews, line offsets/limits, directory listings, project-boundary checks, missing-file suggestions, and binary-file rejection.
 - `write` for file creation/replacement with parent directory creation, diff metadata, and edit permission requests.
-- `edit` for exact replacement, `replaceAll`, empty-`oldString` file creation, line-ending preservation, duplicate-match rejection, and diff metadata.
-- `apply_patch` for OpenAI-style patch envelopes with add, update, delete, move planning, project-boundary checks, permission aggregation, and summary output.
+- `edit` for exact replacement, tolerant upstream-style fallback matching, `replaceAll`, empty-`oldString` file creation, line-ending preservation, duplicate-match rejection, and diff metadata.
+- `apply_patch` for OpenAI-style patch envelopes with add, update, delete, move planning, EOF/context anchors, heredoc-wrapped patches, Unicode-normalized matching, project-boundary checks, permission aggregation, and summary output.
 - Shared `ToolPermission`, `ToolPaths`, and `TextDiff` helpers so later session/tool lifecycle work has one narrow place to connect the real permission UX and richer diff rendering.
 
 ## Evidence
 
-`ToolSmoke` now covers registry surface, unknown/disabled/invalid failures, read file and directory output, path escape rejection, read permission denial, glob/grep parity smoke cases, write creation, edit exact/replace-all/multiple-match failures, and apply_patch add/update/delete execution.
+`ToolSmoke` now covers registry surface, unknown/disabled/invalid failures, read file and directory output, path escape rejection, read permission denial, glob/grep parity smoke cases, write creation, edit exact/replace-all/multiple-match failures, tolerant edit fallbacks for line-trimmed, block-anchor, whitespace, indentation, and escape-normalized matches, plus apply_patch add/update/delete/move execution, EOF anchors, heredoc parsing, Unicode-normalized matching, malformed headers, and no-side-effect verification failures.
 
 Gates used for this slice:
 
@@ -29,8 +29,8 @@ npm run smoke
 This is still a parity scaffold, not the final OpenCode tool runtime:
 
 - LSP diagnostics, formatting hooks, file watcher/bus publication, snapshots, and Effect integration remain deferred to their owning beads.
-- `edit` currently implements exact matching and `replaceAll`. Upstream's tolerant replacement ladder (`LineTrimmedReplacer`, `BlockAnchorReplacer`, whitespace/indent/escape/context fallbacks) should be ported as a dedicated follow-up with fixture coverage.
-- `apply_patch` implements the OpenAI patch envelope and core chunk matching. Richer verification fixtures for heredoc parsing, moves, EOF chunks, unicode-normalized matching, and malformed patch errors should be expanded before depending on it for broad automated edits.
+- `edit` now ports the upstream tolerant replacement ladder shape, but broad differential coverage against every upstream edit test remains future work once the Haxe-authored test facade grows beyond smoke fixtures.
+- `apply_patch` now covers the high-risk verification cases from the follow-up bead, but the standalone upstream `patch/index.ts` helper surface is still not a public Haxe API.
 
 ## genes-ts Notes
 

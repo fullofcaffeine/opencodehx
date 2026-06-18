@@ -21,7 +21,7 @@ enum PatchHunk {
 }
 
 typedef PatchChange = {
-	final kind:String;
+	final type:String;
 	final filePath:String;
 	final relativePath:String;
 	final oldContent:String;
@@ -58,8 +58,12 @@ class ApplyPatchTool {
 			throw new ToolException(InvalidArguments("apply_patch", issues));
 
 		final hunks = parse(patchText);
-		if (hunks.length == 0)
-			throw new ToolException(ExecutionFailed("apply_patch", "patch rejected: empty patch"));
+		if (hunks.length == 0) {
+			final normalized = StringTools.trim(StringTools.replace(StringTools.replace(patchText, "\r\n", "\n"), "\r", "\n"));
+			if (normalized == "*** Begin Patch\n*** End Patch")
+				throw new ToolException(ExecutionFailed("apply_patch", "patch rejected: empty patch"));
+			throw new ToolException(ExecutionFailed("apply_patch", "apply_patch verification failed: no hunks found"));
+		}
 
 		final changes:Array<PatchChange> = [];
 		for (hunk in hunks)
@@ -212,7 +216,7 @@ class ApplyPatchTool {
 		final relative = ToolPaths.relative(ctx, target);
 		final diff = TextDiff.unified(filePath, oldContent, newContent);
 		return {
-			kind: kind,
+			type: kind,
 			filePath: filePath,
 			relativePath: relative,
 			oldContent: oldContent,
@@ -225,7 +229,7 @@ class ApplyPatchTool {
 	}
 
 	static function applyChange(change:PatchChange):Void {
-		switch change.kind {
+		switch change.type {
 			case "add" | "update":
 				Fs.mkdirSync(NodePath.dirname(change.filePath), {recursive: true});
 				Fs.writeFileSync(change.filePath, change.newContent, "utf8");
@@ -256,7 +260,8 @@ class ApplyPatchTool {
 				lineIndex = contextIdx + 1;
 			}
 			if (chunk.oldLines.length == 0) {
-				replacements.push({start: original.length, remove: 0, insert: chunk.newLines});
+				final insertion = original.length > 0 && original[original.length - 1] == "" ? original.length - 1 : original.length;
+				replacements.push({start: insertion, remove: 0, insert: chunk.newLines});
 				continue;
 			}
 			var found = seekSequence(original, chunk.oldLines, lineIndex, chunk.isEndOfFile == true);
@@ -298,7 +303,10 @@ class ApplyPatchTool {
 		final rstrip = tryMatch(lines, pattern, startIndex, eof, (a, b) -> rstrip(a) == rstrip(b));
 		if (rstrip != -1)
 			return rstrip;
-		return tryMatch(lines, pattern, startIndex, eof, (a, b) -> StringTools.trim(a) == StringTools.trim(b));
+		final trimmed = tryMatch(lines, pattern, startIndex, eof, (a, b) -> StringTools.trim(a) == StringTools.trim(b));
+		if (trimmed != -1)
+			return trimmed;
+		return tryMatch(lines, pattern, startIndex, eof, (a, b) -> normalizeUnicode(StringTools.trim(a)) == normalizeUnicode(StringTools.trim(b)));
 	}
 
 	static function tryMatch(lines:Array<String>, pattern:Array<String>, startIndex:Int, eof:Bool, compare:(String, String) -> Bool):Int {
@@ -315,9 +323,9 @@ class ApplyPatchTool {
 	}
 
 	static function summaryLine(change:PatchChange):String {
-		if (change.kind == "add")
+		if (change.type == "add")
 			return 'A ${change.relativePath}';
-		if (change.kind == "delete")
+		if (change.type == "delete")
 			return 'D ${change.relativePath}';
 		return 'M ${change.relativePath}';
 	}
@@ -339,6 +347,19 @@ class ApplyPatchTool {
 			end--;
 		}
 		return value.substr(0, end);
+	}
+
+	static function normalizeUnicode(value:String):String {
+		var out = value;
+		for (quote in ["\u2018", "\u2019", "\u201A", "\u201B"])
+			out = StringTools.replace(out, quote, "'");
+		for (quote in ["\u201C", "\u201D", "\u201E", "\u201F"])
+			out = StringTools.replace(out, quote, '"');
+		for (dash in ["\u2010", "\u2011", "\u2012", "\u2013", "\u2014", "\u2015"])
+			out = StringTools.replace(out, dash, "-");
+		out = StringTools.replace(out, "\u2026", "...");
+		out = StringTools.replace(out, "\u00A0", " ");
+		return out;
 	}
 
 	static function stripHeredoc(input:String):String {
