@@ -42,7 +42,12 @@ function firstSegment(path) {
 function areaFor(path) {
   const segment = firstSegment(path)
   if (path.startsWith("cli/tui/")) return "tui"
+  if (path === "keybind.test.ts") return "tui"
+  if (path === "permission-task.test.ts") return "permission"
+  if (path === "npm.test.ts") return "installation"
+  if (path === "preload.ts") return "root"
   if (segment === "v2") return "session"
+  if (segment === "filesystem") return "file"
   return segment
 }
 
@@ -116,6 +121,126 @@ function testPriority(path) {
   return "P2"
 }
 
+function testKind(path) {
+  if (/\.test\.tsx?$/.test(path)) return "test"
+  if (path.includes("__snapshots__/")) return "snapshot"
+  if (path === "AGENTS.md" || path.endsWith(".md")) return "doc"
+  if (path.includes("/fixtures/") || path.startsWith("fixture/") || path.startsWith("fake/")) return "fixture"
+  if (path.startsWith("lib/") || path === "preload.ts") return "helper"
+  return "fixture"
+}
+
+function nextBeadFor(path, area) {
+  if (path.includes("/tui/") || area === "tui") return "opencodehx-031/opencodehx-032/opencodehx-033/opencodehx-034/opencodehx-035"
+  if (area === "server" || area === "control-plane") return "opencodehx-026/opencodehx-027"
+  if (area === "session") return "opencodehx-023/opencodehx-048"
+  if (area === "provider" || area === "account" || area === "auth") return "opencodehx-024/opencodehx-025"
+  if (area === "tool" || area === "patch" || area === "snapshot") return "opencodehx-u5i"
+  if (area === "shell" || area === "pty") return "opencodehx-3qi"
+  if (area === "permission") return "opencodehx-049"
+  if (area === "config" || area === "project" || area === "workspace" || area === "git" || area === "installation" || area === "sync")
+    return "opencodehx-zr1/opencodehx-ajd"
+  if (area === "mcp" || area === "acp") return "opencodehx-028"
+  if (area === "lsp" || area === "ide") return "opencodehx-029"
+  if (area === "plugin" || area === "skill") return "opencodehx-030"
+  if (area === "cli") return "opencodehx-036"
+  if (area === "storage") return "opencodehx-048"
+  if (area === "format") return "opencodehx-bvh"
+  if (area === "effect" || area === "bus") return "opencodehx-026"
+  if (area === "agent" || area === "question") return "opencodehx-023/opencodehx-024"
+  if (area === "memory") return "opencodehx-049"
+  return "opencodehx-000"
+}
+
+function directEvidence(path) {
+  const exact = new Map([
+    ["util/format.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#formatDuration; docs/util-port.md", "none", "UtilSmoke.formatDuration"]],
+    ["util/lazy.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#lazy; docs/util-port.md", "none", "UtilSmoke.lazy"]],
+    ["util/data-url.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#dataUrl; docs/util-port.md", "none", "UtilSmoke.dataUrl"]],
+    ["fake/provider.ts", ["ported", "src/opencodehx/provider/FakeProvider.hx; scripts/harness/transcript-parity.mjs; docs/fake-provider-transcript-harness.md", "none", "FakeProvider plus one-turn golden transcript"]],
+    ["session/message-v2.test.ts", ["partial", "src/opencodehx/smoke/MessageSmoke.hx; docs/message-v2-port.md", "model-message conversion and provider-transform cases are not ported yet", "MessageSmoke codec/part/cursor fixtures"]],
+    ["session/processor-effect.test.ts", ["partial", "src/opencodehx/smoke/SessionProcessorSmoke.hx; docs/session-processor-one-turn.md", "current processor is one-turn and synchronous; upstream Effect streaming lifecycle remains deferred", "SessionProcessorSmoke"]],
+    ["session/llm.test.ts", ["partial", "fixtures/transcripts/one-turn.golden.json; scripts/harness/transcript-parity.mjs", "real model/provider streaming and tool-call variants remain deferred", "one-turn fake-provider transcript golden"]],
+    ["storage/storage.test.ts", ["partial", "src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "storage service integration beyond session/message CRUD remains deferred", "StorageSmoke"]],
+    ["storage/db.test.ts", ["partial", "src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "Drizzle/node:sqlite parity is represented by the current better-sqlite3 host seam only", "StorageSmoke"]],
+    ["config/config.test.ts", ["partial", "src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md", "global config discovery, migration, plugin provenance, and dependency install side effects remain deferred", "ConfigSmoke"]],
+    ["file/ignore.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "only initial ignore defaults/whitelist behavior is covered", "FileSmoke.ignoreRules"]],
+    ["file/ripgrep.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "streaming and full ripgrep option matrix remain deferred", "FileSmoke.ripgrepFiles/ripgrepSearch"]],
+    ["file/path-traversal.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "representative escape checks are covered; full upstream error shape remains deferred", "FileSmoke.pathSafety"]],
+    ["tool/glob.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core glob cases are covered; full Effect/tool context parity remains deferred", "ToolSmoke.globExec"]],
+    ["tool/grep.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core grep cases are covered; full upstream option matrix remains deferred", "ToolSmoke.grepExec"]],
+    ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior is covered; full output/error matrix remains deferred", "ToolSmoke.readExec"]],
+    ["tool/write.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "basic write behavior is covered; full overwrite and diagnostics matrix remains deferred", "ToolSmoke.writeExec"]],
+    ["tool/edit.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "exact/replace-all/multiple-match behavior is covered; tolerant replacers remain deferred", "ToolSmoke.editExec"]],
+    ["tool/apply_patch.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "add/update/delete smoke is covered; malformed/move/EOF/heredoc cases remain deferred", "ToolSmoke.applyPatchExec"]],
+    ["tool/bash.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "non-interactive Node shell seam is covered; PTY and tree-sitter scanner remain deferred", "ToolSmoke.bashExec"]],
+    ["tool/external-directory.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "external workdir denial is covered for bash; full permission surface remains deferred", "ToolSmoke.bashExec external directory case"]],
+    ["tool/registry.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "builtin registry and errors are covered; .opencode custom tool loading remains deferred", "ToolSmoke.registrySurface"]],
+    ["permission/next.test.ts", ["partial", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "sync ask/allow/deny is covered; full async session prompt lifecycle remains deferred", "PermissionSmoke.runtimeAskReply/toolIntegration"]],
+    ["permission/arity.test.ts", ["partial", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "disabled-tool derivation and rule matching are covered; full arity policy remains deferred", "PermissionSmoke.disabledTools"]],
+    ["cli/error.test.ts", ["partial", "src/opencodehx/smoke/CliSmoke.hx; scripts/harness/cli-smoke.mjs", "minimal run/help errors are covered; full yargs/OpenCode CLI errors remain deferred", "CliSmoke plus cli-smoke.mjs"]],
+  ])
+  return exact.get(path)
+}
+
+function portRecord(path) {
+  const area = areaFor(path)
+  const kind = testKind(path)
+  const direct = directEvidence(path)
+  if (direct) {
+    return {
+      kind,
+      status: direct[0],
+      evidence: direct[1],
+      reason: direct[2],
+      replacement: direct[3],
+      next: direct[0] === "ported" ? "none" : nextBeadFor(path, area),
+    }
+  }
+
+  if (kind !== "test") {
+    return {
+      kind,
+      status: "reference-only",
+      evidence: "upstream fixture/helper retained as oracle input",
+      reason: "not an executable upstream test file",
+      replacement: "not needed until owning test slice is ported",
+      next: nextBeadFor(path, area),
+    }
+  }
+
+  const areaEvidence = {
+    config: "ConfigSmoke covers the first project config parser/loader slice",
+    file: "FileSmoke covers initial ignore/path/ripgrep primitives",
+    tool: "ToolSmoke covers builtin registry plus core file/bash tools",
+    session: "MessageSmoke, StorageSmoke, ProviderSmoke, transcript parity, and SessionProcessorSmoke cover the first message/session slices",
+    provider: "FakeProvider and transcript parity cover the credential-free provider fixture",
+    storage: "StorageSmoke covers the initial SQLite session store",
+    permission: "PermissionSmoke covers the first rule/runtime/tool integration slice",
+    util: "UtilSmoke covers selected low-risk utilities",
+    cli: "CliSmoke and cli-smoke.mjs cover the headless run scaffold",
+  }
+  if (areaEvidence[area]) {
+    return {
+      kind,
+      status: "partial",
+      evidence: areaEvidence[area],
+      reason: "upstream test file has behavior outside the current narrow smoke slice",
+      replacement: "current smoke/golden fixture plus pending owning Bead",
+      next: nextBeadFor(path, area),
+    }
+  }
+
+  return {
+    kind,
+    status: "deferred",
+    evidence: "none yet",
+    reason: "owning runtime/product slice has not started",
+    replacement: "pending fixture in owning Bead",
+    next: nextBeadFor(path, area),
+  }
+}
+
 const testFiles = walk(testRoot).map((path) => relative(testRoot, path))
 const testsByArea = new Map()
 for (const testPath of testFiles) {
@@ -169,8 +294,39 @@ for (const testPath of testFiles) {
   testRows.push([testPath, area, testPriority(testPath), `oracle for ${area}`])
 }
 
+const portRows = [[
+  "test_path",
+  "kind",
+  "area",
+  "priority",
+  "port_status",
+  "opencodehx_evidence",
+  "skip_or_defer_reason",
+  "replacement_fixture",
+  "next_bead",
+]]
+const portSummary = new Map()
+for (const testPath of testFiles) {
+  const area = areaFor(testPath)
+  const record = portRecord(testPath)
+  portRows.push([
+    testPath,
+    record.kind,
+    area,
+    testPriority(testPath),
+    record.status,
+    record.evidence,
+    record.reason,
+    record.replacement,
+    record.next,
+  ])
+  const key = `${record.status}:${record.kind}`
+  portSummary.set(key, (portSummary.get(key) ?? 0) + 1)
+}
+
 writeCsv(join(repoRoot, "reference", "opencode-source-parity-matrix.csv"), sourceRows)
 writeCsv(join(repoRoot, "reference", "opencode-test-priority-matrix.csv"), testRows)
+writeCsv(join(repoRoot, "reference", "opencode-test-port-matrix.csv"), portRows)
 
 const summaryRows = [...areaSummary.entries()].sort((a, b) => a[0].localeCompare(b[0]))
 const totalFiles = sourceRows.length - 1
@@ -190,6 +346,7 @@ const markdown = [
   `- Upstream test files inventoried: ${totalTests}`,
   `- Full source matrix: \`reference/opencode-source-parity-matrix.csv\``,
   `- Test priority matrix: \`reference/opencode-test-priority-matrix.csv\``,
+  `- Test port matrix: \`reference/opencode-test-port-matrix.csv\``,
   "",
   "## Area Summary",
   "",
@@ -214,3 +371,44 @@ const markdown = [
 ].join("\n")
 
 writeFileSync(join(repoRoot, "docs", "opencode-source-inventory.md"), markdown)
+
+const statusSummary = [...portSummary.entries()]
+  .sort((a, b) => a[0].localeCompare(b[0]))
+  .map(([key, count]) => {
+    const [status, kind] = key.split(":")
+    return `| ${status} | ${kind} | ${count} |`
+  })
+
+const portMarkdown = [
+  "# OpenCode Test Port Matrix",
+  "",
+  "**Bead:** `opencodehx-039`",
+  "",
+  "## Summary",
+  "",
+  `- Upstream test root: \`${relative(repoRoot, testRoot)}\``,
+  `- Upstream test items tracked: ${totalTests}`,
+  `- Machine-readable matrix: \`reference/opencode-test-port-matrix.csv\``,
+  "",
+  "| Port status | Kind | Count |",
+  "| --- | --- | ---: |",
+  ...statusSummary,
+  "",
+  "## Status Meanings",
+  "",
+  "- `ported`: current OpenCodeHX smoke/golden evidence covers the upstream item's core behavior.",
+  "- `partial`: current evidence covers part of the upstream behavior, but the matrix names the missing scope and owning Bead.",
+  "- `deferred`: no replacement exists yet because the owning product/runtime slice has not started.",
+  "- `reference-only`: upstream fixture/helper/document input, not an executable test. It remains an oracle input for the owning slice.",
+  "",
+  "Every `partial` or `deferred` executable test row has a `skip_or_defer_reason`, a current or pending `replacement_fixture`, and a `next_bead` owner. Keep this file generated from `scripts/inventory/build-parity-matrix.mjs` so status changes are reviewable instead of drifting into markdown prose.",
+  "",
+  "## Current Reading",
+  "",
+  "OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider, CLI, and one-turn session behavior. Large product surfaces remain deferred: server/API, SDK compatibility, real providers, full session lifecycle, MCP/ACP, plugin loading, LSP, TUI, and packaging.",
+  "",
+  "The next practical move is to use this matrix while selecting Beads: before starting a subsystem, filter `reference/opencode-test-port-matrix.csv` by `next_bead` and promote the relevant upstream tests into Haxe-owned fixtures or differential harnesses.",
+  "",
+].join("\n")
+
+writeFileSync(join(repoRoot, "docs", "opencode-test-port-matrix.md"), portMarkdown)

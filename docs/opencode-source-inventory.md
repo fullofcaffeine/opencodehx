@@ -10,6 +10,7 @@
 - Upstream test files inventoried: 187
 - Full source matrix: `reference/opencode-source-parity-matrix.csv`
 - Test priority matrix: `reference/opencode-test-priority-matrix.csv`
+- Test port matrix: `reference/opencode-test-port-matrix.csv`
 
 ## Area Summary
 

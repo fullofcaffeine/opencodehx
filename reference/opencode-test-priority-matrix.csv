@@ -56,7 +56,7 @@ file/index.test.ts,file,P0,oracle for file
 file/path-traversal.test.ts,file,P0,oracle for file
 file/ripgrep.test.ts,file,P0,oracle for file
 file/watcher.test.ts,file,P0,oracle for file
-filesystem/filesystem.test.ts,filesystem,P2,oracle for filesystem
+filesystem/filesystem.test.ts,file,P0,oracle for file
 fixture/db.ts,fixture,P2,oracle for fixture
 fixture/fixture.test.ts,fixture,P2,oracle for fixture
 fixture/fixture.ts,fixture,P2,oracle for fixture
@@ -74,7 +74,7 @@ format/format.test.ts,format,P2,oracle for format
 git/git.test.ts,git,P2,oracle for git
 ide/ide.test.ts,ide,P2,oracle for ide
 installation/installation.test.ts,installation,P2,oracle for installation
-keybind.test.ts,root,P2,oracle for root
+keybind.test.ts,tui,P2,oracle for tui
 lib/effect.ts,lib,P2,oracle for lib
 lib/filesystem.ts,lib,P2,oracle for lib
 lib/llm-server.ts,lib,P2,oracle for lib
@@ -89,9 +89,9 @@ mcp/oauth-browser.test.ts,mcp,P1,oracle for mcp
 mcp/oauth-callback.test.ts,mcp,P1,oracle for mcp
 memory/abort-leak-webfetch.ts,memory,P2,oracle for memory
 memory/abort-leak.test.ts,memory,P2,oracle for memory
-npm.test.ts,root,P2,oracle for root
+npm.test.ts,installation,P2,oracle for installation
 patch/patch.test.ts,patch,P2,oracle for patch
-permission-task.test.ts,root,P2,oracle for root
+permission-task.test.ts,permission,P1,oracle for permission
 permission/arity.test.ts,permission,P1,oracle for permission
 permission/next.test.ts,permission,P1,oracle for permission
 plugin/auth-override.test.ts,plugin,P1,oracle for plugin

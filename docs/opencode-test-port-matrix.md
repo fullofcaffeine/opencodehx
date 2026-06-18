@@ -1,0 +1,35 @@
+# OpenCode Test Port Matrix
+
+**Bead:** `opencodehx-039`
+
+## Summary
+
+- Upstream test root: `../opencode/packages/opencode/test`
+- Upstream test items tracked: 187
+- Machine-readable matrix: `reference/opencode-test-port-matrix.csv`
+
+| Port status | Kind | Count |
+| --- | --- | ---: |
+| deferred | test | 83 |
+| partial | test | 74 |
+| ported | fixture | 1 |
+| ported | test | 3 |
+| reference-only | doc | 9 |
+| reference-only | fixture | 12 |
+| reference-only | helper | 4 |
+| reference-only | snapshot | 1 |
+
+## Status Meanings
+
+- `ported`: current OpenCodeHX smoke/golden evidence covers the upstream item's core behavior.
+- `partial`: current evidence covers part of the upstream behavior, but the matrix names the missing scope and owning Bead.
+- `deferred`: no replacement exists yet because the owning product/runtime slice has not started.
+- `reference-only`: upstream fixture/helper/document input, not an executable test. It remains an oracle input for the owning slice.
+
+Every `partial` or `deferred` executable test row has a `skip_or_defer_reason`, a current or pending `replacement_fixture`, and a `next_bead` owner. Keep this file generated from `scripts/inventory/build-parity-matrix.mjs` so status changes are reviewable instead of drifting into markdown prose.
+
+## Current Reading
+
+OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider, CLI, and one-turn session behavior. Large product surfaces remain deferred: server/API, SDK compatibility, real providers, full session lifecycle, MCP/ACP, plugin loading, LSP, TUI, and packaging.
+
+The next practical move is to use this matrix while selecting Beads: before starting a subsystem, filter `reference/opencode-test-port-matrix.csv` by `next_bead` and promote the relevant upstream tests into Haxe-owned fixtures or differential harnesses.

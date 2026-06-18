@@ -99,6 +99,7 @@ opencodehx/
 Use upstream OpenCode as the behavioral authority:
 
 - Produce a parity matrix before broad translation. Track source path, owner area, runtime class, dependencies, tests, required externs, `genes-ts` risks, and acceptance evidence.
+- Before starting a subsystem Bead, filter `reference/opencode-test-port-matrix.csv` by `next_bead` and promote the relevant upstream rows into Haxe-owned fixtures, differential harnesses, or explicitly deferred evidence.
 - Port in dependency order: scaffold, utilities, config, message/session DTOs, storage seam, file/tool primitives, fake provider, headless run, session processor, providers, server, plugin/MCP/ACP/LSP, TUI, packaging.
 - Keep golden evidence for high-risk UX and behavior: help/version output, config errors, fake-provider transcripts, tool edits, permission prompts, server events, provider streams, and TUI replays.
 - Treat upstream OpenCode tests as oracle inputs. Adapt them into Haxe-owned fixtures or differential harnesses rather than copying blindly.
