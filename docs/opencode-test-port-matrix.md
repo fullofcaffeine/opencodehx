@@ -10,8 +10,8 @@
 
 | Port status | Kind | Count |
 | --- | --- | ---: |
-| deferred | test | 83 |
-| partial | test | 74 |
+| deferred | test | 78 |
+| partial | test | 79 |
 | ported | fixture | 1 |
 | ported | test | 3 |
 | reference-only | doc | 9 |
@@ -30,6 +30,6 @@ Every `partial` or `deferred` executable test row has a `skip_or_defer_reason`, 
 
 ## Current Reading
 
-OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider, CLI, and one-turn session behavior. Large product surfaces remain deferred: server/API, SDK compatibility, real providers, full session lifecycle, MCP/ACP, plugin loading, LSP, TUI, and packaging.
+OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider, CLI, one-turn session behavior, and a first Node/Hono server route/listener seam. Large product surfaces remain deferred: full server/API parity, SDK compatibility, real providers, full session lifecycle, MCP/ACP, plugin loading, LSP, TUI, and packaging.
 
 The next practical move is to use this matrix while selecting Beads: before starting a subsystem, filter `reference/opencode-test-port-matrix.csv` by `next_bead` and promote the relevant upstream tests into Haxe-owned fixtures or differential harnesses.

@@ -45,6 +45,10 @@ If OpenCode relies on TypeScript features that Haxe lacks directly, try to model
 - For overloaded npm APIs, create narrow extern/facade surfaces around the actual OpenCode usage.
 - For TSX/Solid/OpenTUI patterns, add minimal `genes-ts` fixtures before porting broad TUI code.
 - Track every broad `Dynamic`, `untyped`, `any`, or `unknown` as boundary debt unless it is isolated in a documented runtime interop layer.
+- Do not copy upstream `any` casually. Inspect the original TypeScript first: if upstream uses `any`/`unknown`, treat that as behavior evidence, not as permission to weaken OpenCodeHX. If Haxe can recover structure from schemas, local usage, upstream tests, protocol docs, or a narrow facade, use the stronger Haxe type and generate narrower TypeScript while preserving runtime compatibility.
+- Mirror upstream `any`/`unknown` only when the value is genuinely open at that boundary, such as schema passthrough, TUI control payloads before their owner schema lands, proxy forwarding, or third-party callbacks. Document the seam and narrow it as soon as the owning model exists.
+- Treat `unknown` as a safer boundary marker, not a final model. When usage, schema, or upstream behavior tells us more, improve the Haxe type to a domain typedef, enum, abstract, or validated decoder and let generated TS narrow accordingly.
+- Generated TypeScript must be idiomatic enough to look close to careful handwritten TS. If good Haxe source produces noisy, weakly typed, duplicated, or inefficient TS, reduce the case and improve `../genes` instead of contorting OpenCodeHX source or accepting broad `Dynamic`.
 
 ## genes-ts Improvement Loop
 
@@ -58,6 +62,8 @@ When OpenCodeHX exposes a compiler limitation:
 6. Record the limitation and fix status in Beads or `docs/genes-ts-limitation-ledger.md` until Beads fully represents it.
 
 Generated TS quality problems are compiler work, not source contortion work, when the Haxe source is otherwise a good model.
+
+Treat generated TypeScript readability as a product gate: strict-checkable is necessary but not sufficient. The output should preserve useful names, avoid gratuitous temporaries and casts, emit narrow imports/types, and remain efficient enough that an OpenCode maintainer could debug it directly.
 
 When a macro-generated TypeScript boundary needs a TS-only shape, prefer a small `@:ts.type` Haxe abstract in `genes-ts` over weakening OpenCodeHX source types. The `Genes.dynamicImport` fix uses Haxe-compatible abstracts that emit `unknown`/`unknown[]` and casts module reads to `typeof import(...)`, keeping user TS free of `module: any` while preserving Haxe typing.
 
@@ -123,6 +129,8 @@ Do not port external npm libraries wholesale early. Start with narrow externs/fa
 - PTY, Node built-ins, and Bun-specific references at seams only
 
 Prefer small typed externs. Allow `Dynamic` only where the upstream API is truly dynamic or the boundary is explicitly temporary and tracked.
+
+For Hono/server work, model the library seam with narrow externs before writing route logic. Route handlers should receive a typed context, preserve real JavaScript boundary shapes such as `string | undefined` in generated TS when needed, then normalize into Haxe `Null<T>` or domain DTOs at the app boundary. Avoid `Dynamic` for stable adapter values like WebSocket runtimes or server listeners.
 
 Keep tool permission flow typed at the boundary. Tool code should emit `ToolPermissionRequest` records and let the session/runtime layer decide; do not inline permission policy into individual tools.
 

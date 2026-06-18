@@ -179,6 +179,11 @@ function directEvidence(path) {
     ["permission/next.test.ts", ["partial", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "sync ask/allow/deny is covered; full async session prompt lifecycle remains deferred", "PermissionSmoke.runtimeAskReply/toolIntegration"]],
     ["permission/arity.test.ts", ["partial", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "disabled-tool derivation and rule matching are covered; full arity policy remains deferred", "PermissionSmoke.disabledTools"]],
     ["cli/error.test.ts", ["partial", "src/opencodehx/smoke/CliSmoke.hx; scripts/harness/cli-smoke.mjs", "minimal run/help errors are covered; full yargs/OpenCode CLI errors remain deferred", "CliSmoke plus cli-smoke.mjs"]],
+    ["control-plane/sse.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "SSE emission is covered by /event; standalone parseSSE helper and multiline parser cases remain deferred", "ServerSmoke /event text fixture"]],
+    ["server/session-list.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "basic /session list is covered; directory/root/start/search/limit filters remain deferred", "ServerSmoke GET /session"]],
+    ["server/session-messages.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "message page, cursor header, bad cursor, and missing session are covered; high-volume legacy limit remains deferred", "ServerSmoke GET /session/:id/message"]],
+    ["server/session-actions.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "abort route success is covered; remaining action routes remain deferred", "ServerSmoke POST /session/:id/abort"]],
+    ["server/session-select.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "valid, missing, and invalid select-session cases are covered", "ServerSmoke POST /tui/select-session"]],
   ])
   return exact.get(path)
 }
