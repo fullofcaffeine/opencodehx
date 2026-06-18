@@ -32,6 +32,7 @@ This is a Haxe port, not TypeScript written with Haxe syntax.
 - Avoid long positional constructors for DTOs and protocol records. Use typed field records, named factories, or builders when call sites would otherwise lose meaning.
 - Keep strings at the boundary: JSON, CLI, filesystem paths, environment variables, npm APIs, and upstream compatibility. Convert to typed values as soon as practical.
 - Prefer a more functional style for pure transformations, but do not force functional purity across host seams where OpenCode behavior depends on effects.
+- For stored protocol DTOs such as Message V2, decode JSON objects into Haxe discriminated enums at the boundary, then encode back to upstream discriminant strings. Keep free-form provider metadata, errors, and tool payloads as documented boundary debt until their owning schemas are ported.
 
 ## TypeScript Feature Emulation
 
