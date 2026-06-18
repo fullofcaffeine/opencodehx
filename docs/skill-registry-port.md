@@ -17,13 +17,14 @@ Implemented:
 - Duplicate names resolve later by discovery order, matching the upstream map assignment behavior.
 - `dirs` returns directories for discovered `SKILL.md` files, including invalid skill files, because upstream records dirs during scanning before validation.
 - Stable name-sorted skill lists and verbose XML-ish formatting with file URLs.
+- `SkillRegistry.available(discovery, agent)` filters the sorted list through agent `permission.skill` rules, using the skill name as the permission pattern and preserving upstream last-match wildcard behavior.
 
-Smoke coverage lives in `opencodehx.smoke.SkillSmoke` and exercises local `.opencode` skills, invalid skill skipping, discovered dirs, external `.claude`/`.agents` skills, global-home external skills, `disableExternal`, `skills.paths`, and sorted verbose formatting.
+Smoke coverage lives in `opencodehx.smoke.SkillSmoke` and exercises local `.opencode` skills, invalid skill skipping, discovered dirs, external `.claude`/`.agents` skills, global-home external skills, `disableExternal`, `skills.paths`, sorted verbose formatting, and permission-filtered availability.
 
 ## Deliberate Boundaries
 
 Remote `skills.urls` discovery and cache/download behavior remain deferred to the network/cache slice. The typed config shape preserves `urls` now, but `SkillRegistry` intentionally does not fetch them yet.
 
-Permission-filtered `available(agent)` and integration with the final session system prompt service remain deferred until the agent/session layers own that behavior. The current `format` helper covers the sorted output shape used by upstream system prompt tests.
+Integration with the final session system prompt service remains deferred until the agent/session layers own that behavior. The current `format` and `available` helpers cover the sorted and permission-filtered output shapes used by upstream system prompt tests.
 
 Skill frontmatter uses the shared markdown parser's `unknown` boundary, then immediately narrows required fields into `SkillInfo`. Do not let skill content or metadata become broad `Dynamic` in app-facing code.

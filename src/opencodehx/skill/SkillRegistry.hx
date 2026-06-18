@@ -2,6 +2,7 @@ package opencodehx.skill;
 
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigInfo.AgentInfo;
 import opencodehx.config.ConfigMarkdown;
 import opencodehx.config.ConfigMarkdown.MarkdownValue;
 import opencodehx.config.ConfigMarkdownFiles;
@@ -9,6 +10,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodePath;
+import opencodehx.permission.PermissionRules;
 
 typedef SkillInfo = {
 	final name:String;
@@ -85,6 +87,22 @@ class SkillRegistry {
 				return skill;
 		}
 		return null;
+	}
+
+	public static function available(discovery:SkillDiscovery, ?agent:AgentInfo):Array<SkillInfo> {
+		final sorted = discovery.skills.copy();
+		sorted.sort((a, b) -> Reflect.compare(a.name, b.name));
+		if (agent == null)
+			return sorted;
+
+		final ruleset = PermissionRules.fromConfig(agent.permission);
+		final result:Array<SkillInfo> = [];
+		for (skill in sorted) {
+			final rule = PermissionRules.evaluate("skill", skill.name, [ruleset]);
+			if (rule.action != "deny")
+				result.push(skill);
+		}
+		return result;
 	}
 
 	public static function format(list:Array<SkillInfo>, verbose:Bool):String {

@@ -1,10 +1,14 @@
 package opencodehx.smoke;
 
+import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigInfo.AgentInfo;
+import opencodehx.config.ConfigInfo.PermissionConfigValue;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
 import opencodehx.skill.SkillRegistry;
+import opencodehx.skill.SkillRegistry.SkillInfo;
 
 class SkillSmoke {
 	public static function run():Void {
@@ -13,6 +17,7 @@ class SkillSmoke {
 			localOpencodeSkills(root);
 			externalAndGlobalSkills(root);
 			configSkillPaths(root);
+			availableSkills(root);
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			Fs.rmSync(root, {recursive: true, force: true});
@@ -113,6 +118,61 @@ description: A skill from skills.paths.
 		final discovery = SkillRegistry.discover(project, {home: project, worktree: project, config: config});
 		eq(discovery.skills.length, 1, "skills.paths count");
 		eq(require(SkillRegistry.get(discovery, "path-skill"), "path skill").description, "A skill from skills.paths.", "skills.paths description");
+	}
+
+	static function availableSkills(root:String):Void {
+		final project = directory(root, "available-skills");
+		write(join(project, ".opencode", "skill", "alpha"), "SKILL.md", '---
+name: alpha
+description: Alpha skill.
+---
+
+# Alpha
+');
+		write(join(project, ".opencode", "skill", "beta"), "SKILL.md", '---
+name: beta
+description: Beta skill.
+---
+
+# Beta
+');
+		write(join(project, ".opencode", "skill", "gamma"), "SKILL.md", '---
+name: gamma
+description: Gamma skill.
+---
+
+# Gamma
+');
+
+		final discovery = SkillRegistry.discover(project, {home: project, worktree: project});
+		eq(skillNames(SkillRegistry.available(discovery)), "alpha,beta,gamma", "available skills sorted without agent");
+
+		final exact = agentWithSkillPermission("exact", skillPatternPermission([{pattern: "beta", action: "deny"}]));
+		eq(skillNames(SkillRegistry.available(discovery, exact)), "alpha,gamma", "available skills exact deny");
+
+		final wildcardThenSpecific = agentWithSkillPermission("wildcard",
+			skillPatternPermission([{pattern: "*", action: "deny"}, {pattern: "gamma", action: "allow"},]));
+		eq(skillNames(SkillRegistry.available(discovery, wildcardThenSpecific)), "gamma", "available skills specific allow overrides wildcard deny");
+
+		final allDenied = agentWithSkillPermission("all-denied", "deny");
+		eq(SkillRegistry.available(discovery, allDenied).length, 0, "available skills all denied");
+	}
+
+	static function agentWithSkillPermission(name:String, value:PermissionConfigValue):AgentInfo {
+		final permission = new DynamicAccess<PermissionConfigValue>();
+		permission.set("skill", value);
+		return {name: name, permission: permission};
+	}
+
+	static function skillPatternPermission(entries:Array<{final pattern:String; final action:String;}>):PermissionConfigValue {
+		final patterns = new DynamicAccess<String>();
+		for (entry in entries)
+			patterns.set(entry.pattern, entry.action);
+		return cast patterns;
+	}
+
+	static function skillNames(skills:Array<SkillInfo>):String {
+		return [for (skill in skills) skill.name].join(",");
 	}
 
 	static function directory(root:String, name:String):String {
