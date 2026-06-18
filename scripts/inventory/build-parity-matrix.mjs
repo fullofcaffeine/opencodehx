@@ -163,7 +163,7 @@ function directEvidence(path) {
     ["session/llm.test.ts", ["partial", "fixtures/transcripts/one-turn.golden.json; scripts/harness/transcript-parity.mjs", "real model/provider streaming and tool-call variants remain deferred", "one-turn fake-provider transcript golden"]],
     ["storage/storage.test.ts", ["partial", "src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "storage service integration beyond session/message CRUD remains deferred", "StorageSmoke"]],
     ["storage/db.test.ts", ["partial", "src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "Drizzle/node:sqlite parity is represented by the current better-sqlite3 host seam only", "StorageSmoke"]],
-    ["config/config.test.ts", ["partial", "src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md", "global config discovery, migration, plugin provenance, and dependency install side effects remain deferred", "ConfigSmoke"]],
+    ["config/config.test.ts", ["partial", "src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md", "legacy global TOML migration, remote/account config, runtime plugin loading, and dependency install side effects remain deferred", "ConfigSmoke"]],
     ["file/ignore.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "only initial ignore defaults/whitelist behavior is covered", "FileSmoke.ignoreRules"]],
     ["file/ripgrep.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "streaming and full ripgrep option matrix remain deferred", "FileSmoke.ripgrepFiles/ripgrepSearch"]],
     ["file/path-traversal.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "representative escape checks are covered; full upstream error shape remains deferred", "FileSmoke.pathSafety"]],

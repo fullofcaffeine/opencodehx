@@ -179,6 +179,11 @@ class ConfigLoader {
 		final opts:LoadOptions = options == null ? {} : options;
 		final expanded = ConfigVariable.substitute(text, {dir: directory, env: opts.env});
 		final data = Jsonc.parse(expanded, source);
+		return loadParsedData(data, source, opts);
+	}
+
+	public static function loadParsedData(data:Dynamic, source:String, ?options:LoadOptions):ConfigInfo {
+		final opts:LoadOptions = options == null ? {} : options;
 		return fromDynamic(normalizeLegacyTui(data), source, pluginScope(opts));
 	}
 

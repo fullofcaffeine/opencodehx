@@ -8,6 +8,7 @@ import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigPlugin;
 import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeLocal;
+import opencodehx.config.ConfigWriter;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
@@ -24,6 +25,8 @@ class ConfigSmoke {
 			configDirAndProjectDisable(root);
 			schemaAutoAddPreservesTokens(root);
 			pluginMergeAndOrigins(root);
+			globalLoadAndUpdate(root);
+			localUpdateWritesConfigJson(root);
 			invalidJson(root);
 			invalidSchema(root);
 			fileSubstitution(root);
@@ -167,6 +170,64 @@ class ConfigSmoke {
 		eq(shared.scope, PluginScopeLocal, "plugin origin scope");
 		contains(shared.source, ".opencode", "plugin origin source");
 		eq(Reflect.field(shared.spec.options, "source"), "local", "plugin tuple options preserved");
+	}
+
+	static function globalLoadAndUpdate(root:String):Void {
+		final dir = directory(root, "global-update");
+		write(dir, "config.json", '{"model":"legacy/model","instructions":["legacy.md"]}');
+		write(dir, "opencode.json", '{"model":"json/model","instructions":["json.md"]}');
+		write(dir, "opencode.jsonc", '{
+  // keep this comment while patching
+  "model": "jsonc/model",
+  "plugin": ["old-plugin@1.0.0"]
+}');
+
+		final loaded = ConfigWriter.loadGlobal(dir);
+		eq(loaded.model, "jsonc/model", "global load jsonc precedence");
+		eq(loaded.instructions.join(","), "legacy.md,json.md", "global load merge order");
+
+		final patch = new ConfigInfo();
+		patch.model = "patched/model";
+		patch.server = {port: 4096};
+		patch.plugin = [{specifier: "new-plugin@2.0.0"}];
+		patch.pluginOrigins = [ConfigPlugin.withOrigin(patch.plugin[0], "internal", PluginScopeLocal)];
+
+		final next = ConfigWriter.updateGlobal(dir, patch);
+		eq(next.model, "patched/model", "global update return model");
+		eq(next.server.port, 4096, "global update nested server");
+		eq(ConfigPlugin.specifier(next.plugin[0]), "new-plugin@2.0.0", "global update plugin");
+
+		final text = Fs.readFileSync(NodePath.join(dir, "opencode.jsonc"), "utf8");
+		contains(text, "keep this comment", "global update preserves jsonc comments");
+		contains(text, '"model": "patched/model"', "global update writes model");
+		contains(text, '"port": 4096', "global update writes nested server");
+		contains(text, '"plugin": [', "global update writes plugin");
+		notContains(text, "plugin_origins", "global update omits plugin origins");
+
+		final freshDir = directory(root, "global-update-new");
+		final fresh = new ConfigInfo();
+		fresh.model = "fresh/model";
+		ConfigWriter.updateGlobal(freshDir, fresh);
+		eq(Fs.existsSync(NodePath.join(freshDir, "opencode.jsonc")), true, "global update creates opencode.jsonc");
+	}
+
+	static function localUpdateWritesConfigJson(root:String):Void {
+		final dir = directory(root, "local-update");
+		write(dir, "config.json", '{"model":"old/model","permission":{"bash":"ask"}}');
+
+		final patch = new ConfigInfo();
+		patch.model = "new/model";
+		patch.permission = cast {
+			bash: "allow",
+		};
+
+		final next = ConfigWriter.updateLocal(dir, patch);
+		eq(next.model, "new/model", "local update return model");
+		eq(Reflect.field(next.permission, "bash"), "allow", "local update nested permission");
+
+		final text = Fs.readFileSync(NodePath.join(dir, "config.json"), "utf8");
+		contains(text, '"model": "new/model"', "local update writes config.json");
+		contains(text, '"bash": "allow"', "local update merges permission");
 	}
 
 	static function invalidJson(root:String):Void {

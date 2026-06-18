@@ -10,6 +10,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 - `../genes` is the sibling Genes checkout and contains the `genes-ts` compiler mode, sources, and tests.
 - `../genes-vanilla` is the read-only reference for the original upstream Genes implementation. Use it to compare original ES/JS behavior and architecture, especially for performance-oriented ES6 output, but do not patch it from OpenCodeHX work. The source of truth for compiler changes is `../genes`.
 - OpenCodeHX and `genes-ts` are developed together. Compiler limitations discovered here should be fixed as generic `genes-ts` improvements, not worked around with OpenCode-specific hacks.
+- **Hard boundary: never couple `genes-ts` to OpenCodeHX.** OpenCodeHX is allowed, and expected, to drive compiler fixes, but `../genes` must never gain special knowledge of OpenCodeHX paths, names, schemas, runtime conventions, or product behavior. Reduce issues to general Haxe/JS/TS/compiler cases and fix those so every Genes user benefits.
 - Keep any future Caf/Cafex work out of the Phase 1 core. Caf/Cafex is later adapter/preflight work after OpenCode parity exists; see `docs/no-caf-integration-guardrail.md`.
 
 ## Core Product Rules
@@ -65,6 +66,8 @@ When OpenCodeHX exposes a compiler limitation:
 6. Record the limitation and fix status in Beads or `docs/genes-ts-limitation-ledger.md` until Beads fully represents it.
 
 Generated TS quality problems are compiler work, not source contortion work, when the Haxe source is otherwise a good model.
+
+The high-level goal is deliberately twofold: build the best Haxe-native, future-portable OpenCodeHX, and build the best Haxe-to-JS/TS compiler in `genes-ts`. These goals reinforce each other only when compiler improvements remain project-agnostic. If an OpenCodeHX case tempts a special-case compiler patch, stop and extract the underlying generic language/codegen rule instead.
 
 Treat generated TypeScript readability as a product gate: strict-checkable is necessary but not sufficient. The output should preserve useful names, avoid gratuitous temporaries and casts, emit narrow imports/types, and remain efficient enough that an OpenCode maintainer could debug it directly.
 

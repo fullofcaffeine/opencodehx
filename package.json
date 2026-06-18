@@ -45,6 +45,7 @@
     "@hono/node-ws": "^1.3.0",
     "better-sqlite3": "^12.11.1",
     "effect": "^4.0.0-beta.48",
-    "hono": "^4.12.26"
+    "hono": "^4.12.26",
+    "jsonc-parser": "^3.3.1"
   }
 }
