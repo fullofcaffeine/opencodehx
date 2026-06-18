@@ -113,6 +113,10 @@ Do not port external npm libraries wholesale early. Start with narrow externs/fa
 
 Prefer small typed externs. Allow `Dynamic` only where the upstream API is truly dynamic or the boundary is explicitly temporary and tracked.
 
+## Host Seam Policy
+
+The initial host seam map is in `docs/host-seam-map.md`. Keep OpenCodeHX app-facing modules portable by routing Node, Bun, browser, filesystem, process, PTY, clock, crypto, terminal, and resource behavior through narrow host facades. When a port slice discovers a durable runtime quirk, update the seam map in the same change.
+
 ## Effect Strategy
 
 Do not reimplement Effect up front.
