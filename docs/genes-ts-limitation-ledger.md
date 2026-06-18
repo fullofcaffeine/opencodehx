@@ -5,7 +5,7 @@
 
 ## Current Status
 
-No open `genes-ts` compiler limitations are known from the initial NodeNext scaffold.
+No open `genes-ts` compiler limitations are known from the initial NodeNext scaffold or import-resource smoke.
 
 The first smoke (`opencodehx-005`) did expose one project-configuration requirement: `package.json` must include `"type": "module"` for TypeScript NodeNext plus `verbatimModuleSyntax` to treat generated `.ts` files as ESM. That is recorded in `docs/node-next-smoke.md` and is not currently a compiler bug.
 
@@ -16,7 +16,7 @@ Use one table row per discovered compiler limitation:
 | ID | Discovered from | OpenCodeHX blocker | genes task/repro | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `effect-dynamic-001` | `opencodehx-009` | Future config/session/provider Effect facades | none yet | `accepted-boundary-debt` | `opencodehx.fx.Task` stores the raw Effect runtime value as `Dynamic` while the exact Effect subset is discovered. Keep this isolated to `opencodehx.fx`/extern modules and tighten during config/session work. |
-| `dynamic-import-any-001` | `opencodehx-010` | Generated user TS for dynamic imports contains `(module: any)` | `genes-h65`; OpenCodeHX follow-up `opencodehx-c0j` | `open` | The smoke passes, but generated user modules should not leak `any`. Keep using the fixture as acceptance evidence when genes-ts tightens `Genes.dynamicImport` typing. |
+| `dynamic-import-any-001` | `opencodehx-010` | Generated user TS for dynamic imports contained `(module: any)` | `genes-h65`; OpenCodeHX follow-up `opencodehx-c0j` | `closed` | Fixed in `../genes` commit `899e7732b15a1ff0d46cb53e9169faf9a8e3ca3c`: `Genes.dynamicImport` now emits `unknown` callback parameters and `typeof import(...)` casts; `yarn test:genes-ts:full` guards against `module: any` regressions. |
 
 ## Required Fields
 

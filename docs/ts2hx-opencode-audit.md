@@ -27,7 +27,7 @@ The AST audit scanned 446 `.ts`/`.tsx` files. It confirms that ts2hx can be usef
 | `#*` package aliases | 3 | Mirrors the package-import style proven by `#opencodehx/smoke-resource`. |
 | Node built-ins | 27 | Route through host facades. |
 | type-only imports | 228 | Often map to typedefs/externs; useful mechanical signal. |
-| dynamic imports | 59 | Needs `genes.Genes.dynamicImport` quality improvements; see `opencodehx-c0j` and `genes-h65`. |
+| dynamic imports | 59 | `genes.Genes.dynamicImport` now avoids generated `module: any` via `../genes` commit `899e7732b15a1ff0d46cb53e9169faf9a8e3ca3c`; future work should focus on port coverage and runtime semantics. |
 | dynamic import attributes | 4 | Mostly config and tree-sitter WASM; covered by follow-up `opencodehx-6pq`. |
 | import attributes | 37 | JSON theme and WAV file assets; JSON is proven, file assets remain follow-up work. |
 
@@ -81,5 +81,5 @@ For those areas, write Haxe source intentionally and use ts2hx output only as a 
 
 1. Add a synthetic ts2hx audit tsconfig only if broad mechanical emission becomes useful.
 2. Keep `opencodehx-6pq` for text/file/WASM resource loader work.
-3. Keep `opencodehx-c0j` and paired `genes-h65` for dynamic import `any` cleanup.
+3. Use the closed `opencodehx-c0j` / `genes-h65` dynamic import fix as the baseline for future dynamic import ports.
 4. Start config work from Haxe-native schema/config modeling, not a direct ts2hx conversion.

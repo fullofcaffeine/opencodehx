@@ -56,6 +56,8 @@ When OpenCodeHX exposes a compiler limitation:
 
 Generated TS quality problems are compiler work, not source contortion work, when the Haxe source is otherwise a good model.
 
+When a macro-generated TypeScript boundary needs a TS-only shape, prefer a small `@:ts.type` Haxe abstract in `genes-ts` over weakening OpenCodeHX source types. The `Genes.dynamicImport` fix uses Haxe-compatible abstracts that emit `unknown`/`unknown[]` and casts module reads to `typeof import(...)`, keeping user TS free of `module: any` while preserving Haxe typing.
+
 ## Repository Layout Policy
 
 Follow the `codex-hxrust` precedent: keep this repo as the owner of the port, not a mirror of sibling projects.

@@ -1,12 +1,12 @@
 {
   "schema": "opencodehx.reference.genes-pin.v1",
-  "recorded_at": "2026-06-18T03:52:39Z",
+  "recorded_at": "2026-06-18T04:12:42Z",
   "bead": "opencodehx-002",
   "canonical_checkout": {
     "path": "../genes",
     "role": "canonical Genes checkout for genes-ts compiler work",
     "branch": "main",
-    "commit": "856864bd8d3de7d481a3c2f150548006d9e525a0",
+    "commit": "899e7732b15a1ff0d46cb53e9169faf9a8e3ca3c",
     "remotes": {
       "origin": "git@github.com:fullofcaffeine/genes-ts.git",
       "upstream": "git@github.com:benmerckx/genes.git"
@@ -38,8 +38,8 @@
       "../fullofcaffeine/tools/cafetera/vendor/genes-ts/src"
     ],
     "source_file_count": 33,
-    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after genes-ts import-attribute support landed for opencodehx-010",
-    "relative_path_sha256_manifest_hash": "14418723d969b564e3fbb4d76d09b0f0493fb7716b428789545bb1fb52869e86"
+    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after genes-ts import-attribute and dynamicImport typing fixes landed for OpenCodeHX",
+    "relative_path_sha256_manifest_hash": "22911def82cef35c20e785d8cbeb540ca88c969c6a114eea5f084f461b80d6d8"
   },
   "decision": {
     "canonical_dependency": "../genes",
