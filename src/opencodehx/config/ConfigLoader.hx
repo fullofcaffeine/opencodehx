@@ -2,7 +2,10 @@ package opencodehx.config;
 
 import haxe.ds.ReadOnlyArray;
 import haxe.DynamicAccess;
+import haxe.Json;
+import genes.js.Async.await;
 import js.Syntax;
+import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ServerConfig;
@@ -12,13 +15,25 @@ import opencodehx.config.ConfigPlugin.PluginScope;
 import opencodehx.config.ConfigPlugin.PluginSpec;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.web.Fetch;
+import opencodehx.externs.web.Fetch.WellKnownPayload;
 import opencodehx.host.node.NodePath;
 
 typedef LoadOptions = {
-	@:optional final env:Dynamic;
+	@:optional final env:ConfigEnv;
 	@:optional final defaultUsername:String;
+	@:optional final includeDefaultUsername:Bool;
 	@:optional final worktree:String;
 	@:optional final pluginScope:PluginScope;
+}
+
+@:ts.type("{[key: string]: string | null | undefined}")
+abstract ConfigEnv(Dynamic) from Dynamic to Dynamic {}
+
+typedef WellKnownAuth = {
+	final url:String;
+	final key:String;
+	final token:String;
 }
 
 class ConfigLoader {
@@ -59,7 +74,7 @@ class ConfigLoader {
 
 	public static function loadProject(directory:String, ?options:LoadOptions):ConfigInfo {
 		final opts:LoadOptions = options == null ? {} : options;
-		final result = ConfigInfo.empty(defaultUsername(opts));
+		final result = includeDefaultUsername(opts) ? ConfigInfo.empty(defaultUsername(opts)) : new ConfigInfo();
 		final customPath = envValue(opts, "OPENCODE_CONFIG");
 		if (customPath != null && customPath != "")
 			result.merge(loadFile(customPath, opts));
@@ -86,6 +101,32 @@ class ConfigLoader {
 			result.merge(loadText(content, "OPENCODE_CONFIG_CONTENT", directory, withPluginScope(opts, PluginScopeLocal)));
 		}
 		promoteModes(result);
+		return result;
+	}
+
+	@:async
+	public static function loadProjectWithRemoteWellKnown(directory:String, auths:Array<WellKnownAuth>, ?options:LoadOptions):Promise<ConfigInfo> {
+		final opts:LoadOptions = options == null ? {} : options;
+		final result = new ConfigInfo();
+		final env = ensureEnv(opts);
+		for (auth in auths) {
+			final url = normalizeWellKnownUrl(auth.url);
+			setEnvValue(env, auth.key, auth.token);
+			final response = @:await Fetch.fetch(url + "/.well-known/opencode");
+			if (!response.ok)
+				throw 'failed to fetch remote config from ${url}: ${response.status}';
+			final payload:WellKnownPayload = @:await response.json();
+			final remote = payload.config;
+			if (remote == null)
+				continue;
+			if (!remote.exists("$schema"))
+				remote.set("$schema", ConfigInfo.DEFAULT_SCHEMA);
+			final source = url + "/.well-known/opencode";
+			result.merge(loadText(Json.stringify(remote), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
+		}
+		result.merge(loadProject(directory, withoutDefaultUsername(withEnv(opts, env))));
+		if (result.username == null)
+			result.username = defaultUsername(opts);
 		return result;
 	}
 
@@ -179,6 +220,13 @@ class ConfigLoader {
 	static function projectConfigDisabled(options:LoadOptions):Bool {
 		final value = envValue(options, "OPENCODE_DISABLE_PROJECT_CONFIG");
 		return value != null && value != "" && value != "0" && value != "false";
+	}
+
+	static function normalizeWellKnownUrl(url:String):String {
+		var result = url;
+		while (StringTools.endsWith(result, "/"))
+			result = result.substr(0, result.length - 1);
+		return result;
 	}
 
 	public static function loadFile(path:String, ?options:LoadOptions):ConfigInfo {
@@ -506,6 +554,10 @@ class ConfigLoader {
 		}
 	}
 
+	static function includeDefaultUsername(options:LoadOptions):Bool {
+		return options.includeDefaultUsername != false;
+	}
+
 	static function envValue(options:LoadOptions, key:String):Null<String> {
 		if (options.env != null && Reflect.hasField(options.env, key)) {
 			final value = Reflect.field(options.env, key);
@@ -514,10 +566,41 @@ class ConfigLoader {
 		return Syntax.code("process.env[{0}] ?? null", key);
 	}
 
+	static function ensureEnv(options:LoadOptions):ConfigEnv {
+		if (options.env != null)
+			return options.env;
+		return Syntax.code("process.env");
+	}
+
+	static function setEnvValue(env:ConfigEnv, key:String, value:String):Void {
+		Reflect.setField(env, key, value);
+	}
+
+	static function withEnv(options:LoadOptions, env:ConfigEnv):LoadOptions {
+		return {
+			env: env,
+			defaultUsername: options.defaultUsername,
+			includeDefaultUsername: options.includeDefaultUsername,
+			worktree: options.worktree,
+			pluginScope: options.pluginScope,
+		};
+	}
+
+	static function withoutDefaultUsername(options:LoadOptions):LoadOptions {
+		return {
+			env: options.env,
+			defaultUsername: options.defaultUsername,
+			includeDefaultUsername: false,
+			worktree: options.worktree,
+			pluginScope: options.pluginScope,
+		};
+	}
+
 	static function withPluginScope(options:LoadOptions, scope:PluginScope):LoadOptions {
 		return {
 			env: options.env,
 			defaultUsername: options.defaultUsername,
+			includeDefaultUsername: options.includeDefaultUsername,
 			worktree: options.worktree,
 			pluginScope: scope,
 		};

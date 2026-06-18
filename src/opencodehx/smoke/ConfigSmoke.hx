@@ -1,10 +1,14 @@
 package opencodehx.smoke;
 
+import genes.js.Async.await;
+import js.Syntax;
+import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigError.ConfigFailure;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ShareMode;
+import opencodehx.config.ConfigLoader.ConfigEnv;
 import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigPlugin;
 import opencodehx.config.ConfigPlugin.PluginOrigin;
@@ -14,7 +18,12 @@ import opencodehx.config.ConfigWriter;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Url;
+import opencodehx.externs.web.Fetch.FetchFunction;
 import opencodehx.host.node.NodePath;
+
+typedef RemoteMcpEntry = {
+	final enabled:Bool;
+}
 
 class ConfigSmoke {
 	public static function run():Void {
@@ -39,6 +48,42 @@ class ConfigSmoke {
 			fileSubstitution(root);
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
+	@:async
+	public static function runRemote():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-config-remote-"));
+		final originalFetch:FetchFunction = Syntax.code("globalThis.fetch");
+		try {
+			Syntax.code("(globalThis as unknown as { __opencodehxFetchedUrl?: string }).__opencodehxFetchedUrl = undefined");
+			Syntax.code("globalThis.fetch = (url: string | URL | Request) => {
+				const text = url instanceof Request ? url.url : url instanceof URL ? url.href : String(url);
+				(globalThis as unknown as { __opencodehxFetchedUrl?: string }).__opencodehxFetchedUrl = text;
+				return Promise.resolve(new Response(JSON.stringify({
+					config: {
+						username: '{env:TEST_TOKEN}',
+						mcp: { jira: { type: 'remote', url: 'https://jira.example.com/mcp', enabled: false } }
+					}
+				}), { status: 200 }));
+			}");
+			final project = directory(root, "remote-project");
+			write(project, "opencode.json", '{"mcp":{"jira":{"type":"remote","url":"https://jira.example.com/mcp","enabled":true}}}');
+			final env:ConfigEnv = cast {};
+			final config = @:await ConfigLoader.loadProjectWithRemoteWellKnown(project,
+				[{url: "https://example.com/", key: "TEST_TOKEN", token: "remote-token"}], {defaultUsername: "fixture-user", worktree: project, env: env});
+
+			eq(Syntax.code("(globalThis as unknown as { __opencodehxFetchedUrl?: string }).__opencodehxFetchedUrl ?? null"),
+				"https://example.com/.well-known/opencode", "remote well-known URL normalized");
+			eq(config.username, "remote-token", "remote well-known env token substitution");
+			final jira:RemoteMcpEntry = cast Reflect.field(config.mcp, "jira");
+			eq(jira.enabled, true, "project config overrides remote well-known config");
+			Syntax.code("globalThis.fetch = {0}", originalFetch);
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Syntax.code("globalThis.fetch = {0}", originalFetch);
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}

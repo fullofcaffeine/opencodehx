@@ -63,12 +63,19 @@ class Main {
 		Syntax.code("console.log({0})", "skill-smoke:ok");
 		SessionProcessorSmoke.run();
 		Syntax.code("console.log({0})", "session-processor-smoke:ok");
-		ServerSmoke.run().then(_ -> {
+		ConfigSmoke.runRemote().then(_ -> {
+			Syntax.code("console.log({0})", "config-remote-smoke:ok");
+			return ServerSmoke.run();
+		}).then(_ -> {
 			Syntax.code("console.log({0})", "server-smoke:ok");
 			Genes.dynamicImport(DynamicFixture -> DynamicFixture.label()).then(label -> {
 				Syntax.code("console.log({0})", label);
 				return null;
 			});
+			return null;
+		}).catchError(error -> {
+			Syntax.code("console.error({0})", error);
+			Syntax.code("process.exitCode = 1");
 			return null;
 		});
 	}

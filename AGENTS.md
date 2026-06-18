@@ -71,7 +71,9 @@ The high-level goal is deliberately twofold: build the best Haxe-native, future-
 
 Treat generated TypeScript readability as a product gate: strict-checkable is necessary but not sufficient. The output should preserve useful names, avoid gratuitous temporaries and casts, emit narrow imports/types, and remain efficient enough that an OpenCode maintainer could debug it directly.
 
-When a macro-generated TypeScript boundary needs a TS-only shape, prefer a small `@:ts.type` Haxe abstract in `genes-ts` over weakening OpenCodeHX source types. The `Genes.dynamicImport` fix uses Haxe-compatible abstracts that emit `unknown`/`unknown[]` and casts module reads to `typeof import(...)`, keeping user TS free of `module: any` while preserving Haxe typing.
+Treat `@:ts.type("...")` as a raw TypeScript override and a last-resort escape hatch, not a normal interop design tool. Prefer ordinary Haxe typedefs/enums/abstracts, `DynamicAccess<T>` for string-keyed maps, narrow externs/facades for libraries, and typed decoders for runtime data. If a reusable TS-only primitive is needed, add a named generic helper in `../genes` such as `genes.ts.Unknown` or `genes.ts.Undefinable<T>` rather than scattering raw strings through OpenCodeHX. Any remaining raw override must live at a boundary, be named and documented, and be tracked for eventual replacement or audit.
+
+When a macro-generated TypeScript boundary needs a TS-only shape, prefer a small named Haxe abstraction in `genes-ts` over weakening OpenCodeHX source types. The `Genes.dynamicImport` fix uses Haxe-compatible abstracts that emit `unknown`/`unknown[]` and casts module reads to `typeof import(...)`, keeping user TS free of `module: any` while preserving Haxe typing.
 
 When Haxe std reflection or extern aliases expose generated TS type leaks, fix the alias lowering in `genes-ts` rather than avoiding the Haxe API. The config port exposed `Reflect.fields` emitting `unsafeCast<Rest<any>>`; `../genes` now normalizes `haxe.extern.Rest<T>` aliases to `T[]` and guards the full fixture against unresolved `Rest` casts.
 
@@ -227,6 +229,8 @@ For provider/session parity, keep transcript fixtures deterministic and credenti
 For CLI parity, keep the command dispatcher pure enough to smoke test without spawning Node; use separate harness scripts for generated-binary behavior such as stdout, stderr, and exit codes.
 
 For plugin config discovery, scan only the upstream-shaped immediate `plugin/*.{ts,js}` and `plugins/*.{ts,js}` roots, normalize discovered local files to file URL specs, and attach provenance before dedupe. Loading plugin modules, resolving relative path specs, and npm dependency installation are separate runtime slices.
+
+For remote well-known config, keep network fetching in an explicit async loader path. Fetch `/.well-known/opencode` from normalized base URLs, inject advertised auth tokens into the substitution env before parsing, merge remote config before local project config, and avoid letting default-only local fields override remote-provided fields.
 
 For overload-heavy Node APIs such as `spawnSync`, keep raw extern calls dynamic at the host boundary and expose typed Haxe facades to app/tool code. This keeps generated TypeScript strict-checkable without weakening the app-facing model.
 
