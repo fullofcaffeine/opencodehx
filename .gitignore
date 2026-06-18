@@ -1,0 +1,21 @@
+.DS_Store
+node_modules/
+
+# Build and generated artifacts
+dist/
+src-gen/
+generated/
+coverage/
+test-results/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Tool caches
+.haxe/
+.haxelib/
+.turbo/
+.vite/
+
