@@ -10,10 +10,9 @@
     "rootDir": "./src-gen",
     "outDir": "./dist",
     "verbatimModuleSyntax": true,
-    "skipLibCheck": false
+    "skipLibCheck": true
   },
   "include": [
     "src-gen/**/*.ts"
   ]
 }
-

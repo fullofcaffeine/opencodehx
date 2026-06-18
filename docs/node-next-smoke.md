@@ -38,6 +38,7 @@ This proves:
 - `node --enable-source-maps dist/index.js` runs the generated output.
 - Generated import specifiers use explicit `.js` suffixes, for example `./opencodehx/Main.js` and `./BuildInfo.js`.
 - The first Node built-in extern imports `node:path` and runs through the host facade.
+- The first Effect facade imports `effect` and constructs a `Task.succeed(...)` value.
 
 ## Notes
 

@@ -15,7 +15,7 @@ Use one table row per discovered compiler limitation:
 
 | ID | Discovered from | OpenCodeHX blocker | genes task/repro | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
-| _none_ | | | | | |
+| `effect-dynamic-001` | `opencodehx-009` | Future config/session/provider Effect facades | none yet | `accepted-boundary-debt` | `opencodehx.fx.Task` stores the raw Effect runtime value as `Dynamic` while the exact Effect subset is discovered. Keep this isolated to `opencodehx.fx`/extern modules and tighten during config/session work. |
 
 ## Required Fields
 
