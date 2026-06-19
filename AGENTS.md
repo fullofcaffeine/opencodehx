@@ -24,6 +24,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 6. **Parity is empirical.** Prefer upstream tests, golden transcripts, API fixtures, terminal replays, generated TS snapshots, and smoke commands over intuition.
 7. **No "it compiles" success.** A slice is done only when behavior, generated output quality, and the relevant gates are proven.
 8. **Upstream tests are standing oracles.** Every upstream OpenCode test should eventually pass against OpenCodeHX directly or through an adapted Haxe-owned/differential harness. Until then, each test must stay represented in the port matrix with current evidence, missing scope, and an owning Bead.
+9. **Docs move with the port.** Keep `README.md`, `docs/README.md`, relevant subsystem docs, and `AGENTS.md` current as behavior, workflows, gates, or architecture change. A public reader should be able to understand the repo state without replaying chat history.
 
 ## Haxe Design Direction
 
@@ -229,6 +230,10 @@ bd sync
 ## Documentation and Lessons
 
 Keep this file current. When the port teaches a durable lesson about Haxe modeling, `genes-ts`, externs, OpenCode behavior, runtime seams, generated TS quality, or testing gates, update `AGENTS.md` or the relevant doc in the same change.
+
+Keep README-level docs current too. New build/test commands, public-readiness steps, subsystem status, important generated artifacts, and cross-repo workflow changes should update `README.md` or `docs/README.md` in the same task that introduces them. Subsystem implementation details should land in the nearest focused doc, with the README linking only the durable orientation a newcomer needs.
+
+Keep the ASCII progress bar in `README.md` synchronized with Beads. Treat it as an unweighted planning snapshot from non-epic `opencodehx-*` issues, and refresh it when closing meaningful port slices or adding/removing substantial backlog items.
 
 Current generated-TS hygiene lesson: avoid dense `Array.map` plus switch-expression summaries in large tool functions until `genes-ts` temp-name hygiene is fixed. Simple typed loops are clearer here and emit strict-checkable TypeScript.
 

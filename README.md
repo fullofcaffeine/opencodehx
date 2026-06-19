@@ -2,6 +2,16 @@
 
 OpenCodeHX is a Haxe-authored port of upstream OpenCode that emits TypeScript through `genes-ts`.
 
+## Port Progress
+
+Current Beads-based completion snapshot:
+
+```text
+[########################----------------] 61% (43/70 non-epic port beads closed)
+```
+
+This is an unweighted planning indicator, not a parity claim. The working port already has the core scaffold, config, tools, permissions, provider registry, headless fake-provider flow, server seam, and first TUI scaffold/transcript slices. Remaining major work includes real AI SDK streaming, CLI surface parity, SDK/MCP/ACP/LSP/plugin surfaces, fuller TUI dialogs, packaging, and upstream drift/rebase discipline.
+
 The working plan lives in [opencodehx-prd-plan.md](opencodehx-prd-plan.md). Day-to-day work is tracked in Beads under `.beads/issues.jsonl`; start with:
 
 ```sh
