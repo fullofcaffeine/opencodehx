@@ -13,6 +13,8 @@ import opencodehx.harness.TranscriptHarness;
 import opencodehx.host.node.NodePath;
 import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
+import opencodehx.provider.AiSdkLanguageLoader;
+import opencodehx.provider.BedrockLanguageLoader;
 import opencodehx.provider.ProviderModelsDev;
 import opencodehx.provider.ProviderModelsDev.ModelsDevFetchFunction;
 import opencodehx.provider.ProviderModelsDev.ModelsDevFetchRequest;
@@ -198,7 +200,55 @@ class ProviderSmoke {
 				"amazon-bedrock": {options: {region: "us-east-1"}},
 			},
 		}), {}, {"amazon-bedrock": {type: "api", key: "bearer"}});
-		eq(bedrockAuth.getProvider(ProviderID.make("amazon-bedrock")) != null, true, "bedrock auth bearer");
+		final authBedrock = bedrockAuth.getProvider(ProviderID.make("amazon-bedrock"));
+		eq(authBedrock != null, true, "bedrock auth bearer");
+		eq(Reflect.field(authBedrock.options, "apiKey"), "bearer", "bedrock bearer apiKey");
+
+		final webIdentity = registry(config({
+			provider: {
+				"amazon-bedrock": {options: {region: "us-east-1"}},
+			},
+		}),
+			{AWS_WEB_IDENTITY_TOKEN_FILE: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token", AWS_PROFILE: "", AWS_ACCESS_KEY_ID: ""});
+		eq(webIdentity.getProvider(ProviderID.make("amazon-bedrock")) != null, true, "bedrock web identity autoload");
+
+		bedrockCrossRegionPrefixes(authBedrock);
+	}
+
+	static function bedrockCrossRegionPrefixes(provider:opencodehx.provider.ProviderTypes.ProviderInfo):Void {
+		eq(BedrockLanguageLoader.hasCrossRegionPrefix("global.anthropic.claude-opus-4-5-20251101-v1:0"), true, "bedrock global prefix");
+		eq(BedrockLanguageLoader.hasCrossRegionPrefix("us.anthropic.claude-opus-4-5-20251101-v1:0"), true, "bedrock us prefix");
+		eq(BedrockLanguageLoader.hasCrossRegionPrefix("eu.anthropic.claude-opus-4-5-20251101-v1:0"), true, "bedrock eu prefix");
+		eq(BedrockLanguageLoader.hasCrossRegionPrefix("jp.anthropic.claude-sonnet-4-20250514-v1:0"), true, "bedrock jp prefix");
+		eq(BedrockLanguageLoader.hasCrossRegionPrefix("apac.anthropic.claude-sonnet-4-20250514-v1:0"), true, "bedrock apac prefix");
+		eq(BedrockLanguageLoader.hasCrossRegionPrefix("au.anthropic.claude-sonnet-4-5-20250929-v1:0"), true, "bedrock au prefix");
+		eq(BedrockLanguageLoader.hasCrossRegionPrefix("anthropic.claude-opus-4-5-20251101-v1:0"), false, "bedrock unprefixed");
+		eq(BedrockLanguageLoader.hasCrossRegionPrefix("amazon.nova-pro-v1:0"), false, "bedrock nova no false prefix");
+		eq(BedrockLanguageLoader.hasCrossRegionPrefix("cohere.command-r-plus-v1:0"), false, "bedrock cohere no false prefix");
+
+		eq(BedrockLanguageLoader.sdkModelID("global.anthropic.claude-haiku-4-5-20250929-v1:0", "us-east-1"),
+			"global.anthropic.claude-haiku-4-5-20250929-v1:0", "bedrock preserves global prefix");
+		eq(BedrockLanguageLoader.sdkModelID("anthropic.claude-sonnet-4-20250514-v1:0", "us-east-1"), "us.anthropic.claude-sonnet-4-20250514-v1:0",
+			"bedrock us claude prefix");
+		eq(BedrockLanguageLoader.sdkModelID("anthropic.claude-sonnet-4-20250514-v1:0", "us-gov-west-1"), "anthropic.claude-sonnet-4-20250514-v1:0",
+			"bedrock govcloud no us prefix");
+		eq(BedrockLanguageLoader.sdkModelID("anthropic.claude-opus-4-5-20251101-v1:0", "eu-west-1"), "eu.anthropic.claude-opus-4-5-20251101-v1:0",
+			"bedrock eu claude prefix");
+		eq(BedrockLanguageLoader.sdkModelID("meta.llama3-70b-instruct-v1:0", "eu-central-1"), "eu.meta.llama3-70b-instruct-v1:0", "bedrock eu llama prefix");
+		eq(BedrockLanguageLoader.sdkModelID("anthropic.claude-sonnet-4-20250514-v1:0", "ap-northeast-1"), "jp.anthropic.claude-sonnet-4-20250514-v1:0",
+			"bedrock tokyo prefix");
+		eq(BedrockLanguageLoader.sdkModelID("anthropic.claude-sonnet-4-20250514-v1:0", "ap-south-1"), "apac.anthropic.claude-sonnet-4-20250514-v1:0",
+			"bedrock apac prefix");
+		eq(BedrockLanguageLoader.sdkModelID("anthropic.claude-sonnet-4-5-20250929-v1:0", "ap-southeast-2"), "au.anthropic.claude-sonnet-4-5-20250929-v1:0",
+			"bedrock australia prefix");
+		eq(BedrockLanguageLoader.sdkModelID("cohere.command-r-plus-v1:0", "us-east-1"), "cohere.command-r-plus-v1:0", "bedrock cohere stays unprefixed");
+
+		final base = provider.models.get("anthropic.claude-sonnet-4-20250514-v1:0");
+		if (base == null)
+			throw "Missing Bedrock Claude Sonnet fixture model";
+		final resolution = AiSdkLanguageLoader.resolve(provider, base);
+		eq(resolution.sdkModelID, "us.anthropic.claude-sonnet-4-20250514-v1:0", "bedrock sdk loader model prefix");
+		eq(resolution.language.modelId, "us.anthropic.claude-sonnet-4-20250514-v1:0", "bedrock language model id");
 	}
 
 	static function modelsDevNormalization():Void {

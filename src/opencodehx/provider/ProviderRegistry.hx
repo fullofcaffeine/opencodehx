@@ -750,6 +750,13 @@ class ProviderRegistry {
 		if (profile == "" && accessKey == "" && bearer == "" && webIdentity == "" && !container)
 			return {autoload: false, options: cast {}};
 		final options:ProviderOptions = cast mergeObject(configOptions, {region: region});
+		if (profile != "")
+			Reflect.setField(options, "profile", profile);
+		// Bedrock bearer auth is passed directly to the SDK factory. Upstream
+		// mutates process.env for this case; the Haxe port keeps it explicit so
+		// the loader can type-check the boundary and tests can inject auth safely.
+		if (bearer != "")
+			Reflect.setField(options, "apiKey", bearer);
 		final endpoint = stringOr(Reflect.field(configOptions, "endpoint"), stringOr(Reflect.field(configOptions, "baseURL"), ""));
 		if (endpoint != "")
 			Reflect.setField(options, "baseURL", endpoint);

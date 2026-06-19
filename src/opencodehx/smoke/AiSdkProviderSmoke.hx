@@ -7,6 +7,7 @@ import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.ConfigProviderConfig;
 import opencodehx.config.ConfigInfo.ConfigProviderModelConfig;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
+import opencodehx.provider.AiSdkLanguageLoader;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
@@ -91,12 +92,13 @@ class AiSdkProviderSmoke {
 
 	static function openAICompatibleFactory():Void {
 		final registry = new ProviderRegistry({config: sdkConfig(), env: {}, auth: {}});
+		final provider = registry.getProvider(ProviderID.make("sdk-compatible"));
 		final model = registry.getModel(ProviderID.make("sdk-compatible"), ModelID.make("local-alias"));
 		final resolved = registry.resolveLanguage(model);
 		eq(resolved.sdkModelID, "remote-model", "ai sdk factory model id");
 		eq(resolved.language.modelId, "remote-model", "ai sdk language model id");
 		eq(resolved.language.provider, "sdk-compatible.chat", "ai sdk language provider");
-		eq(resolved.options.baseURL, "https://llm.example.test/v1", "ai sdk factory base url");
+		eq(AiSdkLanguageLoader.factoryOptions(provider, model).baseURL, "https://llm.example.test/v1", "ai sdk factory base url");
 	}
 
 	static function sdkConfig():ConfigInfo {

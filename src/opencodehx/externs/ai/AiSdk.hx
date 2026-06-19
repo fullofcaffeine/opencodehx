@@ -9,6 +9,7 @@ import js.html.URL;
 import js.lib.Promise;
 import js.lib.Promise.Thenable;
 import js.lib.Uint8Array;
+import opencodehx.externs.aws.AwsCredentialProviders.AwsCredentialProvider;
 import opencodehx.externs.web.WebStreams.WebReadableStream;
 
 @:ts.type("import('ai').FinishReason")
@@ -141,11 +142,20 @@ typedef AiSdkFactoryOptionsShape = {
 	final includeUsage:Undefinable<Bool>;
 }
 
+typedef AiBedrockFactoryOptionsShape = {
+	final region:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final baseURL:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+	final credentialProvider:Undefinable<AwsCredentialProvider>;
+}
+
 typedef AiSdkBundledProvider = {
 	function languageModel(modelID:String):AiLanguageModel;
 }
 
 typedef AiSdkProviderFactory = AiSdkFactoryOptions->AiSdkBundledProvider;
+typedef AiBedrockProviderFactory = AiBedrockFactoryOptions->AiSdkBundledProvider;
 
 @:ts.type("'v3'")
 enum abstract AiLanguageModelSpecificationVersion(String) from String to String {
@@ -545,6 +555,17 @@ typedef AiLanguageModelShape = {
 @:forward(name, baseURL, apiKey, headers, includeUsage)
 @:ts.type("import('@ai-sdk/openai-compatible').OpenAICompatibleProviderSettings")
 abstract AiSdkFactoryOptions(AiSdkFactoryOptionsShape) from AiSdkFactoryOptionsShape to AiSdkFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Amazon Bedrock provider settings.
+ *
+ * Bedrock has a different SDK factory contract from OpenAI-compatible
+ * providers: region is required for useful calls, bearer `apiKey` disables
+ * SigV4, and `credentialProvider` carries AWS's dynamic credential chain.
+ */
+@:forward(region, apiKey, baseURL, headers, credentialProvider)
+@:ts.type("import('@ai-sdk/amazon-bedrock').AmazonBedrockProviderSettings")
+abstract AiBedrockFactoryOptions(AiBedrockFactoryOptionsShape) from AiBedrockFactoryOptionsShape to AiBedrockFactoryOptionsShape {}
 
 /**
  * Type-only bridge for AI SDK `LanguageModelV3`.
