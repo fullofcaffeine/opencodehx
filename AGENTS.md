@@ -190,6 +190,7 @@ The initial config port is documented in `docs/config-port.md`. Keep config pars
 The TUI is the most sensitive UX surface.
 
 - First compile one minimal Solid/OpenTUI TSX/HXX component through `genes-ts`.
+- Keep the first TUI gate small and reproducible: a Haxe-authored TSX scaffold, OpenTUI's test renderer contract, generated TSX snapshot, strict `tsc`, and an explicitly tracked runtime smoke before moving to the full terminal renderer.
 - Add compiler fixtures for props, children, signals/memos, imports, components, and generated TSX accepted by TypeScript.
 - Port static screens and shared theme/keybinding context before live transcript rendering.
 - Use terminal snapshot/replay tests for meaningful TUI changes.

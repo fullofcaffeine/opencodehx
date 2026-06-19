@@ -16,6 +16,7 @@
     "transcript:parity": "npm run build && node scripts/harness/transcript-parity.mjs",
     "cli:smoke": "npm run build && node scripts/harness/cli-smoke.mjs",
     "test:haxe:unit": "node scripts/harness/haxe-unit-specs.mjs",
+    "tui:scaffold": "node scripts/harness/tui-scaffold.mjs",
     "format:haxe": "bash scripts/lint/hx_format_guard.sh --write",
     "format:haxe:check": "bash scripts/lint/hx_format_guard.sh",
     "security:gitleaks": "bash scripts/security/run-gitleaks.sh",
@@ -43,10 +44,13 @@
   "dependencies": {
     "@hono/node-server": "^1.19.13",
     "@hono/node-ws": "^1.3.0",
+    "@opentui/core": "0.1.99",
+    "@opentui/solid": "0.1.99",
     "better-sqlite3": "^12.11.1",
     "effect": "^4.0.0-beta.48",
     "hono": "^4.12.26",
     "jsonc-parser": "^3.3.1",
+    "solid-js": "1.9.11",
     "toml": "^4.1.1"
   }
 }
