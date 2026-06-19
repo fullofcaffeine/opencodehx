@@ -14,6 +14,7 @@ import opencodehx.smoke.CopilotChatCompletionSmoke;
 import opencodehx.smoke.CopilotChatMessagesSmoke;
 import opencodehx.smoke.CopilotChatRequestSmoke;
 import opencodehx.smoke.CopilotChatSseDecoderSmoke;
+import opencodehx.smoke.CopilotChatStreamAdapterSmoke;
 import opencodehx.smoke.CopilotChatStreamSmoke;
 import opencodehx.smoke.CopilotChatToolsSmoke;
 import opencodehx.smoke.CopilotProviderFactorySmoke;
@@ -86,6 +87,10 @@ class Main {
 				Syntax.code("console.log({0})", "copilot-provider-factory-smoke:ok");
 				CopilotChatSseDecoderSmoke.run();
 				Syntax.code("console.log({0})", "copilot-chat-sse-decoder-smoke:ok");
+				return CopilotChatStreamAdapterSmoke.run();
+			})
+			.then(_ -> {
+				Syntax.code("console.log({0})", "copilot-chat-stream-adapter-smoke:ok");
 				CopilotChatStreamSmoke.run();
 				Syntax.code("console.log({0})", "copilot-chat-stream-smoke:ok");
 				CopilotChatToolsSmoke.run();

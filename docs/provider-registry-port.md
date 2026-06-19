@@ -23,6 +23,7 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotChatRequest` ports pure GitHub Copilot request argument shaping for OpenAI-compatible chat calls.
 - `CopilotOpenAICompatibleProvider` ports the pure GitHub Copilot/OpenAI-compatible provider factory settings: default/base URL handling, provider name/kind IDs, request URL construction, header merging, authorization defaults, and AI SDK user-agent suffixing.
 - `CopilotChatSseDecoder` ports the first pure SSE `data:` decoder layer for GitHub Copilot chat streams, turning event-source response text into typed parsed/raw chunks before the Web Stream adapter lands.
+- `CopilotChatStreamAdapter` ports the first typed Web `ReadableStream<Uint8Array>` response-body reader layer and connects live response text to the SSE decoder and stream state machine.
 - `CopilotChatStream` ports the pure GitHub Copilot chat stream state machine over typed parsed chunks, before the actual SSE/Web Stream adapter lands.
 - `CopilotChatTools` ports pure GitHub Copilot request-body tool formatting for OpenAI-compatible function tools and tool-choice modes.
 
@@ -115,6 +116,14 @@ This slice adds the first Haxe-owned provider registry:
 - Typed chunk decoding for response metadata, text deltas, usage details, and provider error frames.
 - Invalid JSON, invalid `choices`, and invalid tool-call index diagnostics.
 
+`CopilotChatStreamAdapterSmoke` covers the first typed Web stream adapter boundary:
+
+- Constructing a Web `ReadableStream<Uint8Array>` fixture through Haxe externs, not raw `Syntax.code`.
+- Reading `Response.body` through the narrow `WebStreams` facade.
+- Incremental `TextDecoder` decoding into SSE response text.
+- Feeding decoded chunks through `CopilotChatSseDecoder` and `CopilotChatStream.collectRaw`.
+- Warning preservation and raw/text/metadata event ordering.
+
 `CopilotChatToolsSmoke` covers representative upstream request-body formatting from `provider/copilot/copilot-chat-model.test.ts`:
 
 - Empty tool arrays become absent `tools` and `tool_choice`.
@@ -145,6 +154,8 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 `ProviderModelsDev.parse` keeps `Dynamic` and a single cast inside the JSON decoder boundary because Haxe's `Json.parse` and `Reflect.field` cannot refine runtime objects into structural typedefs. The boundary validates the consumed models.dev shape first, then returns a typed `ModelsDevCatalog` to the registry.
 
 `CopilotChatSseDecoder` has the same kind of contained boundary: `Json.parse` and `Reflect.field` are private to the decoder, every consumed field is shape-checked, and callers receive only `CopilotChatRawStreamChunk` / `CopilotChatStreamChunk`. Generated `any` is expected only in that private decoder surface until a reusable typed JSON decoder exists.
+
+`opencodehx.externs.web.WebStreams` owns the current Web stream extern gap. Haxe 4.3's `js.html.Response` does not expose the standard `body` property, so the structural cast is localized in `WebResponseStreams.body`; provider code consumes a typed `ReadableStream<Uint8Array>` reader.
 
 The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)` only for SDK-owned types such as `LanguageModelV3`, OpenAI-compatible factory settings, `Tool`, `JSONSchema7`, and provider stream parts; the app-facing surface is the typed `AiSdkProvider` event/result model. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
 
