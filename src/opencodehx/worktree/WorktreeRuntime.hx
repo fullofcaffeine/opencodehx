@@ -4,6 +4,8 @@ import opencodehx.externs.node.Fs;
 import opencodehx.git.Git;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.project.InstanceRuntime;
+import opencodehx.project.InstanceRuntime.InstanceBootstrap;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.project.ProjectRuntime.ProjectInfo;
 import opencodehx.project.ProjectRuntime.ProjectVcs;
@@ -82,12 +84,12 @@ class WorktreeRuntime {
 		throw "Failed to generate a unique worktree name";
 	}
 
-	public static function create(project:ProjectInfo, info:WorktreeInfo, ?startCommand:String):WorktreeInfo {
-		createFromInfo(project, info, startCommand);
+	public static function create(project:ProjectInfo, info:WorktreeInfo, ?startCommand:String, ?bootstrap:InstanceBootstrap):WorktreeInfo {
+		createFromInfo(project, info, startCommand, bootstrap);
 		return info;
 	}
 
-	public static function createFromInfo(project:ProjectInfo, info:WorktreeInfo, ?startCommand:String):Void {
+	public static function createFromInfo(project:ProjectInfo, info:WorktreeInfo, ?startCommand:String, ?bootstrap:InstanceBootstrap):Void {
 		if (project.vcs != GitVcs)
 			throw "Worktrees are only supported for git projects";
 		final result = Git.run(project.worktree, ["worktree", "add", "--no-checkout", "-b", info.branch, info.directory]);
@@ -104,6 +106,8 @@ class WorktreeRuntime {
 			});
 			return;
 		}
+		if (!bootstrapInstance(project, info, bootstrap))
+			return;
 		publish({type: Ready, name: info.name, branch: info.branch});
 		runStartScripts(project, info, startCommand);
 	}
@@ -232,6 +236,24 @@ class WorktreeRuntime {
 			runStartScript(project, info, project.commands.start);
 		if (extra != null)
 			runStartScript(project, info, extra);
+	}
+
+	static function bootstrapInstance(project:ProjectInfo, info:WorktreeInfo, ?bootstrap:InstanceBootstrap):Bool {
+		final context = InstanceRuntime.boot({
+			directory: info.directory,
+			worktree: info.directory,
+			project: project,
+			init: bootstrap,
+		});
+		if (context != null)
+			return true;
+		publish({
+			type: Failed,
+			name: info.name,
+			branch: info.branch,
+			message: 'Failed to bootstrap worktree instance for ${project.id.toString()}',
+		});
+		return false;
 	}
 
 	static function runStartScript(project:ProjectInfo, info:WorktreeInfo, command:String):Bool {

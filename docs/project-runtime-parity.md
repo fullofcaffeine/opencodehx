@@ -37,6 +37,9 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - repeated names avoid existing directories and branch names,
   - created worktrees share the parent project ID,
   - sandbox paths are tracked,
+  - instance bootstrap runs before `worktree.ready` and successful contexts are cached,
+  - bootstrap refusal emits `worktree.failed` without caching an instance,
+  - instance disposal emits `server.instance.disposed`,
   - ready and failed events are emitted,
   - configured project start commands and explicit start commands run in the created worktree,
   - reset hard-resets to the default branch, cleans untracked files, and verifies a clean status,
@@ -55,7 +58,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - Full installation side effects: package-manager detection, install/uninstall/outdated flows, and dependency bootstrap command behavior.
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching and service-bus integration beyond explicit branch refresh.
-- Worktree bootstrap/instance integration and upstream's broader failure matrix.
+- Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
 - Sync persistence, bus wiring, server routes, and cross-process behavior.
 
 ## Boundary Notes

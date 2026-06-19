@@ -9,6 +9,10 @@ import opencodehx.git.Git.GitStat;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.npm.Npm;
+import opencodehx.project.InstanceRuntime;
+import opencodehx.project.InstanceRuntime.InstanceContext;
+import opencodehx.project.InstanceRuntime.InstanceEvent;
+import opencodehx.project.InstanceRuntime.InstanceEventType;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.project.ProjectRuntime.ProjectEvent;
 import opencodehx.project.ProjectRuntime.ProjectEventType;
@@ -263,6 +267,7 @@ class ProjectRuntimeSmoke {
 
 	static function worktreeEdges(root:String):Void {
 		ProjectRuntime.reset();
+		InstanceRuntime.reset();
 		WorktreeRuntime.resetEvents();
 		final dir = directory(root, "worktree-edges-main");
 		initCommittedRepo(dir);
@@ -278,14 +283,34 @@ class ProjectRuntimeSmoke {
 
 		final info = WorktreeRuntime.makeWorktreeInfo(main, "Reset Me");
 		final events:Array<WorktreeEvent> = [];
-		final unsubscribe = WorktreeRuntime.subscribe(event -> events.push(event));
+		final order:Array<String> = [];
+		final unsubscribe = WorktreeRuntime.subscribe(event -> {
+			if (event.type == Ready)
+				order.push("ready");
+			events.push(event);
+		});
+		final instanceEvents:Array<InstanceEvent> = [];
+		final instanceUnsubscribe = InstanceRuntime.subscribe(event -> instanceEvents.push(event));
+		final bootstrap = (context:InstanceContext) -> {
+			order.push("bootstrap");
+			write(context.directory, "bootstrapped.txt", context.project.id.toString());
+			true;
+		};
 		var failedDirectory:Null<String> = null;
+		var failedBootstrapDirectory:Null<String> = null;
 		try {
-			WorktreeRuntime.createFromInfo(main, info, extraStartCommand);
+			WorktreeRuntime.createFromInfo(main, info, extraStartCommand, bootstrap);
 			unsubscribe();
 			eq(events.length > 0, true, "worktree ready event emitted");
+			eq(order.join(","), "bootstrap,ready", "worktree bootstrap before ready");
 			eq(events[events.length - 1].type, Ready, "worktree ready event type");
 			eq(events[events.length - 1].branch, info.branch, "worktree ready branch");
+			eq(Fs.readFileSync(NodePath.join(info.directory, "bootstrapped.txt"), "utf8"), main.id.toString(), "worktree bootstrap context");
+			final cached = InstanceRuntime.get(info.directory);
+			if (cached == null)
+				throw "worktree instance not cached";
+			eq(cached.project.id.toString(), main.id.toString(), "worktree instance project id");
+			eq(realpath(cached.worktree), realpath(info.directory), "worktree instance sandbox");
 			eq(Fs.existsSync(NodePath.join(info.directory, "project-started.txt")), true, "worktree project start command");
 			eq(Fs.existsSync(NodePath.join(info.directory, "extra-started.txt")), true, "worktree extra start command");
 
@@ -295,6 +320,11 @@ class ProjectRuntimeSmoke {
 			eq(Fs.existsSync(NodePath.join(info.directory, "scratch.txt")), false, "worktree reset cleaned untracked");
 			eq(Fs.readFileSync(NodePath.join(info.directory, "README.md"), "utf8"), "# fixture\n", "worktree reset restored tracked");
 
+			eq(InstanceRuntime.dispose(info.directory), true, "worktree instance dispose result");
+			instanceUnsubscribe();
+			eq(instanceEvents.length, 1, "worktree instance disposed event emitted");
+			eq(instanceEvents[0].type, Disposed, "worktree instance disposed event type");
+			eq(instanceEvents[0].project, main.id.toString(), "worktree instance disposed project");
 			eq(WorktreeRuntime.remove(main, NodePath.join(dir, "missing-worktree")), true, "missing worktree remove");
 			WorktreeRuntime.remove(main, info.directory);
 			final failedInfo = WorktreeRuntime.makeWorktreeInfo(main, "Bad Start");
@@ -305,13 +335,25 @@ class ProjectRuntimeSmoke {
 			eq(failure.type, Failed, "worktree failed event type");
 			eq(failure.branch, failedInfo.branch, "worktree failed event branch");
 			WorktreeRuntime.remove(main, failedInfo.directory);
+			final failedBootstrapInfo = WorktreeRuntime.makeWorktreeInfo(main, "Bad Bootstrap");
+			failedBootstrapDirectory = failedBootstrapInfo.directory;
+			WorktreeRuntime.resetEvents();
+			WorktreeRuntime.createFromInfo(main, failedBootstrapInfo, null, _ -> false);
+			final bootstrapFailure = WorktreeRuntime.events()[WorktreeRuntime.events().length - 1];
+			eq(bootstrapFailure.type, Failed, "worktree bootstrap failed event type");
+			eq(bootstrapFailure.branch, failedBootstrapInfo.branch, "worktree bootstrap failed event branch");
+			eq(InstanceRuntime.get(failedBootstrapInfo.directory) == null, true, "failed bootstrap instance not cached");
+			WorktreeRuntime.remove(main, failedBootstrapInfo.directory);
 			// Dynamic is required at this JS runtime cleanup boundary because Git
 			// failures can arrive as strings, Haxe exceptions, or JS errors.
 		} catch (error:Dynamic) {
 			unsubscribe();
+			instanceUnsubscribe();
 			WorktreeRuntime.remove(main, info.directory);
 			if (failedDirectory != null)
 				WorktreeRuntime.remove(main, failedDirectory);
+			if (failedBootstrapDirectory != null)
+				WorktreeRuntime.remove(main, failedBootstrapDirectory);
 			throw error;
 		}
 	}
