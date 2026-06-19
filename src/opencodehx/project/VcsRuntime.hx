@@ -1,11 +1,15 @@
 package opencodehx.project;
 
+import opencodehx.bus.EventBus;
 import opencodehx.externs.node.Fs;
+import opencodehx.file.FileWatcherRuntime.FileUpdatedEvent;
+import opencodehx.file.FileWatcherRuntime.FileWatchEventType;
 import opencodehx.git.Git;
 import opencodehx.git.Git.GitChangeKind;
 import opencodehx.git.Git.GitItem;
 import opencodehx.git.Git.GitStat;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
 
 using StringTools;
 
@@ -38,11 +42,17 @@ class VcsRuntime {
 	final directory:String;
 	final history:Array<VcsEvent> = [];
 	final listeners:Array<VcsEventListener> = [];
+	final eventBus:Null<EventBus<VcsEvent>>;
+	var fileUnsubscribe:Null<Void->Void>;
 	var current:Null<String>;
 
-	public function new(directory:String) {
-		this.directory = directory;
+	public function new(directory:String, ?eventBus:EventBus<VcsEvent>, ?fileBus:EventBus<FileUpdatedEvent>) {
+		this.directory = canonical(directory);
+		this.eventBus = eventBus;
 		current = Git.branch(directory);
+		final attached = fileBus;
+		if (attached != null)
+			fileUnsubscribe = attached.subscribe(handleFileEvent);
 	}
 
 	public function branch():Null<String> {
@@ -93,11 +103,33 @@ class VcsRuntime {
 		};
 	}
 
+	public function dispose():Void {
+		final unsubscribe = fileUnsubscribe;
+		if (unsubscribe == null)
+			return;
+		fileUnsubscribe = null;
+		unsubscribe();
+	}
+
 	function publish(event:VcsEvent):Void {
 		history.push(event);
 		for (listener in listeners.copy()) {
 			listener(event);
 		}
+		final target = eventBus;
+		if (target != null)
+			target.publish(event);
+	}
+
+	function handleFileEvent(event:FileUpdatedEvent):Void {
+		if (event.type != FileUpdated)
+			return;
+		final eventDirectory = event.directory;
+		if (eventDirectory != null && canonical(eventDirectory) != directory)
+			return;
+		if (!isHeadFile(event.file))
+			return;
+		refresh();
 	}
 
 	function track(ref:Null<String>):Array<VcsFileDiff> {
@@ -173,5 +205,15 @@ class VcsRuntime {
 			return 0;
 		final normalized = text.endsWith("\n") ? text.substr(0, text.length - 1) : text;
 		return normalized == "" ? 0 : normalized.split("\n").length;
+	}
+
+	static function isHeadFile(file:String):Bool {
+		return file == "HEAD" || file.endsWith("/HEAD") || file.endsWith("\\HEAD");
+	}
+
+	static function canonical(path:String):String {
+		final resolved = NodePath.normalize(NodePath.resolve(path, ""));
+		final normalized = Fs.existsSync(resolved) ? NodePath.normalize(Fs.realpathSync(resolved)) : resolved;
+		return NodeProcess.platform() == "win32" ? normalized.toLowerCase() : normalized;
 	}
 }

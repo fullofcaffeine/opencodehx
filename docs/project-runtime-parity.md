@@ -16,6 +16,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - VCS runtime:
   - branch refresh,
   - typed branch-update events,
+  - typed bus propagation for `vcs.branch.updated`,
+  - HEAD `file.updated` events refresh the cached branch,
   - working-tree diff mode for tracked and untracked changes,
   - branch diff mode against the default branch merge base.
 - Project discovery:
@@ -57,7 +59,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 
 - Full installation side effects: package-manager detection, install/uninstall/outdated flows, and dependency bootstrap command behavior.
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
-- Native VCS file watching and service-bus integration beyond explicit branch refresh.
+- Native VCS file watching bindings beyond typed HEAD-event bus refresh.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
 - Sync persistence, bus wiring, server routes, and cross-process behavior.
 

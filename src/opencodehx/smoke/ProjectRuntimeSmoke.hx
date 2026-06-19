@@ -2,6 +2,9 @@ package opencodehx.smoke;
 
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.bus.EventBus;
+import opencodehx.file.FileWatcherRuntime.FileUpdatedEvent;
+import opencodehx.file.FileWatcherRuntime.FileWatchEventType;
 import opencodehx.git.Git;
 import opencodehx.git.Git.GitChangeKind;
 import opencodehx.git.Git.GitItem;
@@ -359,15 +362,43 @@ class ProjectRuntimeSmoke {
 	}
 
 	static function vcsEvents(dir:String):Void {
-		final vcs = new VcsRuntime(dir);
+		final fileBus = new EventBus<FileUpdatedEvent>();
+		final branchBus = new EventBus<VcsEvent>();
+		final vcs = new VcsRuntime(dir, branchBus, fileBus);
 		final events:Array<VcsEvent> = [];
+		final branchEvents:Array<VcsEvent> = [];
 		final unsubscribe = vcs.subscribe(event -> events.push(event));
-		git(dir, ["checkout", "-b", "feature/vcs-event"]);
-		eq(vcs.refresh(), "feature/vcs-event", "vcs refreshed branch");
+		final branchUnsubscribe = branchBus.subscribe(event -> branchEvents.push(event));
+		git(dir, ["branch", "feature/vcs-event"]);
+		Fs.writeFileSync(NodePath.join(NodePath.join(dir, ".git"), "HEAD"), "ref: refs/heads/feature/vcs-event\n", "utf8");
+		fileBus.publish({
+			type: FileUpdated,
+			directory: dir,
+			file: NodePath.join(NodePath.join(dir, ".git"), "HEAD"),
+		});
+		eq(vcs.branch(), "feature/vcs-event", "vcs bus refreshed branch");
+		eq(vcs.refresh(), "feature/vcs-event", "vcs explicit refresh remains stable");
 		unsubscribe();
+		branchUnsubscribe();
+		vcs.dispose();
 		eq(events.length, 1, "vcs branch event emitted");
 		eq(events[0].type, BranchUpdated, "vcs branch event type");
 		eq(events[0].branch, "feature/vcs-event", "vcs branch event branch");
+		final fileHistory = fileBus.snapshot();
+		final branchHistory = branchBus.snapshot();
+		eq(fileHistory[0].type, FileUpdated, "vcs file bus event type");
+		eq(branchHistory.length, 1, "vcs branch bus history count");
+		eq(branchHistory[0].type, BranchUpdated, "vcs branch bus event type");
+		eq(branchHistory[0].branch, "feature/vcs-event", "vcs branch bus event payload");
+		eq(hasVcsEvent(branchEvents, BranchUpdated, "feature/vcs-event"), true, "vcs live branch bus event");
+	}
+
+	static function hasVcsEvent(events:Array<VcsEvent>, type:VcsEventType, branch:String):Bool {
+		for (event in events) {
+			if (event.type == type && event.branch == branch)
+				return true;
+		}
+		return false;
 	}
 
 	static function npmSanitize():Void {
