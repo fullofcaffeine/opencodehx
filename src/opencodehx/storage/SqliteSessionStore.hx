@@ -35,6 +35,12 @@ class SqliteSessionStore implements SessionStore {
 			[project.id, optionalField(project, "name"), project.worktree,]);
 	}
 
+	public function migrateGlobalSessions(worktree:String, projectID:String):Int {
+		if (projectID == "global" || worktree == "")
+			return 0;
+		return sql.run("update session set project_id = ? where project_id = ? and directory = ?", [projectID, "global", worktree]);
+	}
+
 	public function createSession(info:SessionInfo):Void {
 		insertOrReplaceSession(info);
 	}

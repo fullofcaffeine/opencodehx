@@ -17,6 +17,9 @@ import opencodehx.project.ProjectRuntime.ProjectVcs;
 import opencodehx.project.VcsRuntime;
 import opencodehx.project.VcsRuntime.VcsEvent;
 import opencodehx.project.VcsRuntime.VcsEventType;
+import opencodehx.session.SessionID;
+import opencodehx.session.SessionInfo.SessionInfo;
+import opencodehx.storage.SqliteSessionStore;
 import opencodehx.sync.SyncEventStore;
 import opencodehx.worktree.WorktreeRuntime.WorktreeEvent;
 import opencodehx.worktree.WorktreeRuntime.WorktreeEventType;
@@ -36,6 +39,7 @@ class ProjectRuntimeSmoke {
 			noCommitGitProject(root);
 			committedProjectAndGit(root);
 			projectEdges(root);
+			projectGlobalMigration(root);
 			worktreeProject(root);
 			worktreeEdges(root);
 			npmSanitize();
@@ -145,6 +149,54 @@ class ProjectRuntimeSmoke {
 
 		cloneProjectIDs(root);
 		bareProjectCache(root);
+	}
+
+	static function projectGlobalMigration(root:String):Void {
+		ProjectRuntime.reset();
+		final dir = directory(root, "migrate-first-project");
+		final store = new SqliteSessionStore(NodePath.join(root, "migrate-first.db"));
+		try {
+			git(dir, ["init"]);
+			final pre = ProjectRuntime.fromDirectory(dir, store).project;
+			eq(pre.id.toString(), ProjectID.global().toString(), "migration pre-commit global project");
+			final sessionID = SessionID.make("ses_migrate_first");
+			store.createSession(storageSession(sessionID, ProjectID.global().toString(), pre.worktree));
+			commitEmpty(dir, "root");
+			final real = ProjectRuntime.fromDirectory(dir, store).project;
+			neq(real.id.toString(), ProjectID.global().toString(), "migration real project id");
+			eq(store.getSession(sessionID).projectID, real.id.toString(), "global session migrated on first project creation");
+			store.close();
+			// Dynamic is required at this JS runtime cleanup boundary because SQLite,
+			// Node externs, and Git helpers may throw strings, Haxe exceptions, or JS errors.
+		} catch (error:Dynamic) {
+			store.close();
+			throw error;
+		}
+
+		ProjectRuntime.reset();
+		final existingDir = directory(root, "migrate-existing-project");
+		initCommittedRepo(existingDir);
+		final existingStore = new SqliteSessionStore(NodePath.join(root, "migrate-existing.db"));
+		try {
+			final project = ProjectRuntime.fromDirectory(existingDir, existingStore).project;
+			existingStore.upsertProject({id: ProjectID.global().toString(), worktree: "/"});
+			final matching = SessionID.make("ses_migrate_existing");
+			final empty = SessionID.make("ses_migrate_empty");
+			final other = SessionID.make("ses_migrate_other");
+			existingStore.createSession(storageSession(matching, ProjectID.global().toString(), project.worktree));
+			existingStore.createSession(storageSession(empty, ProjectID.global().toString(), ""));
+			existingStore.createSession(storageSession(other, ProjectID.global().toString(), NodePath.join(root, "unrelated")));
+			ProjectRuntime.fromDirectory(existingDir, existingStore);
+			eq(existingStore.getSession(matching).projectID, project.id.toString(), "global session migrated for existing project");
+			eq(existingStore.getSession(empty).projectID, ProjectID.global().toString(), "empty-directory session stays global");
+			eq(existingStore.getSession(other).projectID, ProjectID.global().toString(), "unrelated global session stays global");
+			existingStore.close();
+			// Dynamic is required at this JS runtime cleanup boundary because SQLite,
+			// Node externs, and Git helpers may throw strings, Haxe exceptions, or JS errors.
+		} catch (error:Dynamic) {
+			existingStore.close();
+			throw error;
+		}
 	}
 
 	static function worktreeProject(root:String):Void {
@@ -315,6 +367,35 @@ class ProjectRuntimeSmoke {
 			"initial"
 		]);
 		git(dir, ["config", "init.defaultBranch", "main"]);
+	}
+
+	static function commitEmpty(dir:String, message:String):Void {
+		git(dir, [
+			"-c",
+			"user.email=test@example.com",
+			"-c",
+			"user.name=OpenCodeHX",
+			"commit",
+			"--allow-empty",
+			"--no-gpg-sign",
+			"-m",
+			message
+		]);
+	}
+
+	static function storageSession(id:SessionID, projectID:String, directory:String):SessionInfo {
+		return {
+			id: id,
+			slug: id.toString(),
+			projectID: projectID,
+			directory: directory,
+			title: "migration fixture",
+			version: "0.0.0-test",
+			time: {
+				created: 1,
+				updated: 1,
+			},
+		};
 	}
 
 	static function cloneProjectIDs(root:String):Void {

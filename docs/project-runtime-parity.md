@@ -27,6 +27,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - initialization timestamps are recorded,
   - favicon discovery emits data URLs for known image extensions and ignores non-image favicon names,
   - missing sandbox directories are pruned from project state,
+  - storage-backed global sessions are migrated to the real project ID when a committed project is discovered,
+  - empty-directory and unrelated global sessions remain under the global project,
   - host paths are canonicalized through real filesystem paths when they exist.
 - Worktrees:
   - friendly names are slugged into stable branch/directory names,
@@ -49,7 +51,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 ## Deferred
 
 - Full installation side effects: package-manager detection, install/uninstall/outdated flows, and dependency bootstrap command behavior.
-- Full project service behavior: automatic start-command discovery, persisted project store migration, and integration with config/service layers.
+- Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching and service-bus integration beyond explicit branch refresh.
 - Worktree bootstrap/instance integration and upstream's broader failure matrix.
 - Sync persistence, bus wiring, server routes, and cross-process behavior.
@@ -59,3 +61,5 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 `opencodehx.host.node.NodeProcess` keeps raw Node `spawnSync` overload complexity at the host seam. App-facing callers receive typed stdout/stderr/status through the narrow `SpawnSyncResult` extern instead of broad `Dynamic`.
 
 `ProjectRuntime` stores canonical realpaths when the path exists. This avoids macOS `/var` versus `/private/var` drift and gives project/worktree comparisons one stable host spelling.
+
+When a `SessionStore` is supplied, `ProjectRuntime.fromDirectory` persists the discovered project and migrates legacy sessions from `global` only when their stored directory exactly matches the real project worktree. This matches upstream's project migration rule without making the default in-memory discovery path depend on SQLite.

@@ -18,6 +18,7 @@ typedef MessagePage = {
 interface SessionStore {
 	function close():Void;
 	function upsertProject(project:ProjectInfo):Void;
+	function migrateGlobalSessions(worktree:String, projectID:String):Int;
 	function createSession(info:SessionInfo):Void;
 	function getSession(id:SessionID):SessionInfo;
 	function updateSession(info:SessionInfo):Void;

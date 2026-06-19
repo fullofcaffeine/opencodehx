@@ -4,6 +4,7 @@ import js.Syntax;
 import opencodehx.externs.node.Fs;
 import opencodehx.git.Git;
 import opencodehx.host.node.NodePath;
+import opencodehx.storage.SessionStore;
 
 using StringTools;
 
@@ -98,9 +99,10 @@ class ProjectRuntime {
 		listeners.resize(0);
 	}
 
-	public static function fromDirectory(directory:String):ProjectDiscovery {
+	public static function fromDirectory(directory:String, ?store:SessionStore):ProjectDiscovery {
 		final data = discoverData(directory);
 		final project = upsertDiscovered(data);
+		persistDiscovered(project, store);
 		return {project: project, sandbox: data.sandbox};
 	}
 
@@ -350,6 +352,18 @@ class ProjectRuntime {
 		};
 		replace(next);
 		return next;
+	}
+
+	static function persistDiscovered(project:ProjectInfo, ?store:SessionStore):Void {
+		if (store == null)
+			return;
+		store.upsertProject({
+			id: project.id.toString(),
+			worktree: project.worktree,
+			name: project.name,
+		});
+		if (project.id.toString() != ProjectID.global().toString())
+			store.migrateGlobalSessions(project.worktree, project.id.toString());
 	}
 
 	static function liveSandboxes(items:Array<String>):Array<String> {
