@@ -1,11 +1,15 @@
 package opencodehx.smoke;
 
+import genes.ts.Unknown;
+import haxe.DynamicAccess;
 import haxe.Json;
 import opencodehx.config.ConfigInfo;
 import opencodehx.harness.TranscriptHarness;
 import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
 import opencodehx.provider.ProviderRegistry;
+import opencodehx.provider.ProviderTypes.ModelsDevModel;
+import opencodehx.provider.ProviderTypes.ModelsDevProvider;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.session.MessageCodec;
@@ -16,6 +20,7 @@ class ProviderSmoke {
 		registryFilters();
 		registryModels();
 		registryAuthAndBedrock();
+		modelsDevNormalization();
 		final transcript = TranscriptHarness.oneTurn();
 		eq(transcript.provider.id, "openai", "provider id");
 		eq(transcript.provider.modelID, "gpt-5.2", "model id");
@@ -171,8 +176,137 @@ class ProviderSmoke {
 		eq(bedrockAuth.getProvider(ProviderID.make("amazon-bedrock")) != null, true, "bedrock auth bearer");
 	}
 
+	static function modelsDevNormalization():Void {
+		final modeBody = unknownMap([{key: "service_tier", value: "priority"}]);
+		final fastModes = modelsDevModes([
+			{
+				key: "fast",
+				value: {
+					cost: {
+						input: 5,
+						output: 30,
+						cache_read: 0.5,
+					},
+					provider: {
+						body: modeBody,
+					},
+				},
+			},
+		]);
+		final modelsProvider:ModelsDevProvider = {
+			id: "openai",
+			name: "OpenAI",
+			env: [],
+			api: "https://api.openai.com/v1",
+			models: modelsDevModels([
+				{
+					key: "gpt-5.4",
+					value: {
+						id: "gpt-5.4",
+						name: "GPT-5.4",
+						family: "gpt",
+						release_date: "2026-03-05",
+						attachment: true,
+						reasoning: true,
+						temperature: false,
+						tool_call: true,
+						cost: {
+							input: 2.5,
+							output: 15,
+							cache_read: 0.25,
+							context_over_200k: {
+								input: 5,
+								output: 22.5,
+								cache_read: 0.5,
+							},
+						},
+						limit: {
+							context: 1050000,
+							input: 922000,
+							output: 128000,
+						},
+						experimental: {
+							modes: fastModes,
+						},
+					},
+				},
+			]),
+		};
+
+		final info = ProviderRegistry.fromModelsDevProvider(modelsProvider);
+		final base = info.models.get("gpt-5.4");
+		eq(base.api.url, "https://api.openai.com/v1", "models.dev provider api inherited");
+		eq(base.variants.exists("high"), true, "models.dev reasoning variants");
+
+		final fast = info.models.get("gpt-5.4-fast");
+		eq(fast.name, "GPT-5.4 Fast", "models.dev mode name");
+		eq(fast.cost.input, 5, "models.dev mode input cost");
+		eq(fast.cost.output, 30, "models.dev mode output cost");
+		eq(fast.cost.cache.read, 0.5, "models.dev mode cache read");
+		eq(fast.cost.cache.write, 0, "models.dev mode cache write");
+		eq(Std.string(fast.options.get("serviceTier")), "priority", "models.dev body camel case");
+		if (fast.cost.experimentalOver200K == null)
+			throw "models.dev mode over-200k cost missing";
+		eq(fast.cost.experimentalOver200K.input, 5, "models.dev mode over-200k input");
+		eq(fast.cost.experimentalOver200K.output, 22.5, "models.dev mode over-200k output");
+		eq(fast.cost.experimentalOver200K.cache.read, 0.5, "models.dev mode over-200k cache read");
+		eq(fast.cost.experimentalOver200K.cache.write, 0, "models.dev mode over-200k cache write");
+
+		final defaults = ProviderRegistry.fromModelsDevProvider({
+			id: "gateway",
+			name: "Gateway",
+			env: [],
+			models: modelsDevModels([
+				{
+					key: "gpt-5.4",
+					value: {
+						id: "gpt-5.4",
+						name: "GPT-5.4",
+						family: "gpt",
+						cost: {
+							input: 2.5,
+							output: 15,
+						},
+						limit: {
+							context: 1050000,
+							input: 922000,
+							output: 128000,
+						},
+					},
+				},
+			]),
+		}).models.get("gpt-5.4");
+		eq(defaults.api.url, "", "models.dev default api url");
+		eq(defaults.capabilities.temperature, false, "models.dev default temperature");
+		eq(defaults.capabilities.reasoning, false, "models.dev default reasoning");
+		eq(defaults.capabilities.attachment, false, "models.dev default attachment");
+		eq(defaults.capabilities.toolcall, true, "models.dev default tool calls");
+		eq(defaults.release_date, "", "models.dev default release date");
+	}
+
 	static function registry(config:ConfigInfo, ?env:Dynamic, ?auth:Dynamic):ProviderRegistry {
 		return new ProviderRegistry({config: config, env: env == null ? {} : env, auth: auth == null ? {} : auth});
+	}
+
+	static function modelsDevModels(entries:Array<{final key:String; final value:ModelsDevModel;}>):DynamicAccess<ModelsDevModel> {
+		final result = new DynamicAccess<ModelsDevModel>();
+		for (entry in entries)
+			result.set(entry.key, entry.value);
+		return result;
+	}
+
+	static function modelsDevModes(entries:Array<{final key:String; final value:opencodehx.provider.ProviderTypes.ModelsDevMode;}>):DynamicAccess<opencodehx.provider.ProviderTypes.ModelsDevMode> {
+		final result = new DynamicAccess<opencodehx.provider.ProviderTypes.ModelsDevMode>();
+		for (entry in entries)
+			result.set(entry.key, entry.value);
+		return result;
+	}
+
+	static function unknownMap(entries:Array<{final key:String; final value:String;}>):DynamicAccess<Unknown> {
+		final result = new DynamicAccess<Unknown>();
+		for (entry in entries)
+			result.set(entry.key, Unknown.fromBoundary(entry.value));
+		return result;
 	}
 
 	static function config(data:Dynamic):ConfigInfo {

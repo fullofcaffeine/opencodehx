@@ -59,6 +59,7 @@ If OpenCode relies on TypeScript features that Haxe lacks directly, try to model
 - Mirror upstream `any`/`unknown` only when the value is genuinely open at that boundary, such as schema passthrough, TUI control payloads before their owner schema lands, proxy forwarding, or third-party callbacks. Document the seam and narrow it as soon as the owning model exists.
 - Treat `unknown` as a safer boundary marker, not a final model. When usage, schema, or upstream behavior tells us more, improve the Haxe type to a domain typedef, enum, abstract, or validated decoder and let generated TS narrow accordingly.
 - Generated TypeScript must be idiomatic enough to look close to careful handwritten TS. If good Haxe source produces noisy, weakly typed, duplicated, or inefficient TS, reduce the case and improve `../genes` instead of contorting OpenCodeHX source or accepting broad `Dynamic`.
+- **Hard rule: fix compiler-owned problems at the compiler, generically.** Do not add OpenCodeHX bandaids for generated TS/typecheck/codegen problems when a generic `genes-ts` fix can solve the root cause. The compiler fix must be generalized from a minimal Haxe/JS/TS repro and must not contain OpenCodeHX paths, names, schemas, or product knowledge. A temporary source workaround is allowed only to keep a slice moving while a paired `../genes` Bead/repro exists; remove the workaround once the compiler fix lands and prove it with OpenCodeHX gates.
 
 ## genes-ts Improvement Loop
 

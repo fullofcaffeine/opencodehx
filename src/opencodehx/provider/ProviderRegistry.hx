@@ -13,16 +13,26 @@ import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
 import opencodehx.provider.AiSdkLanguageLoader.AiSdkLanguageResolution;
 import opencodehx.provider.ProviderTypes.ModelID;
+import opencodehx.provider.ProviderTypes.ModelsDevCost;
+import opencodehx.provider.ProviderTypes.ModelsDevModel;
+import opencodehx.provider.ProviderTypes.ModelsDevMode;
+import opencodehx.provider.ProviderTypes.ModelsDevProvider;
 import opencodehx.provider.ProviderTypes.ParsedModelRef;
+import opencodehx.provider.ProviderTypes.ProviderCost;
+import opencodehx.provider.ProviderTypes.ProviderHeaders;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderInterleaved;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
+import opencodehx.provider.ProviderTypes.ProviderOver200KCost;
+import opencodehx.provider.ProviderTypes.ProviderVariants;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 
 typedef ProviderRegistryInput = {
 	final config:ConfigInfo;
+	// Raw process-env/auth JSON boundaries. The registry immediately normalizes
+	// these into typed provider records and keeps the loose shape out of callers.
 	@:optional final env:Dynamic;
 	@:optional final auth:Dynamic;
 	@:optional final database:Map<String, ProviderInfo>;
@@ -142,6 +152,240 @@ class ProviderRegistry {
 			providerID: ProviderID.make(providerID == null ? "" : providerID),
 			modelID: ModelID.make(parts.join("/")),
 		};
+	}
+
+	public static function fromModelsDevProvider(provider:ModelsDevProvider):ProviderInfo {
+		final models = new Map<String, ProviderModel>();
+		for (key in provider.models.keys()) {
+			final modelData = provider.models.get(key);
+			if (modelData == null)
+				continue;
+			final base = fromModelsDevModel(provider, modelData);
+			models.set(key, base);
+			final experimental = modelData.experimental;
+			final modes = experimental == null ? null : experimental.modes;
+			if (modes == null)
+				continue;
+			for (mode in modes.keys()) {
+				final modeData = modes.get(mode);
+				if (modeData == null)
+					continue;
+				final modeID = '${modelData.id}-${mode}';
+				models.set(modeID, modeModel(base, modelData, mode, modeData));
+			}
+		}
+
+		return {
+			id: ProviderID.make(provider.id),
+			source: "custom",
+			name: provider.name,
+			env: provider.env == null ? [] : provider.env.copy(),
+			options: emptyProviderOptions(),
+			models: models,
+		};
+	}
+
+	static function fromModelsDevModel(provider:ModelsDevProvider, modelData:ModelsDevModel):ProviderModel {
+		final base:ProviderModel = {
+			id: ModelID.make(modelData.id),
+			providerID: ProviderID.make(provider.id),
+			name: modelData.name,
+			family: stringOr(modelData.family, ""),
+			api: {
+				id: modelData.id,
+				url: modelData.provider == null ? stringOr(provider.api, "") : stringOr(modelData.provider.api, stringOr(provider.api, "")),
+				npm: modelData.provider == null ? stringOr(provider.npm,
+					"@ai-sdk/openai-compatible") : stringOr(modelData.provider.npm, stringOr(provider.npm, "@ai-sdk/openai-compatible")),
+			},
+			status: stringOr(modelData.status, "active"),
+			headers: new haxe.DynamicAccess<String>(),
+			options: emptyProviderOptions(),
+			cost: costFromModelsDev(modelData.cost),
+			limit: {
+				context: modelData.limit.context,
+				input: modelData.limit.input,
+				output: modelData.limit.output,
+			},
+			capabilities: {
+				temperature: boolOr(modelData.temperature, false),
+				reasoning: boolOr(modelData.reasoning, false),
+				attachment: boolOr(modelData.attachment, false),
+				toolcall: boolOr(modelData.tool_call, true),
+				input: modelsDevModality(modelData.modalities == null ? null : modelData.modalities.input),
+				output: modelsDevModality(modelData.modalities == null ? null : modelData.modalities.output),
+				interleaved: interleavedOr(modelData.interleaved, false),
+			},
+			release_date: stringOr(modelData.release_date, ""),
+			variants: emptyProviderVariants(),
+		};
+
+		return copyModel(base, ProviderTransform.variants(base));
+	}
+
+	static function modeModel(base:ProviderModel, modelData:ModelsDevModel, mode:String, modeData:ModelsDevMode):ProviderModel {
+		var options = base.options;
+		var headers = base.headers;
+		final provider = modeData.provider;
+		if (provider != null) {
+			if (provider.body != null)
+				options = optionsFromModelsDevBody(provider.body);
+			if (provider.headers != null)
+				headers = cloneHeaders(provider.headers);
+		}
+		return copyModel(base, base.variants, ModelID.make('${modelData.id}-${mode}'), '${modelData.name} ${capitalize(mode)}',
+			mergeProviderCost(base.cost, modeData.cost), options, headers);
+	}
+
+	static function copyModel(base:ProviderModel, variants:ProviderVariants, ?id:ModelID, ?name:String, ?cost:ProviderCost, ?options:ProviderOptions,
+			?headers:ProviderHeaders):ProviderModel {
+		return {
+			id: id == null ? base.id : id,
+			providerID: base.providerID,
+			name: name == null ? base.name : name,
+			family: base.family,
+			api: {
+				id: base.api.id,
+				url: base.api.url,
+				npm: base.api.npm,
+			},
+			status: base.status,
+			headers: headers == null ? base.headers : headers,
+			options: options == null ? base.options : options,
+			cost: cost == null ? base.cost : cost,
+			limit: {
+				context: base.limit.context,
+				input: base.limit.input,
+				output: base.limit.output,
+			},
+			capabilities: {
+				temperature: base.capabilities.temperature,
+				reasoning: base.capabilities.reasoning,
+				attachment: base.capabilities.attachment,
+				toolcall: base.capabilities.toolcall,
+				input: base.capabilities.input,
+				output: base.capabilities.output,
+				interleaved: base.capabilities.interleaved,
+			},
+			release_date: base.release_date,
+			variants: variants,
+		};
+	}
+
+	static function costFromModelsDev(data:Null<ModelsDevCost>):ProviderCost {
+		final cacheRead = data == null ? 0 : floatOrZero(data.cache_read);
+		final cacheWrite = data == null ? 0 : floatOrZero(data.cache_write);
+		final result:ProviderCost = {
+			input: data == null ? 0 : data.input,
+			output: data == null ? 0 : data.output,
+			cache: {
+				read: cacheRead,
+				write: cacheWrite,
+			},
+		};
+		if (data != null && data.context_over_200k != null) {
+			final over = data.context_over_200k;
+			final overCacheRead = floatOrZero(over.cache_read);
+			final overCacheWrite = floatOrZero(over.cache_write);
+			result.experimentalOver200K = {
+				input: over.input,
+				output: over.output,
+				cache: {
+					read: overCacheRead,
+					write: overCacheWrite,
+				},
+			};
+		}
+		return result;
+	}
+
+	static function floatOrZero(value:Null<Float>):Float {
+		return value == null ? 0 : value;
+	}
+
+	static function mergeProviderCost(base:ProviderCost, overrideCost:Null<ModelsDevCost>):ProviderCost {
+		if (overrideCost == null)
+			return cloneProviderCost(base);
+		final next = costFromModelsDev(overrideCost);
+		if (next.experimentalOver200K == null && base.experimentalOver200K != null)
+			next.experimentalOver200K = cloneOver200KCost(base.experimentalOver200K);
+		return next;
+	}
+
+	static function cloneProviderCost(cost:ProviderCost):ProviderCost {
+		final result:ProviderCost = {
+			input: cost.input,
+			output: cost.output,
+			cache: {
+				read: cost.cache.read,
+				write: cost.cache.write,
+			},
+		};
+		if (cost.experimentalOver200K != null)
+			result.experimentalOver200K = cloneOver200KCost(cost.experimentalOver200K);
+		return result;
+	}
+
+	static function cloneOver200KCost(cost:ProviderOver200KCost):ProviderOver200KCost {
+		return {
+			input: cost.input,
+			output: cost.output,
+			cache: {
+				read: cost.cache.read,
+				write: cost.cache.write,
+			},
+		};
+	}
+
+	static function modelsDevModality(values:Null<Array<String>>):opencodehx.provider.ProviderTypes.ProviderCapabilityIO {
+		return {
+			text: contains(values, "text", false),
+			audio: contains(values, "audio", false),
+			image: contains(values, "image", false),
+			video: contains(values, "video", false),
+			pdf: contains(values, "pdf", false),
+		};
+	}
+
+	static function optionsFromModelsDevBody(body:haxe.DynamicAccess<genes.ts.Unknown>):ProviderOptions {
+		final result = emptyProviderOptions();
+		for (key in body.keys())
+			result.set(camelCaseProviderOption(key), body.get(key));
+		return result;
+	}
+
+	static function cloneHeaders(headers:haxe.DynamicAccess<String>):ProviderHeaders {
+		final result = new haxe.DynamicAccess<String>();
+		for (key in headers.keys())
+			result.set(key, headers.get(key));
+		return result;
+	}
+
+	static function camelCaseProviderOption(key:String):String {
+		final parts = key.split("_");
+		if (parts.length == 1)
+			return key;
+		final result = new StringBuf();
+		result.add(parts[0]);
+		for (i in 1...parts.length)
+			result.add(capitalize(parts[i]));
+		return result.toString();
+	}
+
+	static function capitalize(value:String):String {
+		if (value == "")
+			return value;
+		return value.substr(0, 1).toUpperCase() + value.substr(1);
+	}
+
+	static function emptyProviderOptions():ProviderOptions {
+		// ProviderOptions is the documented SDK passthrough boundary. models.dev
+		// mode bodies become this open map only after their known keys are
+		// normalized; core provider facts stay in typed records.
+		return new haxe.DynamicAccess<Dynamic>();
+	}
+
+	static function emptyProviderVariants():ProviderVariants {
+		return new haxe.DynamicAccess<ProviderOptions>();
 	}
 
 	static function build(input:ProviderRegistryInput):Map<String, ProviderInfo> {

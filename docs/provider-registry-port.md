@@ -1,6 +1,6 @@
 # Provider Registry Port
 
-**Beads:** `opencodehx-024`, `opencodehx-025`
+**Beads:** `opencodehx-024`, `opencodehx-025`, `opencodehx-nrh`
 **Upstream oracle:** `../opencode/packages/opencode/src/provider/provider.ts`, `schema.ts`, `models.ts`, `auth/index.ts`, `config/provider.ts`, `env/index.ts`, plus `../opencode/packages/opencode/test/provider/provider.test.ts` and `amazon-bedrock.test.ts`.
 
 ## Slice
@@ -16,6 +16,7 @@ This slice adds the first Haxe-owned provider registry:
 - `opencodehx.smoke.AiSdkProviderSmoke` exercises credential-free AI SDK streaming via `ai/test` `MockLanguageModelV3`.
 - `opencodehx.provider.AiSdkLanguageLoader` resolves the first real bundled SDK factory path through `@ai-sdk/openai-compatible`.
 - `opencodehx.provider.ProviderTransform` ports the first pure provider request-option transforms from upstream.
+- `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
 
 ## Evidence
 
@@ -26,6 +27,7 @@ This slice adds the first Haxe-owned provider registry:
 - Provider and model filtering.
 - Auth file-shaped API keys.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, and bearer auth.
+- `models.dev` provider normalization for provider API inheritance, required defaults, reasoning variants, experimental mode naming, body-key camel casing, mode cost overrides, and preservation of base over-200k pricing.
 - The pre-existing credential-free fake provider transcript harness.
 
 `AiSdkProviderSmoke` is the executable fixture for the first AI SDK runtime path. It covers:
@@ -71,7 +73,7 @@ The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)`
 
 This is not the full provider runtime:
 
-- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, `models.dev` fetch/cache, plugin provider hooks, and completion mapping remain `opencodehx-nrh`.
+- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, `models.dev` fetch/cache orchestration, plugin provider hooks, and completion mapping remain `opencodehx-nrh`.
 - GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
 

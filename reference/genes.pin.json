@@ -1,12 +1,12 @@
 {
   "schema": "opencodehx.reference.genes-pin.v1",
-  "recorded_at": "2026-06-19T06:31:00Z",
-  "bead": "opencodehx-002",
+  "recorded_at": "2026-06-19T16:30:08Z",
+  "bead": "opencodehx-nrh",
   "canonical_checkout": {
     "path": "../genes",
     "role": "canonical Genes checkout for genes-ts compiler work",
     "branch": "main",
-    "commit": "2e0d17260161612c97a3a4c4059dece50252d81a",
+    "commit": "9e5c3a4d79d48581d09d8acfe62ac23c403fd3ff",
     "remotes": {
       "origin": "git@github.com:fullofcaffeine/genes-ts.git",
       "upstream": "git@github.com:benmerckx/genes.git"
@@ -37,9 +37,9 @@
       "../genes/src",
       "../fullofcaffeine/tools/cafetera/vendor/genes-ts/src"
     ],
-    "source_file_count": 33,
-    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, and target-polymorphic helper docs landed",
-    "relative_path_sha256_manifest_hash": "b3a3255835613df5cec31a16629c86e6ee993bbabc3618aa7d5da1407da37578"
+    "source_file_count": 35,
+    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, target-polymorphic helper docs, and optional-field branch narrowing landed",
+    "relative_path_sha256_manifest_hash": "22fbec27fd6b559750afee1834ea9b813699c3c1694af8ea1f734de59c49648f"
   },
   "decision": {
     "canonical_dependency": "../genes",

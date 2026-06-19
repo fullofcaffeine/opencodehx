@@ -64,10 +64,19 @@ typedef ProviderCapabilities = {
 typedef ProviderCost = {
 	final input:Float;
 	final output:Float;
-	final cache:{
-		final read:Float;
-		final write:Float;
-	};
+	final cache:ProviderCostCache;
+	@:optional var experimentalOver200K:ProviderOver200KCost;
+}
+
+typedef ProviderCostCache = {
+	final read:Float;
+	final write:Float;
+}
+
+typedef ProviderOver200KCost = {
+	final input:Float;
+	final output:Float;
+	final cache:ProviderCostCache;
 }
 
 typedef ProviderLimit = {
@@ -176,4 +185,76 @@ typedef ProviderInfo = {
 typedef ParsedModelRef = {
 	final providerID:ProviderID;
 	final modelID:ModelID;
+}
+
+typedef ModelsDevCost = {
+	final input:Float;
+	final output:Float;
+	@:optional final cache_read:Float;
+	@:optional final cache_write:Float;
+	@:optional final context_over_200k:ModelsDevOver200KCost;
+}
+
+typedef ModelsDevOver200KCost = {
+	final input:Float;
+	final output:Float;
+	@:optional final cache_read:Float;
+	@:optional final cache_write:Float;
+}
+
+typedef ModelsDevLimit = {
+	final context:Float;
+	@:optional final input:Float;
+	final output:Float;
+}
+
+typedef ModelsDevModalities = {
+	final input:Array<String>;
+	final output:Array<String>;
+}
+
+typedef ModelsDevProviderApi = {
+	@:optional final npm:String;
+	@:optional final api:String;
+}
+
+typedef ModelsDevModeProvider = {
+	@:optional final body:DynamicAccess<Unknown>;
+	@:optional final headers:DynamicAccess<String>;
+}
+
+typedef ModelsDevMode = {
+	@:optional final cost:ModelsDevCost;
+	@:optional final provider:ModelsDevModeProvider;
+}
+
+typedef ModelsDevExperimental = {
+	@:optional final modes:DynamicAccess<ModelsDevMode>;
+}
+
+typedef ModelsDevModel = {
+	final id:String;
+	final name:String;
+	@:optional final family:String;
+	@:optional final release_date:String;
+	@:optional final attachment:Bool;
+	@:optional final reasoning:Bool;
+	@:optional final temperature:Bool;
+	@:optional final tool_call:Bool;
+	@:optional final interleaved:ProviderInterleaved;
+	@:optional final cost:ModelsDevCost;
+	final limit:ModelsDevLimit;
+	@:optional final modalities:ModelsDevModalities;
+	@:optional final experimental:ModelsDevExperimental;
+	@:optional final status:String;
+	@:optional final provider:ModelsDevProviderApi;
+}
+
+typedef ModelsDevProvider = {
+	final id:String;
+	final name:String;
+	@:optional final env:Array<String>;
+	@:optional final api:String;
+	@:optional final npm:String;
+	final models:DynamicAccess<ModelsDevModel>;
 }
