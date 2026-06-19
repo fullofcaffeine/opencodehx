@@ -15,8 +15,10 @@ import opencodehx.project.ProjectRuntime.ProjectEventType;
 import opencodehx.project.ProjectRuntime.ProjectID;
 import opencodehx.project.ProjectRuntime.ProjectVcs;
 import opencodehx.project.VcsRuntime;
+import opencodehx.project.VcsRuntime.VcsDiffMode;
 import opencodehx.project.VcsRuntime.VcsEvent;
 import opencodehx.project.VcsRuntime.VcsEventType;
+import opencodehx.project.VcsRuntime.VcsFileDiff;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionInfo.SessionInfo;
 import opencodehx.storage.SqliteSessionStore;
@@ -38,6 +40,7 @@ class ProjectRuntimeSmoke {
 		try {
 			noCommitGitProject(root);
 			committedProjectAndGit(root);
+			vcsDiffs(root);
 			projectEdges(root);
 			projectGlobalMigration(root);
 			worktreeProject(root);
@@ -149,6 +152,39 @@ class ProjectRuntimeSmoke {
 
 		cloneProjectIDs(root);
 		bareProjectCache(root);
+	}
+
+	static function vcsDiffs(root:String):Void {
+		ProjectRuntime.reset();
+		final dir = directory(root, "vcs-diff");
+		initCommittedRepo(dir);
+		write(dir, "file.txt", "original\n");
+		git(dir, ["add", "."]);
+		commit(dir, "add file");
+		write(dir, "file.txt", "changed\n");
+		final vcs = new VcsRuntime(dir);
+		eq(hasVcsDiff(vcs.diff(WorkingTree), "file.txt", Modified), true, "vcs working-tree modified diff");
+
+		final weird = NodeProcess.platform() == "win32" ? "space file.txt" : "tab\tfile.txt";
+		write(dir, weird, "hello\n");
+		eq(hasVcsDiff(vcs.diff(WorkingTree), weird, Added), true, "vcs working-tree special filename diff");
+
+		final branchDir = directory(root, "vcs-branch-diff");
+		initCommittedRepo(branchDir);
+		git(branchDir, ["checkout", "-b", "feature/test"]);
+		write(branchDir, "branch.txt", "hello\n");
+		git(branchDir, ["add", "."]);
+		commit(branchDir, "branch file");
+		final branchVcs = new VcsRuntime(branchDir);
+		eq(hasVcsDiff(branchVcs.diff(Branch), "branch.txt", Added), true, "vcs branch diff");
+	}
+
+	static function hasVcsDiff(items:Array<VcsFileDiff>, file:String, kind:GitChangeKind):Bool {
+		for (item in items) {
+			if (item.file == file && item.status == kind)
+				return true;
+		}
+		return false;
 	}
 
 	static function projectGlobalMigration(root:String):Void {
@@ -367,6 +403,19 @@ class ProjectRuntimeSmoke {
 			"initial"
 		]);
 		git(dir, ["config", "init.defaultBranch", "main"]);
+	}
+
+	static function commit(dir:String, message:String):Void {
+		git(dir, [
+			"-c",
+			"user.email=test@example.com",
+			"-c",
+			"user.name=OpenCodeHX",
+			"commit",
+			"--no-gpg-sign",
+			"-m",
+			message
+		]);
 	}
 
 	static function commitEmpty(dir:String, message:String):Void {

@@ -15,7 +15,9 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - stat parsing.
 - VCS runtime:
   - branch refresh,
-  - typed branch-update events.
+  - typed branch-update events,
+  - working-tree diff mode for tracked and untracked changes,
+  - branch diff mode against the default branch merge base.
 - Project discovery:
   - no-commit git repositories remain the global project and do not write `.git/opencode`,
   - non-git directories can be promoted with `initGit`,
