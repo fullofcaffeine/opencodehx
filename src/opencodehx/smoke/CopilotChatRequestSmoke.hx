@@ -5,14 +5,80 @@ import genes.ts.Unknown;
 import opencodehx.provider.copilot.CopilotChatRequest;
 import opencodehx.provider.copilot.CopilotChatRequest.CopilotChatResponseFormat;
 import opencodehx.provider.copilot.CopilotChatRequest.CopilotOpenAIResponseFormatType;
+import opencodehx.provider.copilot.CopilotChatMessages.CopilotPromptMessage;
+import opencodehx.provider.copilot.CopilotChatMessages.CopilotPromptPart;
+import opencodehx.provider.copilot.CopilotChatMessages.OpenAICompatibleRole;
+import opencodehx.provider.copilot.CopilotChatTools.CopilotChatTool;
+import opencodehx.provider.copilot.CopilotChatTools.CopilotChatToolChoice;
 import opencodehx.provider.copilot.CopilotChatTools.CopilotChatWarningType;
+import opencodehx.provider.copilot.CopilotChatTools.CopilotOpenAIToolType;
 
 class CopilotChatRequestSmoke {
 	public static function run():Void {
+		preparedArgs();
+		combinedWarnings();
 		absentForText();
 		jsonObjectFormat();
 		structuredJsonSchemaFormat();
 		unsupportedJsonSchemaWarning();
+	}
+
+	static function preparedArgs():Void {
+		final input = CopilotChatRequest.options("gemini-2.0-flash-001", [CopilotPromptMessage.User([CopilotPromptPart.Text("Hello")])]);
+		input.maxOutputTokens = 128;
+		input.temperature = 0.2;
+		input.topP = 0.9;
+		input.frequencyPenalty = 0.1;
+		input.presencePenalty = 0.3;
+		input.stopSequences = ["END"];
+		input.seed = 42;
+		input.providerOptions = CopilotChatRequest.providerOptions("user-123", "high", "low", 4096);
+		input.responseFormat = CopilotChatRequest.jsonResponseFormat(schema(), "weather_response");
+		input.supportsStructuredOutputs = true;
+		input.tools = [weatherTool()];
+		input.toolChoice = CopilotChatToolChoice.Tool("get_weather");
+
+		final result = CopilotChatRequest.prepare(input);
+		eq(result.warnings.length, 0, "prepared args warnings");
+		eq(result.args.model, "gemini-2.0-flash-001", "prepared model");
+		eq(result.args.user.orNull(), "user-123", "prepared user");
+		eq(result.args.max_tokens.orNull(), 128.0, "prepared max tokens");
+		eq(result.args.temperature.orNull(), 0.2, "prepared temperature");
+		eq(result.args.top_p.orNull(), 0.9, "prepared top p");
+		eq(result.args.frequency_penalty.orNull(), 0.1, "prepared frequency penalty");
+		eq(result.args.presence_penalty.orNull(), 0.3, "prepared presence penalty");
+		eq(present(result.args.stop, "prepared stop").join(","), "END", "prepared stop");
+		eq(result.args.seed.orNull(), 42.0, "prepared seed");
+		eq(result.args.reasoning_effort.orNull(), "high", "prepared reasoning effort");
+		eq(result.args.verbosity.orNull(), "low", "prepared verbosity");
+		eq(result.args.thinking_budget.orNull(), 4096.0, "prepared thinking budget");
+		eq(result.args.messages.length, 1, "prepared message count");
+		eq(result.args.messages[0].role, OpenAICompatibleRole.User, "prepared message role");
+		final responseFormat = present(result.args.response_format, "prepared response format");
+		eq(responseFormat.type, CopilotOpenAIResponseFormatType.JsonSchema, "prepared response format type");
+		eq(present(responseFormat.json_schema, "prepared response schema").name, "weather_response", "prepared response schema name");
+		final tools = present(result.args.tools, "prepared tools");
+		eq(tools.length, 1, "prepared tool count");
+		eq(tools[0].type, CopilotOpenAIToolType.Function, "prepared tool type");
+		eq(tools[0].fn.name, "get_weather", "prepared tool name");
+		present(result.args.tool_choice, "prepared tool choice");
+	}
+
+	static function combinedWarnings():Void {
+		final input = CopilotChatRequest.options("test-model", [CopilotPromptMessage.User([CopilotPromptPart.Text("Hello")])]);
+		input.topK = 64;
+		input.responseFormat = CopilotChatRequest.jsonResponseFormat(schema());
+		input.tools = [CopilotChatTool.Provider];
+
+		final result = CopilotChatRequest.prepare(input);
+		eq(result.warnings.length, 3, "combined warning count");
+		eq(result.warnings[0].type, CopilotChatWarningType.Unsupported, "topK warning type");
+		eq(result.warnings[0].feature, "topK", "topK warning feature");
+		eq(result.warnings[1].feature, "responseFormat", "response format warning feature");
+		eq(result.warnings[2].feature, "tool type: provider", "provider tool warning feature");
+		eq(present(result.args.response_format, "warning response format").type, CopilotOpenAIResponseFormatType.JsonObject,
+			"warning response format fallback");
+		eq(present(result.args.tools, "provider-only tools").length, 0, "provider-only tools filtered");
 	}
 
 	static function absentForText():Void {
@@ -62,6 +128,14 @@ class CopilotChatRequestSmoke {
 				location: {type: "string"},
 			},
 			required: ["location"],
+		});
+	}
+
+	static function weatherTool():CopilotChatTool {
+		return CopilotChatTool.Function({
+			name: "get_weather",
+			description: "Get the weather for a location",
+			inputSchema: schema(),
 		});
 	}
 
