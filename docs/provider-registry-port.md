@@ -27,6 +27,8 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotChatStream` ports the pure GitHub Copilot chat stream state machine over typed parsed chunks, before the actual SSE/Web Stream adapter lands.
 - `CopilotChatTools` ports pure GitHub Copilot request-body tool formatting for OpenAI-compatible function tools and tool-choice modes.
 - `CopilotChatLanguageModel` ports the first Haxe-owned GitHub Copilot/OpenAI-compatible chat model class surface over the typed helpers.
+- `CopilotLanguageLoader` wires configured `@ai-sdk/github-copilot` chat models through `ProviderRegistry.resolveCopilotChat` into the Haxe-owned Copilot model path without casting it to the full AI SDK interface before that facade is ported.
+- `ProviderOptionAccess` centralizes typed reads from open provider SDK options, keeping `Record<string, any>`-style boundary access localized and narrowed before loaders consume it.
 
 ## Evidence
 
@@ -139,6 +141,7 @@ This slice adds the first Haxe-owned provider registry:
 - Class-level structured-output support turning JSON Schema response formats into `json_schema`.
 - Class-level include-usage mode adding `stream_options.include_usage`.
 - Delegation through the typed HTTP client for generate and stream paths, including call headers, raw chunk passthrough, and warning preservation.
+- Registry resolution for a configured `github-copilot` provider/model using upstream-style `@ai-sdk/github-copilot` metadata, including SDK model ID selection, Copilot base URL, API-key headers, model headers, and explicit structured-output opt-in.
 
 Run it with:
 
@@ -162,6 +165,8 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 
 `ProviderModelsDev.parse` keeps `Dynamic` and a single cast inside the JSON decoder boundary because Haxe's `Json.parse` and `Reflect.field` cannot refine runtime objects into structural typedefs. The boundary validates the consumed models.dev shape first, then returns a typed `ModelsDevCatalog` to the registry.
 
+`ProviderOptionAccess` owns the registry's provider-option weak reads. Provider options intentionally remain open because SDKs/plugins own arbitrary keys; loaders must ask `ProviderOptionAccess` for typed strings, booleans, URLs, and headers rather than reading option fields directly.
+
 `CopilotChatSseDecoder` has the same kind of contained boundary: `Json.parse` and `Reflect.field` are private to the decoder, every consumed field is shape-checked, and callers receive only `CopilotChatRawStreamChunk` / `CopilotChatStreamChunk`. Generated `any` is expected only in that private decoder surface until a reusable typed JSON decoder exists.
 
 `opencodehx.externs.web.WebStreams` owns the current Web stream extern gap. Haxe 4.3's `js.html.Response` does not expose the standard `body` property, so the structural cast is localized in `WebResponseStreams.body`; provider code consumes a typed `ReadableStream<Uint8Array>` reader.
@@ -172,7 +177,8 @@ The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)`
 
 This is not the full provider runtime:
 
-- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, plugin provider hooks, responses-model support, and wiring the Haxe-owned Copilot model into the general registry remain `opencodehx-nrh`.
+- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, and plugin provider hooks remain `opencodehx-nrh`.
+- Copilot responses-model support and the exact AI SDK `LanguageModelV3` facade for the Haxe-owned Copilot model are tracked by `opencodehx-hup`; do not replace that work with a cast from the current DTO-shaped class.
 - GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
 

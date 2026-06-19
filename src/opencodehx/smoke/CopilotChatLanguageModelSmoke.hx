@@ -5,6 +5,9 @@ import haxe.DynamicAccess;
 import js.html.Response;
 import js.lib.Promise;
 import js.lib.Uint8Array;
+import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigInfo.ConfigProviderConfig;
+import opencodehx.config.ConfigInfo.ConfigProviderModelConfig;
 import opencodehx.externs.web.WebStreams.WebReadableStream;
 import opencodehx.externs.web.WebStreams.WebReadableStreamDefaultController;
 import opencodehx.externs.web.WebStreams.WebTextEncoder;
@@ -16,6 +19,10 @@ import opencodehx.provider.copilot.CopilotChatMessages.CopilotPromptPart;
 import opencodehx.provider.copilot.CopilotChatRequest;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotChatStreamEventType;
 import opencodehx.provider.copilot.CopilotOpenAICompatibleProvider;
+import opencodehx.provider.ProviderRegistry;
+import opencodehx.provider.ProviderTypes.ModelID;
+import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
 
 typedef CopilotLanguageModelCapturedFetch = {
 	final url:String;
@@ -28,6 +35,7 @@ class CopilotChatLanguageModelSmoke {
 		@:await generateUsesModelIdentity();
 		@:await streamUsesClassOptions();
 		supportedUrlsAreCloned();
+		registryResolvesCopilotChatModel();
 		return null;
 	}
 
@@ -99,6 +107,21 @@ class CopilotChatLanguageModelSmoke {
 		eq(second.get("image").join(","), "https://images.example/{id}", "supported urls clone");
 	}
 
+	static function registryResolvesCopilotChatModel():Void {
+		final registry = new ProviderRegistry({config: copilotConfig(), env: {}, auth: {}});
+		final model = registry.getModel(ProviderID.make("github-copilot"), ModelID.make("copilot-chat-alias"));
+		final resolved = registry.resolveCopilotChat(model);
+
+		eq(resolved.sdkModelID, "gemini-2.0-flash-001", "registry copilot sdk model id");
+		eq(resolved.language.modelId, "gemini-2.0-flash-001", "registry copilot language model id");
+		eq(resolved.language.provider, "github-copilot.chat", "registry copilot provider");
+		eq(resolved.language.supportsStructuredOutputs, true, "registry copilot structured output option");
+		eq(CopilotOpenAICompatibleProvider.url(resolved.modelConfig, "/chat/completions"), "https://api.githubcopilot.com/chat/completions",
+			"registry copilot url");
+		eq(resolved.modelConfig.headers.get("authorization"), "Bearer github-token", "registry copilot auth header");
+		eq(resolved.modelConfig.headers.get("x-copilot-fixture"), "present", "registry copilot model header");
+	}
+
 	static function chatModel(calls:Array<CopilotLanguageModelCapturedFetch>, responses:Array<Response>, supportsStructuredOutputs:Bool,
 			includeUsage:Bool):CopilotChatLanguageModel {
 		return new CopilotChatLanguageModel({
@@ -109,6 +132,40 @@ class CopilotChatLanguageModelSmoke {
 			includeUsage: includeUsage,
 			generateId: () -> "generated-by-language-model",
 		});
+	}
+
+	static function copilotConfig():ConfigInfo {
+		final info = ConfigInfo.empty("fixture-user");
+		final providers = new DynamicAccess<ConfigProviderConfig>();
+		final models = new DynamicAccess<ConfigProviderModelConfig>();
+		models.set("copilot-chat-alias", {
+			id: "gemini-2.0-flash-001",
+			name: "Copilot Chat Alias",
+			provider: {
+				npm: "@ai-sdk/github-copilot",
+				api: "https://api.githubcopilot.com",
+			},
+			tool_call: true,
+			limit: {context: 128000, output: 4096},
+			headers: headerMap("x-copilot-fixture", "present"),
+		});
+		providers.set("github-copilot", {
+			name: "GitHub Copilot",
+			env: [],
+			options: copilotOptions(),
+			models: models,
+		});
+		info.provider = providers;
+		return info;
+	}
+
+	static function copilotOptions():ProviderOptions {
+		// ProviderOptions is the intentional provider-SDK passthrough boundary.
+		// This fixture keeps values to the Copilot loader's typed stable subset.
+		final options = new DynamicAccess<Dynamic>();
+		options.set("apiKey", "github-token");
+		options.set("supportsStructuredOutputs", true);
+		return options;
 	}
 
 	static function fakeFetcher(calls:Array<CopilotLanguageModelCapturedFetch>, responses:Array<Response>):CopilotChatFetchFunction {
