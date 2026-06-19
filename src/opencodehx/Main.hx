@@ -15,6 +15,7 @@ import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
 import opencodehx.smoke.ProjectRuntimeSmoke;
 import opencodehx.smoke.ProviderSmoke;
+import opencodehx.smoke.ProviderTransformSmoke;
 import opencodehx.smoke.PtySmoke;
 import opencodehx.smoke.ResourceSmoke;
 import opencodehx.smoke.ServerSmoke;
@@ -63,6 +64,8 @@ class Main {
 				Syntax.code("console.log({0})", "tool-smoke:ok");
 				ProviderSmoke.run();
 				Syntax.code("console.log({0})", "provider-smoke:ok");
+				ProviderTransformSmoke.run();
+				Syntax.code("console.log({0})", "provider-transform-smoke:ok");
 				return AiSdkProviderSmoke.run();
 			})
 			.then(_ -> {

@@ -1,6 +1,7 @@
 package opencodehx.session;
 
 import opencodehx.config.ConfigInfo;
+import opencodehx.provider.ProviderTransform;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TokenUsage;
@@ -42,7 +43,7 @@ class SessionCompaction {
 		final context = model.limit.context;
 		if (context == 0)
 			return 0;
-		var reserved:Float = Math.min(COMPACTION_BUFFER, maxOutputTokens(model));
+		var reserved:Float = Math.min(COMPACTION_BUFFER, ProviderTransform.maxOutputTokens(model));
 		final compaction = config.compaction;
 		if (compaction != null) {
 			final configured = compaction.reserved;
@@ -52,7 +53,7 @@ class SessionCompaction {
 		final inputLimit = model.limit.input;
 		if (inputLimit != null)
 			return Math.max(0, inputLimit - reserved);
-		return Math.max(0, context - maxOutputTokens(model));
+		return Math.max(0, context - ProviderTransform.maxOutputTokens(model));
 	}
 
 	public static function count(tokens:TokenUsage):Float {
@@ -70,9 +71,5 @@ class SessionCompaction {
 			auto: auto,
 			overflow: overflow,
 		});
-	}
-
-	static function maxOutputTokens(model:ProviderModel):Float {
-		return model.limit.output;
 	}
 }
