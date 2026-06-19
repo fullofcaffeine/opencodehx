@@ -9,6 +9,7 @@ import opencodehx.fx.Task;
 import opencodehx.host.node.NodePath;
 import opencodehx.smoke.CliSmoke;
 import opencodehx.smoke.ConfigSmoke;
+import opencodehx.smoke.AiSdkProviderSmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
@@ -62,6 +63,10 @@ class Main {
 				Syntax.code("console.log({0})", "tool-smoke:ok");
 				ProviderSmoke.run();
 				Syntax.code("console.log({0})", "provider-smoke:ok");
+				return AiSdkProviderSmoke.run();
+			})
+			.then(_ -> {
+				Syntax.code("console.log({0})", "ai-sdk-provider-smoke:ok");
 				ProjectRuntimeSmoke.run();
 				Syntax.code("console.log({0})", "project-runtime-smoke:ok");
 				SkillSmoke.run();

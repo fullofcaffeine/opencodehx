@@ -1,6 +1,6 @@
 # Provider Registry Port
 
-**Bead:** `opencodehx-024`
+**Beads:** `opencodehx-024`, `opencodehx-025`
 **Upstream oracle:** `../opencode/packages/opencode/src/provider/provider.ts`, `schema.ts`, `models.ts`, `auth/index.ts`, `config/provider.ts`, `env/index.ts`, plus `../opencode/packages/opencode/test/provider/provider.test.ts` and `amazon-bedrock.test.ts`.
 
 ## Slice
@@ -12,6 +12,8 @@ This slice adds the first Haxe-owned provider registry:
 - Provider filters cover `disabled_providers`, `enabled_providers`, per-provider `whitelist`, and `blacklist`.
 - Model lookup covers aliases, slash-containing model IDs, default model config, small-model priority, and missing-model errors.
 - `FakeProvider` now uses the same typed provider/model records as the registry instead of local duplicate DTOs.
+- `opencodehx.provider.AiSdkProvider` adds the first AI SDK `streamText` facade through narrow Haxe externs.
+- `opencodehx.smoke.AiSdkProviderSmoke` exercises credential-free AI SDK streaming via `ai/test` `MockLanguageModelV3`.
 
 ## Evidence
 
@@ -23,6 +25,14 @@ This slice adds the first Haxe-owned provider registry:
 - Auth file-shaped API keys.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, and bearer auth.
 - The pre-existing credential-free fake provider transcript harness.
+
+`AiSdkProviderSmoke` is the executable fixture for the first AI SDK runtime path. It covers:
+
+- Text deltas through `streamText`.
+- Tool-call and tool-result events through `ai.tool(...)` and JSON Schema input.
+- Stream error callback handling and final error finish reason.
+- Abort propagation through `AbortController`.
+- AI SDK usage aggregation and finish reason typing.
 
 Run it with:
 
@@ -44,13 +54,15 @@ The upstream `interleaved` capability is not `Dynamic`: it is modeled as `Either
 
 Config, auth, and env inputs are still dynamic JSON/process boundaries. The registry normalizes them into typed provider/model records as soon as the current slice has enough schema knowledge. Further config-schema tightening belongs to `opencodehx-ajd`.
 
+The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)` only for SDK-owned types such as `LanguageModelV3`, `Tool`, `JSONSchema7`, and provider stream parts; the app-facing surface is the typed `AiSdkProvider` event/result model. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
+
 ## Deferred Scope
 
 This is not the full provider runtime:
 
-- AI SDK dynamic loading, `getLanguageModel`, stream transforms, and provider-specific request options remain `opencodehx-025`.
-- `models.dev` fetch/cache, GitLab model discovery, plugin provider hooks, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
-- Provider transform variants and completion mapping remain deferred until message/provider streaming is ported.
+- Real provider SDK dynamic loading, `getLanguageModel`, provider-specific request options, `models.dev` fetch/cache, plugin provider hooks, and provider transform variants remain `opencodehx-nrh`.
+- GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
+- Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
 
 ## genes-ts Notes
 

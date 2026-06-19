@@ -43,6 +43,9 @@ class OpenCodeServer {
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
 
+	static final INTEGER_PATTERN = ~/^-?\d+$/;
+	static inline final MAX_SAFE_INTEGER = 9007199254740991.0;
+
 	public function new(options:ServerOptions) {
 		directory = options.directory;
 		store = new SqliteSessionStore(options.dbPath);
@@ -151,7 +154,7 @@ class OpenCodeServer {
 		final page = hasMore ? items.slice(0, queryOptions.limit) : items;
 		if (hasMore && page.length > 0) {
 			final tail = page[page.length - 1];
-			Syntax.code("{0}.header('x-next-cursor', String({1}))", c, tail.time.updated);
+			c.header("x-next-cursor", Std.string(tail.time.updated));
 		}
 		return json(c, page);
 	}
@@ -169,9 +172,9 @@ class OpenCodeServer {
 			if (page.more) {
 				final cursorValue = page.cursor;
 				if (cursorValue != null) {
-					Syntax.code("{0}.header('x-next-cursor', {1})", c, cursorValue);
-					Syntax.code("{0}.header('link', '<' + {1} + '?before=' + encodeURIComponent({2}) + '>; rel=\"next\"')", c,
-						"/session/" + sessionID + "/message", cursorValue);
+					final path = "/session/" + sessionID + "/message";
+					c.header("x-next-cursor", cursorValue);
+					c.header("link", '<${path}?before=${StringTools.urlEncode(cursorValue)}>; rel="next"');
 				}
 			}
 			// MessageCodec still emits upstream-shaped anonymous JS records.
@@ -322,9 +325,9 @@ class OpenCodeServer {
 	}
 
 	function eventStream(c:HonoContext):Response {
-		Syntax.code("{0}.header('Cache-Control', 'no-cache, no-transform')", c);
-		Syntax.code("{0}.header('X-Accel-Buffering', 'no')", c);
-		Syntax.code("{0}.header('X-Content-Type-Options', 'nosniff')", c);
+		c.header("Cache-Control", "no-cache, no-transform");
+		c.header("X-Accel-Buffering", "no");
+		c.header("X-Content-Type-Options", "nosniff");
 		return ServerEventStream.response(eventBus.snapshot(), eventBus.subscribe);
 	}
 
@@ -344,14 +347,19 @@ class OpenCodeServer {
 	static function parsePtyCursor(value:Null<String>):Null<Int> {
 		if (value == null || value == "")
 			return null;
-		final parsed:Float = Syntax.code("Number({0})", value);
-		final safe:Bool = Syntax.code("Number.isSafeInteger({0})", parsed);
-		if (!safe || parsed < -1)
+		if (!INTEGER_PATTERN.match(value))
+			return null;
+		final parsed = Std.parseFloat(value);
+		if (Math.isNaN(parsed) || parsed < -1 || parsed > MAX_SAFE_INTEGER)
 			return null;
 		return Std.int(parsed);
 	}
 
 	static function ptyMessage(value:Unknown):Null<PtySocketMessage> {
+		// PTY websocket messages can arrive as text, ArrayBuffer, or typed array
+		// views depending on the host websocket implementation. Keep this runtime
+		// shape check localized until the websocket extern models binary payload
+		// views directly.
 		return Syntax.code("typeof {0} === 'string'
 			? {0}
 			: {0} instanceof ArrayBuffer
@@ -377,8 +385,8 @@ class OpenCodeServer {
 
 	static function json<T>(c:HonoContext, payload:T, ?status:Int):Response {
 		if (status == null)
-			return Syntax.code("{0}.json({1})", c, payload);
-		return Syntax.code("{0}.json({1}, {2})", c, payload, status);
+			return c.json(payload);
+		return c.json(payload, status);
 	}
 
 	static function param(c:HonoContext, name:String):String {

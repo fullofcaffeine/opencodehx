@@ -22,8 +22,8 @@ OpenCodeHX now has a first Node/Hono server seam:
 
 - `opencodehx.externs.hono.Hono` defines the narrow context/request/handler surface used by current routes. It preserves Hono's real `req.param()`/`req.query()` boundary as `string | undefined` in generated TypeScript while route code normalizes it to `String`/`Null<String>`.
 - `opencodehx.externs.hono.NodeWs` models `createNodeWebSocket()` as a typed `NodeWebSocketRuntime` instead of a broad `Dynamic` value.
-- `opencodehx.externs.hono.NodeServer` models `createAdaptorServer()` as Hono's exported `ServerType`, so the generated adapter infers server methods instead of declaring `server: any`.
-- `opencodehx.server.NodeHonoAdapter` starts and stops the Node server, injects WebSocket support, preserves upstream's port-0 behavior of trying `4096` before a random port, and structurally narrows optional Node close helpers.
+- `opencodehx.externs.hono.NodeServer` models `createAdaptorServer()` as Hono's exported `ServerType` with a narrow Haxe structural method surface, so the adapter keeps TypeScript package assignability without hiding server lifecycle logic in `Syntax.code`.
+- `opencodehx.server.NodeHonoAdapter` starts and stops the Node server in Haxe, injects WebSocket support, preserves upstream's port-0 behavior of trying `4096` before a random port, guards the TCP address shape, and structurally narrows optional Node close helpers.
 - `opencodehx.server.OpenCodeServer` exposes a first route set: `/health`, `/event`, `/session` GET/POST, `/session/:sessionID/message`, `/session/:sessionID/abort`, `/sync/start`, `/sync/replay`, `/sync/history`, `/tui/select-session`, `/pty`, `/pty/:ptyID`, and `/pty/:ptyID/connect`.
 - `opencodehx.smoke.ServerSmoke` covers in-memory `app.request()` routes, SSE text emission, cursor headers, bad/missing session cases, select-session validation, abort success, PTY HTTP routes, listener start/stop, and a real PTY WebSocket write/replay/tail flow.
 - `opencodehx.sync.SyncRouteRuntime` decodes sync replay/history request bodies from `genes.ts.Unknown` into typed route records before route logic sees them. Raw sync event `data` remains `unknown` until the full SyncEvent schema/projector registry lands.
@@ -31,6 +31,8 @@ OpenCodeHX now has a first Node/Hono server seam:
 ## Typing Lesson
 
 Upstream TypeScript uses `any` in some server areas, especially open payload queues and proxy/schema forwarding, but the Node adapter does not require `any` for the WebSocket runtime or listener. OpenCodeHX should recover stronger Haxe types wherever current usage makes the shape knowable. If `genes-ts` emits noisy TypeScript from a good Haxe model, fix or track the compiler issue instead of weakening the port source.
+
+`js.Syntax.code` is treated like `untyped`: it is allowed only as a small, justified boundary. The large raw `NodeHonoAdapter.listen` Promise block was replaced with Haxe over narrow externs. Remaining server raw snippets are the SSE `ReadableStream` constructor and PTY binary-frame shape check; both are localized and should become typed extern/facade work under `opencodehx-1le`.
 
 Remaining `Dynamic` values in this slice are boundary debt:
 

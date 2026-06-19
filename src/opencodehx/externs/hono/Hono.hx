@@ -2,10 +2,13 @@ package opencodehx.externs.hono;
 
 import genes.ts.Unknown;
 import genes.ts.Undefinable;
+import haxe.extern.EitherType;
+import js.html.Request;
 import js.html.Response;
 import js.html.RequestInit;
 import js.lib.Promise;
 
+typedef HonoFetch = Request->EitherType<Response, Promise<Response>>;
 typedef HonoQueryValue = Undefinable<String>;
 
 typedef HonoRequest = {
@@ -39,7 +42,5 @@ extern class Hono {
 	function delete(path:String, handler:HonoHandler):Hono;
 	function route(path:String, app:Hono):Hono;
 	function request(path:String, ?init:RequestInit):Promise<Response>;
-	// Hono's `fetch` is a host adapter function with overloads; model it after
-	// the server adapter owns those call sites.
-	final fetch:Dynamic;
+	final fetch:HonoFetch;
 }
