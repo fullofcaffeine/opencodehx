@@ -10,6 +10,7 @@ import opencodehx.host.node.NodePath;
 import opencodehx.smoke.AiSdkProviderSmoke;
 import opencodehx.smoke.CliSmoke;
 import opencodehx.smoke.ConfigSmoke;
+import opencodehx.smoke.CopilotChatCompletionSmoke;
 import opencodehx.smoke.CopilotChatMessagesSmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
@@ -72,6 +73,8 @@ class Main {
 				Syntax.code("console.log({0})", "provider-transform-smoke:ok");
 				CopilotChatMessagesSmoke.run();
 				Syntax.code("console.log({0})", "copilot-chat-messages-smoke:ok");
+				CopilotChatCompletionSmoke.run();
+				Syntax.code("console.log({0})", "copilot-chat-completion-smoke:ok");
 				return AiSdkProviderSmoke.run();
 			})
 			.then(_ -> {

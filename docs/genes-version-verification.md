@@ -1,7 +1,7 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-19T16:57:14Z
+**Recorded:** 2026-06-19T17:54:15Z
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
@@ -19,15 +19,15 @@ The canonical compiler checkout is now ahead of the Cafetera vendored reference 
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 35 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, and optional-field branch narrowing landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `3da340866271f936416844f820230bd3e08951f17306dbee12fe64121f9cf8e7`
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, and null-guarded local cast elision landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `43e0bd91f96ef925415835ba26c8e5c4268db28bdc148934aee9dd21af8bc4a0`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `bed806092d198f075a62d7da52f1d90b53feb860`
+- Commit: `b96af41741e6ea2b0e36c5a50005e38af4aebeb3`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
@@ -37,6 +37,8 @@ Canonical `../genes` checkout:
 - Undefinable object-field fix: `81d622d5e260d084f288e38cdbc345d41cbebb81` (`fix(ts): preserve undefinable object fields`), preserving `genes.ts.Undefinable<T>` as real `undefined` in object-literal fields while keeping normal Haxe nullable values on the `null` path.
 - Target-polymorphic helper docs: `a3e2dc78aa8d88587b32d38dd36f9f28072e169f`, `f06b12ab66d2c85634d0c2110079a7c9a2c1b847`, and `2e0d17260161612c97a3a4c4059dece50252d81a` document the north star that `genes.ts` helpers should emit rich TypeScript without sacrificing classic ES6 output.
 - Optional-field boolean narrowing fix: `bed806092d198f075a62d7da52f1d90b53feb860` (`fix(ts): narrow optional fields through boolean conditions`), carrying optional-field non-null facts through boolean `&&` and `||` branches so strict TypeScript accepts dominated field reads without source workarounds.
+- Undefinable assignment output fix: `dacd5f8572adad6c0f194549795ac5be04ffa4b5` (`fix(ts): preserve undefinable assignment output`), preserving `undefined` for `genes.ts.Undefinable<T>` assignments, returns, ternaries, array elements, and variable initializers.
+- Null-guarded local cast elision: `b96af41741e6ea2b0e36c5a50005e38af4aebeb3` (`fix(ts): elide null-guarded local casts`), removing unnecessary generated `Register.unsafeCast<T>(value)` after stable nullable local null guards while preserving conservative casts for unproven paths.
 
 Cafetera vendored reference:
 

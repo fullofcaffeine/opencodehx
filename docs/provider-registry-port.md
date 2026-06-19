@@ -18,6 +18,8 @@ This slice adds the first Haxe-owned provider registry:
 - `opencodehx.provider.ProviderTransform` ports the first pure provider request-option transforms from upstream.
 - `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
 - `ProviderModelsDev` adds the first models.dev fetch/cache seam with injected fetcher support, Node cache file selection, forced refresh, local file override, snapshot fallback, and typed catalog output.
+- `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
+- `CopilotChatCompletion` ports pure GitHub Copilot finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
 
 ## Evidence
 
@@ -49,6 +51,24 @@ This slice adds the first Haxe-owned provider registry:
 - Gemini JSON Schema sanitization for missing array item schemas, nested arrays, combiner nodes, non-object cleanup, required filtering, enum stringification, and non-Gemini no-op behavior.
 - Message transforms for interleaved reasoning content, empty/unsupported attachment replacement, Anthropic/Bedrock empty-content filtering, Anthropic assistant tool-tail splitting, cache placement/skipping, Claude/Mistral tool-call ID normalization, Mistral assistant bridge insertion, and provider-option key remapping.
 
+`CopilotChatMessagesSmoke` covers representative upstream `provider/copilot/convert-to-copilot-messages.test.ts` cases:
+
+- System/user text flattening.
+- Image data, `Uint8Array`, and remote URL parts.
+- Assistant text, tool calls, and tool results.
+- Denied tool-execution fallback.
+- Approval-response skipping.
+- Reasoning text and opaque reasoning metadata.
+- Full conversation ordering.
+
+`CopilotChatCompletionSmoke` covers the first pure upstream `provider/copilot/copilot-chat-model.test.ts` helper behavior:
+
+- OpenAI-compatible finish-reason mapping.
+- `doGenerate` response-usage shape.
+- `doStream` final usage and no-cache accounting.
+- Raw stream usage nulls when usage is absent.
+- Accepted/rejected prediction-token metadata.
+
 Run it with:
 
 ```bash
@@ -77,7 +97,7 @@ The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)`
 
 This is not the full provider runtime:
 
-- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, plugin provider hooks, and completion mapping remain `opencodehx-nrh`.
+- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, plugin provider hooks, and full Copilot live streaming model/response parsing remain `opencodehx-nrh`.
 - GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
 
@@ -86,5 +106,7 @@ This is not the full provider runtime:
 The Haxe model generates strict-checkable TypeScript, but the provider registry exposed output polish debt: repeated temporary declarations, `tmpN` names in larger object literals, and visible `StringMap.inst` access in generated user modules. Keep the Haxe source typed and clear; reduce these shapes into generic `../genes` fixtures instead of weakening the provider model.
 
 The models.dev runtime-options path exposed a generic optional-field narrowing hole for Haxe conditions such as `field == null || field == "" ? fallback : field`. The fix landed in `../genes` commit `bed806092d198f075a62d7da52f1d90b53feb860` (`genes-o41`), teaching `genes-ts` to carry optional-field non-null facts through boolean `&&`/`||` branches without OpenCodeHX-specific knowledge.
+
+The Copilot usage-mapping helpers exposed generated cast noise after null-guarded locals used for `genes.ts.Undefinable<T>` output. The fix landed in `../genes` commit `b96af41741e6ea2b0e36c5a50005e38af4aebeb3` (`genes-9lz`), teaching `genes-ts` to emit direct TypeScript locals after stable null guards instead of `Register.unsafeCast<T>(value)`.
 
 Regular Genes' existing ES6 output path is a useful performance-oriented secondary profile. `../genes-vanilla` is the read-only reference for original Genes behavior; OpenCodeHX compiler work still lands in `../genes`, and idiomatic TypeScript remains the default output surface.
