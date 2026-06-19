@@ -6,6 +6,7 @@ import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
+import opencodehx.provider.ProviderTypes.ProviderVariants;
 
 class ProviderTransformSmoke {
 	static inline final SESSION_ID = "test-session-123";
@@ -18,6 +19,7 @@ class ProviderTransformSmoke {
 		gatewayDefaults();
 		providerOptionRouting();
 		parameterDefaults();
+		variantDefaults();
 	}
 
 	static function cacheAndStoreOptions():Void {
@@ -135,9 +137,61 @@ class ProviderTransformSmoke {
 		eq(ProviderTransform.topK(model("google", "gemini-3-pro", "@ai-sdk/google")), 64, "gemini topK");
 	}
 
+	static function variantDefaults():Void {
+		eq(countVariants(ProviderTransform.variants(model("openai", "gpt-4o", "@ai-sdk/openai", false))), 0, "no reasoning variants");
+		eq(countVariants(ProviderTransform.variants(model("deepseek", "deepseek-r1", "@ai-sdk/openai-compatible", true))), 0, "deepseek variants");
+
+		final openrouter = ProviderTransform.variants(model("openrouter", "gpt-4", "@openrouter/ai-sdk-provider", true));
+		hasVariants(openrouter, ["none", "minimal", "low", "medium", "high", "xhigh"], "openrouter gpt efforts");
+		eq(get(object(get(variant(openrouter, "low"), "reasoning")), "effort"), "low", "openrouter reasoning effort");
+
+		final gatewayAdaptive = ProviderTransform.variants(model("gateway", "anthropic/claude-opus-4-7", "@ai-sdk/gateway", true));
+		hasVariants(gatewayAdaptive, ["low", "medium", "high", "xhigh", "max"], "gateway adaptive efforts");
+		eq(get(object(get(variant(gatewayAdaptive, "xhigh"), "thinking")), "type"), "adaptive", "gateway adaptive thinking");
+
+		final copilot = ProviderTransform.variants(modelWithRelease("github-copilot", "gpt-5.2", "@ai-sdk/github-copilot", "2025-12-01", true));
+		hasVariants(copilot, ["low", "medium", "high", "xhigh"], "copilot gpt-5.2 variants");
+		eq(get(variant(copilot, "xhigh"), "reasoningSummary"), "auto", "copilot reasoning summary");
+
+		final azure = ProviderTransform.variants(model("azure", "gpt-5", "@ai-sdk/azure", true));
+		hasVariants(azure, ["minimal", "low", "medium", "high"], "azure gpt-5 variants");
+		eq(get(variant(azure, "minimal"), "reasoningEffort"), "minimal", "azure minimal effort");
+
+		final openai = ProviderTransform.variants(modelWithRelease("openai", "gpt-5-nano", "@ai-sdk/openai", "2025-12-05", true));
+		hasVariants(openai, ["none", "minimal", "low", "medium", "high", "xhigh"], "openai dated variants");
+
+		final anthropic = ProviderTransform.variants(model("anthropic", "claude-opus-4-7", "@ai-sdk/anthropic", true));
+		eq(get(object(get(variant(anthropic, "xhigh"), "thinking")), "display"), "summarized", "anthropic opus display");
+
+		final bedrock = ProviderTransform.variants(model("bedrock", "anthropic.claude-opus-4-7", "@ai-sdk/amazon-bedrock", true));
+		eq(get(object(get(variant(bedrock, "xhigh"), "reasoningConfig")), "maxReasoningEffort"), "xhigh", "bedrock adaptive effort");
+
+		final google25 = ProviderTransform.variants(model("google", "gemini-2.5-pro", "@ai-sdk/google", true));
+		eq(get(object(get(variant(google25, "max"), "thinkingConfig")), "thinkingBudget"), 24576, "google 2.5 budget");
+
+		final google31 = ProviderTransform.variants(model("google", "gemini-3.1-pro", "@ai-sdk/google", true));
+		hasVariants(google31, ["low", "medium", "high"], "google 3.1 levels");
+
+		final groq = ProviderTransform.variants(model("groq", "llama-4", "@ai-sdk/groq", true));
+		hasVariants(groq, ["none", "low", "medium", "high"], "groq efforts");
+
+		final mistral = ProviderTransform.variants(model("mistral", "mistral-small-latest", "@ai-sdk/mistral", true));
+		hasVariants(mistral, ["high"], "mistral small reasoning");
+		eq(countVariants(ProviderTransform.variants(model("mistral", "mistral-large-latest", "@ai-sdk/mistral", true))), 0, "mistral large variants");
+
+		final sapGpt = ProviderTransform.variants(model("sap-ai-core", "azure-openai--gpt-4o", "@jerome-benoit/sap-ai-provider-v2", true));
+		hasVariants(sapGpt, ["low", "medium", "high"], "sap gpt variants");
+		eq(countVariants(ProviderTransform.variants(model("sap-ai-core", "perplexity--sonar-pro", "@jerome-benoit/sap-ai-provider-v2", true))), 0,
+			"sap sonar variants");
+	}
+
 	static function model(providerID:String, apiID:String, npm:String, ?reasoning:Bool = false):ProviderModel {
+		return modelWithRelease(providerID, apiID, npm, "2024-01-01", reasoning);
+	}
+
+	static function modelWithRelease(providerID:String, apiID:String, npm:String, releaseDate:String, ?reasoning:Bool = false):ProviderModel {
 		return {
-			id: ModelID.make(providerID + "/" + apiID),
+			id: ModelID.make(apiID),
 			providerID: ProviderID.make(providerID),
 			name: apiID,
 			api: {id: apiID, url: "https://api.example.test", npm: npm},
@@ -167,7 +221,7 @@ class ProviderTransformSmoke {
 			limit: {context: 200000, output: 8192},
 			options: optionMap(),
 			headers: new DynamicAccess<String>(),
-			release_date: "2024-01-01",
+			release_date: releaseDate,
 			variants: new DynamicAccess<ProviderOptions>(),
 		};
 	}
@@ -200,6 +254,28 @@ class ProviderTransformSmoke {
 
 	static function exists(options:ProviderOptions, key:String):Bool {
 		return options.exists(key);
+	}
+
+	static function variant(variants:ProviderVariants, key:String):ProviderOptions {
+		final found = variants.get(key);
+		if (found == null)
+			throw 'Missing variant ${key}';
+		return found;
+	}
+
+	static function countVariants(variants:ProviderVariants):Int {
+		var count = 0;
+		for (_ in variants.keys())
+			count++;
+		return count;
+	}
+
+	static function hasVariants(variants:ProviderVariants, expected:Array<String>, label:String):Void {
+		eq(countVariants(variants), expected.length, label + " count");
+		for (key in expected) {
+			if (!variants.exists(key))
+				throw '${label}: missing ${key}';
+		}
 	}
 
 	static function object(value:Dynamic):ProviderOptions {

@@ -87,7 +87,7 @@ typedef ProviderApiInfo = {
 // narrow stable provider-specific options into typed facades as those slices land.
 typedef ProviderOptions = DynamicAccess<Dynamic>;
 typedef ProviderHeaders = DynamicAccess<String>;
-typedef ProviderVariants = DynamicAccess<DynamicAccess<Dynamic>>;
+typedef ProviderVariants = DynamicAccess<ProviderOptions>;
 
 typedef ProviderModel = {
 	final id:ModelID;

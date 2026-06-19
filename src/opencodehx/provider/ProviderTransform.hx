@@ -2,6 +2,7 @@ package opencodehx.provider;
 
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
+import opencodehx.provider.ProviderTypes.ProviderVariants;
 
 using StringTools;
 
@@ -13,6 +14,8 @@ typedef ProviderTransformOptionsInput = {
 
 class ProviderTransform {
 	public static inline final OUTPUT_TOKEN_MAX:Float = 32000;
+	static final WIDELY_SUPPORTED_EFFORTS = ["low", "medium", "high"];
+	static final OPENAI_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh"];
 
 	public static function options(input:ProviderTransformOptionsInput):ProviderOptions {
 		final result = optionMap();
@@ -154,6 +157,79 @@ class ProviderTransform {
 		return null;
 	}
 
+	public static function variants(model:ProviderModel):ProviderVariants {
+		final result = variantMap();
+		if (!model.capabilities.reasoning)
+			return result;
+
+		final id = model.id.toString().toLowerCase();
+		final apiID = model.api.id.toLowerCase();
+		final adaptiveEfforts = anthropicAdaptiveEfforts(model.api.id);
+
+		if (id.contains("deepseek") || id.contains("minimax") || id.contains("glm") || id.contains("kimi") || id.contains("k2p") || id.contains("qwen")
+			|| id.contains("big-pickle"))
+			return result;
+
+		if (id.contains("grok") && id.contains("grok-3-mini")) {
+			if (model.api.npm == "@openrouter/ai-sdk-provider")
+				return variantsFromEfforts(["low", "high"], effort -> record1("reasoning", record1("effort", effort)));
+			return variantsFromEfforts(["low", "high"], effort -> record1("reasoningEffort", effort));
+		}
+		if (id.contains("grok"))
+			return result;
+
+		return switch model.api.npm {
+			case "@openrouter/ai-sdk-provider":
+				if (!id.contains("gpt") && !id.contains("gemini-3") && !id.contains("claude")) result else variantsFromEfforts(OPENAI_EFFORTS,
+					effort -> record1("reasoning", record1("effort", effort)));
+
+			case "@ai-sdk/gateway":
+				gatewayVariants(model, id, adaptiveEfforts);
+
+			case "@ai-sdk/github-copilot":
+				copilotVariants(model, id);
+
+			case "@ai-sdk/cerebras" | "@ai-sdk/togetherai" | "@ai-sdk/deepinfra" | "venice-ai-sdk-provider" | "@ai-sdk/openai-compatible" | "@ai-sdk/xai":
+				variantsFromEfforts(WIDELY_SUPPORTED_EFFORTS, effort -> record1("reasoningEffort", effort));
+
+			case "@ai-sdk/azure":
+				if (id == "o1-mini") result else {
+					final efforts = WIDELY_SUPPORTED_EFFORTS.copy();
+					if (id.contains("gpt-5-") || id == "gpt-5")
+						efforts.unshift("minimal");
+					variantsFromEfforts(efforts, openAiEffortOptions);
+				}
+
+			case "@ai-sdk/openai":
+				openAiVariants(model, id);
+
+			case "@ai-sdk/anthropic" | "@ai-sdk/google-vertex/anthropic":
+				anthropicVariants(model, adaptiveEfforts, true);
+
+			case "@ai-sdk/amazon-bedrock":
+				bedrockVariants(model, adaptiveEfforts);
+
+			case "@ai-sdk/google-vertex" | "@ai-sdk/google":
+				googleVariants(id);
+
+			case "@ai-sdk/mistral":
+				if (apiID.contains("mistral-small-2603")
+					|| apiID.contains("mistral-small-latest")) singleVariant("high", record1("reasoningEffort", "high")) else result;
+
+			case "@ai-sdk/cohere" | "@ai-sdk/perplexity":
+				result;
+
+			case "@ai-sdk/groq":
+				variantsFromEfforts(["none", "low", "medium", "high"], effort -> record1("reasoningEffort", effort));
+
+			case "@jerome-benoit/sap-ai-provider-v2":
+				sapVariants(model, id, adaptiveEfforts);
+
+			case _:
+				result;
+		}
+	}
+
 	static function gatewayProviderOptions(model:ProviderModel, options:ProviderOptions):ProviderOptions {
 		final slug = gatewaySlug(model.api.id);
 		final result = optionMap();
@@ -180,6 +256,160 @@ class ProviderTransform {
 				result.set("gateway", rest);
 			}
 		}
+		return result;
+	}
+
+	static function gatewayVariants(model:ProviderModel, id:String, adaptiveEfforts:Array<String>):ProviderVariants {
+		if (id.contains("anthropic")) {
+			if (adaptiveEfforts.length > 0)
+				return variantsFromEfforts(adaptiveEfforts, effort -> record2("thinking", record1("type", "adaptive"), "effort", effort));
+			return thinkingBudgetVariants("thinking");
+		}
+
+		if (id.contains("google")) {
+			if (id.contains("2.5"))
+				return googleBudgetVariants();
+			return variantsFromEfforts(["low", "high"], effort -> record2("includeThoughts", true, "thinkingLevel", effort));
+		}
+
+		return variantsFromEfforts(OPENAI_EFFORTS, effort -> record1("reasoningEffort", effort));
+	}
+
+	static function copilotVariants(model:ProviderModel, id:String):ProviderVariants {
+		final result = variantMap();
+		if (id.contains("gemini"))
+			return result;
+		if (id.contains("claude"))
+			return variantsFromEfforts(WIDELY_SUPPORTED_EFFORTS, effort -> record1("reasoningEffort", effort));
+
+		final efforts = WIDELY_SUPPORTED_EFFORTS.copy();
+		if (id.contains("5.1-codex-max") || id.contains("5.2") || id.contains("5.3")) {
+			efforts.push("xhigh");
+		} else if (id.contains("gpt-5") && model.release_date >= "2025-12-04") {
+			efforts.push("xhigh");
+		}
+		return variantsFromEfforts(efforts, openAiEffortOptions);
+	}
+
+	static function openAiVariants(model:ProviderModel, id:String):ProviderVariants {
+		final result = variantMap();
+		if (id == "gpt-5-pro")
+			return result;
+
+		final efforts = if (id.contains("codex")) {
+			final codex = WIDELY_SUPPORTED_EFFORTS.copy();
+			if (id.contains("5.2") || id.contains("5.3"))
+				codex.push("xhigh");
+			codex;
+		} else {
+			final standard = WIDELY_SUPPORTED_EFFORTS.copy();
+			if (id.contains("gpt-5-") || id == "gpt-5")
+				standard.unshift("minimal");
+			if (model.release_date >= "2025-11-13")
+				standard.unshift("none");
+			if (model.release_date >= "2025-12-04")
+				standard.push("xhigh");
+			standard;
+		};
+
+		return variantsFromEfforts(efforts, openAiEffortOptions);
+	}
+
+	static function anthropicVariants(model:ProviderModel, adaptiveEfforts:Array<String>, includeDisplay:Bool):ProviderVariants {
+		if (model.providerID.toString() == "github-copilot" && model.api.id.contains("opus-4.7"))
+			return singleVariant("medium", record1("reasoningEffort", "medium"));
+
+		if (adaptiveEfforts.length > 0) {
+			final summarized = includeDisplay && (model.api.id.contains("opus-4-7") || model.api.id.contains("opus-4.7"));
+			return variantsFromEfforts(adaptiveEfforts, effort -> record2("thinking", adaptiveThinking(summarized), "effort", effort));
+		}
+
+		return thinkingBudgetVariants("thinking", Math.min(16000, Math.floor(model.limit.output / 2 - 1)), Math.min(31999, model.limit.output - 1));
+	}
+
+	static function bedrockVariants(model:ProviderModel, adaptiveEfforts:Array<String>):ProviderVariants {
+		if (adaptiveEfforts.length > 0) {
+			final summarized = model.api.id.contains("opus-4-7") || model.api.id.contains("opus-4.7");
+			return variantsFromEfforts(adaptiveEfforts, effort -> record1("reasoningConfig", adaptiveReasoningConfig(effort, summarized)));
+		}
+
+		if (model.api.id.contains("anthropic"))
+			return thinkingBudgetVariants("reasoningConfig", 16000, 31999);
+
+		return variantsFromEfforts(WIDELY_SUPPORTED_EFFORTS, effort -> record1("reasoningConfig", record2("type", "enabled", "maxReasoningEffort", effort)));
+	}
+
+	static function googleVariants(id:String):ProviderVariants {
+		if (id.contains("2.5"))
+			return googleBudgetVariants();
+
+		final levels = id.contains("3.1") ? ["low", "medium", "high"] : ["low", "high"];
+		return variantsFromEfforts(levels, effort -> record1("thinkingConfig", record2("includeThoughts", true, "thinkingLevel", effort)));
+	}
+
+	static function sapVariants(model:ProviderModel, id:String, adaptiveEfforts:Array<String>):ProviderVariants {
+		if (model.api.id.contains("anthropic")) {
+			if (adaptiveEfforts.length > 0)
+				return variantsFromEfforts(adaptiveEfforts, effort -> record2("thinking", record1("type", "adaptive"), "effort", effort));
+			return thinkingBudgetVariants("thinking");
+		}
+		if (model.api.id.contains("gemini") && id.contains("2.5"))
+			return googleBudgetVariants();
+		if (model.api.id.contains("gpt") || ~/\bo[1-9]/.match(model.api.id))
+			return variantsFromEfforts(WIDELY_SUPPORTED_EFFORTS, effort -> record1("reasoningEffort", effort));
+		return variantMap();
+	}
+
+	static function anthropicAdaptiveEfforts(apiID:String):Array<String> {
+		if (apiID.contains("opus-4-7") || apiID.contains("opus-4.7"))
+			return ["low", "medium", "high", "xhigh", "max"];
+		if (apiID.contains("opus-4-6") || apiID.contains("opus-4.6") || apiID.contains("sonnet-4-6") || apiID.contains("sonnet-4.6"))
+			return ["low", "medium", "high", "max"];
+		return [];
+	}
+
+	static function variantsFromEfforts(efforts:Array<String>, build:String->ProviderOptions):ProviderVariants {
+		final result = variantMap();
+		for (effort in efforts)
+			result.set(effort, build(effort));
+		return result;
+	}
+
+	static function singleVariant(name:String, options:ProviderOptions):ProviderVariants {
+		final result = variantMap();
+		result.set(name, options);
+		return result;
+	}
+
+	static function openAiEffortOptions(effort:String):ProviderOptions {
+		return record3("reasoningEffort", effort, "reasoningSummary", "auto", "include", ["reasoning.encrypted_content"]);
+	}
+
+	static function adaptiveThinking(displaySummarized:Bool):ProviderOptions {
+		final result = record1("type", "adaptive");
+		if (displaySummarized)
+			result.set("display", "summarized");
+		return result;
+	}
+
+	static function adaptiveReasoningConfig(effort:String, displaySummarized:Bool):ProviderOptions {
+		final result = record2("type", "adaptive", "maxReasoningEffort", effort);
+		if (displaySummarized)
+			result.set("display", "summarized");
+		return result;
+	}
+
+	static function thinkingBudgetVariants(key:String, ?highBudget:Float = 16000, ?maxBudget:Float = 31999):ProviderVariants {
+		final result = variantMap();
+		result.set("high", record1(key, record2("type", "enabled", "budgetTokens", highBudget)));
+		result.set("max", record1(key, record2("type", "enabled", "budgetTokens", maxBudget)));
+		return result;
+	}
+
+	static function googleBudgetVariants():ProviderVariants {
+		final result = variantMap();
+		result.set("high", record1("thinkingConfig", record2("includeThoughts", true, "thinkingBudget", 16000)));
+		result.set("max", record1("thinkingConfig", record2("includeThoughts", true, "thinkingBudget", 24576)));
 		return result;
 	}
 
@@ -216,6 +446,10 @@ class ProviderTransform {
 		return Std.isOfType(value, Bool) && value == true;
 	}
 
+	static function variantMap():ProviderVariants {
+		return new haxe.DynamicAccess<ProviderOptions>();
+	}
+
 	static function optionMap():ProviderOptions {
 		// ProviderOptions mirrors upstream's provider-SDK passthrough record. The
 		// transform module owns these open maps only at the SDK request boundary;
@@ -233,6 +467,14 @@ class ProviderTransform {
 		final result = optionMap();
 		result.set(keyA, valueA);
 		result.set(keyB, valueB);
+		return result;
+	}
+
+	static function record3<A, B, C>(keyA:String, valueA:A, keyB:String, valueB:B, keyC:String, valueC:C):ProviderOptions {
+		final result = optionMap();
+		result.set(keyA, valueA);
+		result.set(keyB, valueB);
+		result.set(keyC, valueC);
 		return result;
 	}
 

@@ -41,7 +41,7 @@ This slice adds the first Haxe-owned provider registry:
 
 - Request defaults for cache keys, OpenAI/Azure `store`, Z.ai/Zhipu thinking, Google thinking config, GPT-5 text verbosity, and Gateway caching.
 - AI SDK `providerOptions` routing for package keys, Gateway upstream slugs, Gateway routing-option splits, and the Amazon-to-Bedrock slug override.
-- Temperature, `topP`, `topK`, and max-output-token helpers now shared by session compaction.
+- Temperature, `topP`, `topK`, max-output-token helpers now shared by session compaction, and reasoning variant generation across the main upstream provider families.
 
 Run it with:
 
@@ -69,7 +69,7 @@ The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)`
 
 This is not the full provider runtime:
 
-- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, `models.dev` fetch/cache, plugin provider hooks, and provider transform variants/schema/message transforms remain `opencodehx-nrh`.
+- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, `models.dev` fetch/cache, plugin provider hooks, and provider transform schema/message/completion transforms remain `opencodehx-nrh`.
 - GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
 

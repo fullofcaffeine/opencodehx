@@ -14,7 +14,7 @@ Current Beads-based completion snapshot:
 [##########################--------------] 65% (55/85 non-epic port beads closed)
 ```
 
-This is an unweighted planning indicator, not a parity claim. The working port already has the core scaffold, config, tools, parser-backed bash permissions with shell-selection parity fixtures, real Node PTY lifecycle and WebSocket replay controls, permissions, provider registry, first AI SDK streamText smoke, first OpenAI-compatible SDK factory smoke, first provider transform smoke, headless fake-provider flow, session retry/compaction/abort fixtures, server seam, and first TUI scaffold/transcript/dialog slices. Remaining major work includes broader provider SDK loading/transforms, CLI surface parity, SDK/MCP/ACP/LSP/plugin surfaces, live TUI behavior, packaging, and upstream drift/rebase discipline.
+This is an unweighted planning indicator, not a parity claim. The working port already has the core scaffold, config, tools, parser-backed bash permissions with shell-selection parity fixtures, real Node PTY lifecycle and WebSocket replay controls, permissions, provider registry, first AI SDK streamText smoke, first OpenAI-compatible SDK factory smoke, first provider request-option/variant transform smoke, headless fake-provider flow, session retry/compaction/abort fixtures, server seam, and first TUI scaffold/transcript/dialog slices. Remaining major work includes broader provider SDK loading/transforms, CLI surface parity, SDK/MCP/ACP/LSP/plugin surfaces, live TUI behavior, packaging, and upstream drift/rebase discipline.
 
 The working plan lives in [opencodehx-prd-plan.md](opencodehx-prd-plan.md). Day-to-day work is tracked in Beads under `.beads/issues.jsonl`; start with:
 
