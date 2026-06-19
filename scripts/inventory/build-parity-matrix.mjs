@@ -185,6 +185,15 @@ function directEvidence(path) {
     ["provider/provider.test.ts", ["partial", "src/opencodehx/smoke/ProviderSmoke.hx; docs/provider-registry-port.md", "AI SDK language model loading, models.dev cache/fetch, plugin provider hooks, and provider transforms remain deferred", "ProviderSmoke registry env/config/auth/filter/model fixtures"]],
     ["provider/amazon-bedrock.test.ts", ["partial", "src/opencodehx/smoke/ProviderSmoke.hx; docs/provider-registry-port.md", "Bedrock SDK prefix/getLanguageModel and credential provider chain internals remain deferred", "ProviderSmoke Bedrock config/env/auth fixtures"]],
     ["cli/error.test.ts", ["partial", "src/opencodehx/smoke/CliSmoke.hx; scripts/harness/cli-smoke.mjs", "minimal run/help errors are covered; full yargs/OpenCode CLI errors remain deferred", "CliSmoke plus cli-smoke.mjs"]],
+    ["git/git.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "branch/defaultBranch/status/diff/stats are covered; full upstream VCS watcher and service bus integration remain deferred", "ProjectRuntimeSmoke Git fixtures", "opencodehx-hic"]],
+    ["installation/installation.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "npm package-name sanitizing and typed process seam are covered; actual install/outdated/package-manager side effects remain deferred", "ProjectRuntimeSmoke npm sanitize fixture", "opencodehx-gzn"]],
+    ["npm.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "package spec sanitizing is covered; package manager discovery, install, uninstall, and outdated flows remain deferred", "ProjectRuntimeSmoke npm sanitize fixture", "opencodehx-gzn"]],
+    ["project/migrate-global.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "global/no-commit discovery is covered; persisted legacy global migration remains deferred", "ProjectRuntimeSmoke no-commit project fixture", "opencodehx-hic"]],
+    ["project/project.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "project discovery, stable git-root IDs, updates, initialization timestamps, and sandbox tracking are covered; full icon/start-command/config service integration remains deferred", "ProjectRuntimeSmoke project fixtures", "opencodehx-hic"]],
+    ["project/vcs.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "git repo discovery and core VCS commands are covered; file watching and branch-change event integration remain deferred", "ProjectRuntimeSmoke Git fixtures", "opencodehx-hic"]],
+    ["project/worktree-remove.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "worktree remove/delete-branch/sandbox-untrack behavior is covered for a named worktree; full upstream bootstrap/reset edge matrix remains deferred", "ProjectRuntimeSmoke worktree fixture", "opencodehx-hic"]],
+    ["project/worktree.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "worktree slug, branch, create, project-ID sharing, and sandbox tracking are covered; command startup/bootstrap flows remain deferred", "ProjectRuntimeSmoke worktree fixture", "opencodehx-hic"]],
+    ["sync/index.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "typed event sequencing, aggregate history, replay, unknown-type errors, and sequence gaps are covered; database/bus/server-route sync integration remains deferred", "ProjectRuntimeSmoke SyncEventStore fixture", "opencodehx-99y"]],
     ["control-plane/sse.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "SSE emission is covered by /event; standalone parseSSE helper and multiline parser cases remain deferred", "ServerSmoke /event text fixture"]],
     ["server/session-list.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "basic /session list is covered; directory/root/start/search/limit filters remain deferred", "ServerSmoke GET /session"]],
     ["server/session-messages.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "message page, cursor header, bad cursor, and missing session are covered; high-volume legacy limit remains deferred", "ServerSmoke GET /session/:id/message"]],
@@ -205,7 +214,7 @@ function portRecord(path) {
       evidence: direct[1],
       reason: direct[2],
       replacement: direct[3],
-      next: direct[0] === "ported" ? "none" : nextBeadFor(path, area),
+      next: direct[0] === "ported" ? "none" : (direct[4] ?? nextBeadFor(path, area)),
     }
   }
 
@@ -416,7 +425,7 @@ const portMarkdown = [
   "",
   "## Current Reading",
   "",
-  "OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider, CLI, and one-turn session behavior. Large product surfaces remain deferred: server/API, SDK compatibility, real providers, full session lifecycle, MCP/ACP, plugin loading, LSP, TUI, and packaging.",
+  "OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider, CLI, project/git/worktree/sync, and one-turn session behavior. Large product surfaces remain deferred: server/API, SDK compatibility, real providers, full session lifecycle, MCP/ACP, plugin loading, LSP, live TUI, installation side effects, and packaging.",
   "",
   "The next practical move is to use this matrix while selecting Beads: before starting a subsystem, filter `reference/opencode-test-port-matrix.csv` by `next_bead` and promote the relevant upstream tests into Haxe-owned fixtures or differential harnesses.",
   "",

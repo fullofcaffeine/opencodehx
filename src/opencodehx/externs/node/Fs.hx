@@ -22,4 +22,5 @@ extern class Fs {
 	static function readdirSync(path:String, ?options:Dynamic):Array<Dynamic>;
 	@:native("readdirSync") static function readdirNamesSync(path:String):Array<String>;
 	static function statSync(path:String):FsStats;
+	static function realpathSync(path:String):String;
 }

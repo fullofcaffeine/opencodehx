@@ -2,18 +2,21 @@ package opencodehx.host.node;
 
 import js.Syntax;
 import opencodehx.externs.node.ChildProcess;
+import opencodehx.externs.node.ChildProcess.SpawnSyncOptions;
 import opencodehx.externs.node.ChildProcess.SpawnSyncResult;
 
 typedef ShellRun = {
 	final command:String;
 	final cwd:String;
-	@:optional final env:Dynamic;
-	@:optional final timeout:Int;
-	@:optional final maxBuffer:Int;
+	final env:haxe.DynamicAccess<String>;
+	final timeout:Int;
+	final maxBuffer:Int;
 }
 
 class NodeProcess {
-	public static function env():Dynamic {
+	public static function env():haxe.DynamicAccess<String> {
+		// process.env is a Node host boundary. We copy it only to pass back into
+		// spawnSync; application code should normalize specific variables before use.
 		return Syntax.code("({ ...process.env })");
 	}
 
@@ -26,16 +29,12 @@ class NodeProcess {
 	}
 
 	public static function runShell(input:ShellRun):SpawnSyncResult {
-		final options:Dynamic = {
-			cwd: input.cwd,
-			encoding: "utf8",
-			env: input.env == null ? env() : input.env,
-			shell: shell(),
-			timeout: input.timeout,
-			killSignal: "SIGTERM",
-			windowsHide: true,
-			maxBuffer: input.maxBuffer == null ? 1024 * 1024 : input.maxBuffer,
-		};
-		return cast ChildProcess.spawnSync(input.command, [], options);
+		final shellPath = shell();
+		// Build the exact Node options object so TypeScript sees the native
+		// SpawnSyncOptionsWithStringEncoding shape instead of Haxe optional-null fields.
+		final options:SpawnSyncOptions = Syntax.code("({ cwd: {0}, encoding: 'utf8', env: {1}, shell: {2}, timeout: {3}, killSignal: 'SIGTERM', windowsHide: true, maxBuffer: {4} })",
+			input.cwd,
+			input.env, shellPath, input.timeout, input.maxBuffer);
+		return ChildProcess.spawnSync(input.command, [], options);
 	}
 }

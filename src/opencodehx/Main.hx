@@ -12,6 +12,7 @@ import opencodehx.smoke.ConfigSmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
+import opencodehx.smoke.ProjectRuntimeSmoke;
 import opencodehx.smoke.ProviderSmoke;
 import opencodehx.smoke.ResourceSmoke;
 import opencodehx.smoke.ServerSmoke;
@@ -59,6 +60,8 @@ class Main {
 		Syntax.code("console.log({0})", "tool-smoke:ok");
 		ProviderSmoke.run();
 		Syntax.code("console.log({0})", "provider-smoke:ok");
+		ProjectRuntimeSmoke.run();
+		Syntax.code("console.log({0})", "project-runtime-smoke:ok");
 		SkillSmoke.run();
 		Syntax.code("console.log({0})", "skill-smoke:ok");
 		SessionProcessorSmoke.run();
