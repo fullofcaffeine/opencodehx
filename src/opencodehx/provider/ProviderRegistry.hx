@@ -13,6 +13,7 @@ import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
 import opencodehx.provider.AiSdkLanguageLoader.AiSdkLanguageResolution;
 import opencodehx.provider.ProviderTypes.ModelID;
+import opencodehx.provider.ProviderTypes.ModelsDevCatalog;
 import opencodehx.provider.ProviderTypes.ModelsDevCost;
 import opencodehx.provider.ProviderTypes.ModelsDevModel;
 import opencodehx.provider.ProviderTypes.ModelsDevMode;
@@ -183,6 +184,16 @@ class ProviderRegistry {
 			options: emptyProviderOptions(),
 			models: models,
 		};
+	}
+
+	public static function fromModelsDevCatalog(catalog:ModelsDevCatalog):Map<String, ProviderInfo> {
+		final result = new Map<String, ProviderInfo>();
+		for (id in catalog.keys()) {
+			final provider = catalog.get(id);
+			if (provider != null)
+				result.set(id, fromModelsDevProvider(provider));
+		}
+		return result;
 	}
 
 	static function fromModelsDevModel(provider:ModelsDevProvider, modelData:ModelsDevModel):ProviderModel {

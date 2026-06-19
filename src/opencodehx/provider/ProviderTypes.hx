@@ -258,3 +258,5 @@ typedef ModelsDevProvider = {
 	@:optional final npm:String;
 	final models:DynamicAccess<ModelsDevModel>;
 }
+
+typedef ModelsDevCatalog = DynamicAccess<ModelsDevProvider>;

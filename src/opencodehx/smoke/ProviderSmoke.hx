@@ -1,13 +1,24 @@
 package opencodehx.smoke;
 
+import genes.js.Async.await;
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import haxe.Json;
+import js.lib.Promise;
+import opencodehx.BuildInfo;
 import opencodehx.config.ConfigInfo;
+import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Os;
 import opencodehx.harness.TranscriptHarness;
+import opencodehx.host.node.NodePath;
 import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
+import opencodehx.provider.ProviderModelsDev;
+import opencodehx.provider.ProviderModelsDev.ModelsDevFetchFunction;
+import opencodehx.provider.ProviderModelsDev.ModelsDevFetchRequest;
+import opencodehx.provider.ProviderModelsDev.ModelsDevOptions;
 import opencodehx.provider.ProviderRegistry;
+import opencodehx.provider.ProviderTypes.ModelsDevCatalog;
 import opencodehx.provider.ProviderTypes.ModelsDevModel;
 import opencodehx.provider.ProviderTypes.ModelsDevProvider;
 import opencodehx.provider.ProviderTypes.ModelID;
@@ -33,6 +44,20 @@ class ProviderSmoke {
 		final first = Reflect.field(cast parsed.messages[0], "info");
 		eq(Reflect.field(first, "role"), "user", "encoded user role");
 		MessageCodec.decodeWithParts(parsed.messages[1], "provider-smoke-assistant");
+	}
+
+	@:async
+	public static function runRemote():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-models-dev-"));
+		try {
+			await(modelsDevFetchCache(root));
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			// Test cleanup must preserve and rethrow the original host/runtime error,
+			// whose concrete type is not knowable across Haxe's JS catch boundary.
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
 	}
 
 	static function registryEnvAndConfig():Void {
@@ -284,6 +309,90 @@ class ProviderSmoke {
 		eq(defaults.release_date, "", "models.dev default release date");
 	}
 
+	@:async
+	static function modelsDevFetchCache(root:String):Promise<Void> {
+		final remoteText = modelsDevCatalogText("remote", "Remote Provider", "remote-model", "Remote Model", "https://api.remote.example/v1");
+		final calls:Array<ModelsDevFetchRequest> = [];
+		final baseOptions:ModelsDevOptions = {
+			cacheDir: root,
+			sourceUrl: "https://models.example",
+			fetcher: modelsDevFetcher([remoteText], calls),
+			ttlMs: 60000,
+		};
+		final first = @:await ProviderModelsDev.get(baseOptions);
+		eq(calls.length, 1, "models.dev fetch count");
+		eq(calls[0].url, "https://models.example/api.json", "models.dev fetch url");
+		eq(calls[0].headers.get("User-Agent"), 'opencodehx/${BuildInfo.version}', "models.dev user agent");
+		final cachePath = ProviderModelsDev.cacheFile(baseOptions);
+		eq(Fs.existsSync(cachePath), true, "models.dev cache written");
+		final mapped = ProviderRegistry.fromModelsDevCatalog(first);
+		eq(mapped.get("remote").models.get("remote-model").name, "Remote Model", "models.dev catalog mapped");
+
+		final cachedCalls:Array<ModelsDevFetchRequest> = [];
+		final cached = @:await ProviderModelsDev.get({
+			cacheDir: root,
+			sourceUrl: "https://models.example",
+			fetcher: modelsDevFetcher([modelsDevCatalogText("wrong", "Wrong", "wrong-model", "Wrong Model", "")], cachedCalls),
+		});
+		eq(cachedCalls.length, 0, "models.dev cached read skips fetch");
+		eq(ProviderRegistry.fromModelsDevCatalog(cached).get("remote").name, "Remote Provider", "models.dev cached provider");
+
+		final skippedCalls:Array<ModelsDevFetchRequest> = [];
+		final skipped = @:await ProviderModelsDev.refresh(false, {
+			cacheDir: root,
+			sourceUrl: "https://models.example",
+			fetcher: modelsDevFetcher([modelsDevCatalogText("skip", "Skip", "skip-model", "Skip Model", "")], skippedCalls),
+			now: () -> Fs.statSync(cachePath).mtimeMs,
+			ttlMs: 60000,
+		});
+		eq(skipped, false, "models.dev fresh refresh skipped");
+		eq(skippedCalls.length, 0, "models.dev fresh refresh no fetch");
+
+		final refreshCalls:Array<ModelsDevFetchRequest> = [];
+		final refreshed = @:await ProviderModelsDev.refresh(true, {
+			cacheDir: root,
+			sourceUrl: "https://models.example",
+			fetcher: modelsDevFetcher([
+				modelsDevCatalogText("remote", "Remote Provider Updated", "remote-model", "Updated Model", "")
+			], refreshCalls),
+		});
+		eq(refreshed, true, "models.dev forced refresh");
+		eq(refreshCalls.length, 1, "models.dev forced refresh fetch count");
+		final refreshedCatalog = @:await ProviderModelsDev.get({cacheDir: root, sourceUrl: "https://models.example", disableFetch: true});
+		eq(ProviderRegistry.fromModelsDevCatalog(refreshedCatalog)
+			.get("remote")
+			.models.get("remote-model")
+			.name, "Updated Model",
+			"models.dev refreshed cache read");
+
+		final snapshot = ProviderModelsDev.parse(modelsDevCatalogText("snapshot", "Snapshot Provider", "snapshot-model", "Snapshot Model", ""));
+		final snapshotCatalog = @:await ProviderModelsDev.get({
+			cacheDir: NodePath.join(root, "snapshot-cache"),
+			sourceUrl: "https://snapshot.example",
+			disableFetch: true,
+			snapshot: snapshot,
+		});
+		eq(ProviderRegistry.fromModelsDevCatalog(snapshotCatalog).get("snapshot").name, "Snapshot Provider", "models.dev snapshot fallback");
+
+		final filePath = NodePath.join(root, "models-file.json");
+		Fs.writeFileSync(filePath, modelsDevCatalogText("file", "File Provider", "file-model", "File Model", ""), "utf8");
+		final fileCalls:Array<ModelsDevFetchRequest> = [];
+		final fileCatalog = @:await ProviderModelsDev.get({
+			cacheDir: NodePath.join(root, "file-cache"),
+			modelsPath: filePath,
+			fetcher: modelsDevFetcher([modelsDevCatalogText("wrong", "Wrong", "wrong-model", "Wrong Model", "")], fileCalls),
+		});
+		eq(fileCalls.length, 0, "models.dev path skips fetch");
+		eq(ProviderRegistry.fromModelsDevCatalog(fileCatalog).get("file").models.get("file-model").name, "File Model", "models.dev path provider");
+
+		final disabled = @:await ProviderModelsDev.get({
+			cacheDir: NodePath.join(root, "disabled-cache"),
+			sourceUrl: "https://disabled.example",
+			disableFetch: true,
+		});
+		eq(catalogCount(disabled), 0, "models.dev disabled fetch empty");
+	}
+
 	static function registry(config:ConfigInfo, ?env:Dynamic, ?auth:Dynamic):ProviderRegistry {
 		return new ProviderRegistry({config: config, env: env == null ? {} : env, auth: auth == null ? {} : auth});
 	}
@@ -307,6 +416,32 @@ class ProviderSmoke {
 		for (entry in entries)
 			result.set(entry.key, Unknown.fromBoundary(entry.value));
 		return result;
+	}
+
+	static function modelsDevFetcher(payloads:Array<String>, calls:Array<ModelsDevFetchRequest>):ModelsDevFetchFunction {
+		var index = 0;
+		return request -> {
+			calls.push(request);
+			final payload = payloads[index < payloads.length ? index : payloads.length - 1];
+			index++;
+			return Promise.resolve({
+				ok: true,
+				status: 200,
+				text: payload,
+			});
+		};
+	}
+
+	static function modelsDevCatalogText(providerID:String, providerName:String, modelID:String, modelName:String, api:String):String {
+		return
+			'{"${providerID}":{"id":"${providerID}","name":"${providerName}","env":[],"api":"${api}","models":{"${modelID}":{"id":"${modelID}","name":"${modelName}","family":"fixture","release_date":"2026-01-01","attachment":true,"reasoning":true,"temperature":false,"tool_call":true,"cost":{"input":1,"output":2},"limit":{"context":1000,"input":800,"output":200}}}}}';
+	}
+
+	static function catalogCount(catalog:ModelsDevCatalog):Int {
+		var count = 0;
+		for (_ in catalog.keys())
+			count++;
+		return count;
 	}
 
 	static function config(data:Dynamic):ConfigInfo {

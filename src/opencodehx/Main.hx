@@ -63,6 +63,9 @@ class Main {
 			.then(_ -> {
 				Syntax.code("console.log({0})", "tool-smoke:ok");
 				ProviderSmoke.run();
+				return ProviderSmoke.runRemote();
+			})
+			.then(_ -> {
 				Syntax.code("console.log({0})", "provider-smoke:ok");
 				ProviderTransformSmoke.run();
 				Syntax.code("console.log({0})", "provider-transform-smoke:ok");
