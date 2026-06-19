@@ -1,8 +1,12 @@
 package opencodehx.smoke;
 
+import genes.js.Async.await;
+import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
+import opencodehx.tool.BashCommandScanner;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolPaths;
@@ -12,9 +16,11 @@ import opencodehx.tool.ToolTypes.ToolPermissionDecision;
 import opencodehx.tool.ToolTypes.ToolPermissionRequest;
 
 class ToolSmoke {
-	public static function run():Void {
+	@:async
+	public static function run():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-tool-"));
 		try {
+			await(BashCommandScanner.preload());
 			fixture(root);
 			final registry = new ToolRegistry();
 			registrySurface(registry);
@@ -103,6 +109,8 @@ class ToolSmoke {
 	}
 
 	static function bashExec(registry:ToolRegistry, ctx:ToolContext):Void {
+		treeSitterScanner(ctx);
+
 		final hello = registry.execute("bash", {
 			command: "printf hello",
 			description: "Print hello"
@@ -154,6 +162,21 @@ class ToolSmoke {
 				case _: false;
 			}
 		}, "bash external directory denied");
+	}
+
+	static function treeSitterScanner(ctx:ToolContext):Void {
+		eq(BashCommandScanner.isPreloaded(), true, "bash scanner preloaded");
+		final multi = BashCommandScanner.scan(ctx.directory, "echo foo && echo bar", ctx.directory, "/bin/bash");
+		eq(multi.usedTreeSitter, true, "bash scanner tree-sitter path");
+		eq(multi.patterns.indexOf("echo foo") != -1, true, "bash scanner first command");
+		eq(multi.patterns.indexOf("echo bar") != -1, true, "bash scanner second command");
+
+		if (NodeProcess.platform() != "win32") {
+			final outside = NodePath.join(Os.tmpdir(), "opencodehx-tree-sitter-outside.txt");
+			final nested = BashCommandScanner.scan(ctx.directory, 'echo $(cat "${outside}")', ctx.directory, "/bin/bash");
+			eq(nested.patterns.indexOf('cat "${outside}"') != -1, true, "bash scanner nested command");
+			eq(nested.externalDirs.indexOf(Os.tmpdir()) != -1, true, "bash scanner nested external path");
+		}
 	}
 
 	static function readExec(registry:ToolRegistry, ctx:ToolContext):Void {

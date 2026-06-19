@@ -136,7 +136,8 @@ function nextBeadFor(path, area) {
   if (area === "session") return "opencodehx-023/opencodehx-048"
   if (area === "provider" || area === "account" || area === "auth") return "opencodehx-024/opencodehx-025"
   if (area === "tool" || area === "patch" || area === "snapshot") return "opencodehx-u5i"
-  if (area === "shell" || area === "pty") return "opencodehx-3qi"
+  if (area === "shell") return "opencodehx-jc7"
+  if (area === "pty") return "opencodehx-m5b"
   if (area === "permission") return "opencodehx-049"
   if (area === "config") return "opencodehx-zr1"
   if (area === "project" || area === "workspace" || area === "git" || area === "installation" || area === "sync")
@@ -177,7 +178,11 @@ function directEvidence(path) {
     ["tool/write.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "basic write behavior is covered; full overwrite and diagnostics matrix remains deferred", "ToolSmoke.writeExec"]],
     ["tool/edit.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative exact/replace-all/multiple-match and tolerant fallback behavior is covered; full upstream Effect/LSP/BOM/event matrix remains deferred", "ToolSmoke.editExec"]],
     ["tool/apply_patch.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative add/update/delete/move, EOF, heredoc, Unicode, malformed, and no-side-effect behavior is covered; full upstream Effect/LSP/BOM/event matrix remains deferred", "ToolSmoke.applyPatchExec"]],
-    ["tool/bash.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "non-interactive Node shell seam is covered; PTY and tree-sitter scanner remain deferred", "ToolSmoke.bashExec"]],
+    ["tool/bash.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "non-interactive Node shell seam and tree-sitter Bash scanner prompts are covered; streaming metadata and full PowerShell/Windows matrix remain deferred", "ToolSmoke.bashExec and BashCommandScanner fixtures", "opencodehx-jc7"]],
+    ["pty/pty-output-isolation.test.ts", ["partial", "src/opencodehx/smoke/PtySmoke.hx; docs/pty-runtime.md", "PTY lifecycle is real but WebSocket subscriber isolation and buffered output replay remain deferred", "PtySmoke lifecycle fixture plus pending WebSocket/control-frame follow-up", "opencodehx-m5b"]],
+    ["pty/pty-session.test.ts", ["partial", "src/opencodehx/smoke/PtySmoke.hx; docs/pty-runtime.md", "created/exited/deleted lifecycle is covered; full Effect service integration and server routes remain deferred", "PtySmoke short-lived and remove lifecycle", "opencodehx-m5b"]],
+    ["pty/pty-shell.test.ts", ["partial", "src/opencodehx/smoke/PtySmoke.hx; docs/pty-runtime.md", "bash login args are covered on POSIX; Windows PowerShell/Git Bash selection remains deferred", "PtySmoke bash login arg fixture", "opencodehx-jc7"]],
+    ["shell/shell.test.ts", ["partial", "src/opencodehx/host/node/NodeProcess.hx; src/opencodehx/smoke/PtySmoke.hx", "shell classification and login args are covered; full upstream selection/kill-tree/Git Bash matrix remains deferred", "PtySmoke bash login args", "opencodehx-jc7"]],
     ["tool/external-directory.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "external workdir denial is covered for bash; full permission surface remains deferred", "ToolSmoke.bashExec external directory case"]],
     ["tool/registry.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "builtin registry and errors are covered; .opencode custom tool loading remains deferred", "ToolSmoke.registrySurface"]],
     ["permission/next.test.ts", ["partial", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "sync ask/allow/deny is covered; full async session prompt lifecycle remains deferred", "PermissionSmoke.runtimeAskReply/toolIntegration"]],
@@ -425,7 +430,7 @@ const portMarkdown = [
   "",
   "## Current Reading",
   "",
-  "OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider, CLI, project/git/worktree/sync/npm, and one-turn session behavior. Large product surfaces remain deferred: server/API, SDK compatibility, real providers, full session lifecycle, MCP/ACP, plugin loading, LSP, live TUI, live package-manager installation side effects, and packaging.",
+  "OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider, CLI, project/git/worktree/sync/npm, parser-backed bash permissions, PTY lifecycle, and one-turn session behavior. Large product surfaces remain deferred: full server/API and SDK compatibility, real providers, full session lifecycle, MCP/ACP, plugin loading, LSP, live TUI, PTY WebSocket controls, live package-manager installation side effects, and packaging.",
   "",
   "The next practical move is to use this matrix while selecting Beads: before starting a subsystem, filter `reference/opencode-test-port-matrix.csv` by `next_bead` and promote the relevant upstream tests into Haxe-owned fixtures or differential harnesses.",
   "",

@@ -8,12 +8,6 @@ import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
 
-typedef BashScan = {
-	final pattern:String;
-	final always:String;
-	final externalDirs:Array<String>;
-}
-
 class BashTool {
 	static inline final DEFAULT_TIMEOUT = 120000;
 	static inline final MAX_OUTPUT_BYTES = 30000;
@@ -69,10 +63,13 @@ class BashTool {
 		if (timeout < 0)
 			throw new ToolException(ExecutionFailed("bash", 'Invalid timeout value: ${timeout}. Timeout must be a positive number.'));
 		final cwd = resolveWorkdir(ctx, workdirArg);
-		final scan = scanCommand(ctx, command, cwd);
-		if (scan.externalDirs.length > 0) {
+		final scan = BashCommandScanner.scan(ctx.directory, command, cwd, NodeProcess.shell());
+		final externalDirs = scan.externalDirs.copy();
+		if (!opencodehx.file.FileSystem.contains(ctx.directory, cwd) && externalDirs.indexOf(cwd) == -1)
+			externalDirs.push(cwd);
+		if (externalDirs.length > 0) {
 			final externalPatterns:Array<String> = [];
-			for (dir in scan.externalDirs)
+			for (dir in externalDirs)
 				externalPatterns.push(ToolPaths.normalize(NodePath.join(dir, "*")));
 			ToolPermission.require("bash", ctx, {
 				permission: "external_directory",
@@ -81,12 +78,14 @@ class BashTool {
 				metadata: {}
 			});
 		}
-		ToolPermission.require("bash", ctx, {
-			permission: "bash",
-			patterns: [scan.pattern],
-			always: [scan.always],
-			metadata: {}
-		});
+		if (scan.patterns.length > 0) {
+			ToolPermission.require("bash", ctx, {
+				permission: "bash",
+				patterns: scan.patterns,
+				always: scan.always,
+				metadata: {}
+			});
+		}
 
 		final shellRun = NodeProcess.runShell({
 			command: command,
@@ -106,77 +105,6 @@ class BashTool {
 		if (!Fs.statSync(absolute).isDirectory())
 			throw new ToolException(ExecutionFailed("bash", 'workdir must be a directory: ${absolute}'));
 		return absolute;
-	}
-
-	static function scanCommand(ctx:ToolContext, command:String, cwd:String):BashScan {
-		final first = firstToken(command);
-		final always = first == "" ? command : first + " *";
-		final externalDirs:Array<String> = [];
-		if (!opencodehx.file.FileSystem.contains(ctx.directory, cwd))
-			externalDirs.push(cwd);
-		for (path in likelyPathArgs(command)) {
-			final absolute = NodePath.isAbsolute(path) ? NodePath.resolve(path, ".") : NodePath.resolve(cwd, path);
-			if (!opencodehx.file.FileSystem.contains(ctx.directory, absolute)) {
-				final dir = Fs.existsSync(absolute) && Fs.statSync(absolute).isDirectory() ? absolute : NodePath.dirname(absolute);
-				if (externalDirs.indexOf(dir) == -1)
-					externalDirs.push(dir);
-			}
-		}
-		return {pattern: command, always: always, externalDirs: externalDirs};
-	}
-
-	static function likelyPathArgs(command:String):Array<String> {
-		final tokens = shellWords(command);
-		if (tokens.length == 0)
-			return [];
-		final fileCommands = ["cat", "cp", "mv", "rm", "mkdir", "touch", "chmod", "chown", "ls"];
-		if (fileCommands.indexOf(tokens[0]) == -1)
-			return [];
-		final paths:Array<String> = [];
-		for (i in 1...tokens.length) {
-			final token = tokens[i];
-			if (StringTools.startsWith(token, "-"))
-				continue;
-			if (tokens[0] == "chmod" && StringTools.startsWith(token, "+"))
-				continue;
-			paths.push(token);
-		}
-		return paths;
-	}
-
-	static function shellWords(command:String):Array<String> {
-		final words:Array<String> = [];
-		var current = "";
-		var quote = "";
-		var i = 0;
-		while (i < command.length) {
-			final char = command.charAt(i);
-			if (quote != "") {
-				if (char == quote) {
-					quote = "";
-				} else {
-					current += char;
-				}
-			} else if (char == "'" || char == '"') {
-				quote = char;
-			} else if (char == " " || char == "\t" || char == "\n") {
-				if (current != "") {
-					words.push(current);
-					current = "";
-				}
-			} else {
-				current += char;
-			}
-			i++;
-		}
-		if (current != "")
-			words.push(current);
-		return words;
-	}
-
-	static function firstToken(command:String):String {
-		final words = shellWords(command);
-		return words.length == 0 ? "" : words[0];
 	}
 
 	static function formatResult(description:String, stdout:String, stderr:String, status:Null<Int>, signal:Null<String>, error:Dynamic,

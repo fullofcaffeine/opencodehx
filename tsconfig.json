@@ -15,6 +15,7 @@
   },
   "include": [
     "src-gen/**/*.ts",
-    "src-gen/**/*.json"
+    "src-gen/**/*.json",
+    "types/**/*.d.ts"
   ]
 }

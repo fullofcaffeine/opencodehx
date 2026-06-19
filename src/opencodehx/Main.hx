@@ -14,6 +14,7 @@ import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
 import opencodehx.smoke.ProjectRuntimeSmoke;
 import opencodehx.smoke.ProviderSmoke;
+import opencodehx.smoke.PtySmoke;
 import opencodehx.smoke.ResourceSmoke;
 import opencodehx.smoke.ServerSmoke;
 import opencodehx.smoke.SessionProcessorSmoke;
@@ -56,34 +57,44 @@ class Main {
 		Syntax.code("console.log({0})", "permission-smoke:ok");
 		StorageSmoke.run();
 		Syntax.code("console.log({0})", "storage-smoke:ok");
-		ToolSmoke.run();
-		Syntax.code("console.log({0})", "tool-smoke:ok");
-		ProviderSmoke.run();
-		Syntax.code("console.log({0})", "provider-smoke:ok");
-		ProjectRuntimeSmoke.run();
-		Syntax.code("console.log({0})", "project-runtime-smoke:ok");
-		SkillSmoke.run();
-		Syntax.code("console.log({0})", "skill-smoke:ok");
-		SessionProcessorSmoke.run();
-		Syntax.code("console.log({0})", "session-processor-smoke:ok");
-		SkillSmoke.runRemote().then(_ -> {
-			Syntax.code("console.log({0})", "skill-remote-smoke:ok");
-			return ConfigSmoke.runRemote();
-		}).then(_ -> {
-			Syntax.code("console.log({0})", "config-remote-smoke:ok");
-			return ServerSmoke.run();
-		}).then(_ -> {
-			Syntax.code("console.log({0})", "server-smoke:ok");
-			Genes.dynamicImport(DynamicFixture -> DynamicFixture.label()).then(label -> {
-				Syntax.code("console.log({0})", label);
+		ToolSmoke.run()
+			.then(_ -> {
+				Syntax.code("console.log({0})", "tool-smoke:ok");
+				ProviderSmoke.run();
+				Syntax.code("console.log({0})", "provider-smoke:ok");
+				ProjectRuntimeSmoke.run();
+				Syntax.code("console.log({0})", "project-runtime-smoke:ok");
+				SkillSmoke.run();
+				Syntax.code("console.log({0})", "skill-smoke:ok");
+				SessionProcessorSmoke.run();
+				Syntax.code("console.log({0})", "session-processor-smoke:ok");
+				return PtySmoke.run();
+			})
+			.then(_ -> {
+				Syntax.code("console.log({0})", "pty-smoke:ok");
+				return SkillSmoke.runRemote();
+			})
+			.then(_ -> {
+				Syntax.code("console.log({0})", "skill-remote-smoke:ok");
+				return ConfigSmoke.runRemote();
+			})
+			.then(_ -> {
+				Syntax.code("console.log({0})", "config-remote-smoke:ok");
+				return ServerSmoke.run();
+			})
+			.then(_ -> {
+				Syntax.code("console.log({0})", "server-smoke:ok");
+				Genes.dynamicImport(DynamicFixture -> DynamicFixture.label()).then(label -> {
+					Syntax.code("console.log({0})", label);
+					return null;
+				});
+				return null;
+			})
+			.catchError(error -> {
+				Syntax.code("console.error({0})", error);
+				Syntax.code("process.exitCode = 1");
 				return null;
 			});
-			return null;
-		}).catchError(error -> {
-			Syntax.code("console.error({0})", error);
-			Syntax.code("process.exitCode = 1");
-			return null;
-		});
 	}
 
 	static function argv():Array<String> {
