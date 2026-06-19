@@ -78,6 +78,7 @@ This slice adds the first Haxe-owned provider registry:
 `CopilotChatRequestSmoke` covers representative upstream request-body shaping from `provider/copilot/copilot-chat-model.test.ts`:
 
 - Model IDs, converted prompt messages, standard call settings, stop sequences, seed, and typed Copilot provider options.
+- Streaming request bodies add `stream: true` and optional `stream_options.include_usage` while preserving the prepared chat args and warnings.
 - `topK` unsupported warnings.
 - Absent/text response formats omit `response_format`.
 - JSON response formats emit `json_object`.

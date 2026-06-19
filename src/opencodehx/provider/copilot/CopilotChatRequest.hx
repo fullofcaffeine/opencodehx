@@ -91,8 +91,23 @@ typedef CopilotOpenAIChatArgs = {
 	final thinking_budget:Undefinable<Float>;
 }
 
+typedef CopilotOpenAIStreamOptions = {
+	final include_usage:Bool;
+}
+
+typedef CopilotOpenAIChatStreamArgs = {
+	> CopilotOpenAIChatArgs,
+	final stream:Bool;
+	final stream_options:Undefinable<CopilotOpenAIStreamOptions>;
+}
+
 typedef CopilotPreparedChatRequest = {
 	final args:CopilotOpenAIChatArgs;
+	final warnings:Array<CopilotChatWarning>;
+}
+
+typedef CopilotPreparedChatStreamRequest = {
+	final args:CopilotOpenAIChatStreamArgs;
 	final warnings:Array<CopilotChatWarning>;
 }
 
@@ -172,6 +187,14 @@ class CopilotChatRequest {
 		};
 	}
 
+	public static function prepareStream(options:CopilotChatRequestOptions, includeUsage:Bool):CopilotPreparedChatStreamRequest {
+		final prepared = prepare(options);
+		return {
+			args: streamArgs(prepared.args, includeUsage),
+			warnings: prepared.warnings,
+		};
+	}
+
 	public static function responseFormat(format:Null<CopilotChatResponseFormat>, supportsStructuredOutputs:Bool):CopilotPreparedResponseFormat {
 		final warnings:Array<CopilotChatWarning> = [];
 		if (format == null || format == CopilotChatResponseFormat.Text) {
@@ -220,6 +243,29 @@ class CopilotChatRequest {
 		}
 	}
 
+	public static function streamArgs(args:CopilotOpenAIChatArgs, includeUsage:Bool):CopilotOpenAIChatStreamArgs {
+		return {
+			model: args.model,
+			user: args.user,
+			max_tokens: args.max_tokens,
+			temperature: args.temperature,
+			top_p: args.top_p,
+			frequency_penalty: args.frequency_penalty,
+			presence_penalty: args.presence_penalty,
+			response_format: args.response_format,
+			stop: args.stop,
+			seed: args.seed,
+			messages: args.messages,
+			tools: args.tools,
+			tool_choice: args.tool_choice,
+			reasoning_effort: args.reasoning_effort,
+			verbosity: args.verbosity,
+			thinking_budget: args.thinking_budget,
+			stream: true,
+			stream_options: streamOptions(includeUsage),
+		};
+	}
+
 	static function appendWarnings(target:Array<CopilotChatWarning>, source:Array<CopilotChatWarning>):Void {
 		for (warning in source)
 			target.push(warning);
@@ -237,6 +283,13 @@ class CopilotChatRequest {
 		if (present == null)
 			return Undefinable.absent();
 		return present;
+	}
+
+	static function streamOptions(includeUsage:Bool):Undefinable<CopilotOpenAIStreamOptions> {
+		if (!includeUsage)
+			return Undefinable.absent();
+		final options:CopilotOpenAIStreamOptions = {include_usage: true};
+		return options;
 	}
 
 	static function unknownOrAbsent(value:Null<Unknown>):Undefinable<Unknown> {

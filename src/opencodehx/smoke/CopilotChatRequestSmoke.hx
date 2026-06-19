@@ -17,6 +17,8 @@ class CopilotChatRequestSmoke {
 	public static function run():Void {
 		preparedArgs();
 		combinedWarnings();
+		streamArgsWithoutUsage();
+		streamArgsWithUsage();
 		absentForText();
 		jsonObjectFormat();
 		structuredJsonSchemaFormat();
@@ -79,6 +81,30 @@ class CopilotChatRequestSmoke {
 		eq(present(result.args.response_format, "warning response format").type, CopilotOpenAIResponseFormatType.JsonObject,
 			"warning response format fallback");
 		eq(present(result.args.tools, "provider-only tools").length, 0, "provider-only tools filtered");
+	}
+
+	static function streamArgsWithoutUsage():Void {
+		final input = CopilotChatRequest.options("stream-model", [CopilotPromptMessage.User([CopilotPromptPart.Text("Stream")])]);
+		input.temperature = 0.4;
+
+		final result = CopilotChatRequest.prepareStream(input, false);
+		eq(result.warnings.length, 0, "stream warnings");
+		eq(result.args.model, "stream-model", "stream model");
+		eq(result.args.stream, true, "stream flag");
+		absent(result.args.stream_options, "stream options absent");
+		eq(result.args.temperature.orNull(), 0.4, "stream temperature");
+		eq(result.args.messages.length, 1, "stream message count");
+	}
+
+	static function streamArgsWithUsage():Void {
+		final input = CopilotChatRequest.options("stream-usage-model", [CopilotPromptMessage.User([CopilotPromptPart.Text("Stream")])]);
+		input.topK = 16;
+
+		final result = CopilotChatRequest.prepareStream(input, true);
+		eq(result.args.stream, true, "stream usage flag");
+		eq(present(result.args.stream_options, "stream options").include_usage, true, "include usage");
+		eq(result.warnings.length, 1, "stream retains warnings");
+		eq(result.warnings[0].feature, "topK", "stream warning feature");
 	}
 
 	static function absentForText():Void {
