@@ -5,6 +5,7 @@ import opencodehx.provider.copilot.CopilotChatStream;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotChatStreamChunk;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotChatStreamEvent;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotChatStreamEventType;
+import opencodehx.provider.copilot.CopilotChatStream.CopilotChatRawStreamChunk;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotInvalidStreamChunkError;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotChatStreamProviderMetadata;
 import opencodehx.provider.copilot.CopilotChatCompletion.CopilotTokenUsage;
@@ -14,6 +15,7 @@ import opencodehx.provider.copilot.CopilotChatCompletion.CopilotMappedStreamUsag
 class CopilotChatStreamSmoke {
 	public static function run():Void {
 		basicTextStream();
+		rawChunks();
 		reasoningToToolCalls();
 		lateReasoningOpaque();
 		errorChunk();
@@ -55,6 +57,38 @@ class CopilotChatStreamSmoke {
 		eq(textEvents[3].delta.orNull(), "!", "basic text delta 3");
 		eq(textEvents[4].type, CopilotChatStreamEventType.TextEnd, "basic text end");
 		eq(finishReasonOf(textEvents[5]).unified, AiFinishReason.Stop, "basic finish");
+	}
+
+	static function rawChunks():Void {
+		final chunks:Array<CopilotChatRawStreamChunk> = [
+			{
+				rawValue: "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}",
+				chunk: {
+					id: "chatcmpl-raw",
+					created: 1677652288,
+					model: "gemini-2.0-flash-001",
+					choices: [{delta: {content: "Hello"}},],
+				},
+			},
+			{
+				rawValue: "data: {\"choices\":[{\"finish_reason\":\"stop\",\"delta\":{}}]}",
+				chunk: {
+					choices: [{finish_reason: "stop", delta: {}},],
+				},
+			},
+		];
+
+		final events = CopilotChatStream.collectRaw(chunks, true);
+		final rawEvents = only(events, [CopilotChatStreamEventType.Raw]);
+		eq(rawEvents.length, 2, "raw chunk count");
+		eq(rawEvents[0].rawValue.orNull(), chunks[0].rawValue, "raw chunk first payload");
+		eq(rawEvents[1].rawValue.orNull(), chunks[1].rawValue, "raw chunk second payload");
+		lt(indexOf(events, first(events, CopilotChatStreamEventType.StreamStart)), indexOf(events, rawEvents[0]), "stream start before first raw chunk");
+		lt(indexOf(events, rawEvents[0]), indexOf(events, first(events, CopilotChatStreamEventType.ResponseMetadata)), "first raw before parsed metadata");
+		lt(indexOf(events, rawEvents[1]), indexOf(events, first(events, CopilotChatStreamEventType.TextEnd)), "second raw before parsed finish events");
+
+		final withoutRaw = CopilotChatStream.collectRaw(chunks, false);
+		eq(only(withoutRaw, [CopilotChatStreamEventType.Raw]).length, 0, "raw chunks omitted when disabled");
 	}
 
 	static function reasoningToToolCalls():Void {

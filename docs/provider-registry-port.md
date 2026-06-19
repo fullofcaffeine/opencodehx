@@ -77,6 +77,7 @@ This slice adds the first Haxe-owned provider registry:
 
 - `stream-start` and first-chunk response metadata.
 - Text start/delta/end ordering.
+- Raw chunk passthrough ordering when `includeRawChunks` is enabled, and omission when disabled.
 - Reasoning start/delta/end ordering.
 - Reasoning-to-tool transition ordering.
 - Reasoning opaque metadata on reasoning, tool-call, and late finish events.

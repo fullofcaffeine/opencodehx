@@ -17,6 +17,11 @@ typedef CopilotChatStreamChunk = {
 	@:optional final error:Null<CopilotChatStreamError>;
 }
 
+typedef CopilotChatRawStreamChunk = {
+	final rawValue:String;
+	final chunk:CopilotChatStreamChunk;
+}
+
 typedef CopilotChatStreamError = {
 	final message:String;
 }
@@ -46,6 +51,7 @@ typedef CopilotChatStreamFunctionDelta = {
 
 enum abstract CopilotChatStreamEventType(String) from String to String {
 	final StreamStart = "stream-start";
+	final Raw = "raw";
 	final ResponseMetadata = "response-metadata";
 	final ReasoningStart = "reasoning-start";
 	final ReasoningDelta = "reasoning-delta";
@@ -85,6 +91,7 @@ typedef CopilotChatStreamEvent = {
 	@:optional var usage:Undefinable<CopilotMappedStreamUsage>;
 	@:optional var providerMetadata:Undefinable<CopilotChatStreamProviderMetadata>;
 	@:optional var error:Undefinable<String>;
+	@:optional var rawValue:Undefinable<String>;
 }
 
 class CopilotInvalidStreamChunkError {
@@ -419,6 +426,24 @@ class CopilotChatStream {
 		final events = state.start();
 		for (chunk in chunks) {
 			for (event in state.process(chunk))
+				events.push(event);
+		}
+		for (event in state.finish())
+			events.push(event);
+		return events;
+	}
+
+	public static function collectRaw(chunks:Array<CopilotChatRawStreamChunk>, includeRawChunks:Bool, ?warnings:Array<String>):Array<CopilotChatStreamEvent> {
+		final state = new CopilotChatStreamState(warnings);
+		final events = state.start();
+		for (chunk in chunks) {
+			if (includeRawChunks) {
+				events.push({
+					type: CopilotChatStreamEventType.Raw,
+					rawValue: chunk.rawValue,
+				});
+			}
+			for (event in state.process(chunk.chunk))
 				events.push(event);
 		}
 		for (event in state.finish())
