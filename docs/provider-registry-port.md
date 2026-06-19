@@ -20,6 +20,7 @@ This slice adds the first Haxe-owned provider registry:
 - `ProviderModelsDev` adds the first models.dev fetch/cache seam with injected fetcher support, Node cache file selection, forced refresh, local file override, snapshot fallback, and typed catalog output.
 - `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
 - `CopilotChatCompletion` ports pure GitHub Copilot response metadata, non-stream response content assembly, finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
+- `CopilotChatRequest` ports pure GitHub Copilot request response-format shaping for OpenAI-compatible chat calls.
 - `CopilotChatStream` ports the pure GitHub Copilot chat stream state machine over typed parsed chunks, before the actual SSE/Web Stream adapter lands.
 - `CopilotChatTools` ports pure GitHub Copilot request-body tool formatting for OpenAI-compatible function tools and tool-choice modes.
 
@@ -72,6 +73,13 @@ This slice adds the first Haxe-owned provider registry:
 - `doStream` final usage and no-cache accounting.
 - Raw stream usage nulls when usage is absent.
 - Accepted/rejected prediction-token metadata.
+
+`CopilotChatRequestSmoke` covers representative upstream request-body shaping from `provider/copilot/copilot-chat-model.test.ts`:
+
+- Absent/text response formats omit `response_format`.
+- JSON response formats emit `json_object`.
+- Structured JSON Schema formats emit `json_schema`, preserve the schema payload, and default the schema name to `response`.
+- Unsupported JSON Schema formats downgrade to `json_object` and emit the upstream unsupported `responseFormat` warning.
 
 `CopilotChatStreamSmoke` covers representative upstream stream-state behavior from `provider/copilot/copilot-chat-model.test.ts`:
 

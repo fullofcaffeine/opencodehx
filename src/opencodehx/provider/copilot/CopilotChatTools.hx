@@ -37,12 +37,12 @@ enum abstract CopilotToolChoiceMode(String) from String to String {
 	final Required = "required";
 }
 
-enum abstract CopilotToolWarningType(String) from String to String {
+enum abstract CopilotChatWarningType(String) from String to String {
 	final Unsupported = "unsupported";
 }
 
-typedef CopilotToolWarning = {
-	final type:CopilotToolWarningType;
+typedef CopilotChatWarning = {
+	final type:CopilotChatWarningType;
 	final feature:String;
 	@:optional var details:Undefinable<String>;
 }
@@ -72,12 +72,12 @@ typedef CopilotPreparedToolChoice = EitherType<CopilotToolChoiceMode, CopilotOpe
 typedef CopilotPreparedTools = {
 	final tools:Undefinable<Array<CopilotOpenAITool>>;
 	final toolChoice:Undefinable<CopilotPreparedToolChoice>;
-	final toolWarnings:Array<CopilotToolWarning>;
+	final toolWarnings:Array<CopilotChatWarning>;
 }
 
 class CopilotChatTools {
 	public static function prepare(?tools:Array<CopilotChatTool>, ?toolChoice:CopilotChatToolChoice):CopilotPreparedTools {
-		final warnings:Array<CopilotToolWarning> = [];
+		final warnings:Array<CopilotChatWarning> = [];
 		if (tools == null || tools.length == 0) {
 			return {
 				tools: Undefinable.absent(),
@@ -100,7 +100,7 @@ class CopilotChatTools {
 					});
 				case Provider:
 					warnings.push({
-						type: CopilotToolWarningType.Unsupported,
+						type: CopilotChatWarningType.Unsupported,
 						feature: "tool type: provider",
 					});
 			}

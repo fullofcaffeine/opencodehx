@@ -5,10 +5,10 @@ import genes.ts.Unknown;
 import opencodehx.provider.copilot.CopilotChatTools;
 import opencodehx.provider.copilot.CopilotChatTools.CopilotChatTool;
 import opencodehx.provider.copilot.CopilotChatTools.CopilotChatToolChoice;
+import opencodehx.provider.copilot.CopilotChatTools.CopilotChatWarningType;
 import opencodehx.provider.copilot.CopilotChatTools.CopilotOpenAIToolType;
 import opencodehx.provider.copilot.CopilotChatTools.CopilotPreparedToolChoiceValue;
 import opencodehx.provider.copilot.CopilotChatTools.CopilotToolChoiceMode;
-import opencodehx.provider.copilot.CopilotChatTools.CopilotToolWarningType;
 
 class CopilotChatToolsSmoke {
 	public static function run():Void {
@@ -61,7 +61,7 @@ class CopilotChatToolsSmoke {
 		eq(tools[0].fn.name, "read_file", "provider keeps function tool");
 		absent(tools[0].fn.description, "absent tool description");
 		eq(result.toolWarnings.length, 1, "provider warning count");
-		eq(result.toolWarnings[0].type, CopilotToolWarningType.Unsupported, "provider warning type");
+		eq(result.toolWarnings[0].type, CopilotChatWarningType.Unsupported, "provider warning type");
 		eq(result.toolWarnings[0].feature, "tool type: provider", "provider warning feature");
 	}
 
