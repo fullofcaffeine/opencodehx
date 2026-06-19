@@ -4,6 +4,7 @@ import genes.js.Async.await;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
 import haxe.Json;
+import js.html.AbortSignal;
 import js.html.Response;
 import js.lib.Date;
 import js.lib.Promise;
@@ -25,6 +26,7 @@ typedef CopilotChatFetchInit = {
 	final method:String;
 	final headers:DynamicAccess<String>;
 	final body:String;
+	final signal:Undefinable<AbortSignal>;
 }
 
 typedef CopilotChatFetchFunction = (url:String, init:CopilotChatFetchInit) -> Promise<Response>;
@@ -68,6 +70,7 @@ typedef CopilotChatGenerateOptions = {
 	@:optional final headers:DynamicAccess<String>;
 	@:optional final fetcher:CopilotChatFetchFunction;
 	@:optional final generateId:Void->String;
+	@:optional final abortSignal:AbortSignal;
 }
 
 typedef CopilotChatStreamOptions = {
@@ -77,6 +80,7 @@ typedef CopilotChatStreamOptions = {
 	@:optional final fetcher:CopilotChatFetchFunction;
 	@:optional final includeUsage:Bool;
 	@:optional final includeRawChunks:Bool;
+	@:optional final abortSignal:AbortSignal;
 }
 
 class CopilotChatApiError {
@@ -105,7 +109,7 @@ class CopilotChatHttpClient {
 	public static function generate(options:CopilotChatGenerateOptions):Promise<CopilotChatGenerateResult> {
 		final prepared = CopilotChatRequest.prepare(options.request);
 		final body = requestBody(prepared.args);
-		final response = @:await postJson(options.modelConfig, body, options.headers, options.fetcher);
+		final response = @:await postJson(options.modelConfig, body, options.headers, options.fetcher, options.abortSignal);
 		final headers = WebHeadersAccess.toDynamicAccess(response.headers);
 		final rawBody = @:await response.text();
 		ensureOk(response, rawBody);
@@ -138,7 +142,7 @@ class CopilotChatHttpClient {
 		final includeRawChunks = options.includeRawChunks == true;
 		final prepared = CopilotChatRequest.prepareStream(options.request, includeUsage);
 		final body = streamRequestBody(prepared.args);
-		final response = @:await postJson(options.modelConfig, body, options.headers, options.fetcher);
+		final response = @:await postJson(options.modelConfig, body, options.headers, options.fetcher, options.abortSignal);
 		final headers = WebHeadersAccess.toDynamicAccess(response.headers);
 		if (!response.ok) {
 			final rawBody = @:await response.text();
@@ -162,12 +166,13 @@ class CopilotChatHttpClient {
 	}
 
 	static function postJson(modelConfig:CopilotOpenAICompatibleModelConfig, body:String, headers:Null<DynamicAccess<String>>,
-			fetcher:Null<CopilotChatFetchFunction>):Promise<Response> {
+			fetcher:Null<CopilotChatFetchFunction>, abortSignal:Null<AbortSignal>):Promise<Response> {
 		final fetch = fetcher == null ? defaultFetch : fetcher;
 		return fetch(CopilotOpenAICompatibleProvider.url(modelConfig, "/chat/completions"), {
 			method: "POST",
 			headers: requestHeaders(modelConfig.headers, headers),
 			body: body,
+			signal: abortSignal == null ? Undefinable.absent() : abortSignal,
 		});
 	}
 

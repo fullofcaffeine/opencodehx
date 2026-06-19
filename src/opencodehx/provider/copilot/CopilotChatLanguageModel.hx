@@ -1,6 +1,7 @@
 package opencodehx.provider.copilot;
 
 import haxe.DynamicAccess;
+import js.html.AbortSignal;
 import js.lib.Promise;
 import opencodehx.provider.copilot.CopilotChatHttpClient.CopilotChatFetchFunction;
 import opencodehx.provider.copilot.CopilotChatHttpClient.CopilotChatGenerateResult;
@@ -54,17 +55,19 @@ class CopilotChatLanguageModel {
 		generateId = config.generateId;
 	}
 
-	public function doGenerate(request:CopilotChatRequestOptions, ?headers:DynamicAccess<String>):Promise<CopilotChatGenerateResult> {
+	public function doGenerate(request:CopilotChatRequestOptions, ?headers:DynamicAccess<String>, ?abortSignal:AbortSignal):Promise<CopilotChatGenerateResult> {
 		return CopilotChatHttpClient.generate({
 			modelConfig: modelConfig,
 			request: requestForModel(request),
 			headers: headers,
 			fetcher: fetcher,
 			generateId: generateId,
+			abortSignal: abortSignal,
 		});
 	}
 
-	public function doStream(request:CopilotChatRequestOptions, ?headers:DynamicAccess<String>, ?includeRawChunks:Bool):Promise<CopilotChatStreamResult> {
+	public function doStream(request:CopilotChatRequestOptions, ?headers:DynamicAccess<String>, ?includeRawChunks:Bool,
+			?abortSignal:AbortSignal):Promise<CopilotChatStreamResult> {
 		return CopilotChatHttpClient.stream({
 			modelConfig: modelConfig,
 			request: requestForModel(request),
@@ -72,6 +75,7 @@ class CopilotChatLanguageModel {
 			fetcher: fetcher,
 			includeUsage: includeUsage,
 			includeRawChunks: includeRawChunks == true,
+			abortSignal: abortSignal,
 		});
 	}
 

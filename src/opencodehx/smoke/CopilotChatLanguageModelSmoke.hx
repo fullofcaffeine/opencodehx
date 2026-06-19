@@ -1,5 +1,6 @@
 package opencodehx.smoke;
 
+import genes.ts.Undefinable;
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import js.html.Response;
@@ -8,9 +9,22 @@ import js.lib.Uint8Array;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.ConfigProviderConfig;
 import opencodehx.config.ConfigInfo.ConfigProviderModelConfig;
+import opencodehx.externs.ai.AiSdk.AiFinishReason;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelCallOptions;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelContent;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelContentType;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPartType;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptRole;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelResponseFormatType;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelSpecificationVersion;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelToolChoiceType;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelToolType;
+import opencodehx.externs.ai.AiSdk.AiOpenAICompatibleProviderOptions;
+import opencodehx.externs.ai.AiSdk.AiProviderOptions;
 import opencodehx.externs.web.WebStreams.WebReadableStream;
 import opencodehx.externs.web.WebStreams.WebReadableStreamDefaultController;
 import opencodehx.externs.web.WebStreams.WebTextEncoder;
+import opencodehx.provider.copilot.CopilotAiSdkLanguageModel;
 import opencodehx.provider.copilot.CopilotChatHttpClient.CopilotChatFetchFunction;
 import opencodehx.provider.copilot.CopilotChatHttpClient.CopilotChatFetchInit;
 import opencodehx.provider.copilot.CopilotChatLanguageModel;
@@ -33,9 +47,11 @@ class CopilotChatLanguageModelSmoke {
 	@:async
 	public static function run():Promise<Void> {
 		@:await generateUsesModelIdentity();
+		@:await sdkAdapterGeneratesFromLanguageModelV3Options();
 		@:await streamUsesClassOptions();
 		supportedUrlsAreCloned();
 		registryResolvesCopilotChatModel();
+		registryGetLanguageReturnsSdkFacade();
 		return null;
 	}
 
@@ -64,6 +80,35 @@ class CopilotChatLanguageModelSmoke {
 		eq(generated.warnings.length, 0, "structured generate warnings");
 		eq(generated.content[0].text.orNull(), "Hello from language model", "language generated text");
 		eq(generated.content[1].toolCallId.orNull(), "generated-by-language-model", "language generated tool id");
+		return null;
+	}
+
+	@:async
+	static function sdkAdapterGeneratesFromLanguageModelV3Options():Promise<Void> {
+		final calls:Array<CopilotLanguageModelCapturedFetch> = [];
+		final adapter = new CopilotAiSdkLanguageModel({
+			chat: chatModel(calls, [
+				jsonResponse(generateResponseJson(), 200, "OK", headerMap("x-request-id", "sdk-generate"))
+			], true, false),
+		});
+
+		final generated = @:await adapter.doGenerate(sdkGenerateOptions());
+
+		eq(calls[0].init.headers.get("x-sdk-call"), "present", "sdk call header forwarded");
+		eq(calls[0].init.headers.exists("x-sdk-absent"), false, "undefined sdk header omitted");
+		contains(calls[0].init.body, '"messages":[{"role":"system","content":"You are terse"', "sdk system message");
+		contains(calls[0].init.body, '"max_tokens":12', "sdk max output tokens");
+		contains(calls[0].init.body, '"user":"sdk-user"', "sdk copilot provider option");
+		contains(calls[0].init.body, '"reasoning_effort":"high"', "sdk reasoning effort");
+		contains(calls[0].init.body, '"verbosity":"low"', "sdk provider-name option override");
+		contains(calls[0].init.body, '"thinking_budget":128', "sdk thinking budget");
+		contains(calls[0].init.body, '"tool_choice":{"type":"function","function":{"name":"get_weather"}}', "sdk named tool choice");
+		eq(generated.content[0].type, AiLanguageModelContentType.Text, "sdk generated text part type");
+		eq(generatedText(generated.content[0], "sdk generated text"), "Hello from language model", "sdk generated text");
+		eq(generated.content[1].type, AiLanguageModelContentType.ToolCall, "sdk generated tool part type");
+		eq(generatedToolCallId(generated.content[1], "sdk generated tool id"), "generated-by-language-model", "sdk generated tool id");
+		eq(generated.finishReason.unified, AiFinishReason.ToolCalls, "sdk finish reason");
+		eq(generated.usage.inputTokens.total.orNull(), 5, "sdk usage input tokens");
 		return null;
 	}
 
@@ -122,6 +167,16 @@ class CopilotChatLanguageModelSmoke {
 		eq(resolved.modelConfig.headers.get("x-copilot-fixture"), "present", "registry copilot model header");
 	}
 
+	static function registryGetLanguageReturnsSdkFacade():Void {
+		final registry = new ProviderRegistry({config: copilotConfig(), env: {}, auth: {}});
+		final model = registry.getModel(ProviderID.make("github-copilot"), ModelID.make("copilot-chat-alias"));
+		final language = registry.getLanguage(model);
+
+		eq(language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "registry sdk spec version");
+		eq(language.modelId, "gemini-2.0-flash-001", "registry sdk language model id");
+		eq(language.provider, "github-copilot.chat", "registry sdk provider");
+	}
+
 	static function chatModel(calls:Array<CopilotLanguageModelCapturedFetch>, responses:Array<Response>, supportsStructuredOutputs:Bool,
 			includeUsage:Bool):CopilotChatLanguageModel {
 		return new CopilotChatLanguageModel({
@@ -165,6 +220,55 @@ class CopilotChatLanguageModelSmoke {
 		final options = new DynamicAccess<Dynamic>();
 		options.set("apiKey", "github-token");
 		options.set("supportsStructuredOutputs", true);
+		return options;
+	}
+
+	static function sdkGenerateOptions():AiLanguageModelCallOptions {
+		return {
+			prompt: [
+				{role: AiLanguageModelPromptRole.System, content: "You are terse"},
+				{
+					role: AiLanguageModelPromptRole.User,
+					content: [{type: AiLanguageModelPromptPartType.Text, text: "Hello"},],
+				},
+			],
+			maxOutputTokens: 12,
+			responseFormat: {
+				type: AiLanguageModelResponseFormatType.Json,
+				schema: schema(),
+				name: "weather_response",
+			},
+			tools: [
+				{
+					type: AiLanguageModelToolType.Function,
+					name: "get_weather",
+					description: "Get the weather",
+					inputSchema: schema(),
+				},
+			],
+			toolChoice: {type: AiLanguageModelToolChoiceType.Tool, toolName: "get_weather"},
+			headers: sdkHeaders(),
+			providerOptions: sdkProviderOptions(),
+		};
+	}
+
+	static function sdkHeaders():DynamicAccess<Undefinable<String>> {
+		final headers = new DynamicAccess<Undefinable<String>>();
+		headers.set("x-sdk-call", "present");
+		headers.set("x-sdk-absent", Undefinable.absent());
+		return headers;
+	}
+
+	static function sdkProviderOptions():AiProviderOptions {
+		final options = new DynamicAccess<AiOpenAICompatibleProviderOptions>();
+		options.set("copilot", {
+			user: "sdk-user",
+			reasoningEffort: "high",
+		});
+		options.set("github-copilot", {
+			textVerbosity: "low",
+			thinkingBudgetSnake: 128,
+		});
 		return options;
 	}
 
@@ -225,6 +329,22 @@ class CopilotChatLanguageModelSmoke {
 		final headers = new DynamicAccess<String>();
 		headers.set(name, value);
 		return headers;
+	}
+
+	static function generatedText(part:AiLanguageModelContent, label:String):String {
+		if (part.type != AiLanguageModelContentType.Text)
+			throw '$label: expected text part, got ${part.type}';
+		if (part.text == null)
+			throw '$label: expected text value';
+		return part.text;
+	}
+
+	static function generatedToolCallId(part:AiLanguageModelContent, label:String):String {
+		if (part.type != AiLanguageModelContentType.ToolCall)
+			throw '$label: expected tool-call part, got ${part.type}';
+		if (part.toolCallId == null)
+			throw '$label: expected tool-call id';
+		return part.toolCallId;
 	}
 
 	static function contains(value:String, expected:String, label:String):Void {

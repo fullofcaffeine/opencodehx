@@ -1,6 +1,6 @@
 # Provider Registry Port
 
-**Beads:** `opencodehx-024`, `opencodehx-025`, `opencodehx-nrh`
+**Beads:** `opencodehx-024`, `opencodehx-025`, `opencodehx-nrh`, `opencodehx-hup`
 **Upstream oracle:** `../opencode/packages/opencode/src/provider/provider.ts`, `schema.ts`, `models.ts`, `auth/index.ts`, `config/provider.ts`, `env/index.ts`, plus `../opencode/packages/opencode/test/provider/provider.test.ts` and `amazon-bedrock.test.ts`.
 
 ## Slice
@@ -27,7 +27,8 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotChatStream` ports the pure GitHub Copilot chat stream state machine over typed parsed chunks, before the actual SSE/Web Stream adapter lands.
 - `CopilotChatTools` ports pure GitHub Copilot request-body tool formatting for OpenAI-compatible function tools and tool-choice modes.
 - `CopilotChatLanguageModel` ports the first Haxe-owned GitHub Copilot/OpenAI-compatible chat model class surface over the typed helpers.
-- `CopilotLanguageLoader` wires configured `@ai-sdk/github-copilot` chat models through `ProviderRegistry.resolveCopilotChat` into the Haxe-owned Copilot model path without casting it to the full AI SDK interface before that facade is ported.
+- `CopilotAiSdkLanguageModel` adapts the Haxe-owned chat model to the exact AI SDK `LanguageModelV3` call/result/stream surface without production casts.
+- `CopilotLanguageLoader` wires configured `@ai-sdk/github-copilot` chat models through `ProviderRegistry.resolveCopilotChat` into both the Haxe-owned chat DTO surface and the exact AI SDK facade used by `ProviderRegistry.getLanguage`.
 - `ProviderOptionAccess` centralizes typed reads from open provider SDK options, keeping `Record<string, any>`-style boundary access localized and narrowed before loaders consume it.
 
 ## Evidence
@@ -141,7 +142,9 @@ This slice adds the first Haxe-owned provider registry:
 - Class-level structured-output support turning JSON Schema response formats into `json_schema`.
 - Class-level include-usage mode adding `stream_options.include_usage`.
 - Delegation through the typed HTTP client for generate and stream paths, including call headers, raw chunk passthrough, and warning preservation.
+- Exact AI SDK `LanguageModelV3CallOptions` adaptation for prompts, JSON response formats, tools, tool choice, provider options keyed as `copilot` and provider name, undefined HTTP headers, generated content, finish reason, and usage.
 - Registry resolution for a configured `github-copilot` provider/model using upstream-style `@ai-sdk/github-copilot` metadata, including SDK model ID selection, Copilot base URL, API-key headers, model headers, and explicit structured-output opt-in.
+- `ProviderRegistry.getLanguage` returning the Haxe-owned Copilot SDK facade as a structurally accepted `LanguageModelV3`.
 
 Run it with:
 
@@ -171,14 +174,14 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 
 `opencodehx.externs.web.WebStreams` owns the current Web stream extern gap. Haxe 4.3's `js.html.Response` does not expose the standard `body` property, so the structural cast is localized in `WebResponseStreams.body`; provider code consumes a typed `ReadableStream<Uint8Array>` reader.
 
-The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)` only for SDK-owned types such as `LanguageModelV3`, OpenAI-compatible factory settings, `Tool`, `JSONSchema7`, and provider stream parts; the app-facing surface is the typed `AiSdkProvider` event/result model. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
+The AI SDK boundary is intentionally named and narrow. `AiSdk.hx` uses raw `@:ts.type(...)` for SDK-owned declaration surfaces such as `LanguageModelV3`, call options, generated content, stream parts, provider metadata, OpenAI-compatible factory settings, `Tool`, and `JSONSchema7`. Each raw alias has a Haxe backing shape where OpenCodeHX needs to read or construct values, so production provider code can satisfy SDK contracts structurally instead of casting. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
 
 ## Deferred Scope
 
 This is not the full provider runtime:
 
 - More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, and plugin provider hooks remain `opencodehx-nrh`.
-- Copilot responses-model support and the exact AI SDK `LanguageModelV3` facade for the Haxe-owned Copilot model are tracked by `opencodehx-hup`; do not replace that work with a cast from the current DTO-shaped class.
+- Copilot responses-model support is still tracked by `opencodehx-hup`; do not replace that work with a placeholder or a cast from the chat model. The exact chat `LanguageModelV3` facade is now ported and covered by `CopilotChatLanguageModelSmoke`.
 - GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
 

@@ -119,7 +119,7 @@ class CopilotChatMessagesSmoke {
 		final denied = convert([
 			CopilotPromptMessage.Tool([
 				CopilotPromptPart.ToolResult("call-2", "bash", CopilotToolOutput.ExecutionDenied()),
-				CopilotPromptPart.ToolApprovalResponse("call-2", "bash"),
+				CopilotPromptPart.ToolApprovalResponse("approval-2", true),
 			]),
 		]);
 		eq(denied.length, 1, "approval response skipped");

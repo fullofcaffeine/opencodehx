@@ -1,8 +1,10 @@
 package opencodehx.provider;
 
 import haxe.DynamicAccess;
+import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderModel;
+import opencodehx.provider.copilot.CopilotAiSdkLanguageModel;
 import opencodehx.provider.copilot.CopilotChatLanguageModel;
 import opencodehx.provider.copilot.CopilotOpenAICompatibleProvider;
 import opencodehx.provider.copilot.CopilotOpenAICompatibleProvider.CopilotOpenAICompatibleModelConfig;
@@ -11,6 +13,7 @@ using StringTools;
 
 typedef CopilotChatLanguageResolution = {
 	final language:CopilotChatLanguageModel;
+	final sdkLanguage:AiLanguageModel;
 	final sdkModelID:String;
 	final modelConfig:CopilotOpenAICompatibleModelConfig;
 }
@@ -56,12 +59,14 @@ class CopilotLanguageLoader {
 		final settings = CopilotOpenAICompatibleProvider.settings(ProviderOptionAccess.string(provider.options, "apiKey", provider.key), baseURL,
 			provider.id.toString(), headersOrEmpty(ProviderOptionAccess.headers(provider.options, model.headers)));
 		final modelConfig = CopilotOpenAICompatibleProvider.chat(settings, model.api.id);
+		final language = new CopilotChatLanguageModel({
+			modelConfig: modelConfig,
+			includeUsage: ProviderOptionAccess.bool(provider.options, "includeUsage", false) == true,
+			supportsStructuredOutputs: ProviderOptionAccess.bool(provider.options, "supportsStructuredOutputs", false) == true,
+		});
 		return {
-			language: new CopilotChatLanguageModel({
-				modelConfig: modelConfig,
-				includeUsage: ProviderOptionAccess.bool(provider.options, "includeUsage", false) == true,
-				supportsStructuredOutputs: ProviderOptionAccess.bool(provider.options, "supportsStructuredOutputs", false) == true,
-			}),
+			language: language,
+			sdkLanguage: new CopilotAiSdkLanguageModel({chat: language}),
 			sdkModelID: model.api.id,
 			modelConfig: modelConfig,
 		};

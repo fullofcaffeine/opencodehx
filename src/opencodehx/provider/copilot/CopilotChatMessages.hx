@@ -1,12 +1,12 @@
 package opencodehx.provider.copilot;
 
 import genes.ts.Undefinable;
+import genes.ts.Unknown;
 import haxe.Json;
 import haxe.extern.EitherType;
 import js.html.URL;
 import js.lib.Uint8Array;
 import opencodehx.externs.node.Buffer;
-import genes.ts.Unknown;
 
 using StringTools;
 
@@ -23,7 +23,7 @@ enum CopilotPromptPart {
 	Reasoning(text:String, ?providerOptions:CopilotProviderOptions);
 	ToolCall(toolCallId:String, toolName:String, input:Unknown, ?providerOptions:CopilotProviderOptions);
 	ToolResult(toolCallId:String, toolName:String, output:CopilotToolOutput, ?providerOptions:CopilotProviderOptions);
-	ToolApprovalResponse(toolCallId:String, toolName:String, ?providerOptions:CopilotProviderOptions);
+	ToolApprovalResponse(approvalId:String, approved:Bool, ?reason:String, ?providerOptions:CopilotProviderOptions);
 }
 
 enum CopilotFileData {
@@ -46,8 +46,8 @@ typedef CopilotProviderOptions = {
 }
 
 typedef CopilotMetadata = {
-	@:optional final reasoningOpaque:String;
-	@:optional final copilot_cache_control:CopilotCacheControl;
+	@:optional var reasoningOpaque:String;
+	@:optional var copilot_cache_control:CopilotCacheControl;
 }
 
 typedef CopilotCacheControl = {
@@ -152,7 +152,7 @@ class CopilotChatMessages {
 				case Tool(content, _):
 					for (part in content) {
 						switch part {
-							case ToolApprovalResponse(_, _, _):
+							case ToolApprovalResponse(_, _, _, _):
 								continue;
 							case ToolResult(toolCallId, _, output, partOptions):
 								final out = baseMessage(OpenAICompatibleRole.Tool, outputContent(output));
@@ -256,7 +256,7 @@ class CopilotChatMessages {
 	static function providerOptionsOf(part:CopilotPromptPart):Null<CopilotProviderOptions> {
 		return switch part {
 			case Text(_, providerOptions) | File(_, _, providerOptions) | Reasoning(_, providerOptions) | ToolCall(_, _, _, providerOptions) |
-				ToolResult(_, _, _, providerOptions) | ToolApprovalResponse(_, _, providerOptions):
+				ToolResult(_, _, _, providerOptions) | ToolApprovalResponse(_, _, _, providerOptions):
 				providerOptions;
 		}
 	}

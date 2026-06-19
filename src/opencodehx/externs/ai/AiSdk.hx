@@ -3,9 +3,13 @@ package opencodehx.externs.ai;
 import genes.ts.Unknown;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
+import haxe.extern.EitherType;
 import js.html.AbortSignal;
+import js.html.URL;
 import js.lib.Promise;
 import js.lib.Promise.Thenable;
+import js.lib.Uint8Array;
+import opencodehx.externs.web.WebStreams.WebReadableStream;
 
 @:ts.type("import('ai').FinishReason")
 enum abstract AiFinishReason(String) from String to String {
@@ -37,7 +41,7 @@ typedef AiProviderUsage = {
 
 typedef AiProviderFinishReason = {
 	final unified:AiFinishReason;
-	final raw:String;
+	final raw:Undefinable<String>;
 }
 
 typedef AiUsageInputDetails = {
@@ -143,9 +147,335 @@ typedef AiSdkBundledProvider = {
 
 typedef AiSdkProviderFactory = AiSdkFactoryOptions->AiSdkBundledProvider;
 
+@:ts.type("'v3'")
+enum abstract AiLanguageModelSpecificationVersion(String) from String to String {
+	final V3 = "v3";
+}
+
+@:native("RegExp")
+extern class AiRegExp {
+	function new(pattern:String, ?flags:String);
+}
+
+typedef AiSupportedUrlMap = DynamicAccess<Array<AiRegExp>>;
+
+/**
+ * Type-only bridge for AI SDK `LanguageModelV3["supportedUrls"]`.
+ *
+ * The SDK contract is `Record<string, RegExp[]> | PromiseLike<...>`. The
+ * Haxe-owned providers currently expose the synchronous record arm, which is
+ * the shape upstream's Copilot providers use for concrete URL support.
+ */
+@:ts.type("Record<string, RegExp[]>")
+abstract AiSupportedUrls(AiSupportedUrlMap) from AiSupportedUrlMap to AiSupportedUrlMap {}
+
+typedef AiProviderOptionsMap = DynamicAccess<AiOpenAICompatibleProviderOptions>;
+
+typedef AiOpenAICompatibleProviderOptions = {
+	@:optional final user:String;
+	@:optional final reasoningEffort:String;
+	@:optional final textVerbosity:String;
+	@:native("thinking_budget") @:optional final thinkingBudgetSnake:Float;
+	@:optional final thinkingBudget:Float;
+	@:optional final reasoningOpaque:String;
+	@:native("copilot_cache_control") @:optional final copilotCacheControl:AiCopilotCacheControl;
+}
+
+typedef AiCopilotCacheControl = {
+	final type:String;
+}
+
+/**
+ * Type-only bridge for SDK provider options.
+ *
+ * Haxe reads only the OpenAI-compatible subset that Copilot supports while the
+ * emitted TypeScript remains the SDK-owned `SharedV3ProviderOptions` record.
+ */
+@:ts.type("import('@ai-sdk/provider').SharedV3ProviderOptions")
+abstract AiProviderOptions(AiProviderOptionsMap) from AiProviderOptionsMap to AiProviderOptionsMap {}
+
+@:ts.type("import('@ai-sdk/provider').JSONObject")
+abstract AiJsonObject(Unknown) from Unknown to Unknown {
+	public static inline function fromBoundary<T>(value:T):AiJsonObject {
+		return Unknown.fromBoundary(value);
+	}
+}
+
+@:ts.type("import('@ai-sdk/provider').JSONValue")
+abstract AiJsonValue(Unknown) from Unknown to Unknown {
+	public static inline function fromBoundary<T>(value:T):AiJsonValue {
+		return Unknown.fromBoundary(value);
+	}
+}
+
+@:ts.type("import('@ai-sdk/provider').SharedV3ProviderMetadata")
+abstract AiProviderMetadata(DynamicAccess<AiJsonObject>) from DynamicAccess<AiJsonObject> to DynamicAccess<AiJsonObject> {}
+
+enum abstract AiLanguageModelPromptRole(String) from String to String {
+	final System = "system";
+	final User = "user";
+	final Assistant = "assistant";
+	final Tool = "tool";
+}
+
+enum abstract AiLanguageModelPromptPartType(String) from String to String {
+	final Text = "text";
+	final File = "file";
+	final Reasoning = "reasoning";
+	final ToolCall = "tool-call";
+	final ToolResult = "tool-result";
+	final ToolApprovalResponse = "tool-approval-response";
+}
+
+typedef AiLanguageModelFileData = EitherType<String, EitherType<Uint8Array, URL>>;
+typedef AiLanguageModelPromptMessageContent = EitherType<String, Array<AiLanguageModelPromptPart>>;
+
+typedef AiLanguageModelPromptMessage = {
+	final role:AiLanguageModelPromptRole;
+	final content:AiLanguageModelPromptMessageContent;
+	@:optional final providerOptions:AiProviderOptions;
+}
+
+typedef AiLanguageModelPromptPart = {
+	final type:AiLanguageModelPromptPartType;
+	@:optional final text:String;
+	@:optional final filename:String;
+	@:optional final data:AiLanguageModelFileData;
+	@:optional final mediaType:String;
+	@:optional final toolCallId:String;
+	@:optional final toolName:String;
+	@:optional final input:Unknown;
+	@:optional final output:AiLanguageModelToolResultOutput;
+	@:optional final approvalId:String;
+	@:optional final approved:Bool;
+	@:optional final reason:String;
+	@:optional final providerOptions:AiProviderOptions;
+}
+
+typedef AiLanguageModelToolResultOutput = {
+	final type:String;
+	@:optional final value:EitherType<String, Unknown>;
+	@:optional final reason:String;
+	@:optional final providerOptions:AiProviderOptions;
+}
+
+@:ts.type("import('@ai-sdk/provider').LanguageModelV3Prompt")
+abstract AiLanguageModelPrompt(Array<AiLanguageModelPromptMessage>) from Array<AiLanguageModelPromptMessage> to Array<AiLanguageModelPromptMessage> {}
+
+enum abstract AiLanguageModelResponseFormatType(String) from String to String {
+	final Text = "text";
+	final Json = "json";
+}
+
+typedef AiLanguageModelResponseFormatShape = {
+	final type:AiLanguageModelResponseFormatType;
+	@:optional final schema:Unknown;
+	@:optional final name:String;
+	@:optional final description:String;
+}
+
+@:forward(type, schema, name, description)
+@:ts.type("NonNullable<import('@ai-sdk/provider').LanguageModelV3CallOptions['responseFormat']>")
+abstract AiLanguageModelResponseFormat(AiLanguageModelResponseFormatShape) from AiLanguageModelResponseFormatShape to AiLanguageModelResponseFormatShape {}
+
+enum abstract AiLanguageModelToolType(String) from String to String {
+	final Function = "function";
+	final Provider = "provider";
+}
+
+typedef AiLanguageModelToolShape = {
+	final type:AiLanguageModelToolType;
+	final name:String;
+	@:optional final description:String;
+	@:optional final inputSchema:Unknown;
+	@:optional final id:String;
+	@:optional final args:Unknown;
+	@:optional final strict:Bool;
+	@:optional final providerOptions:AiProviderOptions;
+}
+
+@:forward(type, name, description, inputSchema, id, args, strict, providerOptions)
+@:ts.type("NonNullable<import('@ai-sdk/provider').LanguageModelV3CallOptions['tools']>[number]")
+abstract AiLanguageModelTool(AiLanguageModelToolShape) from AiLanguageModelToolShape to AiLanguageModelToolShape {}
+
+enum abstract AiLanguageModelToolChoiceType(String) from String to String {
+	final Auto = "auto";
+	final None = "none";
+	final Required = "required";
+	final Tool = "tool";
+}
+
+typedef AiLanguageModelToolChoiceShape = {
+	final type:AiLanguageModelToolChoiceType;
+	@:optional final toolName:String;
+}
+
+@:forward(type, toolName)
+@:ts.type("NonNullable<import('@ai-sdk/provider').LanguageModelV3CallOptions['toolChoice']>")
+abstract AiLanguageModelToolChoice(AiLanguageModelToolChoiceShape) from AiLanguageModelToolChoiceShape to AiLanguageModelToolChoiceShape {}
+
+typedef AiLanguageModelCallOptionsShape = {
+	final prompt:AiLanguageModelPrompt;
+	@:optional final maxOutputTokens:Float;
+	@:optional final temperature:Float;
+	@:optional final stopSequences:Array<String>;
+	@:optional final topP:Float;
+	@:optional final topK:Float;
+	@:optional final presencePenalty:Float;
+	@:optional final frequencyPenalty:Float;
+	@:optional final responseFormat:AiLanguageModelResponseFormat;
+	@:optional final seed:Float;
+	@:optional final tools:Array<AiLanguageModelTool>;
+	@:optional final toolChoice:AiLanguageModelToolChoice;
+	@:optional final includeRawChunks:Bool;
+	@:optional final abortSignal:AbortSignal;
+	@:optional final headers:DynamicAccess<Undefinable<String>>;
+	@:optional final providerOptions:AiProviderOptions;
+}
+
+@:forward(prompt, maxOutputTokens, temperature, stopSequences, topP, topK, presencePenalty, frequencyPenalty, responseFormat, seed, tools, toolChoice,
+	includeRawChunks, abortSignal, headers, providerOptions)
+@:ts.type("import('@ai-sdk/provider').LanguageModelV3CallOptions")
+abstract AiLanguageModelCallOptions(AiLanguageModelCallOptionsShape) from AiLanguageModelCallOptionsShape to AiLanguageModelCallOptionsShape {}
+
+enum abstract AiLanguageModelContentType(String) from String to String {
+	final Text = "text";
+	final Reasoning = "reasoning";
+	final ToolCall = "tool-call";
+	final ToolResult = "tool-result";
+	final File = "file";
+	final Source = "source";
+	final ToolApprovalRequest = "tool-approval-request";
+}
+
+typedef AiLanguageModelContentShape = {
+	final type:AiLanguageModelContentType;
+	@:optional final text:String;
+	@:optional final mediaType:String;
+	@:optional final data:EitherType<String, Uint8Array>;
+	@:optional final toolCallId:String;
+	@:optional final toolName:String;
+	@:optional final input:String;
+	@:optional final result:Unknown;
+	@:optional final providerMetadata:Undefinable<AiProviderMetadata>;
+}
+
+@:forward(type, text, mediaType, data, toolCallId, toolName, input, result, providerMetadata)
+@:ts.type("import('@ai-sdk/provider').LanguageModelV3Content")
+abstract AiLanguageModelContent(AiLanguageModelContentShape) from AiLanguageModelContentShape to AiLanguageModelContentShape {}
+
+enum abstract AiLanguageModelWarningType(String) from String to String {
+	final Unsupported = "unsupported";
+	final Compatibility = "compatibility";
+	final Other = "other";
+}
+
+typedef AiLanguageModelWarningShape = {
+	final type:AiLanguageModelWarningType;
+	@:optional final feature:Undefinable<String>;
+	@:optional final details:Undefinable<String>;
+	@:optional final message:Undefinable<String>;
+}
+
+@:ts.type("import('@ai-sdk/provider').SharedV3Warning")
+abstract AiLanguageModelWarning(AiLanguageModelWarningShape) from AiLanguageModelWarningShape to AiLanguageModelWarningShape {}
+
+typedef AiLanguageModelUsageTokens = {
+	final total:Undefinable<Float>;
+	final noCache:Undefinable<Float>;
+	final cacheRead:Undefinable<Float>;
+	final cacheWrite:Undefinable<Float>;
+}
+
+typedef AiLanguageModelOutputTokens = {
+	final total:Undefinable<Float>;
+	final text:Undefinable<Float>;
+	final reasoning:Undefinable<Float>;
+}
+
+typedef AiLanguageModelV3UsageShape = {
+	final inputTokens:AiLanguageModelUsageTokens;
+	final outputTokens:AiLanguageModelOutputTokens;
+	@:optional final raw:Undefinable<AiJsonObject>;
+}
+
+@:forward(inputTokens, outputTokens, raw)
+@:ts.type("import('@ai-sdk/provider').LanguageModelV3Usage")
+abstract AiLanguageModelV3Usage(AiLanguageModelV3UsageShape) from AiLanguageModelV3UsageShape to AiLanguageModelV3UsageShape {}
+
+typedef AiLanguageModelFinishReasonShape = {
+	final unified:AiFinishReason;
+	final raw:Undefinable<String>;
+}
+
+@:forward(unified, raw)
+@:ts.type("import('@ai-sdk/provider').LanguageModelV3FinishReason")
+abstract AiLanguageModelFinishReason(AiLanguageModelFinishReasonShape) from AiLanguageModelFinishReasonShape to AiLanguageModelFinishReasonShape {}
+
+typedef AiLanguageModelRequestInfo = {
+	@:optional final body:Unknown;
+}
+
+typedef AiLanguageModelGenerateResponseInfo = {
+	@:optional final id:Undefinable<String>;
+	@:optional final timestamp:Undefinable<js.lib.Date>;
+	@:optional final modelId:Undefinable<String>;
+	@:optional final headers:DynamicAccess<String>;
+	@:optional final body:Unknown;
+}
+
+typedef AiLanguageModelGenerateResultShape = {
+	final content:Array<AiLanguageModelContent>;
+	final finishReason:AiLanguageModelFinishReason;
+	final usage:AiLanguageModelV3Usage;
+	@:optional final providerMetadata:Undefinable<AiProviderMetadata>;
+	@:optional final request:AiLanguageModelRequestInfo;
+	@:optional final response:AiLanguageModelGenerateResponseInfo;
+	final warnings:Array<AiLanguageModelWarning>;
+}
+
+@:forward(content, finishReason, usage, providerMetadata, request, response, warnings)
+@:ts.type("import('@ai-sdk/provider').LanguageModelV3GenerateResult")
+abstract AiLanguageModelGenerateResult(AiLanguageModelGenerateResultShape) from AiLanguageModelGenerateResultShape to AiLanguageModelGenerateResultShape {}
+
+typedef AiLanguageModelStreamResponseInfo = {
+	@:optional final headers:DynamicAccess<String>;
+}
+
+typedef AiLanguageModelStreamResultShape = {
+	final stream:AiProviderReadableStream;
+	@:optional final request:AiLanguageModelRequestInfo;
+	@:optional final response:AiLanguageModelStreamResponseInfo;
+}
+
+@:forward(stream, request, response)
+@:ts.type("import('@ai-sdk/provider').LanguageModelV3StreamResult")
+abstract AiLanguageModelStreamResult(AiLanguageModelStreamResultShape) from AiLanguageModelStreamResultShape to AiLanguageModelStreamResultShape {}
+
+typedef AiLanguageModelStreamPartShape = {
+	final type:String;
+	@:optional final warnings:Array<AiLanguageModelWarning>;
+	@:optional final id:Undefinable<String>;
+	@:optional final modelId:Undefinable<String>;
+	@:optional final timestamp:Undefinable<js.lib.Date>;
+	@:optional final delta:String;
+	@:optional final toolName:String;
+	@:optional final toolCallId:String;
+	@:optional final input:String;
+	@:optional final finishReason:AiLanguageModelFinishReason;
+	@:optional final usage:AiLanguageModelV3Usage;
+	@:optional final providerMetadata:Undefinable<AiProviderMetadata>;
+	@:optional final rawValue:Unknown;
+	@:optional final error:Unknown;
+}
+
 typedef AiLanguageModelShape = {
+	final specificationVersion:AiLanguageModelSpecificationVersion;
 	final provider:String;
 	final modelId:String;
+	final supportedUrls:AiSupportedUrls;
+	function doGenerate(options:AiLanguageModelCallOptions):Promise<AiLanguageModelGenerateResult>;
+	function doStream(options:AiLanguageModelCallOptions):Promise<AiLanguageModelStreamResult>;
 }
 
 /**
@@ -163,11 +493,12 @@ abstract AiSdkFactoryOptions(AiSdkFactoryOptionsShape) from AiSdkFactoryOptionsS
 /**
  * Type-only bridge for AI SDK `LanguageModelV3`.
  *
- * Haxe cannot reasonably mirror the full provider interface here without
- * duplicating the SDK. Keep this raw TS type confined to the extern boundary;
- * app-facing code consumes typed `AiSdkProvider` results instead.
+ * The emitted TypeScript should name the SDK interface, while Haxe still needs
+ * enough structure to let Haxe-owned provider classes satisfy it without a
+ * production cast. Keep this bridge at the extern boundary and model only the
+ * stable contract consumed by OpenCodeHX.
  */
-@:forward(provider, modelId)
+@:forward(specificationVersion, provider, modelId, supportedUrls, doGenerate, doStream)
 @:ts.type("import('@ai-sdk/provider').LanguageModelV3")
 abstract AiLanguageModel(AiLanguageModelShape) from AiLanguageModelShape to AiLanguageModelShape {}
 
@@ -195,25 +526,26 @@ abstract AiJsonSchema(Dynamic) from Dynamic to Dynamic {}
  * required discriminant and payload field has been supplied.
  */
 @:ts.type("import('@ai-sdk/provider').LanguageModelV3StreamPart")
-abstract AiProviderStreamPart(Dynamic) from Dynamic {
+@:forward(type, warnings, id, modelId, timestamp, delta, toolName, toolCallId, input, finishReason, usage, providerMetadata, rawValue, error)
+abstract AiProviderStreamPart(AiLanguageModelStreamPartShape) from AiLanguageModelStreamPartShape to AiLanguageModelStreamPartShape {
 	public static inline function streamStart():AiProviderStreamPart {
-		return cast {type: "stream-start", warnings: []};
+		return {type: "stream-start", warnings: []};
 	}
 
 	public static inline function textStart(id:String):AiProviderStreamPart {
-		return cast {type: "text-start", id: id};
+		return {type: "text-start", id: id};
 	}
 
 	public static inline function textDelta(id:String, delta:String):AiProviderStreamPart {
-		return cast {type: "text-delta", id: id, delta: delta};
+		return {type: "text-delta", id: id, delta: delta};
 	}
 
 	public static inline function textEnd(id:String):AiProviderStreamPart {
-		return cast {type: "text-end", id: id};
+		return {type: "text-end", id: id};
 	}
 
 	public static inline function toolCall(toolCallId:String, toolName:String, input:String):AiProviderStreamPart {
-		return cast {
+		return {
 			type: "tool-call",
 			toolCallId: toolCallId,
 			toolName: toolName,
@@ -222,11 +554,27 @@ abstract AiProviderStreamPart(Dynamic) from Dynamic {
 	}
 
 	public static inline function finish(finishReason:AiProviderFinishReason, usage:AiProviderUsage):AiProviderStreamPart {
-		return cast {type: "finish", finishReason: finishReason, usage: usage};
+		return {type: "finish", finishReason: finishReason, usage: concreteUsage(usage)};
 	}
 
 	public static inline function error(error:Unknown):AiProviderStreamPart {
-		return cast {type: "error", error: error};
+		return {type: "error", error: error};
+	}
+
+	static inline function concreteUsage(usage:AiProviderUsage):AiLanguageModelV3Usage {
+		return {
+			inputTokens: {
+				total: usage.inputTokens.total,
+				noCache: usage.inputTokens.noCache,
+				cacheRead: usage.inputTokens.cacheRead,
+				cacheWrite: usage.inputTokens.cacheWrite,
+			},
+			outputTokens: {
+				total: usage.outputTokens.total,
+				text: usage.outputTokens.text,
+				reasoning: usage.outputTokens.reasoning,
+			},
+		};
 	}
 }
 
@@ -237,7 +585,8 @@ abstract AiProviderStreamPart(Dynamic) from Dynamic {
  * so this stays as an AI SDK test boundary type.
  */
 @:ts.type("ReadableStream<import('@ai-sdk/provider').LanguageModelV3StreamPart>")
-abstract AiProviderReadableStream(Dynamic) from Dynamic to Dynamic {}
+abstract AiProviderReadableStream(WebReadableStream<AiProviderStreamPart>) from WebReadableStream<AiProviderStreamPart>
+	to WebReadableStream<AiProviderStreamPart> {}
 
 @:jsRequire("ai")
 extern class AiSdk {

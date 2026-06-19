@@ -88,6 +88,8 @@ class ProviderRegistry {
 	}
 
 	public function getLanguage(model:ProviderModel):AiLanguageModel {
+		if (CopilotLanguageLoader.canResolveChat(model))
+			return resolveCopilotChat(model).sdkLanguage;
 		return resolveLanguage(model).language;
 	}
 
