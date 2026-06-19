@@ -30,4 +30,8 @@ class NodePath {
 	public static function basename(path:String):String {
 		return Path.basename(path);
 	}
+
+	public static function extname(path:String):String {
+		return Path.extname(path);
+	}
 }

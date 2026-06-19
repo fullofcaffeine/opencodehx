@@ -8,5 +8,6 @@ extern class Path {
 	static function relative(from:String, to:String):String;
 	static function basename(path:String):String;
 	static function dirname(path:String):String;
+	static function extname(path:String):String;
 	static function isAbsolute(path:String):Bool;
 }

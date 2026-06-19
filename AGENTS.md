@@ -70,7 +70,7 @@ When OpenCodeHX exposes a compiler limitation:
 5. Return to OpenCodeHX, update the pin/manifest or notes, and unblock the port slice.
 6. Record the limitation and fix status in Beads or `docs/genes-ts-limitation-ledger.md` until Beads fully represents it.
 
-Before changing `../genes`, read `../genes/AGENTS.md` and follow that repository's local workflow, test, commit, and push conventions in addition to this repo's compiler-improvement loop. Treat `../genes` as an independent project with its own rules, even when compiler work is discovered from OpenCodeHX.
+Before changing `../genes`, read `../genes/AGENTS.md` and follow that repository's local workflow, test, commit, push, and Beads conventions in addition to this repo's compiler-improvement loop. Treat `../genes` as an independent project with its own rules, even when compiler work is discovered from OpenCodeHX. Once work moves into `../genes`, scope Beads there too: create, claim, update, close, and sync the relevant `genes` issues from the `../genes` checkout rather than tracking compiler implementation only in OpenCodeHX.
 
 Generated TS quality problems are compiler work, not source contortion work, when the Haxe source is otherwise a good model.
 
