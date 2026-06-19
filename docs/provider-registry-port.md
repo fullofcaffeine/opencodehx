@@ -19,6 +19,7 @@ This slice adds the first Haxe-owned provider registry:
 - `opencodehx.provider.ProviderTransform` ports the first pure provider request-option transforms from upstream.
 - `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
 - `ProviderModelsDev` adds the first models.dev fetch/cache seam with injected fetcher support, Node cache file selection, forced refresh, local file override, snapshot fallback, and typed catalog output.
+- `opencodehx.plugin.PluginConfigHooks` models the upstream `server().config(cfg)` hook order for provider loading: typed plugin hooks mutate the live config before `ProviderRegistry` reads `cfg.provider`, `enabled_providers`, or `disabled_providers`.
 - `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
 - `CopilotChatCompletion` ports pure GitHub Copilot response metadata, non-stream response content assembly, finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
 - `CopilotChatRequest` ports pure GitHub Copilot request argument shaping for OpenAI-compatible chat calls.
@@ -41,6 +42,7 @@ This slice adds the first Haxe-owned provider registry:
 - Custom providers and custom model aliases.
 - Provider and model filtering.
 - Auth file-shaped API keys.
+- Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
 - `models.dev` provider normalization for provider API inheritance, required defaults, reasoning variants, experimental mode naming, body-key camel casing, mode cost overrides, and preservation of base over-200k pricing.
 - `models.dev` fetch/cache orchestration for custom source URLs, user-agent headers, cache writes and reads, fresh-cache refresh skips, forced refresh, local `modelsPath` override, snapshot fallback, and disabled-fetch empty catalog behavior.
@@ -177,6 +179,8 @@ The upstream `interleaved` capability is not `Dynamic`: it is modeled as `Either
 
 Config, auth, and env inputs are still dynamic JSON/process boundaries. The registry normalizes them into typed provider/model records as soon as the current slice has enough schema knowledge. Further config-schema tightening belongs to `opencodehx-ajd`.
 
+`PluginConfigHooks` intentionally mutates `ConfigInfo` instead of returning an overlay. That matches upstream's `server().config(cfg)` contract: plugin config hooks run before provider loading and may add provider definitions or alter provider filters in place. The current Haxe hook type is narrow on purpose; real external plugin module loading, install compatibility, auth hooks, tool hooks, and event hooks belong to the plugin runtime slice.
+
 `ProviderModelsDev.parse` keeps `Dynamic` and a single cast inside the JSON decoder boundary because Haxe's `Json.parse` and `Reflect.field` cannot refine runtime objects into structural typedefs. The boundary validates the consumed models.dev shape first, then returns a typed `ModelsDevCatalog` to the registry.
 
 `ProviderOptionAccess` owns the registry's provider-option weak reads. Provider options intentionally remain open because SDKs/plugins own arbitrary keys; loaders must ask `ProviderOptionAccess` for typed strings, booleans, URLs, and headers rather than reading option fields directly.
@@ -193,7 +197,7 @@ Bedrock bearer auth is passed as an explicit SDK `apiKey` instead of mutating `p
 
 This is not the full provider runtime:
 
-- More bundled providers beyond OpenAI-compatible/Bedrock, non-bundled dynamic provider installation/loading, deeper provider-specific request options, live Bedrock credential-chain/signing evidence, and plugin provider hooks remain `opencodehx-nrh`.
+- More bundled providers beyond OpenAI-compatible/Bedrock, non-bundled dynamic provider installation/loading, deeper provider-specific request options, live Bedrock credential-chain/signing evidence, and real external plugin runtime/loading hooks remain `opencodehx-nrh`.
 - Deeper Copilot Responses parity remains provider-runtime scope: provider-executed tool argument schemas, richer annotations/logprobs, image/code/file-search payload details, and live session-loop consumption need broader upstream fixtures before they should be treated as complete.
 - GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.

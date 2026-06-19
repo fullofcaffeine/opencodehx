@@ -31,9 +31,14 @@ import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.ProviderTypes.ProviderOver200KCost;
 import opencodehx.provider.ProviderTypes.ProviderVariants;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.plugin.PluginConfigHooks;
+import opencodehx.plugin.PluginServerHooks;
 
 typedef ProviderRegistryInput = {
 	final config:ConfigInfo;
+	// Upstream Provider.Service loads plugin hooks before it reads cfg.provider,
+	// because server().config(cfg) may add providers or change provider filters.
+	@:optional final pluginHooks:Array<PluginServerHooks>;
 	// Raw process-env/auth JSON boundaries. The registry immediately normalizes
 	// these into typed provider records and keeps the loose shape out of callers.
 	@:optional final env:Dynamic;
@@ -51,7 +56,7 @@ class ProviderRegistry {
 	final config:ConfigInfo;
 
 	public function new(input:ProviderRegistryInput) {
-		config = input.config;
+		config = PluginConfigHooks.apply(input.config, input.pluginHooks);
 		providers = build(input);
 	}
 

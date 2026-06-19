@@ -7,9 +7,12 @@ import haxe.Json;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigInfo.ConfigProviderConfig;
+import opencodehx.config.ConfigInfo.ConfigProviderModelConfig;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.harness.TranscriptHarness;
+import opencodehx.plugin.PluginServerHooks;
 import opencodehx.host.node.NodePath;
 import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
@@ -31,6 +34,7 @@ class ProviderSmoke {
 	public static function run():Void {
 		registryEnvAndConfig();
 		registryFilters();
+		registryPluginConfigHooks();
 		registryModels();
 		registryAuthAndBedrock();
 		modelsDevNormalization();
@@ -111,6 +115,27 @@ class ProviderSmoke {
 			},
 		}), {ANTHROPIC_API_KEY: "test-api-key"});
 		eq(blacklist.getProvider(ProviderID.make("anthropic")).models.exists("claude-sonnet-4-20250514"), false, "blacklist removes model");
+	}
+
+	static function registryPluginConfigHooks():Void {
+		final providerHook = demoProviderHook();
+		final first = registry(config({}), {}, {}, [providerHook]);
+		eq(first.getProvider(ProviderID.make("demo")).name, "Demo Provider", "plugin provider present");
+		eq(first.getModel(ProviderID.make("demo"), ModelID.make("chat")).limit.context, 128000, "plugin model context");
+
+		final second = registry(config({}), {}, {}, [providerHook]);
+		eq(second.getModel(ProviderID.make("demo"), ModelID.make("chat")).name, "Demo Chat", "plugin provider after registry rebuild");
+
+		final filters = registry(config({}), {ANTHROPIC_API_KEY: "test-anthropic-key", OPENAI_API_KEY: "test-openai-key"}, {}, [
+			{
+				config: cfg -> {
+					cfg.enabledProviders = ["anthropic", "openai"];
+					cfg.disabledProviders = ["openai"];
+				},
+			}
+		]);
+		eq(filters.getProvider(ProviderID.make("anthropic")) != null, true, "plugin enabled provider kept");
+		eq(filters.getProvider(ProviderID.make("openai")) == null, true, "plugin disabled provider removed");
 	}
 
 	static function registryModels():Void {
@@ -443,8 +468,40 @@ class ProviderSmoke {
 		eq(catalogCount(disabled), 0, "models.dev disabled fetch empty");
 	}
 
-	static function registry(config:ConfigInfo, ?env:Dynamic, ?auth:Dynamic):ProviderRegistry {
-		return new ProviderRegistry({config: config, env: env == null ? {} : env, auth: auth == null ? {} : auth});
+	static function registry(config:ConfigInfo, ?env:Dynamic, ?auth:Dynamic, ?pluginHooks:Array<PluginServerHooks>):ProviderRegistry {
+		return new ProviderRegistry({
+			config: config,
+			env: env == null ? {} : env,
+			auth: auth == null ? {} : auth,
+			pluginHooks: pluginHooks
+		});
+	}
+
+	static function demoProviderHook():PluginServerHooks {
+		return {
+			config: cfg -> {
+				if (cfg.provider == null)
+					cfg.provider = new haxe.DynamicAccess<ConfigProviderConfig>();
+				cfg.provider.set("demo", {
+					name: "Demo Provider",
+					npm: "@ai-sdk/openai-compatible",
+					api: "https://example.com/v1",
+					models: configProviderModels([
+						{
+							key: "chat",
+							value: {
+								name: "Demo Chat",
+								tool_call: true,
+								limit: {
+									context: 128000,
+									output: 4096,
+								},
+							},
+						},
+					]),
+				});
+			},
+		};
 	}
 
 	static function modelsDevModels(entries:Array<{final key:String; final value:ModelsDevModel;}>):DynamicAccess<ModelsDevModel> {
@@ -456,6 +513,13 @@ class ProviderSmoke {
 
 	static function modelsDevModes(entries:Array<{final key:String; final value:opencodehx.provider.ProviderTypes.ModelsDevMode;}>):DynamicAccess<opencodehx.provider.ProviderTypes.ModelsDevMode> {
 		final result = new DynamicAccess<opencodehx.provider.ProviderTypes.ModelsDevMode>();
+		for (entry in entries)
+			result.set(entry.key, entry.value);
+		return result;
+	}
+
+	static function configProviderModels(entries:Array<{final key:String; final value:ConfigProviderModelConfig;}>):DynamicAccess<ConfigProviderModelConfig> {
+		final result = new DynamicAccess<ConfigProviderModelConfig>();
 		for (entry in entries)
 			result.set(entry.key, entry.value);
 		return result;
