@@ -11,7 +11,11 @@ import opencodehx.session.MessageTypes.TokenUsage;
 import opencodehx.session.MessageTypes.ToolState;
 import opencodehx.session.MessageTypes.UserMessage;
 import opencodehx.session.MessageTypes.WithParts;
+import opencodehx.session.SessionCompaction.SessionCompactionCheck;
+import opencodehx.session.SessionCompaction.SessionCompactionResult;
 import opencodehx.session.SessionInfo.SessionInfo;
+import opencodehx.session.SessionRetry.SessionProviderError;
+import opencodehx.session.SessionRetry.SessionRetryStatus;
 import opencodehx.storage.SessionStore;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolRegistry;
@@ -21,6 +25,8 @@ import opencodehx.tool.ToolTypes.ToolResult;
 typedef SessionToolCall = {
 	final id:String;
 	final tool:String;
+	// Tool inputs are JSON-shaped runtime payloads owned by each tool schema.
+	// The registry validates them before tool implementations use the fields.
 	final input:Dynamic;
 }
 
@@ -38,8 +44,12 @@ typedef SessionProcessorInput = {
 	@:optional final sessionID:String;
 	@:optional final projectID:String;
 	@:optional final agent:String;
+	@:optional final aborted:Bool;
 	@:optional final store:SessionStore;
 	@:optional final provider:FakeProvider;
+	@:optional final providerError:SessionProviderError;
+	@:optional final retryAttempt:Int;
+	@:optional final compaction:SessionCompactionCheck;
 	@:optional final registry:ToolRegistry;
 	@:optional final permission:opencodehx.permission.PermissionRuntime;
 	@:optional final toolCall:SessionToolCall;
@@ -57,9 +67,21 @@ typedef SessionProcessorResult = {
 		final system:Array<String>;
 		final tools:Array<String>;
 	};
+	// Provider/status/server events are still an upstream-shaped JSON boundary.
+	// Durable event domains should move to typed enums as their owners land.
 	final events:Array<Dynamic>;
 	final messages:Array<WithParts>;
+	@:optional final retry:SessionRetryStatus;
+	@:optional final compaction:SessionCompactionResult;
+	@:optional final aborted:Bool;
 	@:optional final tool:SessionToolOutcome;
+}
+
+typedef SessionRecovery = {
+	final session:SessionInfo;
+	final messages:Array<WithParts>;
+	final more:Bool;
+	@:optional final cursor:String;
 }
 
 class SessionProcessor {
@@ -72,6 +94,8 @@ class SessionProcessor {
 	public static inline final STEP_START_PART_ID = "prt_step_start";
 	public static inline final STEP_FINISH_PART_ID = "prt_step_finish";
 	public static inline final TOOL_PART_ID = "prt_tool_call";
+	public static inline final RETRY_PART_ID = "prt_retry";
+	public static inline final COMPACTION_PART_ID = "prt_compaction";
 	public static inline final CREATED_USER = 1000.0;
 	public static inline final CREATED_ASSISTANT = 1001.0;
 	public static inline final COMPLETED_ASSISTANT = 1002.0;
@@ -85,16 +109,52 @@ class SessionProcessor {
 		final agent = fallback(input.agent, "fixture");
 		final provider = input.provider == null ? new FakeProvider() : input.provider;
 		final registry = input.registry == null ? new ToolRegistry() : input.registry;
-		final events = encodeEvents(provider.stream(prompt));
+		var retryAttempt = 1;
+		final configuredRetryAttempt = input.retryAttempt;
+		if (configuredRetryAttempt != null)
+			retryAttempt = configuredRetryAttempt;
+		final retry = input.providerError == null ? null : SessionRetry.status(input.providerError, retryAttempt);
+		final events:Array<Dynamic> = [];
+		if (retry != null) {
+			events.push({
+				type: "retry",
+				attempt: retry.attempt,
+				message: retry.message,
+				nextDelay: retry.nextDelay,
+			});
+		}
+		final aborted = input.aborted == true;
+		if (aborted) {
+			events.push({type: "start"});
+			events.push({type: "abort", message: "User aborted the request"});
+		} else {
+			for (event in encodeEvents(provider.stream(prompt)))
+				events.push(event);
+		}
 		final assistantText = collectText(events);
 		final userMessage = userWithParts(sessionIDText, prompt, agent, provider);
-		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, assistantText, input.directory, agent, provider, input.toolCall,
-			registry, input.permission, events);
+		final compaction = input.compaction == null ? null : SessionCompaction.check(input.compaction);
+		if (compaction != null && compaction.overflow) {
+			userMessage.parts.push(SessionCompaction.part(SessionID.make(sessionIDText), MessageID.make(scoped(USER_ID, sessionIDText)),
+				PartID.make(scoped(COMPACTION_PART_ID, sessionIDText)), true, true));
+			events.push({
+				type: "compaction",
+				auto: true,
+				overflow: true,
+				count: compaction.count,
+				usable: compaction.usable,
+			});
+		}
+		final text = aborted ? "Request aborted." : assistantText;
+		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, input.toolCall, registry,
+			input.permission, events, retry, input.providerError, aborted);
 
 		if (input.store != null) {
 			persist(input.store, projectID, sessionIDText, input.directory, userMessage, assistantMessage.message);
 		}
 
+		// Dynamic is contained to constructing an output record with optional
+		// fields whose presence mirrors upstream transcript JSON.
 		final result:Dynamic = {
 			provider: {
 				id: provider.info.id,
@@ -110,12 +170,31 @@ class SessionProcessor {
 			events: events,
 			messages: [userMessage, assistantMessage.message],
 		};
+		if (retry != null)
+			Reflect.setField(result, "retry", retry);
+		if (compaction != null)
+			Reflect.setField(result, "compaction", compaction);
+		if (aborted)
+			Reflect.setField(result, "aborted", true);
 		if (assistantMessage.tool != null)
 			Reflect.setField(result, "tool", assistantMessage.tool);
 		return cast result;
 	}
 
+	public static function recover(store:SessionStore, sessionIDText:String, ?limit:Int):SessionRecovery {
+		final sessionID = SessionID.make(sessionIDText);
+		final page = store.pageMessages(sessionID, limit == null ? 50 : limit);
+		return {
+			session: store.getSession(sessionID),
+			messages: page.items,
+			more: page.more,
+			cursor: page.cursor,
+		};
+	}
+
 	public static function toTranscript(processed:SessionProcessorResult):Dynamic {
+		// Transcript output is the JSON oracle surface consumed by harnesses.
+		// Message records are typed until this final serialization boundary.
 		final encodedMessages:Array<Dynamic> = [];
 		for (message in processed.messages) {
 			encodedMessages.push(MessageCodec.encodeWithParts(message));
@@ -130,7 +209,7 @@ class SessionProcessor {
 
 	static function userWithParts(sessionIDText:String, prompt:String, agent:String, provider:FakeProvider):WithParts {
 		final sessionID = SessionID.make(sessionIDText);
-		final messageID = MessageID.make(USER_ID);
+		final messageID = MessageID.make(scoped(USER_ID, sessionIDText));
 		final info:UserMessage = {
 			id: messageID,
 			sessionID: sessionID,
@@ -147,7 +226,7 @@ class SessionProcessor {
 			},
 		};
 		final text:TextPartData = {
-			id: PartID.make(USER_PART_ID),
+			id: PartID.make(scoped(USER_PART_ID, sessionIDText)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "text",
@@ -158,12 +237,13 @@ class SessionProcessor {
 	}
 
 	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:FakeProvider,
-			toolCall:Null<SessionToolCall>, registry:ToolRegistry, permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<Dynamic>):{
+			toolCall:Null<SessionToolCall>, registry:ToolRegistry, permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<Dynamic>,
+			retry:Null<SessionRetryStatus>, providerError:Null<SessionProviderError>, aborted:Bool):{
 		final message:WithParts;
 		final tool:Null<SessionToolOutcome>;
 	} {
 		final sessionID = SessionID.make(sessionIDText);
-		final messageID = MessageID.make(ASSISTANT_ID);
+		final messageID = MessageID.make(scoped(ASSISTANT_ID, sessionIDText));
 		final parentID = userID(parentInfo);
 		final tokens = tokenUsage();
 		final info:AssistantMessage = {
@@ -177,16 +257,30 @@ class SessionProcessor {
 			mode: "primary",
 			agent: agent,
 			path: {cwd: directory, root: directory},
+			error: aborted ? {name: "AbortedError", message: "User aborted the request"} : null,
 			cost: 0,
 			tokens: tokens,
 			finish: "stop",
 		};
 
 		final parts:Array<Part> = [];
+		if (retry != null && providerError != null) {
+			parts.push(RetryPart({
+				id: PartID.make(scoped(RETRY_PART_ID, sessionIDText)),
+				sessionID: sessionID,
+				messageID: messageID,
+				type: "retry",
+				attempt: retry.attempt,
+				error: SessionRetry.errorRecord(providerError),
+				time: {
+					created: CREATED_ASSISTANT
+				},
+			}));
+		}
 		var toolOutcome:Null<SessionToolOutcome> = null;
 		if (toolCall != null) {
 			parts.push(StepStartPart({
-				id: PartID.make(STEP_START_PART_ID),
+				id: PartID.make(scoped(STEP_START_PART_ID, sessionIDText)),
 				sessionID: sessionID,
 				messageID: messageID,
 				type: "step-start",
@@ -196,7 +290,7 @@ class SessionProcessor {
 		}
 
 		parts.push(TextPart({
-			id: PartID.make(ASSISTANT_PART_ID),
+			id: PartID.make(scoped(ASSISTANT_PART_ID, sessionIDText)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "text",
@@ -206,7 +300,7 @@ class SessionProcessor {
 
 		if (toolCall != null) {
 			parts.push(StepFinishPart({
-				id: PartID.make(STEP_FINISH_PART_ID),
+				id: PartID.make(scoped(STEP_FINISH_PART_ID, sessionIDText)),
 				sessionID: sessionID,
 				messageID: messageID,
 				type: "step-finish",
@@ -282,7 +376,7 @@ class SessionProcessor {
 			},
 		});
 		return ToolPart({
-			id: PartID.make(TOOL_PART_ID),
+			id: PartID.make(scopedFromSession(TOOL_PART_ID, sessionID)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "tool",
@@ -301,7 +395,7 @@ class SessionProcessor {
 			time: {start: TOOL_STARTED, end: TOOL_ENDED},
 		});
 		return ToolPart({
-			id: PartID.make(TOOL_PART_ID),
+			id: PartID.make(scopedFromSession(TOOL_PART_ID, sessionID)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "tool",
@@ -396,6 +490,28 @@ class SessionProcessor {
 		if (value == null || value == "")
 			return fallbackValue;
 		return value;
+	}
+
+	static function scopedFromSession(base:String, sessionID:SessionID):String {
+		return scoped(base, sessionID.toString());
+	}
+
+	static function scoped(base:String, sessionIDText:String):String {
+		if (sessionIDText == SESSION_ID)
+			return base;
+		return base + "_" + sanitizeID(sessionIDText);
+	}
+
+	static function sanitizeID(value:String):String {
+		final out = new StringBuf();
+		for (index in 0...value.length) {
+			final char = value.charAt(index);
+			final code = char.charCodeAt(0);
+			final alpha = (code >= "A".code && code <= "Z".code) || (code >= "a".code && code <= "z".code);
+			final digit = code >= "0".code && code <= "9".code;
+			out.add(alpha || digit || char == "_" || char == "-" ? char : "_");
+		}
+		return out.toString();
 	}
 
 	static function transcriptTools():Array<String> {
