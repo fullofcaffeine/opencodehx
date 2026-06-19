@@ -1,5 +1,6 @@
 package opencodehx.tool;
 
+import js.lib.Error;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
@@ -51,6 +52,8 @@ class BashTool {
 	}
 
 	static function execute(args:Dynamic, ctx:ToolContext):ToolResult {
+		// Dynamic is contained at the tool-call JSON boundary; ToolValidation
+		// immediately narrows the fields before application logic uses them.
 		final issues:Array<String> = [];
 		final command = ToolValidation.requireString(args, "command", issues);
 		final description = ToolValidation.requireString(args, "description", issues);
@@ -63,7 +66,8 @@ class BashTool {
 		if (timeout < 0)
 			throw new ToolException(ExecutionFailed("bash", 'Invalid timeout value: ${timeout}. Timeout must be a positive number.'));
 		final cwd = resolveWorkdir(ctx, workdirArg);
-		final scan = BashCommandScanner.scan(ctx.directory, command, cwd, NodeProcess.shell());
+		final shell = NodeProcess.acceptableShell();
+		final scan = BashCommandScanner.scan(ctx.directory, command, cwd, shell);
 		final externalDirs = scan.externalDirs.copy();
 		if (!opencodehx.file.FileSystem.contains(ctx.directory, cwd) && externalDirs.indexOf(cwd) == -1)
 			externalDirs.push(cwd);
@@ -107,7 +111,7 @@ class BashTool {
 		return absolute;
 	}
 
-	static function formatResult(description:String, stdout:String, stderr:String, status:Null<Int>, signal:Null<String>, error:Dynamic,
+	static function formatResult(description:String, stdout:String, stderr:String, status:Null<Int>, signal:Null<String>, error:Null<Error>,
 			timeout:Int):ToolResult {
 		final raw = joinOutput(stdout, stderr);
 		var output = raw == "" ? "(no output)" : raw;

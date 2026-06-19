@@ -7,6 +7,7 @@ import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.tool.BashCommandScanner;
+import opencodehx.tool.BashCommandScanner.BashScan;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolPaths;
@@ -24,6 +25,7 @@ class ToolSmoke {
 			fixture(root);
 			final registry = new ToolRegistry();
 			registrySurface(registry);
+			shellSelectionParity();
 			errorShapes(registry, context(root));
 			permissionShapes(registry, root);
 			bashExec(registry, context(root));
@@ -35,6 +37,8 @@ class ToolSmoke {
 			applyPatchExec(registry, context(root));
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
+			// Smoke cleanup must run for arbitrary Haxe/JS thrown values, then
+			// rethrow the original failure so the runner preserves the cause.
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
@@ -51,6 +55,46 @@ class ToolSmoke {
 		eq(registry.all().length, 8, "builtin count");
 		eq(registry.all({disabled: ["grep"]}).length, 7, "filtered count");
 		eq(registry.get("glob").schema.parameters[0].name, "pattern", "glob schema");
+	}
+
+	static function shellSelectionParity():Void {
+		eq(NodeProcess.shellNameForPlatform("/bin/bash", "linux"), "bash", "shell name posix");
+		eq(NodeProcess.shellNameForPlatform("C:/tools/NU.EXE", "win32"), "nu", "shell name windows extension");
+		eq(NodeProcess.windowsPathForPlatform("/cygdrive/c/Users/test", "win32"), "C:/Users/test", "cygwin path conversion");
+		eq(NodeProcess.windowsPathForPlatform("/mnt/z/dev/project", "win32"), "Z:/dev/project", "wsl path conversion");
+		eq(NodeProcess.selectPreferred({
+			platform: "win32",
+			shell: "/usr/bin/bash",
+			gitBash: "C:/Program Files/Git/bin/bash.exe",
+			pwsh: "C:/Program Files/PowerShell/7/pwsh.exe",
+			comspec: "C:/Windows/System32/cmd.exe",
+		}), "C:/Program Files/Git/bin/bash.exe",
+			"windows preferred resolves posix bash to git bash");
+		eq(NodeProcess.selectAcceptable({
+			platform: "win32",
+			shell: "NU.EXE",
+			pwsh: "C:/Program Files/PowerShell/7/pwsh.exe",
+			comspec: "C:/Windows/System32/cmd.exe",
+		}), "C:/Program Files/PowerShell/7/pwsh.exe", "windows acceptable rejects nu");
+		eq(NodeProcess.selectPreferred({
+			platform: "win32",
+			shell: "pwsh.exe",
+			pwsh: "C:/Program Files/PowerShell/7/pwsh.exe",
+		}), "C:/Program Files/PowerShell/7/pwsh.exe",
+			"windows preferred resolves bare powershell");
+		eq(NodeProcess.selectPreferred({
+			platform: "win32",
+			comspec: "C:/Windows/System32/cmd.exe",
+		}), "C:/Windows/System32/cmd.exe", "windows fallback uses comspec");
+		eq(NodeProcess.selectPreferred({
+			platform: "darwin",
+			bash: "/usr/local/bin/bash",
+		}), "/bin/zsh", "darwin fallback uses zsh");
+		eq(NodeProcess.selectAcceptable({
+			platform: "linux",
+			shell: "fish",
+			bash: "/usr/bin/bash",
+		}), "/usr/bin/bash", "linux acceptable rejects fish");
 	}
 
 	static function errorShapes(registry:ToolRegistry, ctx:ToolContext):Void {
@@ -177,6 +221,29 @@ class ToolSmoke {
 			eq(nested.patterns.indexOf('cat "${outside}"') != -1, true, "bash scanner nested command");
 			eq(nested.externalDirs.indexOf(Os.tmpdir()) != -1, true, "bash scanner nested external path");
 		}
+		powerShellScannerParity();
+	}
+
+	static function powerShellScannerParity():Void {
+		final project = "C:/work/project";
+		final shell = "C:/Program Files/PowerShell/7/pwsh.exe";
+		expectExternalDir(BashCommandScanner.scan(project, 'Get-Content "C:../outside.txt"', project, shell, "win32"),
+			NodePath.windowsDirname(NodePath.windowsResolve(project, "C:../outside.txt")), "powershell drive-relative path");
+		expectExternalDir(BashCommandScanner.scan(project, "Get-Content \"$" + "PWD/../outside.txt\"", project, shell, "win32"),
+			NodePath.windowsDirname(NodePath.windowsResolve(project, "../outside.txt")), "powershell pwd path");
+		expectExternalDir(BashCommandScanner.scan(project, "Get-Content \"$" + "PSHOME/outside.txt\"", project, shell, "win32"),
+			"C:\\Program Files\\PowerShell\\7", "powershell pshome path");
+		expectExternalDir(BashCommandScanner.scan(project, "Get-Content FileSystem::C:/Windows/win.ini", project, shell, "win32"), "C:\\Windows",
+			"powershell filesystem provider path");
+		final conditional = BashCommandScanner.scan(project, "Write-Host foo; if ($?) { Write-Host bar }", project, shell, "win32");
+		eq(conditional.patterns.indexOf("Write-Host foo") != -1, true, "powershell conditional first command");
+		eq(conditional.patterns.indexOf("Write-Host bar") != -1, true, "powershell conditional nested command");
+		eq(conditional.always.indexOf("Write-Host *") != -1, true, "powershell conditional arity");
+	}
+
+	static function expectExternalDir(scan:BashScan, expected:String, label:String):Void {
+		eq(scan.usedTreeSitter, true, label + " used parser");
+		eq(scan.externalDirs.indexOf(expected) != -1, true, label + " external dir");
 	}
 
 	static function readExec(registry:ToolRegistry, ctx:ToolContext):Void {

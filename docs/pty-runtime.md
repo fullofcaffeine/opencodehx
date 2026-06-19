@@ -28,6 +28,8 @@ Runtime smoke in `PtySmoke` covers:
 - Bun-style socket object recycling before reconnect,
 - in-place `ws.data` mutation preserving the active connection.
 
+Shell-selection parity for `Shell.preferred`/`Shell.acceptable`, Git Bash normalization, and PowerShell fallback is covered in `ToolSmoke` through the shared `NodeProcess` host facade used by `PtyService.create()`.
+
 `ServerSmoke` covers:
 
 - PTY HTTP create/list/get/update/delete routes,
@@ -45,6 +47,6 @@ npm run smoke
 
 ## Boundary
 
-This is still Node-first. Bun's `bun-pty` adapter, full Effect service integration, OpenAPI route metadata, and the broader Windows/PowerShell shell-selection matrix remain follow-up work.
+This is still Node-first. Bun's `bun-pty` adapter, full Effect service integration, OpenAPI route metadata, and native Windows PTY process execution remain follow-up work.
 
 `@lydell/node-pty` currently ships declarations that TypeScript cannot resolve through the package `exports` field. `types/lydell-node-pty.d.ts` is a local declaration bridge for the narrow API used here; remove it when the package exposes its own declarations correctly.

@@ -1,6 +1,7 @@
 package opencodehx.tool;
 
 import genes.js.Async.await;
+import js.lib.Error;
 import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
@@ -80,18 +81,19 @@ class BashCommandScanner {
 		ready = true;
 	}
 
-	public static function scan(projectRoot:String, command:String, cwd:String, ?shellPath:String):BashScan {
+	public static function scan(projectRoot:String, command:String, cwd:String, ?shellPath:String, ?hostPlatform:String):BashScan {
+		final platform = hostPlatform == null || hostPlatform == "" ? NodeProcess.platform() : hostPlatform;
 		final shell = shellPath == null || shellPath == "" ? NodeProcess.shell() : shellPath;
-		final ps = NodeProcess.isPowerShell(shell);
+		final ps = isPowerShell(shell, platform);
 		if (ready) {
 			final parser = ps ? powerShellParser : bashParser;
 			if (parser != null) {
 				final tree = parser.parse(command);
 				if (tree != null)
-					return collect(projectRoot, tree.rootNode, cwd, ps, shell);
+					return collect(projectRoot, tree.rootNode, cwd, ps, shell, platform);
 			}
 		}
-		return fallback(projectRoot, command, cwd);
+		return fallback(projectRoot, command, cwd, platform);
 	}
 
 	public static function isPreloaded():Bool {
@@ -102,7 +104,7 @@ class BashCommandScanner {
 		return Resources.wasm("wasm/tree-sitter.wasm").path;
 	}
 
-	static function collect(projectRoot:String, root:TreeSitterNode, cwd:String, ps:Bool, shell:String):BashScan {
+	static function collect(projectRoot:String, root:TreeSitterNode, cwd:String, ps:Bool, shell:String, platform:String):BashScan {
 		final scan = builder();
 		for (node in commands(root)) {
 			final command = parts(node);
@@ -111,10 +113,10 @@ class BashCommandScanner {
 
 			if (commandName != null && contains(FILES, commandName)) {
 				for (arg in pathArgs(command, ps)) {
-					final resolved = argPath(arg, cwd, ps, shell);
-					if (resolved == null || FileSystem.contains(projectRoot, resolved))
+					final resolved = argPath(arg, cwd, ps, shell, platform);
+					if (resolved == null || containsPath(projectRoot, resolved, platform))
 						continue;
-					final dir = Fs.existsSync(resolved) && Fs.statSync(resolved).isDirectory() ? resolved : NodePath.dirname(resolved);
+					final dir = isDirectory(resolved) ? resolved : dirname(resolved, platform);
 					pushUnique(scan.externalDirs, dir);
 				}
 			}
@@ -204,7 +206,7 @@ class BashCommandScanner {
 		return out;
 	}
 
-	static function argPath(arg:String, cwd:String, ps:Bool, shell:String):Null<String> {
+	static function argPath(arg:String, cwd:String, ps:Bool, shell:String, platform:String):Null<String> {
 		final text = ps ? expand(arg, cwd, shell) : home(unquote(arg));
 		final file = text == "" ? null : prefix(text);
 		if (file == null || isDynamicPath(file, ps))
@@ -212,7 +214,7 @@ class BashCommandScanner {
 		final provided = ps ? provider(file) : file;
 		if (provided == null)
 			return null;
-		return NodePath.resolve(cwd, provided);
+		return resolvePath(cwd, provided, platform);
 	}
 
 	static function expand(text:String, cwd:String, shell:String):String {
@@ -368,6 +370,44 @@ class BashCommandScanner {
 		return true;
 	}
 
+	static function isPowerShell(shell:String, platform:String):Bool {
+		final name = NodeProcess.shellNameForPlatform(shell, platform);
+		return name == "pwsh" || name == "powershell";
+	}
+
+	static function resolvePath(cwd:String, path:String, platform:String):String {
+		if (platform == "win32")
+			return NodePath.windowsResolve(cwd, NodeProcess.windowsPathForPlatform(path, platform));
+		return NodePath.resolve(cwd, path);
+	}
+
+	static function containsPath(root:String, target:String, platform:String):Bool {
+		if (platform != "win32")
+			return FileSystem.contains(root, target);
+		final relative = normalizeSlashes(NodePath.windowsRelative(NodePath.windowsResolve(root, "."), NodePath.windowsResolve(target, ".")));
+		return relative == "" || (!relative.startsWith("..") && !NodePath.windowsIsAbsolute(relative));
+	}
+
+	static function isAbsolute(path:String, platform:String):Bool {
+		return platform == "win32" ? NodePath.windowsIsAbsolute(path) : NodePath.isAbsolute(path);
+	}
+
+	static function dirname(path:String, platform:String):String {
+		return platform == "win32" ? NodePath.windowsDirname(path) : NodePath.dirname(path);
+	}
+
+	static function isDirectory(path:String):Bool {
+		try {
+			return Fs.existsSync(path) && Fs.statSync(path).isDirectory();
+		} catch (_:Error) {
+			return false;
+		}
+	}
+
+	static function normalizeSlashes(path:String):String {
+		return path.replace("\\", "/");
+	}
+
 	static function isDynamicPath(text:String, ps:Bool):Bool {
 		if (text.startsWith("(") || text.startsWith("@("))
 			return true;
@@ -396,19 +436,19 @@ class BashCommandScanner {
 		return best == 0 ? null : text.substr(0, best);
 	}
 
-	static function fallback(projectRoot:String, command:String, cwd:String):BashScan {
+	static function fallback(projectRoot:String, command:String, cwd:String, platform:String):BashScan {
 		final scan = builder();
 		final first = firstToken(command);
 		if (first != "") {
 			pushUnique(scan.patterns, command);
 			pushUnique(scan.always, first + " *");
 		}
-		if (!FileSystem.contains(projectRoot, cwd))
+		if (!containsPath(projectRoot, cwd, platform))
 			pushUnique(scan.externalDirs, cwd);
 		for (path in likelyPathArgs(command)) {
-			final absolute = NodePath.isAbsolute(path) ? NodePath.resolve(path, ".") : NodePath.resolve(cwd, path);
-			if (!FileSystem.contains(projectRoot, absolute)) {
-				final dir = Fs.existsSync(absolute) && Fs.statSync(absolute).isDirectory() ? absolute : NodePath.dirname(absolute);
+			final absolute = isAbsolute(path, platform) ? resolvePath(path, ".", platform) : resolvePath(cwd, path, platform);
+			if (!containsPath(projectRoot, absolute, platform)) {
+				final dir = isDirectory(absolute) ? absolute : dirname(absolute, platform);
 				pushUnique(scan.externalDirs, dir);
 			}
 		}
