@@ -152,6 +152,8 @@ typedef AiBedrockFactoryOptionsShape = {
 
 typedef AiSdkBundledProvider = {
 	function languageModel(modelID:String):AiLanguageModel;
+	@:optional final chat:String->AiLanguageModel;
+	@:optional final responses:String->AiLanguageModel;
 }
 
 typedef AiSdkProviderFactory = AiSdkFactoryOptions->AiSdkBundledProvider;

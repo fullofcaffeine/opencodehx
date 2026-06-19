@@ -19,15 +19,15 @@ The canonical compiler checkout is now ahead of the Cafetera vendored reference 
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 35 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, and dependency/security gate refresh landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `291c0b6c5dc0508b171039598e2231d3b4bcbe880ed55911e332bfcf03e9b74e`
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, and closed enum abstract declaration/field/local literal-union preservation landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `36150ab272f0c8125e64b08d5faf4d69571e871628f1accdae3ebeabfea411d3`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `5254f9fc4b405824b8cf406b0201687e0c21e7cd`
+- Commit: `ea54cb1251877e2f408a56cbfc9d2d4598e526ae`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
@@ -51,10 +51,11 @@ Canonical `../genes` checkout:
 - Narrowed call arguments: `3b5850e1fe0faf7af9c5fef2ce792b4a3b3f232c` (`fix(ts): trust narrowed call arguments`), honoring existing null-narrowing facts when nullable locals or optional fields are passed directly to non-nullable function parameters inside guarded branches.
 - Full CI gate restoration: `5236989aa6f5acaa6a6d879a2aa1d01f37245ae8` (`fix(ci): restore full genes gate`), refreshing dependency/security pins and eliding the Haxe stdlib `ThenableStruct` overload cast for `Promise.resolve(null)` so full `genes-ts` output emits idiomatic `Promise.resolve(null)` instead of leaking unresolved target helper types.
 - Raw syntax-template receiver parenthesization: `5254f9fc4b405824b8cf406b0201687e0c21e7cd` (`fix(genes-ts): parenthesize raw template receivers`), parenthesizing non-trivial `js.Syntax.code("...", args...)` placeholder templates before chained `[]`/`.` access so helpers such as `genes.ts.Undefinable<T>.orNull()` emit valid, handwritten-looking TypeScript in receiver position.
+- Closed enum abstract literal-union preservation: `ea54cb1251877e2f408a56cbfc9d2d4598e526ae` (`fix(ts): preserve closed enum abstract unions`), keeping closed enum abstract literal unions through typedef fields, class fields, and locals initialized from cached calls/fields while deliberately degrading open `from` abstracts to their backing type.
 
 ## Current Gate Evidence
 
-- `../genes`: `yarn test:ci` passed on 2026-06-19 at `5254f9fc4b405824b8cf406b0201687e0c21e7cd`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
+- `../genes`: `yarn test:ci` passed on 2026-06-19 at `ea54cb1251877e2f408a56cbfc9d2d4598e526ae`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
 
 Cafetera vendored reference:
 

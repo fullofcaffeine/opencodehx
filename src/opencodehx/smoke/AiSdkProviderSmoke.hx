@@ -6,13 +6,27 @@ import js.lib.Promise;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.ConfigProviderConfig;
 import opencodehx.config.ConfigInfo.ConfigProviderModelConfig;
+import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelCallOptions;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelGenerateResult;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelSpecificationVersion;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelStreamResult;
+import opencodehx.externs.ai.AiSdk.AiSdkBundledProvider;
+import opencodehx.externs.ai.AiSdk.AiSupportedUrls;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.provider.AiSdkLanguageLoader;
+import opencodehx.provider.AiSdkLanguageLoader.AiSdkModelMethod;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamResult;
 import opencodehx.provider.ProviderRegistry;
+import opencodehx.provider.ProviderTypes.ProviderCapabilities;
+import opencodehx.provider.ProviderTypes.ProviderCost;
+import opencodehx.provider.ProviderTypes.ProviderHeaders;
+import opencodehx.provider.ProviderTypes.ProviderInfo;
+import opencodehx.provider.ProviderTypes.ProviderLimit;
+import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
@@ -25,6 +39,7 @@ class AiSdkProviderSmoke {
 		await(errorStream());
 		await(abortStream());
 		openAICompatibleFactory();
+		sdkModelSelection();
 	}
 
 	@:async
@@ -101,6 +116,29 @@ class AiSdkProviderSmoke {
 		eq(AiSdkLanguageLoader.factoryOptions(provider, model).baseURL, "https://llm.example.test/v1", "ai sdk factory base url");
 	}
 
+	static function sdkModelSelection():Void {
+		final sdk = fixtureSdk();
+		final openai = AiSdkLanguageLoader.resolveWithSdk(sdk, provider("openai"), model("openai", "gpt-5.2", "@ai-sdk/openai"));
+		eq(openai.method, AiSdkModelMethod.Responses, "openai model method");
+		eq(openai.language.modelId, "responses:gpt-5.2", "openai responses model");
+
+		final xai = AiSdkLanguageLoader.resolveWithSdk(sdk, provider("xai"), model("xai", "grok-4", "@ai-sdk/xai"));
+		eq(xai.method, AiSdkModelMethod.Responses, "xai model method");
+		eq(xai.language.modelId, "responses:grok-4", "xai responses model");
+
+		final azure = AiSdkLanguageLoader.resolveWithSdk(sdk, provider("azure"), model("azure", "gpt-5", "@ai-sdk/azure"));
+		eq(azure.method, AiSdkModelMethod.Responses, "azure default model method");
+		eq(azure.language.modelId, "responses:gpt-5", "azure default responses model");
+
+		final azureChat = AiSdkLanguageLoader.resolveWithSdk(sdk, provider("azure"), model("azure", "gpt-4.1", "@ai-sdk/azure", useCompletionUrlsOptions()));
+		eq(azureChat.method, AiSdkModelMethod.Chat, "azure completion-url model method");
+		eq(azureChat.language.modelId, "chat:gpt-4.1", "azure completion-url chat model");
+
+		final azureFallback = AiSdkLanguageLoader.resolveWithSdk(languageModelOnlySdk(), provider("azure"), model("azure", "gpt-4.1", "@ai-sdk/azure"));
+		eq(azureFallback.method, AiSdkModelMethod.LanguageModel, "azure languageModel fallback method");
+		eq(azureFallback.language.modelId, "languageModel:gpt-4.1", "azure languageModel fallback");
+	}
+
 	static function sdkConfig():ConfigInfo {
 		final info = ConfigInfo.empty("fixture-user");
 		final providers = new DynamicAccess<ConfigProviderConfig>();
@@ -134,6 +172,133 @@ class AiSdkProviderSmoke {
 		headers.set("x-opencodehx-smoke", "present");
 		options.set("headers", headers);
 		return options;
+	}
+
+	static function useCompletionUrlsOptions():ProviderOptions {
+		// Fixture boundary: this is the stable OpenCode provider option that
+		// selects Azure chat-completions URLs instead of responses URLs.
+		// ProviderOptions itself is intentionally DynamicAccess<Dynamic> because
+		// upstream SDK/plugin options are open passthrough data; this fixture
+		// writes only one typed boolean key and AiSdkLanguageLoader narrows it
+		// through ProviderOptionAccess before use.
+		final options = new DynamicAccess<Dynamic>();
+		options.set("useCompletionUrls", true);
+		return options;
+	}
+
+	static function provider(id:String):ProviderInfo {
+		return {
+			id: ProviderID.make(id),
+			name: id,
+			source: "fixture",
+			env: [],
+			options: emptyOptions(),
+			models: new Map<String, ProviderModel>(),
+		};
+	}
+
+	static function model(providerID:String, modelID:String, npm:String, ?options:ProviderOptions):ProviderModel {
+		return {
+			id: ModelID.make(modelID),
+			providerID: ProviderID.make(providerID),
+			name: modelID,
+			capabilities: capabilities(),
+			api: {id: modelID, url: "https://llm.example.test/v1", npm: npm},
+			cost: cost(),
+			limit: limit(),
+			status: "active",
+			options: options == null ? emptyOptions() : options,
+			headers: emptyHeaders(),
+			release_date: "",
+			variants: new DynamicAccess<ProviderOptions>(),
+		};
+	}
+
+	static function fixtureSdk():AiSdkBundledProvider {
+		return {
+			languageModel: id -> fixtureLanguage("languageModel", id),
+			chat: id -> fixtureLanguage("chat", id),
+			responses: id -> fixtureLanguage("responses", id),
+		};
+	}
+
+	static function languageModelOnlySdk():AiSdkBundledProvider {
+		return {
+			languageModel: id -> fixtureLanguage("languageModel", id),
+		};
+	}
+
+	static function fixtureLanguage(method:String, modelID:String):AiLanguageModel {
+		return {
+			specificationVersion: AiLanguageModelSpecificationVersion.V3,
+			provider: "fixture",
+			modelId: '${method}:${modelID}',
+			supportedUrls: emptySupportedUrls(),
+			doGenerate: (_:AiLanguageModelCallOptions) -> unusedGenerate(),
+			doStream: (_:AiLanguageModelCallOptions) -> unusedStream(),
+		};
+	}
+
+	static function emptySupportedUrls():AiSupportedUrls {
+		return new DynamicAccess<Array<opencodehx.externs.ai.AiSdk.AiRegExp>>();
+	}
+
+	static function unusedGenerate():Promise<AiLanguageModelGenerateResult> {
+		throw "fixture language model should not generate";
+	}
+
+	static function unusedStream():Promise<AiLanguageModelStreamResult> {
+		throw "fixture language model should not stream";
+	}
+
+	static function emptyOptions():ProviderOptions {
+		// Fixture boundary: ProviderOptions is open SDK passthrough data. Empty
+		// maps contain no weak values, and production reads go through typed
+		// ProviderOptionAccess helpers.
+		return new DynamicAccess<Dynamic>();
+	}
+
+	static function emptyHeaders():ProviderHeaders {
+		return new DynamicAccess<String>();
+	}
+
+	static function capabilities():ProviderCapabilities {
+		return {
+			toolcall: true,
+			attachment: false,
+			reasoning: true,
+			temperature: true,
+			interleaved: false,
+			input: {
+				text: true,
+				image: false,
+				audio: false,
+				video: false,
+				pdf: false
+			},
+			output: {
+				text: true,
+				image: false,
+				audio: false,
+				video: false,
+				pdf: false
+			},
+		};
+	}
+
+	static function cost():ProviderCost {
+		return {
+			input: 0,
+			output: 0,
+			cache: {read: 0, write: 0},
+		};
+	}
+
+	static function limit():ProviderLimit {
+		return {
+			context: 128000,
+			output: 4096,
+		};
 	}
 
 	static function hasEvent(result:AiSdkStreamResult, predicate:AiSdkStreamEvent->Bool):Bool {
