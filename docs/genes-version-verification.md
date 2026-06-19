@@ -1,7 +1,7 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-19T21:00:09Z
+**Recorded:** 2026-06-19T21:21:53Z
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
@@ -19,15 +19,15 @@ The canonical compiler checkout is now ahead of the Cafetera vendored reference 
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 35 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, and dependency/security gate refresh landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `4fbb848b4809f50bfb7b59e50f6ad2194073e65105afa534c67c85cdad5a4ff4`
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, and dependency/security gate refresh landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `291c0b6c5dc0508b171039598e2231d3b4bcbe880ed55911e332bfcf03e9b74e`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `5236989aa6f5acaa6a6d879a2aa1d01f37245ae8`
+- Commit: `5254f9fc4b405824b8cf406b0201687e0c21e7cd`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
@@ -50,10 +50,11 @@ Canonical `../genes` checkout:
 - Raw placeholder call context: `230bbecbdd9717e509bc91984bd6b21d179f6ff1` (`fix(ts): preserve raw placeholder call context`), letting `js.Syntax.code`/`@:await` placeholders emit call arguments with TS expected-type context instead of bypassing nullable normalization.
 - Narrowed call arguments: `3b5850e1fe0faf7af9c5fef2ce792b4a3b3f232c` (`fix(ts): trust narrowed call arguments`), honoring existing null-narrowing facts when nullable locals or optional fields are passed directly to non-nullable function parameters inside guarded branches.
 - Full CI gate restoration: `5236989aa6f5acaa6a6d879a2aa1d01f37245ae8` (`fix(ci): restore full genes gate`), refreshing dependency/security pins and eliding the Haxe stdlib `ThenableStruct` overload cast for `Promise.resolve(null)` so full `genes-ts` output emits idiomatic `Promise.resolve(null)` instead of leaking unresolved target helper types.
+- Raw syntax-template receiver parenthesization: `5254f9fc4b405824b8cf406b0201687e0c21e7cd` (`fix(genes-ts): parenthesize raw template receivers`), parenthesizing non-trivial `js.Syntax.code("...", args...)` placeholder templates before chained `[]`/`.` access so helpers such as `genes.ts.Undefinable<T>.orNull()` emit valid, handwritten-looking TypeScript in receiver position.
 
 ## Current Gate Evidence
 
-- `../genes`: `yarn test:ci` passed on 2026-06-19 at `5236989aa6f5acaa6a6d879a2aa1d01f37245ae8`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
+- `../genes`: `yarn test:ci` passed on 2026-06-19 at `5254f9fc4b405824b8cf406b0201687e0c21e7cd`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
 
 Cafetera vendored reference:
 

@@ -12,6 +12,7 @@ import opencodehx.smoke.CliSmoke;
 import opencodehx.smoke.ConfigSmoke;
 import opencodehx.smoke.CopilotChatCompletionSmoke;
 import opencodehx.smoke.CopilotChatHttpClientSmoke;
+import opencodehx.smoke.CopilotChatLanguageModelSmoke;
 import opencodehx.smoke.CopilotChatMessagesSmoke;
 import opencodehx.smoke.CopilotChatRequestSmoke;
 import opencodehx.smoke.CopilotChatSseDecoderSmoke;
@@ -100,6 +101,10 @@ class Main {
 			})
 			.then(_ -> {
 				Syntax.code("console.log({0})", "copilot-chat-http-client-smoke:ok");
+				return CopilotChatLanguageModelSmoke.run();
+			})
+			.then(_ -> {
+				Syntax.code("console.log({0})", "copilot-chat-language-model-smoke:ok");
 				return AiSdkProviderSmoke.run();
 			})
 			.then(_ -> {

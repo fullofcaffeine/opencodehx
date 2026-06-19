@@ -26,6 +26,7 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotChatStreamAdapter` ports the first typed Web `ReadableStream<Uint8Array>` response-body reader layer and connects live response text to the SSE decoder and stream state machine.
 - `CopilotChatStream` ports the pure GitHub Copilot chat stream state machine over typed parsed chunks, before the actual SSE/Web Stream adapter lands.
 - `CopilotChatTools` ports pure GitHub Copilot request-body tool formatting for OpenAI-compatible function tools and tool-choice modes.
+- `CopilotChatLanguageModel` ports the first Haxe-owned GitHub Copilot/OpenAI-compatible chat model class surface over the typed helpers.
 
 ## Evidence
 
@@ -131,6 +132,14 @@ This slice adds the first Haxe-owned provider registry:
 - Provider tools emit unsupported warnings and are filtered from the OpenAI-compatible request tools.
 - Auto, none, required, and named tool-choice modes map to the upstream OpenAI-compatible shape.
 
+`CopilotChatLanguageModelSmoke` covers the first upstream-like provider class behavior from `provider/copilot/copilot-chat-model.test.ts` and `provider/sdk/copilot/chat/openai-compatible-chat-language-model.ts`:
+
+- Model class identity: `specificationVersion`, `modelId`, `provider`, provider-options name, structured-output support, and cloned `supportedUrls`.
+- Class model ID winning over request-object model IDs, matching upstream's `this.modelId` request-body behavior.
+- Class-level structured-output support turning JSON Schema response formats into `json_schema`.
+- Class-level include-usage mode adding `stream_options.include_usage`.
+- Delegation through the typed HTTP client for generate and stream paths, including call headers, raw chunk passthrough, and warning preservation.
+
 Run it with:
 
 ```bash
@@ -163,7 +172,7 @@ The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)`
 
 This is not the full provider runtime:
 
-- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, plugin provider hooks, and the full Copilot live SSE/Web Stream provider adapter remain `opencodehx-nrh`.
+- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, plugin provider hooks, responses-model support, and wiring the Haxe-owned Copilot model into the general registry remain `opencodehx-nrh`.
 - GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
 
