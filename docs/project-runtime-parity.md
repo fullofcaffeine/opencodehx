@@ -48,6 +48,9 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - removal handles missing directories, deletes the worktree branch, and untracks the sandbox.
 - NPM/install-adjacent behavior:
   - package spec sanitizing matches the upstream Windows-safe path rule while staying a no-op on POSIX.
+  - installation method detection follows upstream manager priority and installed-name checks,
+  - latest-version lookup covers GitHub releases, npm registry, bun/pnpm registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
+  - upgrade command planning covers curl, npm, pnpm, bun, Homebrew tap refresh/upgrade, Scoop, and Chocolatey elevated-shell failure messaging.
 - Sync:
   - typed event sequencing,
   - aggregate history,
@@ -57,7 +60,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 
 ## Deferred
 
-- Full installation side effects: package-manager detection, install/uninstall/outdated flows, and dependency bootstrap command behavior.
+- Full installation side effects against real package managers, package cache install/uninstall/outdated flows, and dependency bootstrap command behavior.
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching bindings beyond typed HEAD-event bus refresh.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.

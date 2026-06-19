@@ -11,7 +11,14 @@ import opencodehx.git.Git.GitItem;
 import opencodehx.git.Git.GitStat;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
-import opencodehx.npm.Npm;
+import opencodehx.installation.InstallationRuntime;
+import opencodehx.installation.InstallationRuntime.InstallationCommand;
+import opencodehx.installation.InstallationRuntime.InstallationDeps;
+import opencodehx.installation.InstallationRuntime.InstallationHttpRequest;
+import opencodehx.installation.InstallationRuntime.InstallationMethod;
+import opencodehx.installation.InstallationRuntime.InstallationProcessResult;
+import opencodehx.installation.InstallationRuntime.InstallationReleaseType;
+import opencodehx.npm.Npm as NpmRuntime;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.InstanceRuntime.InstanceContext;
 import opencodehx.project.InstanceRuntime.InstanceEvent;
@@ -41,6 +48,14 @@ typedef SmokeSyncItem = {
 	final name:String;
 }
 
+typedef SmokeInstallationDeps = {
+	final deps:InstallationDeps;
+	final requests:Array<InstallationHttpRequest>;
+	final commands:Array<InstallationCommand>;
+	final responses:Map<String, String>;
+	final outputs:Map<String, InstallationProcessResult>;
+}
+
 class ProjectRuntimeSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-project-"));
@@ -53,6 +68,7 @@ class ProjectRuntimeSmoke {
 			worktreeProject(root);
 			worktreeEdges(root);
 			npmSanitize();
+			installationRuntime();
 			syncEvents();
 			Fs.rmSync(root, {recursive: true, force: true});
 			// Dynamic is required at this JS runtime cleanup boundary because Haxe code,
@@ -402,12 +418,112 @@ class ProjectRuntimeSmoke {
 	}
 
 	static function npmSanitize():Void {
-		eq(Npm.sanitize("@opencode/acme"), "@opencode/acme", "scoped npm sanitize");
-		eq(Npm.sanitize("@opencode/acme@1.0.0"), "@opencode/acme@1.0.0", "versioned npm sanitize");
-		eq(Npm.sanitize("prettier"), "prettier", "plain npm sanitize");
+		eq(NpmRuntime.sanitize("@opencode/acme"), "@opencode/acme", "scoped npm sanitize");
+		eq(NpmRuntime.sanitize("@opencode/acme@1.0.0"), "@opencode/acme@1.0.0", "versioned npm sanitize");
+		eq(NpmRuntime.sanitize("prettier"), "prettier", "plain npm sanitize");
 		final spec = "acme@git+https://github.com/opencode/acme.git";
 		final expected = NodeProcess.platform() == "win32" ? "acme@git+https_//github.com/opencode/acme.git" : spec;
-		eq(Npm.sanitize(spec), expected, "git https npm sanitize");
+		eq(NpmRuntime.sanitize(spec), expected, "git https npm sanitize");
+	}
+
+	static function installationRuntime():Void {
+		final fixture = installationFixture();
+		fixture.responses.set("https://api.github.com/repos/anomalyco/opencode/releases/latest", '{"tag_name":"v4.0.0-beta.1"}');
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Curl), "4.0.0-beta.1", "installation github latest strips v");
+
+		fixture.outputs.set("npm config get registry", processOk("https://registry.example/\n"));
+		fixture.responses.set("https://registry.example/opencode-ai/latest", '{"version":"1.5.0"}');
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Npm), "1.5.0", "installation npm latest");
+		eq(fixture.requests[fixture.requests.length - 1].url, "https://registry.example/opencode-ai/latest", "installation npm registry url");
+
+		fixture.outputs.set("npm config get registry", processOk(""));
+		fixture.responses.set("https://registry.npmjs.org/opencode-ai/latest", '{"version":"1.6.0"}');
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Bun), "1.6.0", "installation bun latest via npm registry");
+
+		fixture.responses.set("https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/opencode.json", '{"version":"2.3.4"}');
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Scoop), "2.3.4", "installation scoop latest");
+
+		fixture.responses.set("https://community.chocolatey.org/api/v2/Packages?$filter=Id%20eq%20%27opencode%27%20and%20IsLatestVersion&$select=Version",
+			'{"d":{"results":[{"Version":"3.4.5"}]}}');
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Choco), "3.4.5", "installation choco latest");
+
+		fixture.outputs.set("brew list --formula anomalyco/tap/opencode", processOk(""));
+		fixture.outputs.set("brew list --formula opencode", processOk("opencode\n"));
+		fixture.responses.set("https://formulae.brew.sh/api/formula/opencode.json", '{"versions":{"stable":"2.0.0"}}');
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Brew), "2.0.0", "installation brew core latest");
+
+		fixture.outputs.set("brew list --formula anomalyco/tap/opencode", processOk("opencode\n"));
+		fixture.outputs.set("brew info --json=v2 anomalyco/tap/opencode", processOk('{"formulae":[{"versions":{"stable":"2.1.0"}}]}'));
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Brew), "2.1.0", "installation brew tap latest");
+
+		final methodFixture = installationFixture("/usr/local/bin/npm");
+		methodFixture.outputs.set("npm list -g --depth=0", processOk("opencode-ai@0.1.0\n"));
+		methodFixture.outputs.set("yarn global list", processOk("opencode-ai@0.1.0\n"));
+		eq(InstallationRuntime.method(methodFixture.deps), InstallationMethod.Npm, "installation method prefers exec path");
+		eq(InstallationRuntime.method(installationFixture("/Users/me/.opencode/bin/opencode").deps), InstallationMethod.Curl,
+			"installation method curl opencode path");
+
+		final upgradeFixture = installationFixture("/usr/local/bin/opencode");
+		eq(InstallationRuntime.upgrade(upgradeFixture.deps, InstallationMethod.Npm, "9.9.9").code, 0, "installation npm upgrade");
+		eq(commandKey(upgradeFixture.commands[0]), "npm install -g opencode-ai@9.9.9", "installation npm upgrade command");
+
+		final brewUpgrade = installationFixture("/usr/local/bin/opencode");
+		brewUpgrade.outputs.set("brew list --formula anomalyco/tap/opencode", processOk("opencode\n"));
+		brewUpgrade.outputs.set("brew --repo anomalyco/tap", processOk("/tmp/homebrew-tap\n"));
+		eq(InstallationRuntime.upgrade(brewUpgrade.deps, InstallationMethod.Brew, "9.9.9").code, 0, "installation brew upgrade");
+		eq(commandKey(brewUpgrade.commands[0]), "brew list --formula anomalyco/tap/opencode", "installation brew checks tap formula");
+		eq(commandKey(brewUpgrade.commands[1]), "brew tap anomalyco/tap", "installation brew taps before upgrade");
+		eq(commandKey(brewUpgrade.commands[2]), "brew --repo anomalyco/tap", "installation brew repo command");
+		eq(commandKey(brewUpgrade.commands[3]), "git pull --ff-only", "installation brew tap pull");
+		eq(brewUpgrade.commands[3].cwd, "/tmp/homebrew-tap", "installation brew pull cwd");
+		eq(commandKey(brewUpgrade.commands[4]), "brew upgrade anomalyco/tap/opencode", "installation brew upgrade command");
+
+		final chocoUpgrade = installationFixture("/usr/local/bin/opencode");
+		chocoUpgrade.outputs.set("choco upgrade opencode --version=9.9.9 -y", {code: 1, stdout: "", stderr: "denied"});
+		eq(InstallationRuntime.upgrade(chocoUpgrade.deps, InstallationMethod.Choco, "9.9.9").stderr, "not running from an elevated command shell",
+			"installation choco failure message");
+
+		eq(InstallationRuntime.getReleaseType("1.2.3", "1.2.4"), InstallationReleaseType.Patch, "installation patch release type");
+		eq(InstallationRuntime.getReleaseType("1.2.3", "1.3.0"), InstallationReleaseType.Minor, "installation minor release type");
+		eq(InstallationRuntime.getReleaseType("1.2.3", "2.0.0"), InstallationReleaseType.Major, "installation major release type");
+	}
+
+	static function installationFixture(?execPath:String):SmokeInstallationDeps {
+		final requests:Array<InstallationHttpRequest> = [];
+		final commands:Array<InstallationCommand> = [];
+		final responses = new Map<String, String>();
+		final outputs = new Map<String, InstallationProcessResult>();
+		final fixture:SmokeInstallationDeps = {
+			requests: requests,
+			commands: commands,
+			responses: responses,
+			outputs: outputs,
+			deps: {
+				execPath: execPath == null ? "/usr/local/bin/opencode" : execPath,
+				channel: "latest",
+				http: request -> {
+					requests.push(request);
+					return {
+						status: responses.exists(request.url) ? 200 : 404,
+						body: responses.exists(request.url) ? responses.get(request.url) : "",
+					};
+				},
+				run: command -> {
+					commands.push(command);
+					final key = commandKey(command);
+					return outputs.exists(key) ? outputs.get(key) : processOk("");
+				},
+			},
+		};
+		return fixture;
+	}
+
+	static function processOk(stdout:String):InstallationProcessResult {
+		return {code: 0, stdout: stdout, stderr: ""};
+	}
+
+	static function commandKey(command:InstallationCommand):String {
+		return [command.command].concat(command.args).join(" ");
 	}
 
 	static function syncEvents():Void {
