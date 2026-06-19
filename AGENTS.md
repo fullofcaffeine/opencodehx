@@ -190,6 +190,7 @@ The initial config port is documented in `docs/config-port.md`. Keep config pars
 The TUI is the most sensitive UX surface.
 
 - First compile one minimal Solid/OpenTUI TSX/HXX component through `genes-ts`.
+- Prefer genes-ts default inline markup (`<box>...</box>`) for Haxe-authored TUI components. String-based `jsx("...")` remains an escape for parser gaps such as fragment roots, but normal handwritten UI should prove the HHX path and keep Haxe expression splices typed.
 - Keep the first TUI gate small and reproducible: a Haxe-authored TSX scaffold, OpenTUI's test renderer contract, generated TSX snapshot, strict `tsc`, and an explicitly tracked runtime smoke before moving to the full terminal renderer.
 - Run OpenTUI/Solid runtime gates with the repo-pinned Bun binary, not Node or a developer's global Bun. The current scaffold uses `scripts/harness/opentui-solid-preload.mjs` so Babel accepts `genes-ts` support-module `declare` fields while preserving OpenTUI's Solid transform behavior.
 - Add compiler fixtures for props, children, signals/memos, imports, components, and generated TSX accepted by TypeScript.

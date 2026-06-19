@@ -10,6 +10,8 @@ npm run tui:scaffold
 
 The harness rebuilds `src-gen/tui`, type-checks with `tsconfig.tui.json`, compares `src-gen/tui/opencodehx/tui/TuiScaffold.tsx` with `reference/tui-scaffold.TuiScaffold.tsx`, then runs the generated TSX with the repo-pinned Bun binary and `scripts/harness/opentui-solid-preload.mjs`.
 
+The scaffold also exercises a small typed TUI foundation: route state, theme state, host keybind parsing/printing, and leader-key dispatch. The Haxe source uses genes-ts default inline markup (`<box>...</box>`) rather than string-based JSX escapes, keeping Haxe expression splices typed while still emitting ordinary TSX.
+
 Dependency pins:
 
 - `@opentui/core@0.1.99`
