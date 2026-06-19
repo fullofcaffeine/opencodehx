@@ -21,6 +21,7 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
 - `CopilotChatCompletion` ports pure GitHub Copilot response metadata, non-stream response content assembly, finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
 - `CopilotChatRequest` ports pure GitHub Copilot request argument shaping for OpenAI-compatible chat calls.
+- `CopilotOpenAICompatibleProvider` ports the pure GitHub Copilot/OpenAI-compatible provider factory settings: default/base URL handling, provider name/kind IDs, request URL construction, header merging, authorization defaults, and AI SDK user-agent suffixing.
 - `CopilotChatStream` ports the pure GitHub Copilot chat stream state machine over typed parsed chunks, before the actual SSE/Web Stream adapter lands.
 - `CopilotChatTools` ports pure GitHub Copilot request-body tool formatting for OpenAI-compatible function tools and tool-choice modes.
 
@@ -84,6 +85,15 @@ This slice adds the first Haxe-owned provider registry:
 - Unsupported JSON Schema formats downgrade to `json_object` and emit the upstream unsupported `responseFormat` warning.
 - Tool formatting and tool warnings inside the complete request args path.
 
+`CopilotProviderFactorySmoke` covers representative upstream `provider/sdk/copilot/copilot-provider.ts` factory behavior:
+
+- Default OpenAI-compatible base URL and provider name.
+- One-trailing-slash base URL normalization and URL callback output.
+- API-key `Authorization` defaults.
+- User headers overriding defaults, header cloning before caller mutation, lower-case normalized header keys, and AI SDK user-agent suffixing.
+- `languageModel` aliasing to chat models, plus separate chat/responses provider IDs.
+- Empty `baseURL` validation.
+
 `CopilotChatStreamSmoke` covers representative upstream stream-state behavior from `provider/copilot/copilot-chat-model.test.ts`:
 
 - `stream-start` and first-chunk response metadata.
@@ -146,5 +156,7 @@ The Copilot usage-mapping helpers exposed generated cast noise after null-guarde
 The Copilot request-body tool formatter exposed two generic object-context gaps: call arguments such as `Array<T>.push({ ... })` lost the expected anonymous record type, and `EitherType<String, { @:native("function") ... }>` object arms lost native-field metadata after abstract following. The fix landed in `../genes` commit `5b93d285bbf3325c5647c16863af02c7e7fd1c45` (`genes-izm`), teaching `genes-ts` to propagate callee parameter context and inspect `EitherType` parameters before the abstract erases to `Dynamic`.
 
 The same formatter also exposed a generic raw-template gap: `genes.ts.Undefinable<T>.orNull()` lowers through `js.Syntax.code("{0} ?? null", value)`, and placeholder emission was bypassing Genes' native-aware field-name path. The fix landed in `../genes` commit `909b9cfae0c8bf917cd93e5644d22c48718a3c51` (`genes-1im`), teaching `genes-ts` raw syntax templates to emit placeholder values through Genes' raw JS value path so `@:native` anonymous fields remain correct without adding TS-only casts to raw snippets.
+
+The Copilot provider factory stays type-safe and cast-free, but it shows a generated-output polish opportunity: `using StringTools` helpers such as `endsWith` still emit runtime helper calls instead of native TypeScript string methods. Keep the Haxe source readable; reduce this into a generic `genes-ts` fixture if it starts obscuring high-risk generated modules.
 
 Regular Genes' existing ES6 output path is a useful performance-oriented secondary profile. `../genes-vanilla` is the read-only reference for original Genes behavior; OpenCodeHX compiler work still lands in `../genes`, and idiomatic TypeScript remains the default output surface.

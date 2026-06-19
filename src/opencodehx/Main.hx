@@ -15,6 +15,7 @@ import opencodehx.smoke.CopilotChatMessagesSmoke;
 import opencodehx.smoke.CopilotChatRequestSmoke;
 import opencodehx.smoke.CopilotChatStreamSmoke;
 import opencodehx.smoke.CopilotChatToolsSmoke;
+import opencodehx.smoke.CopilotProviderFactorySmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
@@ -80,6 +81,8 @@ class Main {
 				Syntax.code("console.log({0})", "copilot-chat-completion-smoke:ok");
 				CopilotChatRequestSmoke.run();
 				Syntax.code("console.log({0})", "copilot-chat-request-smoke:ok");
+				CopilotProviderFactorySmoke.run();
+				Syntax.code("console.log({0})", "copilot-provider-factory-smoke:ok");
 				CopilotChatStreamSmoke.run();
 				Syntax.code("console.log({0})", "copilot-chat-stream-smoke:ok");
 				CopilotChatToolsSmoke.run();
