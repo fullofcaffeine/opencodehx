@@ -1,5 +1,6 @@
 package opencodehx.provider;
 
+import genes.ts.Unknown;
 import haxe.extern.EitherType;
 import haxe.DynamicAccess;
 
@@ -105,6 +106,45 @@ typedef ProviderJsonSchema = {
 	// JSON Schema enum values are arbitrary literals. Keep Dynamic confined to
 	// this schema-boundary field and normalize/narrow before application use.
 	@:native("enum") @:optional var enumValues:Array<Dynamic>;
+}
+
+enum abstract ProviderMessageRole(String) from String to String {
+	final System = "system";
+	final User = "user";
+	final Assistant = "assistant";
+	final Tool = "tool";
+}
+
+enum abstract ProviderMessagePartType(String) from String to String {
+	final Text = "text";
+	final Reasoning = "reasoning";
+	final Image = "image";
+	final File = "file";
+	final ToolCall = "tool-call";
+	final ToolResult = "tool-result";
+	final ToolApprovalRequest = "tool-approval-request";
+	final ToolApprovalResponse = "tool-approval-response";
+}
+
+typedef ProviderMessagePart = {
+	final type:ProviderMessagePartType;
+	@:optional var text:String;
+	@:optional var image:String;
+	@:optional var mediaType:String;
+	@:optional var filename:String;
+	@:optional var toolCallId:String;
+	@:optional var toolName:String;
+	@:optional var input:Unknown;
+	@:optional var output:Unknown;
+	@:optional var providerOptions:ProviderOptions;
+}
+
+typedef ProviderMessageContent = EitherType<String, Array<ProviderMessagePart>>;
+
+typedef ProviderMessage = {
+	final role:ProviderMessageRole;
+	var content:ProviderMessageContent;
+	@:optional var providerOptions:ProviderOptions;
 }
 
 typedef ProviderModel = {

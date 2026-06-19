@@ -1,10 +1,18 @@
 package opencodehx.smoke;
 
+import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import opencodehx.provider.ProviderTransform;
+import opencodehx.provider.ProviderTypes.ProviderInterleaved;
+import opencodehx.provider.ProviderTypes.ProviderInterleavedField;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderJsonSchema;
+import opencodehx.provider.ProviderTypes.ProviderMessage;
+import opencodehx.provider.ProviderTypes.ProviderMessageContent;
+import opencodehx.provider.ProviderTypes.ProviderMessagePart;
+import opencodehx.provider.ProviderTypes.ProviderMessagePartType;
+import opencodehx.provider.ProviderTypes.ProviderMessageRole;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.ProviderTypes.ProviderVariants;
@@ -27,6 +35,7 @@ class ProviderTransformSmoke {
 		parameterDefaults();
 		variantDefaults();
 		schemaSanitizer();
+		messageTransforms();
 	}
 
 	static function cacheAndStoreOptions():Void {
@@ -239,11 +248,106 @@ class ProviderTransformSmoke {
 		eq(propertiesOf(property(openaiResult, "data")).exists("stillHere"), true, "non-gemini schema unchanged");
 	}
 
-	static function model(providerID:String, apiID:String, npm:String, ?reasoning:Bool = false):ProviderModel {
-		return modelWithRelease(providerID, apiID, npm, "2024-01-01", reasoning);
+	static function messageTransforms():Void {
+		final deepseek = modelWithRelease("deepseek", "deepseek-chat", "@ai-sdk/openai-compatible", "2024-01-01", true,
+			{field: ProviderInterleavedField.ReasoningContent});
+		final deepseekResult = ProviderTransform.message([
+			message(ProviderMessageRole.Assistant, partContent([reasoningPart("Let me think about this..."), toolCallPart("tool/1", "bash"),])),
+		], deepseek, optionMap());
+		eq(partsOf(deepseekResult[0]).length, 1, "interleaved removes reasoning part");
+		eq(partsOf(deepseekResult[0])[0].type, ProviderMessagePartType.ToolCall, "interleaved keeps tool call");
+		final openaiCompatible = object(get(messageOptions(deepseekResult[0]), "openaiCompatible"));
+		eq(get(openaiCompatible, "reasoning_content"), "Let me think about this...", "interleaved reasoning provider option");
+
+		final openaiResult = ProviderTransform.message([
+			message(ProviderMessageRole.Assistant, partContent([reasoningPart("Keep me"), textPart("Answer")])),
+		], model("openai", "gpt-4", "@ai-sdk/openai"), optionMap());
+		eq(partsOf(openaiResult[0]).length, 2, "non-interleaved keeps reasoning");
+
+		final validBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ";
+		final textOnly = modelWithRelease("text-only", "gpt-text", "@ai-sdk/openai", "2024-01-01", false, null, false, false);
+		final unsupported = ProviderTransform.message([
+			message(ProviderMessageRole.User, partContent([
+				textPart("Compare attachments"),
+				imagePart("data:image/png;base64,"),
+				imagePart('data:image/png;base64,${validBase64}'),
+				filePart("notes.pdf", "application/pdf"),
+			])),
+		], textOnly, optionMap());
+		eq(partsOf(unsupported[0])[1].text, "ERROR: Image file is empty or corrupted. Please provide a valid image.", "empty image error");
+		eq(partsOf(unsupported[0])[2].text, "ERROR: Cannot read image (this model does not support image input). Inform the user.", "unsupported image error");
+		eq(partsOf(unsupported[0])[3].text, 'ERROR: Cannot read "notes.pdf" (this model does not support pdf input). Inform the user.',
+			"unsupported file error");
+
+		final anthropic = model("anthropic", "claude-3-5-sonnet-20241022", "@ai-sdk/anthropic");
+		final filtered = ProviderTransform.message([
+			message(ProviderMessageRole.User, textContent("Hello")),
+			message(ProviderMessageRole.Assistant, textContent("")),
+			message(ProviderMessageRole.Assistant, partContent([textPart(""), reasoningPart(""), textPart("Answer")])),
+			message(ProviderMessageRole.User, textContent("World")),
+		], anthropic, optionMap());
+		eq(filtered.length, 3, "anthropic filters empty messages");
+		eq(textOf(filtered[0]), "Hello", "anthropic keeps first text");
+		eq(partsOf(filtered[1]).length, 1, "anthropic filters empty parts");
+		eq(partsOf(filtered[1])[0].text, "Answer", "anthropic keeps non-empty part");
+		eq(textOf(filtered[2]), "World", "anthropic keeps final text");
+
+		final split = ProviderTransform.message([
+			message(ProviderMessageRole.User, partContent([textPart("Find PDFs")])),
+			message(ProviderMessageRole.Assistant, partContent([
+				toolCallPart("toolu_1", "read"),
+				toolCallPart("toolu_2", "glob"),
+				textPart("I checked your home directory."),
+			])),
+		], anthropic, optionMap());
+		eq(split.length, 3, "anthropic splits assistant tool tails");
+		eq(partsOf(split[1])[0].type, ProviderMessagePartType.Text, "anthropic split text first");
+		eq(partsOf(split[2])[0].type, ProviderMessagePartType.ToolCall, "anthropic split tools second");
+
+		final systemCached = ProviderTransform.message([
+			message(ProviderMessageRole.System, partContent([textPart("You are helpful")])),
+			message(ProviderMessageRole.User, textContent("Hello")),
+		], anthropic, optionMap());
+		final anthropicCache = object(get(messageOptions(systemCached[0]), "anthropic"));
+		eq(get(object(get(anthropicCache, "cacheControl")), "type"), "ephemeral", "anthropic message-level cache");
+		eq(partsOf(systemCached[0])[0].providerOptions == null, true, "anthropic cache not on part");
+
+		final gateway = model("vercel", "anthropic/claude-sonnet-4", "@ai-sdk/gateway", true);
+		final gatewayResult = ProviderTransform.message([message(ProviderMessageRole.System, partContent([textPart("You are helpful")]))], gateway,
+			optionMap());
+		eq(gatewayResult[0].providerOptions == null, true, "gateway skips anthropic cache");
+
+		final claudeScrub = ProviderTransform.message([
+			message(ProviderMessageRole.Assistant, partContent([toolCallPart("bad/id!", "bash")])),
+		], model("anthropic", "claude-sonnet-4", "@ai-sdk/anthropic"), optionMap());
+		eq(partsOf(claudeScrub[0])[0].toolCallId, "bad_id_", "claude tool id scrub");
+
+		final mistral = ProviderTransform.message([
+			message(ProviderMessageRole.Tool, partContent([toolResultPart("abc-def!!", "bash")])),
+			message(ProviderMessageRole.User, textContent("Continue")),
+		], model("mistral", "mistral-small-latest", "@ai-sdk/mistral"), optionMap());
+		eq(partsOf(mistral[0])[0].toolCallId, "abcdef000", "mistral tool id scrub");
+		eq(partsOf(mistral[1])[0].text, "Done.", "mistral inserts assistant bridge");
+
+		final providerOptions = record1("azure-cognitive-services", record1("someOption", "value"));
+		final partOptions = record1("azure-cognitive-services", record1("part", true));
+		final part = textPart("Hello");
+		part.providerOptions = partOptions;
+		final remapMessage = message(ProviderMessageRole.User, partContent([part]));
+		remapMessage.providerOptions = providerOptions;
+		final remapped = ProviderTransform.message([remapMessage], model("azure-cognitive-services", "gpt-4", "@ai-sdk/azure"), optionMap());
+		eq(exists(messageOptions(remapped[0]), "azure"), true, "message provider options remapped");
+		eq(exists(messageOptions(remapped[0]), "azure-cognitive-services"), false, "message provider id removed");
+		eq(exists(partOptionsOf(partsOf(remapped[0])[0]), "azure"), true, "part provider options remapped");
 	}
 
-	static function modelWithRelease(providerID:String, apiID:String, npm:String, releaseDate:String, ?reasoning:Bool = false):ProviderModel {
+	static function model(providerID:String, apiID:String, npm:String, ?reasoning:Bool = false, ?interleaved:ProviderInterleaved, ?inputImage:Bool = true,
+			?inputPdf:Bool = true):ProviderModel {
+		return modelWithRelease(providerID, apiID, npm, "2024-01-01", reasoning, interleaved, inputImage, inputPdf);
+	}
+
+	static function modelWithRelease(providerID:String, apiID:String, npm:String, releaseDate:String, ?reasoning:Bool = false,
+			?interleaved:ProviderInterleaved, ?inputImage:Bool = true, ?inputPdf:Bool = true):ProviderModel {
 		return {
 			id: ModelID.make(apiID),
 			providerID: ProviderID.make(providerID),
@@ -258,9 +362,9 @@ class ProviderTransformSmoke {
 				input: {
 					text: true,
 					audio: false,
-					image: true,
+					image: inputImage,
 					video: false,
-					pdf: true
+					pdf: inputPdf
 				},
 				output: {
 					text: true,
@@ -269,7 +373,7 @@ class ProviderTransformSmoke {
 					video: false,
 					pdf: false
 				},
-				interleaved: false,
+				interleaved: interleaved == null ? false : interleaved,
 			},
 			cost: {input: 0.001, output: 0.002, cache: {read: 0.0001, write: 0.0002}},
 			limit: {context: 200000, output: 8192},
@@ -406,6 +510,82 @@ class ProviderTransformSmoke {
 		if (values == null)
 			throw "Missing enum values";
 		return Std.string(values[index]);
+	}
+
+	static function message(role:ProviderMessageRole, content:ProviderMessageContent):ProviderMessage {
+		return {role: role, content: content};
+	}
+
+	static function textContent(text:String):ProviderMessageContent {
+		return text;
+	}
+
+	static function partContent(parts:Array<ProviderMessagePart>):ProviderMessageContent {
+		return parts;
+	}
+
+	static function textPart(text:String):ProviderMessagePart {
+		return {type: ProviderMessagePartType.Text, text: text};
+	}
+
+	static function reasoningPart(text:String):ProviderMessagePart {
+		return {type: ProviderMessagePartType.Reasoning, text: text};
+	}
+
+	static function imagePart(image:String):ProviderMessagePart {
+		return {type: ProviderMessagePartType.Image, image: image};
+	}
+
+	static function filePart(filename:String, mediaType:String):ProviderMessagePart {
+		return {type: ProviderMessagePartType.File, filename: filename, mediaType: mediaType};
+	}
+
+	static function toolCallPart(toolCallId:String, toolName:String):ProviderMessagePart {
+		return {
+			type: ProviderMessagePartType.ToolCall,
+			toolCallId: toolCallId,
+			toolName: toolName,
+			input: Unknown.fromBoundary(record1("command", "echo hello")),
+		};
+	}
+
+	static function toolResultPart(toolCallId:String, toolName:String):ProviderMessagePart {
+		return {
+			type: ProviderMessagePartType.ToolResult,
+			toolCallId: toolCallId,
+			toolName: toolName,
+			output: Unknown.fromBoundary(record1("type", "text")),
+		};
+	}
+
+	static function partsOf(msg:ProviderMessage):Array<ProviderMessagePart> {
+		if (!Std.isOfType(msg.content, Array))
+			throw "Expected message part content";
+		// Fixture assertion helper for AI SDK's `string | part[]` content union.
+		// The runtime Array guard keeps the cast scoped to known test messages.
+		return cast msg.content;
+	}
+
+	static function textOf(msg:ProviderMessage):String {
+		if (!Std.isOfType(msg.content, String))
+			throw "Expected message text content";
+		// Fixture assertion helper for AI SDK's `string | part[]` content union.
+		// The runtime String guard keeps the cast scoped to known test messages.
+		return cast msg.content;
+	}
+
+	static function messageOptions(msg:ProviderMessage):ProviderOptions {
+		final options = msg.providerOptions;
+		if (options == null)
+			throw "Missing message providerOptions";
+		return options;
+	}
+
+	static function partOptionsOf(part:ProviderMessagePart):ProviderOptions {
+		final options = part.providerOptions;
+		if (options == null)
+			throw "Missing part providerOptions";
+		return options;
 	}
 
 	static function object(value:Dynamic):ProviderOptions {

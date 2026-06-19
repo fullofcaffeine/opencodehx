@@ -1,6 +1,12 @@
 package opencodehx.provider;
 
 import opencodehx.provider.ProviderTypes.ProviderModel;
+import opencodehx.provider.ProviderTypes.ProviderInterleavedConfig;
+import opencodehx.provider.ProviderTypes.ProviderMessage;
+import opencodehx.provider.ProviderTypes.ProviderMessageContent;
+import opencodehx.provider.ProviderTypes.ProviderMessagePart;
+import opencodehx.provider.ProviderTypes.ProviderMessagePartType;
+import opencodehx.provider.ProviderTypes.ProviderMessageRole;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.ProviderTypes.ProviderVariants;
 import opencodehx.provider.ProviderTypes.ProviderJsonSchema;
@@ -121,6 +127,550 @@ class ProviderTransform {
 		if (model.providerID.toString() == "google" || model.api.id.contains("gemini"))
 			sanitizeGeminiSchema(schema);
 		return schema;
+	}
+
+	public static function message(msgs:Array<ProviderMessage>, model:ProviderModel, options:ProviderOptions):Array<ProviderMessage> {
+		var result = unsupportedParts(msgs, model);
+		result = normalizeMessages(result, model, options);
+		if (shouldApplyCaching(model))
+			result = applyCaching(result, model);
+		return remapMessageProviderOptions(result, model);
+	}
+
+	static function unsupportedParts(msgs:Array<ProviderMessage>, model:ProviderModel):Array<ProviderMessage> {
+		final result:Array<ProviderMessage> = [];
+		for (msg in msgs) {
+			final parts = contentParts(msg.content);
+			if (msg.role != ProviderMessageRole.User || parts == null) {
+				result.push(msg);
+				continue;
+			}
+
+			var changed = false;
+			final mapped:Array<ProviderMessagePart> = [];
+			for (part in parts) {
+				final next = unsupportedPart(part, model);
+				if (next != part)
+					changed = true;
+				mapped.push(next);
+			}
+
+			if (!changed) {
+				result.push(msg);
+				continue;
+			}
+			final out = cloneMessage(msg);
+			out.content = mapped;
+			result.push(out);
+		}
+		return result;
+	}
+
+	static function unsupportedPart(part:ProviderMessagePart, model:ProviderModel):ProviderMessagePart {
+		if (part.type != ProviderMessagePartType.Image && part.type != ProviderMessagePartType.File)
+			return part;
+
+		if (part.type == ProviderMessagePartType.Image) {
+			final image = part.image == null ? "" : part.image;
+			if (isEmptyBase64DataUrl(image))
+				return textPart("ERROR: Image file is empty or corrupted. Please provide a valid image.");
+		}
+
+		final mime = if (part.type == ProviderMessagePartType.Image) {
+			final image = part.image == null ? "" : part.image;
+			image.split(";")[0].replace("data:", "");
+		} else {
+			part.mediaType;
+		}
+		if (mime == null)
+			return part;
+
+		final modality = mimeToModality(mime);
+		if (modality == null || supportsInputModality(model, modality))
+			return part;
+
+		final name = part.type == ProviderMessagePartType.File && part.filename != null ? '"${part.filename}"' : modality;
+		return textPart('ERROR: Cannot read ${name} (this model does not support ${modality} input). Inform the user.');
+	}
+
+	static function normalizeMessages(msgs:Array<ProviderMessage>, model:ProviderModel, _options:ProviderOptions):Array<ProviderMessage> {
+		var result = msgs;
+		if (model.api.npm == "@ai-sdk/anthropic" || model.api.npm == "@ai-sdk/amazon-bedrock")
+			result = filterEmptyAnthropicContent(result);
+
+		if (model.api.id.contains("claude"))
+			result = scrubToolCallIDs(result, id -> ~/[^a-zA-Z0-9_-]/g.replace(id, "_"));
+
+		if (model.api.npm == "@ai-sdk/anthropic" || model.api.npm == "@ai-sdk/google-vertex/anthropic")
+			result = splitAnthropicAssistantToolTails(result);
+
+		if (isMistralModel(model))
+			return normalizeMistralMessages(result);
+
+		final field = interleavedField(model);
+		if (field != null)
+			return moveInterleavedReasoning(result, field);
+
+		return result;
+	}
+
+	static function filterEmptyAnthropicContent(msgs:Array<ProviderMessage>):Array<ProviderMessage> {
+		final result:Array<ProviderMessage> = [];
+		for (msg in msgs) {
+			final text = contentText(msg.content);
+			if (text != null) {
+				if (text != "")
+					result.push(msg);
+				continue;
+			}
+
+			final parts = contentParts(msg.content);
+			if (parts == null) {
+				result.push(msg);
+				continue;
+			}
+
+			final filtered:Array<ProviderMessagePart> = [];
+			for (part in parts) {
+				if ((part.type == ProviderMessagePartType.Text || part.type == ProviderMessagePartType.Reasoning) && part.text == "")
+					continue;
+				filtered.push(part);
+			}
+			if (filtered.length == 0)
+				continue;
+			if (filtered.length == parts.length) {
+				result.push(msg);
+				continue;
+			}
+			final out = cloneMessage(msg);
+			out.content = filtered;
+			result.push(out);
+		}
+		return result;
+	}
+
+	static function scrubToolCallIDs(msgs:Array<ProviderMessage>, scrub:String->String):Array<ProviderMessage> {
+		final result:Array<ProviderMessage> = [];
+		for (msg in msgs) {
+			final parts = contentParts(msg.content);
+			if (parts == null || (msg.role != ProviderMessageRole.Assistant && msg.role != ProviderMessageRole.Tool)) {
+				result.push(msg);
+				continue;
+			}
+
+			var changed = false;
+			final mapped:Array<ProviderMessagePart> = [];
+			for (part in parts) {
+				if (shouldScrubToolID(msg.role, part) && part.toolCallId != null) {
+					final out = clonePart(part);
+					out.toolCallId = scrub(part.toolCallId);
+					mapped.push(out);
+					changed = true;
+				} else {
+					mapped.push(part);
+				}
+			}
+			if (!changed) {
+				result.push(msg);
+				continue;
+			}
+			final out = cloneMessage(msg);
+			out.content = mapped;
+			result.push(out);
+		}
+		return result;
+	}
+
+	static function splitAnthropicAssistantToolTails(msgs:Array<ProviderMessage>):Array<ProviderMessage> {
+		final result:Array<ProviderMessage> = [];
+		for (msg in msgs) {
+			final parts = contentParts(msg.content);
+			if (msg.role != ProviderMessageRole.Assistant || parts == null) {
+				result.push(msg);
+				continue;
+			}
+
+			final firstTool = firstPartIndex(parts, ProviderMessagePartType.ToolCall);
+			if (firstTool == -1 || !hasNonToolAfter(parts, firstTool)) {
+				result.push(msg);
+				continue;
+			}
+
+			final nonTools:Array<ProviderMessagePart> = [];
+			final tools:Array<ProviderMessagePart> = [];
+			for (part in parts) {
+				if (part.type == ProviderMessagePartType.ToolCall)
+					tools.push(part);
+				else
+					nonTools.push(part);
+			}
+
+			final textMessage = cloneMessage(msg);
+			textMessage.content = nonTools;
+			result.push(textMessage);
+			final toolMessage = cloneMessage(msg);
+			toolMessage.content = tools;
+			result.push(toolMessage);
+		}
+		return result;
+	}
+
+	static function normalizeMistralMessages(msgs:Array<ProviderMessage>):Array<ProviderMessage> {
+		final scrubbed = scrubToolCallIDs(msgs, id -> ~/[^a-zA-Z0-9]/g.replace(id, "").substr(0, 9).rpad("0", 9));
+		final result:Array<ProviderMessage> = [];
+		for (i in 0...scrubbed.length) {
+			final msg = scrubbed[i];
+			result.push(msg);
+			final next = i + 1 < scrubbed.length ? scrubbed[i + 1] : null;
+			if (msg.role == ProviderMessageRole.Tool && next != null && next.role == ProviderMessageRole.User)
+				result.push({role: ProviderMessageRole.Assistant, content: [textPart("Done.")]});
+		}
+		return result;
+	}
+
+	static function moveInterleavedReasoning(msgs:Array<ProviderMessage>, field:String):Array<ProviderMessage> {
+		final result:Array<ProviderMessage> = [];
+		for (msg in msgs) {
+			final parts = contentParts(msg.content);
+			if (msg.role != ProviderMessageRole.Assistant || parts == null) {
+				result.push(msg);
+				continue;
+			}
+
+			var reasoningText = "";
+			final filtered:Array<ProviderMessagePart> = [];
+			for (part in parts) {
+				if (part.type == ProviderMessagePartType.Reasoning) {
+					if (part.text != null)
+						reasoningText += part.text;
+				} else {
+					filtered.push(part);
+				}
+			}
+
+			if (filtered.length == parts.length) {
+				result.push(msg);
+				continue;
+			}
+
+			final out = cloneMessage(msg);
+			out.content = filtered;
+			if (reasoningText != "") {
+				final providerOptions = cloneOptions(msg.providerOptions);
+				final openaiCompatible = cloneOptionRecord(providerOptions.get("openaiCompatible"));
+				openaiCompatible.set(field, reasoningText);
+				providerOptions.set("openaiCompatible", openaiCompatible);
+				out.providerOptions = providerOptions;
+			}
+			result.push(out);
+		}
+		return result;
+	}
+
+	static function applyCaching(msgs:Array<ProviderMessage>, model:ProviderModel):Array<ProviderMessage> {
+		final selected = cacheTargetMessages(msgs);
+		final cacheOptions = cacheProviderOptions();
+		final result:Array<ProviderMessage> = [];
+		for (msg in msgs) {
+			if (selected.indexOf(msg) == -1) {
+				result.push(msg);
+				continue;
+			}
+			result.push(cacheMessage(msg, model, cacheOptions));
+		}
+		return result;
+	}
+
+	static function cacheMessage(msg:ProviderMessage, model:ProviderModel, cacheOptions:ProviderOptions):ProviderMessage {
+		final useMessageLevelOptions = model.providerID.toString() == "anthropic"
+			|| model.providerID.toString().contains("bedrock")
+			|| model.api.npm == "@ai-sdk/amazon-bedrock";
+		final parts = contentParts(msg.content);
+		if (!useMessageLevelOptions && parts != null && parts.length > 0) {
+			final last = parts[parts.length - 1];
+			if (last.type != ProviderMessagePartType.ToolApprovalRequest && last.type != ProviderMessagePartType.ToolApprovalResponse) {
+				final mapped = parts.copy();
+				final lastCopy = clonePart(last);
+				lastCopy.providerOptions = mergeProviderOptions(last.providerOptions, cacheOptions);
+				mapped[parts.length - 1] = lastCopy;
+				final out = cloneMessage(msg);
+				out.content = mapped;
+				return out;
+			}
+		}
+
+		final out = cloneMessage(msg);
+		out.providerOptions = mergeProviderOptions(msg.providerOptions, cacheOptions);
+		return out;
+	}
+
+	static function remapMessageProviderOptions(msgs:Array<ProviderMessage>, model:ProviderModel):Array<ProviderMessage> {
+		final key = sdkKey(model.api.npm);
+		final providerID = model.providerID.toString();
+		if (key == null || key == providerID)
+			return msgs;
+
+		final result:Array<ProviderMessage> = [];
+		for (msg in msgs) {
+			final remappedRoot = remapProviderOptions(msg.providerOptions, providerID, key);
+			var changed = remappedRoot != msg.providerOptions;
+			var nextContent = msg.content;
+			final parts = contentParts(msg.content);
+			if (parts != null) {
+				final mapped:Array<ProviderMessagePart> = [];
+				for (part in parts) {
+					if (part.type == ProviderMessagePartType.ToolApprovalRequest
+						|| part.type == ProviderMessagePartType.ToolApprovalResponse) {
+						mapped.push(clonePart(part));
+						continue;
+					}
+					final remappedPart = remapProviderOptions(part.providerOptions, providerID, key);
+					if (remappedPart != part.providerOptions) {
+						final out = clonePart(part);
+						out.providerOptions = remappedPart;
+						mapped.push(out);
+						changed = true;
+					} else {
+						mapped.push(part);
+					}
+				}
+				nextContent = mapped;
+			}
+
+			if (!changed) {
+				result.push(msg);
+				continue;
+			}
+			final out = cloneMessage(msg);
+			out.content = nextContent;
+			if (remappedRoot != null)
+				out.providerOptions = remappedRoot;
+			result.push(out);
+		}
+		return result;
+	}
+
+	static function isEmptyBase64DataUrl(value:String):Bool {
+		if (!value.startsWith("data:"))
+			return false;
+		final match = ~/^data:([^;]+);base64,(.*)$/;
+		return match.match(value) && match.matched(2).length == 0;
+	}
+
+	static function mimeToModality(mime:String):Null<String> {
+		if (mime.startsWith("image/"))
+			return "image";
+		if (mime.startsWith("audio/"))
+			return "audio";
+		if (mime.startsWith("video/"))
+			return "video";
+		if (mime == "application/pdf")
+			return "pdf";
+		return null;
+	}
+
+	static function supportsInputModality(model:ProviderModel, modality:String):Bool {
+		return switch modality {
+			case "image": model.capabilities.input.image;
+			case "audio": model.capabilities.input.audio;
+			case "video": model.capabilities.input.video;
+			case "pdf": model.capabilities.input.pdf;
+			case "text": model.capabilities.input.text;
+			case _: false;
+		}
+	}
+
+	static function shouldScrubToolID(role:ProviderMessageRole, part:ProviderMessagePart):Bool {
+		return if (role == ProviderMessageRole.Assistant) {
+			part.type == ProviderMessagePartType.ToolCall
+			|| part.type == ProviderMessagePartType.ToolResult;
+		} else if (role == ProviderMessageRole.Tool) {
+			part.type == ProviderMessagePartType.ToolResult;
+		} else {
+			false;
+		}
+	}
+
+	static function firstPartIndex(parts:Array<ProviderMessagePart>, type:ProviderMessagePartType):Int {
+		for (i in 0...parts.length) {
+			if (parts[i].type == type)
+				return i;
+		}
+		return -1;
+	}
+
+	static function hasNonToolAfter(parts:Array<ProviderMessagePart>, index:Int):Bool {
+		for (i in index...parts.length) {
+			if (parts[i].type != ProviderMessagePartType.ToolCall)
+				return true;
+		}
+		return false;
+	}
+
+	static function isMistralModel(model:ProviderModel):Bool {
+		final providerID = model.providerID.toString();
+		final apiID = model.api.id.toLowerCase();
+		return providerID == "mistral" || apiID.contains("mistral") || apiID.contains("devstral");
+	}
+
+	static function shouldApplyCaching(model:ProviderModel):Bool {
+		final providerID = model.providerID.toString();
+		final modelID = model.id.toString();
+		final apiID = model.api.id;
+		return (providerID == "anthropic"
+			|| providerID == "google-vertex-anthropic"
+			|| apiID.contains("anthropic")
+			|| apiID.contains("claude")
+			|| modelID.contains("anthropic")
+			|| modelID.contains("claude")
+			|| model.api.npm == "@ai-sdk/anthropic"
+			|| model.api.npm == "@ai-sdk/alibaba")
+			&& model.api.npm != "@ai-sdk/gateway";
+	}
+
+	static function cacheTargetMessages(msgs:Array<ProviderMessage>):Array<ProviderMessage> {
+		final selected:Array<ProviderMessage> = [];
+		var systemCount = 0;
+		for (msg in msgs) {
+			if (msg.role == ProviderMessageRole.System && systemCount < 2) {
+				addUniqueMessage(selected, msg);
+				systemCount++;
+			}
+		}
+
+		final nonSystem:Array<ProviderMessage> = [];
+		for (msg in msgs) {
+			if (msg.role != ProviderMessageRole.System)
+				nonSystem.push(msg);
+		}
+		final start = Math.floor(Math.max(0, nonSystem.length - 2));
+		for (i in start...nonSystem.length)
+			addUniqueMessage(selected, nonSystem[i]);
+
+		return selected;
+	}
+
+	static function addUniqueMessage(items:Array<ProviderMessage>, msg:ProviderMessage):Void {
+		if (items.indexOf(msg) == -1)
+			items.push(msg);
+	}
+
+	static function cacheProviderOptions():ProviderOptions {
+		final result = optionMap();
+		result.set("anthropic", record1("cacheControl", record1("type", "ephemeral")));
+		result.set("openrouter", record1("cacheControl", record1("type", "ephemeral")));
+		result.set("bedrock", record1("cachePoint", record1("type", "default")));
+		result.set("openaiCompatible", record1("cache_control", record1("type", "ephemeral")));
+		result.set("copilot", record1("copilot_cache_control", record1("type", "ephemeral")));
+		result.set("alibaba", record1("cacheControl", record1("type", "ephemeral")));
+		return result;
+	}
+
+	static function remapProviderOptions(options:Null<ProviderOptions>, providerID:String, key:String):Null<ProviderOptions> {
+		if (options == null || !options.exists(providerID))
+			return options;
+
+		final result = optionMap();
+		for (field in options.keys()) {
+			if (field != providerID)
+				result.set(field, options.get(field));
+		}
+		result.set(key, options.get(providerID));
+		return result;
+	}
+
+	static function mergeProviderOptions(existing:Null<ProviderOptions>, incoming:ProviderOptions):ProviderOptions {
+		final result = cloneOptions(existing);
+		for (key in incoming.keys()) {
+			final next = incoming.get(key);
+			final current = result.exists(key) ? result.get(key) : null;
+			if (isRecord(current) && isRecord(next))
+				result.set(key, mergeRecord(current, cloneOptionRecord(next)));
+			else
+				result.set(key, next);
+		}
+		return result;
+	}
+
+	static function cloneOptions(options:Null<ProviderOptions>):ProviderOptions {
+		final result = optionMap();
+		if (options == null)
+			return result;
+		for (field in options.keys())
+			result.set(field, options.get(field));
+		return result;
+	}
+
+	static function cloneOptionRecord(value:Dynamic):ProviderOptions {
+		// ProviderOptions values are SDK-owned records. This helper converts a
+		// runtime-checked plain record into a typed DynamicAccess map so cache and
+		// interleaved-reasoning merges do not leak arbitrary reflection elsewhere.
+		final result = optionMap();
+		if (!isRecord(value))
+			return result;
+		for (field in Reflect.fields(value))
+			result.set(field, Reflect.field(value, field));
+		return result;
+	}
+
+	static function interleavedField(model:ProviderModel):Null<String> {
+		final value = model.capabilities.interleaved;
+		if (Std.isOfType(value, Bool))
+			return null;
+		// ProviderInterleaved is an EitherType. The Bool arm is guarded above, so
+		// this cast is the narrow Haxe-side access to the typed config arm.
+		final config:ProviderInterleavedConfig = cast value;
+		return config.field;
+	}
+
+	static function contentParts(content:ProviderMessageContent):Null<Array<ProviderMessagePart>> {
+		if (!Std.isOfType(content, Array))
+			return null;
+		// ProviderMessageContent mirrors AI SDK's `string | part[]`. The runtime
+		// Array guard proves the union arm before this localized cast.
+		return cast content;
+	}
+
+	static function contentText(content:ProviderMessageContent):Null<String> {
+		if (!Std.isOfType(content, String))
+			return null;
+		// ProviderMessageContent mirrors AI SDK's `string | part[]`. The runtime
+		// String guard proves the union arm before this localized cast.
+		return cast content;
+	}
+
+	static function cloneMessage(msg:ProviderMessage):ProviderMessage {
+		final out:ProviderMessage = {role: msg.role, content: msg.content};
+		if (msg.providerOptions != null)
+			out.providerOptions = msg.providerOptions;
+		return out;
+	}
+
+	static function clonePart(part:ProviderMessagePart):ProviderMessagePart {
+		final out:ProviderMessagePart = {type: part.type};
+		if (part.text != null)
+			out.text = part.text;
+		if (part.image != null)
+			out.image = part.image;
+		if (part.mediaType != null)
+			out.mediaType = part.mediaType;
+		if (part.filename != null)
+			out.filename = part.filename;
+		if (part.toolCallId != null)
+			out.toolCallId = part.toolCallId;
+		if (part.toolName != null)
+			out.toolName = part.toolName;
+		if (part.input != null)
+			out.input = part.input;
+		if (part.output != null)
+			out.output = part.output;
+		if (part.providerOptions != null)
+			out.providerOptions = part.providerOptions;
+		return out;
+	}
+
+	static function textPart(text:String):ProviderMessagePart {
+		return {type: ProviderMessagePartType.Text, text: text};
 	}
 
 	public static function temperature(model:ProviderModel):Null<Float> {
