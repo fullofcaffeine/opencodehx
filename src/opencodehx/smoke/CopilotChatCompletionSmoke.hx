@@ -3,11 +3,16 @@ package opencodehx.smoke;
 import genes.ts.Undefinable;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.provider.copilot.CopilotChatCompletion;
+import opencodehx.provider.copilot.CopilotChatCompletion.CopilotChatResponseBody;
+import opencodehx.provider.copilot.CopilotChatCompletion.CopilotGeneratedContent;
+import opencodehx.provider.copilot.CopilotChatCompletion.CopilotGeneratedContentType;
 import opencodehx.provider.copilot.CopilotChatCompletion.CopilotTokenUsage;
 
 class CopilotChatCompletionSmoke {
 	public static function run():Void {
 		finishReasons();
+		responseMetadata();
+		responseContent();
 		responseUsage();
 		streamUsage();
 		predictionMetadata();
@@ -26,6 +31,66 @@ class CopilotChatCompletionSmoke {
 		eq(custom.unified, AiFinishReason.Other, "finish struct unified");
 		eq(custom.raw.orNull(), "vendor_specific", "finish struct raw");
 		absent(CopilotChatCompletion.finishReason(null).raw, "null finish raw");
+	}
+
+	static function responseMetadata():Void {
+		final result = CopilotChatCompletion.responseMetadata(sampleResponse());
+		eq(result.id.orNull(), "chatcmpl-123", "response metadata id");
+		eq(result.modelId.orNull(), "gemini-2.0-flash-001", "response metadata model");
+		final timestamp = result.timestamp.orNull();
+		if (timestamp == null)
+			throw "response metadata timestamp missing";
+		eq(timestamp.getTime(), 1677652288000.0, "response metadata timestamp");
+
+		final empty = CopilotChatCompletion.responseMetadata({choices: []});
+		absent(empty.id, "empty response metadata id");
+		absent(empty.modelId, "empty response metadata model");
+		absent(empty.timestamp, "empty response metadata timestamp");
+	}
+
+	static function responseContent():Void {
+		var generated = 0;
+		final result = CopilotChatCompletion.responseContent(sampleResponse(), () -> {
+			generated++;
+			return 'generated-${generated}';
+		});
+		eq(result.length, 3, "response content count");
+		eq(result[0].type, CopilotGeneratedContentType.Text, "response text type");
+		eq(result[0].text.orNull(), "Hello world", "response text");
+		eq(reasoningOpaque(result[0]), "opaque-123", "response text metadata");
+		eq(result[1].type, CopilotGeneratedContentType.Reasoning, "response reasoning type");
+		eq(result[1].text.orNull(), "Thinking...", "response reasoning text");
+		eq(reasoningOpaque(result[1]), "opaque-123", "response reasoning metadata");
+		eq(result[2].type, CopilotGeneratedContentType.ToolCall, "response tool type");
+		eq(result[2].toolCallId.orNull(), "generated-1", "response generated tool id");
+		eq(result[2].toolName.orNull(), "read_file", "response tool name");
+		eq(result[2].input.orNull(), "{\"filePath\":\"/README.md\"}", "response tool input");
+		eq(reasoningOpaque(result[2]), "opaque-123", "response tool metadata");
+
+		final withoutOpaque = CopilotChatCompletion.responseContent({
+			choices: [
+				{
+					message: {
+						content: "Plain",
+					},
+				},
+			],
+		}, () -> "unused");
+		eq(withoutOpaque.length, 1, "plain content count");
+		eq(withoutOpaque[0].providerMetadata.orNull() == null, true, "plain content metadata absent");
+
+		final emptyContent = CopilotChatCompletion.responseContent({
+			choices: [
+				{
+					message: {
+						content: "",
+						reasoning_text: "",
+						tool_calls: [],
+					},
+				},
+			],
+		}, () -> "unused");
+		eq(emptyContent.length, 0, "empty content filtered");
 	}
 
 	static function responseUsage():Void {
@@ -92,6 +157,41 @@ class CopilotChatCompletionSmoke {
 				rejected_prediction_tokens: 3,
 			},
 		};
+	}
+
+	static function sampleResponse():CopilotChatResponseBody {
+		return {
+			id: "chatcmpl-123",
+			created: 1677652288,
+			model: "gemini-2.0-flash-001",
+			choices: [
+				{
+					message: {
+						content: "Hello world",
+						reasoning_text: "Thinking...",
+						reasoning_opaque: "opaque-123",
+						tool_calls: [
+							{
+								id: null,
+								fn: {
+									name: "read_file",
+									arguments: "{\"filePath\":\"/README.md\"}",
+								},
+							},
+						],
+					},
+					finish_reason: "tool_calls",
+				},
+			],
+			usage: sampleUsage(),
+		};
+	}
+
+	static function reasoningOpaque(content:CopilotGeneratedContent):String {
+		final metadata = content.providerMetadata.orNull();
+		if (metadata == null)
+			throw "Expected content provider metadata";
+		return metadata.copilot.reasoningOpaque;
 	}
 
 	static function absent<T>(value:Undefinable<T>, label:String):Void {

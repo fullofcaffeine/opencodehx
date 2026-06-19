@@ -19,7 +19,7 @@ This slice adds the first Haxe-owned provider registry:
 - `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
 - `ProviderModelsDev` adds the first models.dev fetch/cache seam with injected fetcher support, Node cache file selection, forced refresh, local file override, snapshot fallback, and typed catalog output.
 - `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
-- `CopilotChatCompletion` ports pure GitHub Copilot finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
+- `CopilotChatCompletion` ports pure GitHub Copilot response metadata, non-stream response content assembly, finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
 
 ## Evidence
 
@@ -63,6 +63,8 @@ This slice adds the first Haxe-owned provider registry:
 
 `CopilotChatCompletionSmoke` covers the first pure upstream `provider/copilot/copilot-chat-model.test.ts` helper behavior:
 
+- Response metadata from OpenAI-compatible response/chunk bodies.
+- Non-stream text, reasoning, and tool-call content assembly with Copilot reasoning metadata.
 - OpenAI-compatible finish-reason mapping.
 - `doGenerate` response-usage shape.
 - `doStream` final usage and no-cache accounting.

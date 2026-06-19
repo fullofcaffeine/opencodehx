@@ -1,6 +1,7 @@
 package opencodehx.provider.copilot;
 
 import genes.ts.Undefinable;
+import js.lib.Date;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 
 typedef CopilotPromptTokensDetails = {
@@ -62,6 +63,65 @@ typedef CopilotPredictionMetadata = {
 	final rejectedPredictionTokens:Undefinable<Float>;
 }
 
+typedef CopilotChatResponseBody = {
+	@:optional final id:Null<String>;
+	@:optional final created:Null<Float>;
+	@:optional final model:Null<String>;
+	final choices:Array<CopilotChatResponseChoice>;
+	@:optional final usage:Null<CopilotTokenUsage>;
+}
+
+typedef CopilotChatResponseChoice = {
+	final message:CopilotChatResponseMessage;
+	@:optional final finish_reason:Null<String>;
+}
+
+typedef CopilotChatResponseMessage = {
+	@:optional final content:Null<String>;
+	@:optional final reasoning_text:Null<String>;
+	@:optional final reasoning_opaque:Null<String>;
+	@:optional final tool_calls:Null<Array<CopilotChatResponseToolCall>>;
+}
+
+typedef CopilotChatResponseToolCall = {
+	@:optional final id:Null<String>;
+	@:native("function") final fn:CopilotChatResponseFunctionCall;
+}
+
+typedef CopilotChatResponseFunctionCall = {
+	final name:String;
+	final arguments:String;
+}
+
+typedef CopilotResponseMetadata = {
+	final id:Undefinable<String>;
+	final modelId:Undefinable<String>;
+	final timestamp:Undefinable<Date>;
+}
+
+enum abstract CopilotGeneratedContentType(String) from String to String {
+	final Text = "text";
+	final Reasoning = "reasoning";
+	final ToolCall = "tool-call";
+}
+
+typedef CopilotContentProviderMetadata = {
+	final copilot:CopilotReasoningProviderMetadata;
+}
+
+typedef CopilotReasoningProviderMetadata = {
+	final reasoningOpaque:String;
+}
+
+typedef CopilotGeneratedContent = {
+	final type:CopilotGeneratedContentType;
+	@:optional var text:Undefinable<String>;
+	@:optional var toolCallId:Undefinable<String>;
+	@:optional var toolName:Undefinable<String>;
+	@:optional var input:Undefinable<String>;
+	@:optional var providerMetadata:Undefinable<CopilotContentProviderMetadata>;
+}
+
 class CopilotChatCompletion {
 	public static function mapOpenAICompatibleFinishReason(finishReason:Null<String>):AiFinishReason {
 		return switch finishReason {
@@ -83,6 +143,56 @@ class CopilotChatCompletion {
 			unified: mapOpenAICompatibleFinishReason(finishReason),
 			raw: stringOrAbsent(finishReason),
 		};
+	}
+
+	public static function responseMetadata(response:CopilotChatResponseBody):CopilotResponseMetadata {
+		return {
+			id: stringOrAbsent(response.id),
+			modelId: stringOrAbsent(response.model),
+			timestamp: dateOrAbsent(response.created),
+		};
+	}
+
+	public static function responseContent(response:CopilotChatResponseBody, generateId:Void->String):Array<CopilotGeneratedContent> {
+		if (response.choices.length == 0)
+			return [];
+		return choiceContent(response.choices[0], generateId);
+	}
+
+	public static function choiceContent(choice:CopilotChatResponseChoice, generateId:Void->String):Array<CopilotGeneratedContent> {
+		final content:Array<CopilotGeneratedContent> = [];
+		final message = choice.message;
+		final reasoningOpaque = message.reasoning_opaque;
+		final text = message.content;
+		if (text != null && text.length > 0) {
+			final out:CopilotGeneratedContent = {type: CopilotGeneratedContentType.Text, text: text};
+			applyReasoningMetadata(out, reasoningOpaque);
+			content.push(out);
+		}
+
+		final reasoning = message.reasoning_text;
+		if (reasoning != null && reasoning.length > 0) {
+			final out:CopilotGeneratedContent = {type: CopilotGeneratedContentType.Reasoning, text: reasoning};
+			applyReasoningMetadata(out, reasoningOpaque);
+			content.push(out);
+		}
+
+		final toolCalls = message.tool_calls;
+		if (toolCalls != null) {
+			for (toolCall in toolCalls) {
+				final toolCallId:String = toolCall.id == null ? generateId() : toolCall.id;
+				final out:CopilotGeneratedContent = {
+					type: CopilotGeneratedContentType.ToolCall,
+					toolCallId: toolCallId,
+					toolName: toolCall.fn.name,
+					input: toolCall.fn.arguments,
+				};
+				applyReasoningMetadata(out, reasoningOpaque);
+				content.push(out);
+			}
+		}
+
+		return content;
 	}
 
 	public static function responseUsage(usage:Null<CopilotTokenUsage>):CopilotMappedResponseUsage {
@@ -192,10 +302,27 @@ class CopilotChatCompletion {
 		return present;
 	}
 
+	static function dateOrAbsent(value:Null<Float>):Undefinable<Date> {
+		if (value == null)
+			return Undefinable.absent();
+		final timestamp = new Date(value * 1000);
+		return timestamp;
+	}
+
 	static function usageOrAbsent(value:Null<CopilotTokenUsage>):Undefinable<CopilotTokenUsage> {
 		if (value == null)
 			return Undefinable.absent();
 		final present:CopilotTokenUsage = value;
 		return present;
+	}
+
+	static function applyReasoningMetadata(out:CopilotGeneratedContent, reasoningOpaque:Null<String>):Void {
+		if (reasoningOpaque == null || reasoningOpaque == "")
+			return;
+		out.providerMetadata = {
+			copilot: {
+				reasoningOpaque: reasoningOpaque,
+			},
+		};
 	}
 }
