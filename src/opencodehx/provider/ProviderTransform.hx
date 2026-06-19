@@ -3,6 +3,7 @@ package opencodehx.provider;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.ProviderTypes.ProviderVariants;
+import opencodehx.provider.ProviderTypes.ProviderJsonSchema;
 
 using StringTools;
 
@@ -114,6 +115,12 @@ class ProviderTransform {
 	public static function maxOutputTokens(model:ProviderModel):Float {
 		final capped = Math.min(model.limit.output, OUTPUT_TOKEN_MAX);
 		return capped == 0 ? OUTPUT_TOKEN_MAX : capped;
+	}
+
+	public static function schema(model:ProviderModel, schema:ProviderJsonSchema):ProviderJsonSchema {
+		if (model.providerID.toString() == "google" || model.api.id.contains("gemini"))
+			sanitizeGeminiSchema(schema);
+		return schema;
 	}
 
 	public static function temperature(model:ProviderModel):Null<Float> {
@@ -228,6 +235,116 @@ class ProviderTransform {
 			case _:
 				result;
 		}
+	}
+
+	static function sanitizeGeminiSchema(schema:ProviderJsonSchema):ProviderJsonSchema {
+		sanitizeProperties(schema.properties);
+		sanitizeProperties(schema.patternProperties);
+		sanitizeSchemaArray(schema.prefixItems);
+		sanitizeSchemaArray(schema.anyOf);
+		sanitizeSchemaArray(schema.oneOf);
+		sanitizeSchemaArray(schema.allOf);
+		final notSchema = schema.not;
+		if (notSchema != null)
+			schema.not = sanitizeGeminiSchema(notSchema);
+		final initialItems = schema.items;
+		if (initialItems != null)
+			schema.items = sanitizeGeminiSchema(initialItems);
+
+		normalizeEnumLiterals(schema);
+
+		final schemaProperties = schema.properties;
+		final schemaRequired = schema.required;
+		if (schema.type == "object" && schemaProperties != null && schemaRequired != null) {
+			final filtered:Array<String> = [];
+			for (field in schemaRequired) {
+				if (schemaProperties.exists(field))
+					filtered.push(field);
+			}
+			schema.required = filtered;
+		}
+
+		if (schema.type == "array" && !hasSchemaCombiner(schema)) {
+			var schemaItems = schema.items;
+			if (schemaItems == null) {
+				schemaItems = emptySchema();
+				schema.items = schemaItems;
+			}
+			if (!hasSchemaIntent(schemaItems))
+				schemaItems.type = "string";
+		}
+
+		if (schema.type != null && schema.type != "object" && !hasSchemaCombiner(schema)) {
+			deleteSchemaField(schema, "properties");
+			deleteSchemaField(schema, "required");
+		}
+
+		return schema;
+	}
+
+	static function sanitizeProperties(properties:Null<haxe.DynamicAccess<ProviderJsonSchema>>):Void {
+		if (properties == null)
+			return;
+		for (field in properties.keys())
+			sanitizeProperty(properties, field);
+	}
+
+	static function sanitizeProperty(properties:haxe.DynamicAccess<ProviderJsonSchema>, field:String):Void {
+		final value = properties.get(field);
+		if (value != null)
+			properties.set(field, sanitizeGeminiSchema(value));
+	}
+
+	static function sanitizeSchemaArray(items:Null<Array<ProviderJsonSchema>>):Void {
+		if (items == null)
+			return;
+		for (i in 0...items.length)
+			items[i] = sanitizeGeminiSchema(items[i]);
+	}
+
+	static function hasSchemaCombiner(schema:ProviderJsonSchema):Bool {
+		return schema.anyOf != null || schema.oneOf != null || schema.allOf != null;
+	}
+
+	static function hasSchemaIntent(schema:ProviderJsonSchema):Bool {
+		return hasSchemaCombiner(schema)
+			|| schema.type != null
+			|| schema.properties != null
+			|| schema.patternProperties != null
+			|| schema.items != null
+			|| schema.prefixItems != null
+			|| schema.required != null
+			|| schema.not != null
+			|| schema.enumValues != null
+			|| Reflect.hasField(schema, "const")
+			|| Reflect.hasField(schema, "$ref")
+			|| Reflect.hasField(schema, "additionalProperties");
+	}
+
+	static function normalizeEnumLiterals(schema:ProviderJsonSchema):Void {
+		final values = schema.enumValues;
+		if (values == null)
+			return;
+		// JSON Schema enum values are arbitrary literals. Dynamic is isolated to
+		// this normalization step, then converted to strings for Gemini's stricter
+		// schema acceptance rules.
+		final strings:Array<String> = [];
+		for (value in values)
+			strings.push(Std.string(value));
+		schema.enumValues = strings;
+		if (schema.type == "integer" || schema.type == "number")
+			schema.type = "string";
+	}
+
+	static function deleteSchemaField(schema:ProviderJsonSchema, field:String):Void {
+		// Haxe has no typed object-field delete operator. Keep Reflect.deleteField
+		// confined to JSON Schema cleanup where Gemini rejects these optional
+		// TypeScript object keys on non-object schema nodes.
+		Reflect.deleteField(schema, field);
+	}
+
+	static function emptySchema():ProviderJsonSchema {
+		return {};
 	}
 
 	static function gatewayProviderOptions(model:ProviderModel, options:ProviderOptions):ProviderOptions {

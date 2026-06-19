@@ -4,9 +4,15 @@ import haxe.DynamicAccess;
 import opencodehx.provider.ProviderTransform;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderJsonSchema;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.ProviderTypes.ProviderVariants;
+
+typedef SchemaEntry = {
+	final key:String;
+	final value:ProviderJsonSchema;
+}
 
 class ProviderTransformSmoke {
 	static inline final SESSION_ID = "test-session-123";
@@ -20,6 +26,7 @@ class ProviderTransformSmoke {
 		providerOptionRouting();
 		parameterDefaults();
 		variantDefaults();
+		schemaSanitizer();
 	}
 
 	static function cacheAndStoreOptions():Void {
@@ -185,6 +192,53 @@ class ProviderTransformSmoke {
 			"sap sonar variants");
 	}
 
+	static function schemaSanitizer():Void {
+		final gemini = model("google", "gemini-3-pro", "@ai-sdk/google", true);
+		final arrayRoot = objectSchema([
+			{key: "nodes", value: arraySchema()},
+			{key: "edges", value: arraySchema({type: "string"})},
+		]);
+		final arrayResult = ProviderTransform.schema(gemini, arrayRoot);
+		eq(items(property(arrayResult, "nodes")).type, "string", "gemini array default items");
+		eq(items(property(arrayResult, "edges")).type, "string", "gemini array preserves items");
+
+		final nestedRoot = objectSchema([{key: "matrix", value: arraySchema(arraySchema(arraySchema()))},]);
+		final nested = ProviderTransform.schema(gemini, nestedRoot);
+		eq(items(items(items(property(nested, "matrix")))).type, "string", "gemini nested array default");
+
+		final anyOfRoot = objectSchema([
+			{key: "edits", value: arraySchema({anyOf: [{type: "string"}, {type: "number"}]})},
+		]);
+		final anyOfItems = items(property(ProviderTransform.schema(gemini, anyOfRoot), "edits"));
+		eq(anyOf(anyOfItems).length, 2, "gemini anyOf preserved");
+		eq(anyOfItems.type, null, "gemini anyOf no sibling type");
+
+		final invalidRoot = objectSchema([
+			{key: "data", value: {type: "string", properties: properties([{key: "bad", value: {type: "string"}}]), required: ["bad"]}},
+		]);
+		final invalidData = property(ProviderTransform.schema(gemini, invalidRoot), "data");
+		eq(invalidData.properties, null, "gemini strips non-object properties");
+		eq(invalidData.required, null, "gemini strips non-object required");
+
+		final requiredRoot = objectSchema([
+			{key: "config", value: objectSchema([{key: "name", value: {type: "string"}}], ["name", "missing"])},
+		]);
+		final requiredConfig = property(ProviderTransform.schema(gemini, requiredRoot), "config");
+		eq(required(requiredConfig).length, 1, "gemini filters required count");
+		eq(required(requiredConfig)[0], "name", "gemini filters required field");
+
+		final enumRoot = objectSchema([{key: "rank", value: enumSchema("integer", [1, 2])},]);
+		final enumResult = property(ProviderTransform.schema(gemini, enumRoot), "rank");
+		eq(enumResult.type, "string", "gemini enum type stringified");
+		eq(enumValue(enumResult, 0), "1", "gemini enum value stringified");
+
+		final openaiRoot = objectSchema([
+			{key: "data", value: {type: "string", properties: properties([{key: "stillHere", value: {type: "string"}}])}},
+		]);
+		final openaiResult = ProviderTransform.schema(model("openai", "gpt-4", "@ai-sdk/openai"), openaiRoot);
+		eq(propertiesOf(property(openaiResult, "data")).exists("stillHere"), true, "non-gemini schema unchanged");
+	}
+
 	static function model(providerID:String, apiID:String, npm:String, ?reasoning:Bool = false):ProviderModel {
 		return modelWithRelease(providerID, apiID, npm, "2024-01-01", reasoning);
 	}
@@ -276,6 +330,82 @@ class ProviderTransformSmoke {
 			if (!variants.exists(key))
 				throw '${label}: missing ${key}';
 		}
+	}
+
+	static function objectSchema(entries:Array<SchemaEntry>, ?required:Array<String>):ProviderJsonSchema {
+		final out:ProviderJsonSchema = {type: "object", properties: properties(entries)};
+		if (required != null)
+			out.required = required;
+		return out;
+	}
+
+	static function arraySchema(?schemaItems:ProviderJsonSchema):ProviderJsonSchema {
+		final out:ProviderJsonSchema = {type: "array"};
+		if (schemaItems != null)
+			out.items = schemaItems;
+		return out;
+	}
+
+	static function properties(entries:Array<SchemaEntry>):haxe.DynamicAccess<ProviderJsonSchema> {
+		final result = new haxe.DynamicAccess<ProviderJsonSchema>();
+		for (entry in entries)
+			result.set(entry.key, entry.value);
+		return result;
+	}
+
+	static function property(schema:ProviderJsonSchema, key:String):ProviderJsonSchema {
+		final schemaProperties = propertiesOf(schema);
+		final found = schemaProperties.get(key);
+		if (found == null)
+			throw 'Missing schema property ${key}';
+		return found;
+	}
+
+	static function items(schema:ProviderJsonSchema):ProviderJsonSchema {
+		if (schema.items == null)
+			throw "Missing schema items";
+		return schema.items;
+	}
+
+	static function propertiesOf(schema:ProviderJsonSchema):haxe.DynamicAccess<ProviderJsonSchema> {
+		final schemaProperties = schema.properties;
+		if (schemaProperties == null)
+			throw "Missing schema properties";
+		return schemaProperties;
+	}
+
+	static function required(schema:ProviderJsonSchema):Array<String> {
+		final schemaRequired = schema.required;
+		if (schemaRequired == null)
+			throw "Missing schema required";
+		return schemaRequired;
+	}
+
+	static function anyOf(schema:ProviderJsonSchema):Array<ProviderJsonSchema> {
+		final value = schema.anyOf;
+		if (value == null)
+			throw "Missing schema anyOf";
+		return value;
+	}
+
+	static function enumSchema(type:String, values:Array<Int>):ProviderJsonSchema {
+		final schema:ProviderJsonSchema = {type: type};
+		// JSON Schema enum literals are arbitrary runtime values; keep the test
+		// fixture values inside the explicit schema-boundary enum field.
+		final enumValues:Array<Dynamic> = [];
+		for (value in values)
+			enumValues.push(value);
+		schema.enumValues = enumValues;
+		return schema;
+	}
+
+	static function enumValue(schema:ProviderJsonSchema, index:Int):String {
+		// The sanitizer stringifies enum literals; values are read from the
+		// explicit schema-boundary enum field and compared as strings.
+		final values = schema.enumValues;
+		if (values == null)
+			throw "Missing enum values";
+		return Std.string(values[index]);
 	}
 
 	static function object(value:Dynamic):ProviderOptions {

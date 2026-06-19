@@ -88,6 +88,24 @@ typedef ProviderApiInfo = {
 typedef ProviderOptions = DynamicAccess<Dynamic>;
 typedef ProviderHeaders = DynamicAccess<String>;
 typedef ProviderVariants = DynamicAccess<ProviderOptions>;
+typedef ProviderJsonSchemaProperties = DynamicAccess<ProviderJsonSchema>;
+
+typedef ProviderJsonSchema = {
+	@:optional var type:String;
+	@:optional var properties:ProviderJsonSchemaProperties;
+	@:optional var patternProperties:ProviderJsonSchemaProperties;
+	@:optional var required:Array<String>;
+	@:optional var items:ProviderJsonSchema;
+	@:optional var prefixItems:Array<ProviderJsonSchema>;
+	@:optional var anyOf:Array<ProviderJsonSchema>;
+	@:optional var oneOf:Array<ProviderJsonSchema>;
+	@:optional var allOf:Array<ProviderJsonSchema>;
+	@:optional var not:ProviderJsonSchema;
+	@:optional var additionalProperties:Bool;
+	// JSON Schema enum values are arbitrary literals. Keep Dynamic confined to
+	// this schema-boundary field and normalize/narrow before application use.
+	@:native("enum") @:optional var enumValues:Array<Dynamic>;
+}
 
 typedef ProviderModel = {
 	final id:ModelID;
