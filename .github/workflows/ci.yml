@@ -1,0 +1,167 @@
+name: CI
+
+on:
+  push: {}
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  HAXE_VERSION: "4.3.7"
+  GENES_REPOSITORY: fullofcaffeine/genes-ts
+
+jobs:
+  public-readiness:
+    name: Public readiness contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout OpenCodeHX
+        uses: actions/checkout@v6
+        with:
+          path: opencodehx
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install npm dependencies
+        working-directory: opencodehx
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Check release and public-readiness contracts
+        working-directory: opencodehx
+        run: |
+          npm run ci:version-sync
+          npm run ci:release-contracts
+
+  haxe-format:
+    name: Haxe formatter
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout OpenCodeHX
+        uses: actions/checkout@v6
+        with:
+          path: opencodehx
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install npm dependencies
+        working-directory: opencodehx
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Haxe via lix
+        working-directory: opencodehx
+        run: |
+          set -euo pipefail
+          npx lix download
+          npx lix download haxe "${{ env.HAXE_VERSION }}"
+          npx lix use haxe "${{ env.HAXE_VERSION }}"
+          echo "$(pwd)/node_modules/.bin" >> "$GITHUB_PATH"
+          export PATH="$(pwd)/node_modules/.bin:$PATH"
+          haxe -version
+
+      - name: Install Haxe formatter
+        run: haxelib install formatter --quiet
+
+      - name: Check Haxe formatting
+        working-directory: opencodehx
+        run: npm run format:haxe:check
+
+  node-smoke:
+    name: NodeNext generated TypeScript smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout OpenCodeHX
+        uses: actions/checkout@v6
+        with:
+          path: opencodehx
+
+      - name: Checkout genes-ts sibling
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.GENES_REPOSITORY }}
+          path: genes
+          token: ${{ secrets.GENES_TS_CHECKOUT_TOKEN || github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install npm dependencies
+        working-directory: opencodehx
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Haxe via lix
+        working-directory: opencodehx
+        run: |
+          set -euo pipefail
+          npx lix download
+          npx lix download haxe "${{ env.HAXE_VERSION }}"
+          npx lix use haxe "${{ env.HAXE_VERSION }}"
+          echo "$(pwd)/node_modules/.bin" >> "$GITHUB_PATH"
+          export PATH="$(pwd)/node_modules/.bin:$PATH"
+          haxe -version
+
+      - name: Build and smoke
+        working-directory: opencodehx
+        run: |
+          npm run build
+          npm run test:haxe:unit
+          npm run smoke
+
+  tui-scaffold:
+    name: OpenTUI TSX scaffold
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout OpenCodeHX
+        uses: actions/checkout@v6
+        with:
+          path: opencodehx
+
+      - name: Checkout genes-ts sibling
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.GENES_REPOSITORY }}
+          path: genes
+          token: ${{ secrets.GENES_TS_CHECKOUT_TOKEN || github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install npm dependencies
+        working-directory: opencodehx
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Haxe via lix
+        working-directory: opencodehx
+        run: |
+          set -euo pipefail
+          npx lix download
+          npx lix download haxe "${{ env.HAXE_VERSION }}"
+          npx lix use haxe "${{ env.HAXE_VERSION }}"
+          echo "$(pwd)/node_modules/.bin" >> "$GITHUB_PATH"
+          export PATH="$(pwd)/node_modules/.bin:$PATH"
+          haxe -version
+
+      - name: Run TUI scaffold gate
+        working-directory: opencodehx
+        run: npm run tui:scaffold

@@ -235,6 +235,8 @@ Keep README-level docs current too. New build/test commands, public-readiness st
 
 Keep the ASCII progress bar in `README.md` synchronized with Beads. Treat it as an unweighted planning snapshot from non-epic `opencodehx-*` issues, and refresh it when closing meaningful port slices or adding/removing substantial backlog items.
 
+Keep public-readiness scaffolding current with the codebase. Changes to release/versioning, CI, hooks, secret scanning, package metadata, `genes-ts` checkout assumptions, or public docs must update `scripts/ci/*`, `.github/workflows/*`, `README.md`, and `CHANGELOG.md` expectations together. OpenCodeHX stays on `0.x` beta semver until parity and packaging evidence justify stable release claims.
+
 Current generated-TS hygiene lesson: avoid dense `Array.map` plus switch-expression summaries in large tool functions until `genes-ts` temp-name hygiene is fixed. Simple typed loops are clearer here and emit strict-checkable TypeScript.
 
 Current `genes-ts` temp-local lesson: Haxe compiler temps such as `_g`, `_g1`, and catch locals can collide in TypeScript because TS is stricter about block/function scopes and catch parameters. Fix these in `../genes` with stable typed-local emission and generic fixtures; do not contort OpenCodeHX source just to avoid compiler-generated temp names.

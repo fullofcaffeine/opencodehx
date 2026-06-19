@@ -8,6 +8,8 @@ Current executable evidence includes the credential-free fake provider transcrip
 
 The top-level `README.md` carries the public-facing ASCII progress bar. Refresh it from Beads when closing meaningful port slices so newcomers see a current completion snapshot without digging through issue history.
 
+Public-readiness checks live in `scripts/ci/version-sync-check.mjs`, `scripts/ci/release-contracts-check.mjs`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`, and `.github/workflows/security-gitleaks.yml`. The release setup intentionally stays on `0.x` beta prereleases until OpenCode parity and packaging smoke evidence justify stable release claims.
+
 Testing strategy:
 
 - `haxe-authored-testing-strategy.md` records the plan for Haxe-authored test facades that generate idiomatic Jest/Vitest and Playwright specs while preserving upstream OpenCode tests as oracles.

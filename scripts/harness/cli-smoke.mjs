@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, "../..");
+const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
 
 function run(args) {
   return spawnSync("node", ["dist/index.js", ...args], {
@@ -39,7 +40,7 @@ assert.match(help.stdout, /opencodehx run \[message\.\.\]/);
 
 const version = run(["--version"]);
 assert.equal(version.status, 0);
-assert.equal(version.stdout, "0.0.0\n");
+assert.equal(version.stdout, `${packageJson.version}\n`);
 
 const text = run(["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."]);
 assert.equal(text.status, 0);

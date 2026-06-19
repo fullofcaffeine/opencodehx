@@ -2,12 +2,16 @@
 
 OpenCodeHX is a Haxe-authored port of upstream OpenCode that emits TypeScript through `genes-ts`.
 
+The current `0.1.0-beta.0` beta baseline has the public-readiness scaffolding in place: repo-managed hooks, Haxe formatting, staged and full-history gitleaks checks, GitHub CI, Dependabot, semantic-release dry-run support, and release contract checks. It is still a port-in-progress, not a production OpenCode replacement.
+
+The project intentionally uses 0.x beta versioning until upstream OpenCode parity, packaging, and runtime smoke coverage are strong enough for stable release claims.
+
 ## Port Progress
 
 Current Beads-based completion snapshot:
 
 ```text
-[########################----------------] 61% (43/70 non-epic port beads closed)
+[#########################---------------] 62% (44/71 non-epic port beads closed)
 ```
 
 This is an unweighted planning indicator, not a parity claim. The working port already has the core scaffold, config, tools, permissions, provider registry, headless fake-provider flow, server seam, and first TUI scaffold/transcript slices. Remaining major work includes real AI SDK streaming, CLI surface parity, SDK/MCP/ACP/LSP/plugin surfaces, fuller TUI dialogs, packaging, and upstream drift/rebase discipline.
@@ -22,6 +26,8 @@ Primary local references:
 
 - `../opencode`: upstream OpenCode oracle
 - `../genes`: sibling Genes checkout containing the `genes-ts` compiler mode
+
+Builds currently require the sibling `../genes` checkout pinned in [reference/genes.pin.json](reference/genes.pin.json). GitHub CI checks out `fullofcaffeine/genes-ts` next to this repository to preserve that layout.
 
 See [AGENTS.md](AGENTS.md) for project rules, Haxe design direction, and the `genes-ts` improvement loop.
 
@@ -39,4 +45,16 @@ The hook runs staged `gitleaks` and formats staged `.hx` files with haxe-formatt
 
 ```sh
 npm run public:precommit
+```
+
+Release/readiness contracts can be checked without a full generated build:
+
+```sh
+npm test
+```
+
+The broader local CI gate is:
+
+```sh
+npm run ci:full
 ```

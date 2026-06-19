@@ -2,7 +2,7 @@
   "name": "opencodehx",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0-beta.0",
   "description": "Haxe-authored OpenCode port emitting TypeScript through genes-ts.",
   "license": "MIT",
   "scripts": {
@@ -23,7 +23,13 @@
     "security:gitleaks:staged": "bash scripts/security/run-gitleaks.sh --staged",
     "hooks:install": "bash scripts/hooks/install.sh",
     "public:precommit": "npm run format:haxe:check && npm run security:gitleaks",
-    "test": "npm run public:precommit"
+    "ci:version-sync": "node scripts/ci/version-sync-check.mjs",
+    "ci:release-contracts": "node scripts/ci/release-contracts-check.mjs",
+    "ci:full": "npm run ci:version-sync && npm run ci:release-contracts && npm run format:haxe:check && npm run build && npm run test:haxe:unit && npm run smoke && npm run tui:scaffold",
+    "test": "npm run ci:version-sync && npm run ci:release-contracts && npm run format:haxe:check",
+    "release:sync-versions": "node scripts/release/sync-versions.mjs",
+    "release": "semantic-release",
+    "release:dry-run": "semantic-release --dry-run"
   },
   "repository": {
     "type": "git",
@@ -36,10 +42,18 @@
     }
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.3",
+    "@semantic-release/release-notes-generator": "^14.0.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.19.1",
     "@types/ws": "^8.18.1",
     "bun": "1.3.14",
+    "lix": "^15.12.4",
+    "semantic-release": "^24.2.5",
     "typescript": "^5.8.2"
   },
   "dependencies": {
@@ -53,5 +67,37 @@
     "jsonc-parser": "^3.3.1",
     "solid-js": "1.9.11",
     "toml": "^4.1.1"
+  },
+  "release": {
+    "branches": [
+      {
+        "name": "main",
+        "prerelease": "beta"
+      }
+    ],
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/changelog",
+      [
+        "@semantic-release/exec",
+        {
+          "prepareCmd": "node scripts/release/sync-versions.mjs ${nextRelease.version}"
+        }
+      ],
+      [
+        "@semantic-release/git",
+        {
+          "assets": [
+            "package.json",
+            "package-lock.json",
+            "README.md",
+            "CHANGELOG.md"
+          ],
+          "message": "chore(release): ${nextRelease.version}\n\n${nextRelease.notes}"
+        }
+      ],
+      "@semantic-release/github"
+    ]
   }
 }

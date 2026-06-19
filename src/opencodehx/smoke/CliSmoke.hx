@@ -1,6 +1,7 @@
 package opencodehx.smoke;
 
 import haxe.Json;
+import opencodehx.BuildInfo;
 import opencodehx.cli.Cli;
 
 class CliSmoke {
@@ -10,7 +11,7 @@ class CliSmoke {
 		eq(help.stdout.indexOf("opencodehx run [message..]") != -1, true, "help mentions run");
 
 		final version = Cli.run(["--version"]);
-		eq(version.stdout, "0.0.0\n", "version output");
+		eq(version.stdout, BuildInfo.version + "\n", "version output");
 
 		final text = Cli.run(["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."]);
 		eq(text.stdout, "Hello from the fake provider.\n", "run text output");
