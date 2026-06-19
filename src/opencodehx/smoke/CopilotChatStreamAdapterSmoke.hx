@@ -10,6 +10,7 @@ import opencodehx.externs.web.WebStreams.WebReadableStreamDefaultController;
 import opencodehx.externs.web.WebStreams.WebTextEncoder;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotChatStreamEventType;
 import opencodehx.provider.copilot.CopilotChatStreamAdapter;
+import opencodehx.provider.copilot.CopilotChatTools.CopilotChatWarningType;
 
 class CopilotChatStreamAdapterSmoke {
 	@:async
@@ -19,9 +20,10 @@ class CopilotChatStreamAdapterSmoke {
 			'data: {"choices":[{"delta":{"content":" world"},"finish_reason":"stop"}]}\n\n',
 			"data: [DONE]\n\n",
 		]);
-		final events = @:await CopilotChatStreamAdapter.responseEvents(response, true, ["fixture-warning"]);
+		final events = @:await CopilotChatStreamAdapter.responseEvents(response, true,
+			[{type: CopilotChatWarningType.Unsupported, feature: "fixture-warning"}]);
 		eq(events[0].type, CopilotChatStreamEventType.StreamStart, "stream start");
-		eq(present(events[0].warnings.orNull(), "warnings")[0], "fixture-warning", "stream warning");
+		eq(present(events[0].warnings.orNull(), "warnings")[0].feature, "fixture-warning", "stream warning");
 		eq(events[1].type, CopilotChatStreamEventType.Raw, "first raw");
 		eq(events[2].type, CopilotChatStreamEventType.ResponseMetadata, "metadata");
 		eq(events[3].type, CopilotChatStreamEventType.TextStart, "text start");

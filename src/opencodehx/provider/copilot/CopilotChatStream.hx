@@ -7,6 +7,7 @@ import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.provider.copilot.CopilotChatCompletion.CopilotMappedFinishReason;
 import opencodehx.provider.copilot.CopilotChatCompletion.CopilotMappedStreamUsage;
 import opencodehx.provider.copilot.CopilotChatCompletion.CopilotTokenUsage;
+import opencodehx.provider.copilot.CopilotChatTools.CopilotChatWarning;
 
 typedef CopilotChatStreamChunk = {
 	@:optional final id:Null<String>;
@@ -82,7 +83,7 @@ typedef CopilotChatStreamEvent = {
 	@:optional var id:Undefinable<String>;
 	@:optional var modelId:Undefinable<String>;
 	@:optional var timestamp:Undefinable<Date>;
-	@:optional var warnings:Undefinable<Array<String>>;
+	@:optional var warnings:Undefinable<Array<CopilotChatWarning>>;
 	@:optional var delta:Undefinable<String>;
 	@:optional var toolName:Undefinable<String>;
 	@:optional var toolCallId:Undefinable<String>;
@@ -116,7 +117,7 @@ typedef CopilotActiveToolCall = {
 class CopilotChatStreamState {
 	final toolCalls:Array<Null<CopilotActiveToolCall>> = [];
 	final usage = new CopilotStreamUsageAccumulator();
-	final warnings:Array<String>;
+	final warnings:Array<CopilotChatWarning>;
 	var finishReason:CopilotMappedFinishReason = {
 		unified: AiFinishReason.Other,
 		raw: Undefinable.absent(),
@@ -126,7 +127,7 @@ class CopilotChatStreamState {
 	var isActiveText = false;
 	var reasoningOpaque:Null<String> = null;
 
-	public function new(?warnings:Array<String>) {
+	public function new(?warnings:Array<CopilotChatWarning>) {
 		this.warnings = warnings == null ? [] : warnings;
 	}
 
@@ -421,7 +422,7 @@ class CopilotChatStreamState {
 }
 
 class CopilotChatStream {
-	public static function collect(chunks:Array<CopilotChatStreamChunk>, ?warnings:Array<String>):Array<CopilotChatStreamEvent> {
+	public static function collect(chunks:Array<CopilotChatStreamChunk>, ?warnings:Array<CopilotChatWarning>):Array<CopilotChatStreamEvent> {
 		final state = new CopilotChatStreamState(warnings);
 		final events = state.start();
 		for (chunk in chunks) {
@@ -433,7 +434,8 @@ class CopilotChatStream {
 		return events;
 	}
 
-	public static function collectRaw(chunks:Array<CopilotChatRawStreamChunk>, includeRawChunks:Bool, ?warnings:Array<String>):Array<CopilotChatStreamEvent> {
+	public static function collectRaw(chunks:Array<CopilotChatRawStreamChunk>, includeRawChunks:Bool,
+			?warnings:Array<CopilotChatWarning>):Array<CopilotChatStreamEvent> {
 		final state = new CopilotChatStreamState(warnings);
 		final events = state.start();
 		for (chunk in chunks) {

@@ -9,6 +9,7 @@ import opencodehx.externs.web.WebStreams.WebResponseStreams;
 import opencodehx.externs.web.WebStreams.WebTextDecoder;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotChatRawStreamChunk;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotChatStreamEvent;
+import opencodehx.provider.copilot.CopilotChatTools.CopilotChatWarning;
 
 class CopilotChatStreamAdapter {
 	@:async
@@ -26,7 +27,8 @@ class CopilotChatStreamAdapter {
 	}
 
 	@:async
-	public static function responseEvents(response:Response, includeRawChunks:Bool, ?warnings:Array<String>):Promise<Array<CopilotChatStreamEvent>> {
+	public static function responseEvents(response:Response, includeRawChunks:Bool,
+			?warnings:Array<CopilotChatWarning>):Promise<Array<CopilotChatStreamEvent>> {
 		final chunks = @:await responseChunks(response);
 		return CopilotChatStream.collectRaw(chunks, includeRawChunks, warnings);
 	}

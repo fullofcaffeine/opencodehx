@@ -11,6 +11,7 @@ import opencodehx.smoke.AiSdkProviderSmoke;
 import opencodehx.smoke.CliSmoke;
 import opencodehx.smoke.ConfigSmoke;
 import opencodehx.smoke.CopilotChatCompletionSmoke;
+import opencodehx.smoke.CopilotChatHttpClientSmoke;
 import opencodehx.smoke.CopilotChatMessagesSmoke;
 import opencodehx.smoke.CopilotChatRequestSmoke;
 import opencodehx.smoke.CopilotChatSseDecoderSmoke;
@@ -95,6 +96,10 @@ class Main {
 				Syntax.code("console.log({0})", "copilot-chat-stream-smoke:ok");
 				CopilotChatToolsSmoke.run();
 				Syntax.code("console.log({0})", "copilot-chat-tools-smoke:ok");
+				return CopilotChatHttpClientSmoke.run();
+			})
+			.then(_ -> {
+				Syntax.code("console.log({0})", "copilot-chat-http-client-smoke:ok");
 				return AiSdkProviderSmoke.run();
 			})
 			.then(_ -> {

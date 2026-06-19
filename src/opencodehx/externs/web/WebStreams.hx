@@ -1,6 +1,7 @@
 package opencodehx.externs.web;
 
 import haxe.DynamicAccess;
+import js.html.Headers;
 import js.html.Response;
 import js.lib.Promise;
 import js.lib.Uint8Array;
@@ -24,6 +25,10 @@ typedef WebResponseInit = {
 
 extern typedef WebResponseWithBody = {
 	final body:Null<WebReadableStream<Uint8Array>>;
+}
+
+extern typedef WebHeadersForEachFacade = {
+	function forEach(callback:(value:String, key:String, headers:Headers) -> Void):Void;
 }
 
 @:native("ReadableStream")
@@ -63,5 +68,17 @@ class WebResponseStreams {
 		// callers receive a typed ReadableStream and never touch Dynamic.
 		final withBody:WebResponseWithBody = cast response;
 		return withBody.body;
+	}
+}
+
+class WebHeadersAccess {
+	public static function toDynamicAccess(headers:Headers):DynamicAccess<String> {
+		final out = new DynamicAccess<String>();
+		// Haxe 4.3 types Headers.forEach as Dynamic even though the Web API
+		// callback shape is stable. Keep the cast inside this facade so provider
+		// code receives a typed string map and never calls the weak extern.
+		final typed:WebHeadersForEachFacade = cast headers;
+		typed.forEach((value, key, _) -> out.set(key, value));
+		return out;
 	}
 }

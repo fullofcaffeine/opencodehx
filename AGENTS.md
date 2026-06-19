@@ -31,6 +31,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 This is a Haxe port, not TypeScript written with Haxe syntax.
 
 - Prefer Haxe-native modeling where it preserves or strengthens OpenCode semantics: typed enums, enum abstracts, abstracts/newtypes, typedef records, pattern matching, null-safety, constrained generics, and small functional transformations.
+- Target compatibility is the floor, not the Haxe API design ceiling. Target-shaped Haxe APIs are fine, and sometimes the right canonical surface, when that shape is intentional: migration ergonomics, interop, differential testing, generated-output inspection, predictable target behavior, or preserving a widely understood host API. When there is no strong target-shaped reason, canonical APIs should default to Haxe strengths: types, macros, generated references, properties, editor completion, and compile-time diagnostics. Keep 1:1 target facades available at npm/runtime boundaries and as escape hatches, then build semantic Haxe wrappers over them when that improves readability or safety without changing target behavior. Do not hide upstream behavior behind abstractions that make parity harder to verify; the generated TypeScript should still reveal the real target calls at the boundary.
 - Use GADT-style typed enum patterns where they make illegal states harder to represent, especially for protocol messages, tool parts, provider stream events, permission outcomes, and state transitions.
 - Use macros when they materially improve the system: deriving schema/codec glue, keeping DTOs and fixtures in sync, generating extern boilerplate, enforcing invariants, or emulating useful TypeScript features in a cleaner Haxe-native way.
 - Do not use macros for cleverness alone. Macro output must remain understandable, deterministic, typed, and covered by tests or snapshots.
@@ -70,8 +71,9 @@ When OpenCodeHX exposes a compiler limitation:
 2. Add or update a `genes-ts` test fixture in `../genes`.
 3. Fix `genes-ts` generically; do not bake in OpenCode paths, names, or assumptions.
 4. Verify generated TS snapshots, `tsc`, and runtime smoke behavior where relevant.
-5. Return to OpenCodeHX, update the pin/manifest or notes, and unblock the port slice.
-6. Record the limitation and fix status in Beads or `docs/genes-ts-limitation-ledger.md` until Beads fully represents it.
+5. Run and pass the full `../genes` CI gate before relying on the compiler fix here. If `../genes` CI is failing, stop OpenCodeHX/codex-hxrust-style port work and fix or explicitly resolve the compiler repo CI first; focused compiler tests are useful evidence but not enough to keep building on a broken compiler.
+6. Return to OpenCodeHX, update the pin/manifest or notes, and unblock the port slice.
+7. Record the limitation and fix status in Beads or `docs/genes-ts-limitation-ledger.md` until Beads fully represents it.
 
 Before changing `../genes`, read `../genes/AGENTS.md` and follow that repository's local workflow, test, commit, push, and Beads conventions in addition to this repo's compiler-improvement loop. Treat `../genes` as an independent project with its own rules, even when compiler work is discovered from OpenCodeHX. Once work moves into `../genes`, scope Beads there too: create, claim, update, close, and sync the relevant `genes` issues from the `../genes` checkout rather than tracking compiler implementation only in OpenCodeHX.
 
@@ -284,6 +286,8 @@ Document non-obvious advanced Haxe features with concise hxdoc:
 - what contract it enforces or generates,
 - how it affects typing/codegen,
 - pitfalls or boundary assumptions.
+
+For non-obvious port changes, especially extern/facade boundaries, decoder boundaries, compiler-driven source choices, and generated-TS hygiene fixes, add nearby comments or hxdoc with the same why/what/how context. The comment should explain the upstream or runtime fact being preserved, the typing/codegen invariant, and what evidence or follow-up can remove the special handling later. Do not leave future agents to rediscover subtle reasoning from a passing test alone.
 
 ## Quality Gates
 
