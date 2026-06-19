@@ -257,6 +257,8 @@ For managed config, keep MDM/mobileconfig parsing pure and explicit: strip platf
 
 For overload-heavy Node APIs such as `spawnSync`, keep raw extern calls dynamic at the host boundary and expose typed Haxe facades to app/tool code. This keeps generated TypeScript strict-checkable without weakening the app-facing model.
 
+For npm package-cache parity, keep registry fetches, Arborist-style reify, and package-manager side effects behind typed seams. Haxe smoke fixtures should assert cache paths, package-lock dirtiness, bin selection, and semver/outdated behavior deterministically without invoking live package managers; real npm/bun/pnpm/Homebrew/Scoop/Chocolatey side effects belong in explicit side-effect harnesses.
+
 For permission work, preserve upstream's last-match wildcard rule semantics. Config-derived wildcard permission keys should sort before specific keys so specific rules override fallback rules regardless of JSON key order.
 
 For legacy top-level config `tools`, keep the input typed as `tool -> Bool` and normalize it after config sources merge. Map `write`, `edit`, and `patch` to the `edit` permission, convert booleans to `allow`/`deny`, and let explicit `permission` config override migrated tool permissions.

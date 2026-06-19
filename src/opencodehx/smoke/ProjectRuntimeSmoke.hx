@@ -19,6 +19,9 @@ import opencodehx.installation.InstallationRuntime.InstallationMethod;
 import opencodehx.installation.InstallationRuntime.InstallationProcessResult;
 import opencodehx.installation.InstallationRuntime.InstallationReleaseType;
 import opencodehx.npm.Npm as NpmRuntime;
+import opencodehx.npm.Npm.NpmDeps;
+import opencodehx.npm.Npm.NpmHttpResponse;
+import opencodehx.npm.Npm.NpmReifyRequest;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.InstanceRuntime.InstanceContext;
 import opencodehx.project.InstanceRuntime.InstanceEvent;
@@ -56,6 +59,12 @@ typedef SmokeInstallationDeps = {
 	final outputs:Map<String, InstallationProcessResult>;
 }
 
+typedef SmokeNpmDeps = {
+	final deps:NpmDeps;
+	final requests:Array<NpmReifyRequest>;
+	final responses:Map<String, NpmHttpResponse>;
+}
+
 class ProjectRuntimeSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-project-"));
@@ -68,6 +77,7 @@ class ProjectRuntimeSmoke {
 			worktreeProject(root);
 			worktreeEdges(root);
 			npmSanitize();
+			npmRuntime(root);
 			installationRuntime();
 			syncEvents();
 			Fs.rmSync(root, {recursive: true, force: true});
@@ -426,6 +436,86 @@ class ProjectRuntimeSmoke {
 		eq(NpmRuntime.sanitize(spec), expected, "git https npm sanitize");
 	}
 
+	static function npmRuntime(root:String):Void {
+		final fixture = npmFixture(NodePath.join(root, "npm-runtime"));
+		eq(NpmRuntime.packageName("@scope/pkg@1.2.3"), "@scope/pkg", "npm packageName scoped version");
+		eq(NpmRuntime.packageName("prettier@git+https://github.com/prettier/prettier.git"), "prettier", "npm packageName git spec");
+
+		final cachedPkg = NodePath.join(NodePath.join(NpmRuntime.cacheDirectory(fixture.deps, "prettier"), "node_modules"), "prettier");
+		Fs.mkdirSync(cachedPkg, {recursive: true});
+		final cached = NpmRuntime.add(fixture.deps, "prettier");
+		eq(cached.directory, cachedPkg, "npm add cached package directory");
+		eq(cached.entrypoint, NodePath.join(cachedPkg, "index.js"), "npm add cached entrypoint");
+		eq(fixture.requests.length, 0, "npm add cached skips reify");
+
+		final uncached = NpmRuntime.add(fixture.deps, "@scope/tool@1.0.0");
+		eq(uncached.directory.endsWith(NodePath.join(NodePath.join("node_modules", "@scope"), "tool")), true, "npm add uncached edge directory");
+		eq(fixture.requests[0].add.join(","), "@scope/tool@1.0.0", "npm add reify package spec");
+
+		final readonlyDir = NodePath.join(root, "npm-readonly");
+		Fs.mkdirSync(readonlyDir, {recursive: true});
+		final beforeReadonly = fixture.requests.length;
+		NpmRuntime.install(fixture.deps, readonlyDir, {add: []});
+		eq(fixture.requests.length, beforeReadonly, "npm install skips non-writable dir");
+
+		final installDir = directory(root, "npm-install-missing-node-modules");
+		NpmRuntime.install(fixture.deps, installDir, {add: [{name: "eslint", version: "9.0.0"}]});
+		eq(fixture.requests[fixture.requests.length - 1].dir, installDir, "npm install missing node_modules reify dir");
+		eq(fixture.requests[fixture.requests.length - 1].add.join(","), "eslint@9.0.0", "npm install add spec");
+
+		final cleanDir = directory(root, "npm-install-clean");
+		Fs.mkdirSync(NodePath.join(cleanDir, "node_modules"), {recursive: true});
+		write(cleanDir, "package.json", '{"dependencies":{"typescript":"5.0.0"},"devDependencies":{"eslint":"9.0.0"}}');
+		write(cleanDir, "package-lock.json", '{"packages":{"":{"dependencies":{"typescript":"5.0.0"},"devDependencies":{"eslint":"9.0.0"}}}}');
+		final beforeClean = fixture.requests.length;
+		NpmRuntime.install(fixture.deps, cleanDir, {add: []});
+		eq(fixture.requests.length, beforeClean, "npm install clean lock skips reify");
+
+		final dirtyDir = directory(root, "npm-install-dirty");
+		Fs.mkdirSync(NodePath.join(dirtyDir, "node_modules"), {recursive: true});
+		write(dirtyDir, "package.json", '{"dependencies":{"typescript":"5.0.0"},"optionalDependencies":{"prettier":"3.0.0"}}');
+		write(dirtyDir, "package-lock.json", '{"packages":{"":{"dependencies":{"typescript":"5.0.0"}}}}');
+		NpmRuntime.install(fixture.deps, dirtyDir, {add: [{name: "prettier"}]});
+		eq(fixture.requests[fixture.requests.length - 1].dir, dirtyDir, "npm install dirty lock reify dir");
+		eq(fixture.requests[fixture.requests.length - 1].add.join(","), "prettier", "npm install dirty lock add spec");
+
+		final singleBinDir = NpmRuntime.cacheDirectory(fixture.deps, "single-bin");
+		final singleBin = NodePath.join(NodePath.join(singleBinDir, "node_modules"), ".bin");
+		Fs.mkdirSync(singleBin, {recursive: true});
+		writeFile(NodePath.join(singleBin, "single-bin"), "#!/bin/sh\n");
+		eq(NpmRuntime.which(fixture.deps, "single-bin"), NodePath.join(singleBin, "single-bin"), "npm which single bin");
+
+		final multiBinDir = NpmRuntime.cacheDirectory(fixture.deps, "@scope/multi");
+		final multiBin = NodePath.join(NodePath.join(multiBinDir, "node_modules"), ".bin");
+		final multiPkg = NodePath.join(NodePath.join(multiBinDir, "node_modules"), NodePath.join("@scope", "multi"));
+		Fs.mkdirSync(multiBin, {recursive: true});
+		Fs.mkdirSync(multiPkg, {recursive: true});
+		writeFile(NodePath.join(multiBin, "fallback"), "#!/bin/sh\n");
+		writeFile(NodePath.join(multiBin, "multi"), "#!/bin/sh\n");
+		writeFile(NodePath.join(multiPkg, "package.json"), '{"bin":{"multi":"./cli.js","fallback":"./fallback.js"}}');
+		eq(NpmRuntime.which(fixture.deps, "@scope/multi"), NodePath.join(multiBin, "multi"), "npm which prefers unscoped bin");
+
+		final missingBinDir = NpmRuntime.cacheDirectory(fixture.deps, "installed-later");
+		Fs.mkdirSync(missingBinDir, {recursive: true});
+		writeFile(NodePath.join(missingBinDir, "package-lock.json"), "{}");
+		final installedLater = NpmRuntime.which(fixture.deps, "installed-later");
+		eq(installedLater, null, "npm which existing cache without bin stays missing");
+		eq(Fs.existsSync(NodePath.join(missingBinDir, "package-lock.json")), false, "npm which removes stale package lock");
+
+		final freshBinDir = NpmRuntime.cacheDirectory(fixture.deps, "fresh-bin");
+		final freshBin = NpmRuntime.which(fixture.deps, "fresh-bin");
+		eq(freshBin, NodePath.join(NodePath.join(NodePath.join(freshBinDir, "node_modules"), ".bin"), "fresh-bin"), "npm which installs absent cache");
+
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"3.0.0"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.9.0"), true, "npm outdated exact older");
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "3.0.0"), false, "npm outdated exact current");
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^2.8.0"), true, "npm outdated range escaped major");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.9.0"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^2.8.0"), false, "npm outdated range satisfied");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: false, body: ""});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated registry failure");
+	}
+
 	static function installationRuntime():Void {
 		final fixture = installationFixture();
 		fixture.responses.set("https://api.github.com/repos/anomalyco/opencode/releases/latest", '{"tag_name":"v4.0.0-beta.1"}');
@@ -524,6 +614,40 @@ class ProjectRuntimeSmoke {
 
 	static function commandKey(command:InstallationCommand):String {
 		return [command.command].concat(command.args).join(" ");
+	}
+
+	static function npmFixture(root:String):SmokeNpmDeps {
+		final requests:Array<NpmReifyRequest> = [];
+		final responses = new Map<String, NpmHttpResponse>();
+		Fs.mkdirSync(root, {recursive: true});
+		final fixture:SmokeNpmDeps = {
+			requests: requests,
+			responses: responses,
+			deps: {
+				cache: root,
+				http: url -> responses.exists(url) ? responses.get(url) : {ok: false, body: ""},
+				canWrite: dir -> !dir.endsWith("readonly"),
+				resolveEntryPoint: (name, dir) -> NodePath.join(dir, "index.js"),
+				reify: request -> {
+					requests.push(request);
+					Fs.mkdirSync(request.dir, {recursive: true});
+					final edges = [];
+					for (spec in request.add) {
+						final name = NpmRuntime.packageName(spec);
+						final packageDir = NodePath.join(NodePath.join(request.dir, "node_modules"), name);
+						final binDir = NodePath.join(NodePath.join(request.dir, "node_modules"), ".bin");
+						Fs.mkdirSync(packageDir, {recursive: true});
+						Fs.mkdirSync(binDir, {recursive: true});
+						writeFile(NodePath.join(binDir,
+							NpmRuntime.packageName(spec).startsWith("@") ? NpmRuntime.packageName(spec).split("/")[1] : NpmRuntime.packageName(spec)),
+							"#!/bin/sh\n");
+						edges.push({name: name, path: packageDir});
+					}
+					return {edges: edges};
+				},
+			},
+		};
+		return fixture;
 	}
 
 	static function syncEvents():Void {
@@ -694,6 +818,11 @@ class ProjectRuntimeSmoke {
 
 	static function write(dir:String, name:String, data:String):Void {
 		final file = NodePath.join(dir, name);
+		Fs.mkdirSync(NodePath.dirname(file), {recursive: true});
+		Fs.writeFileSync(file, data, "utf8");
+	}
+
+	static function writeFile(file:String, data:String):Void {
 		Fs.mkdirSync(NodePath.dirname(file), {recursive: true});
 		Fs.writeFileSync(file, data, "utf8");
 	}
