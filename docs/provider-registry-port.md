@@ -80,8 +80,8 @@ This slice adds the first Haxe-owned provider registry:
 - Raw chunk passthrough ordering when `includeRawChunks` is enabled, and omission when disabled.
 - Reasoning start/delta/end ordering.
 - Reasoning-to-tool transition ordering.
-- Reasoning opaque metadata on reasoning, tool-call, and late finish events.
-- Tool input start/delta/end and tool-call assembly from parsed argument chunks.
+- Reasoning opaque metadata on same-chunk content transitions, tool-call-only chunks, reasoning, tool-call, and late finish events.
+- Tool input start/delta/end and multi-tool-call assembly from parsed argument chunks.
 - Final finish reason, token usage/no-cache accounting, and accepted/rejected prediction metadata.
 - Error chunks and invalid chunk diagnostics for duplicate reasoning opaque, missing tool IDs, and missing tool names.
 

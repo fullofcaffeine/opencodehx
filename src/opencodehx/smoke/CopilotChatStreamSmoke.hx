@@ -17,6 +17,9 @@ class CopilotChatStreamSmoke {
 		basicTextStream();
 		rawChunks();
 		reasoningToToolCalls();
+		reasoningOpaqueWithContent();
+		reasoningTextContentThenToolCalls();
+		reasoningOpaqueToolCallsWithoutReasoningText();
 		lateReasoningOpaque();
 		errorChunk();
 		invalidChunks();
@@ -122,7 +125,23 @@ class CopilotChatStreamSmoke {
 				usage: emptyUsage(),
 			},
 			{
-				choices: [{finish_reason: "tool_calls", delta: {}},],
+				choices: [
+					{
+						finish_reason: "tool_calls",
+						delta: {
+							tool_calls: [
+								{
+									index: 1,
+									id: "call_def456",
+									fn: {
+										name: "read_file",
+										arguments: "{\"filePath\":\"/mix.exs\"}",
+									},
+								},
+							],
+						},
+					},
+				],
 				usage: {
 					prompt_tokens: 19581,
 					completion_tokens: 53,
@@ -142,14 +161,25 @@ class CopilotChatStreamSmoke {
 		lt(indexOf(events, reasoningEnd), indexOf(events, toolStart), "reasoning ends before tool input");
 		eq(reasoningEnd.id.orNull(), "reasoning-0", "reasoning end id");
 		eq(reasoningOpaque(reasoningEnd), "opaque-tools", "reasoning end opaque");
+		eq(only(events, [
+			CopilotChatStreamEventType.TextStart,
+			CopilotChatStreamEventType.TextDelta,
+			CopilotChatStreamEventType.TextEnd
+		]).length, 0, "direct reasoning to tool has no text");
 		eq(toolStart.id.orNull(), "call_abc123", "tool input id");
 		eq(toolStart.toolName.orNull(), "read_file", "tool input name");
 
-		final toolCall = first(events, CopilotChatStreamEventType.ToolCall);
+		final toolCalls = only(events, [CopilotChatStreamEventType.ToolCall]);
+		eq(toolCalls.length, 2, "tool call count");
+		final toolCall = toolCalls[0];
 		eq(toolCall.toolCallId.orNull(), "call_abc123", "tool call id");
 		eq(toolCall.toolName.orNull(), "read_file", "tool call name");
 		eq(toolCall.input.orNull(), "{\"filePath\":\"/README.md\"}", "tool call input");
 		eq(reasoningOpaque(toolCall), "opaque-tools", "tool call opaque");
+		eq(toolCalls[1].toolCallId.orNull(), "call_def456", "second tool call id");
+		eq(toolCalls[1].toolName.orNull(), "read_file", "second tool call name");
+		eq(toolCalls[1].input.orNull(), "{\"filePath\":\"/mix.exs\"}", "second tool call input");
+		eq(reasoningOpaque(toolCalls[1]), "opaque-tools", "second tool call opaque");
 
 		final finish = first(events, CopilotChatStreamEventType.Finish);
 		final finishUsage = usageOf(finish);
@@ -161,6 +191,137 @@ class CopilotChatStreamSmoke {
 		eq(finishUsage.outputTokens.reasoning.orNull(), 134.0, "tool finish reasoning");
 		eq(finishMetadata.copilot.acceptedPredictionTokens.orNull(), 7.0, "tool accepted prediction");
 		eq(finishMetadata.copilot.rejectedPredictionTokens.orNull(), 3.0, "tool rejected prediction");
+	}
+
+	static function reasoningOpaqueWithContent():Void {
+		final events = CopilotChatStream.collect([
+			{
+				choices: [{delta: {reasoning_text: "**Understanding the Query's Nature**"}},],
+			},
+			{
+				choices: [{delta: {reasoning_text: "**Framing the Response's Core**"}},],
+			},
+			{
+				choices: [
+					{
+						delta: {
+							content: "Of course. I'm thinking right now.",
+							reasoning_opaque: "opaque-with-content",
+						},
+					},
+				],
+			},
+			{
+				choices: [{finish_reason: "stop", delta: {content: " What's on your mind?"}},],
+			},
+		]);
+
+		final reasoningEnd = first(events, CopilotChatStreamEventType.ReasoningEnd);
+		final textStart = first(events, CopilotChatStreamEventType.TextStart);
+		lt(indexOf(events, reasoningEnd), indexOf(events, textStart), "same chunk opaque reasoning ends before text");
+		eq(reasoningOpaque(reasoningEnd), "opaque-with-content", "same chunk opaque on reasoning end");
+		eq(reasoningOpaque(textStart), "opaque-with-content", "same chunk opaque on text start");
+		final textDeltas = only(events, [CopilotChatStreamEventType.TextDelta]);
+		eq(textDeltas.length, 2, "same chunk text deltas");
+		eq(textDeltas[0].delta.orNull(), "Of course. I'm thinking right now.", "same chunk first text");
+		eq(textDeltas[1].delta.orNull(), " What's on your mind?", "same chunk second text");
+		eq(finishReasonOf(first(events, CopilotChatStreamEventType.Finish)).unified, AiFinishReason.Stop, "same chunk finish");
+	}
+
+	static function reasoningTextContentThenToolCalls():Void {
+		final events = CopilotChatStream.collect([
+			{
+				choices: [{delta: {reasoning_text: "**Analyzing the Structure**"}},],
+			},
+			{
+				choices: [
+					{
+						delta: {
+							content: "Okay, I need to check out the project's file structure.",
+							reasoning_opaque: "opaque-content-tools",
+						},
+					},
+				],
+			},
+			{
+				choices: [
+					{
+						finish_reason: "tool_calls",
+						delta: {
+							tool_calls: [
+								{
+									index: 0,
+									id: "call_MHxqRDd5WVo3NU8wUXRaMmc0MFE",
+									fn: {
+										name: "list_project_files",
+										arguments: "{}",
+									},
+								},
+							],
+						},
+					},
+				],
+				usage: {
+					prompt_tokens: 3767,
+					completion_tokens: 19,
+					total_tokens: 3797,
+					prompt_tokens_details: {cached_tokens: 0},
+					completion_tokens_details: {reasoning_tokens: 11},
+				},
+			},
+		]);
+
+		final reasoningEnd = first(events, CopilotChatStreamEventType.ReasoningEnd);
+		final textStart = first(events, CopilotChatStreamEventType.TextStart);
+		final toolStart = first(events, CopilotChatStreamEventType.ToolInputStart);
+		lt(indexOf(events, reasoningEnd), indexOf(events, textStart), "content tools reasoning before text");
+		lt(indexOf(events, textStart), indexOf(events, toolStart), "content tools text before tool");
+		eq(reasoningOpaque(reasoningEnd), "opaque-content-tools", "content tools reasoning opaque");
+		eq(reasoningOpaque(first(events, CopilotChatStreamEventType.ToolCall)), "opaque-content-tools", "content tools tool opaque");
+		eq(first(events, CopilotChatStreamEventType.TextDelta).delta.orNull(), "Okay, I need to check out the project's file structure.",
+			"content tools text delta");
+		eq(toolStart.id.orNull(), "call_MHxqRDd5WVo3NU8wUXRaMmc0MFE", "content tools call id");
+		final finish = first(events, CopilotChatStreamEventType.Finish);
+		eq(finishReasonOf(finish).unified, AiFinishReason.ToolCalls, "content tools finish");
+		eq(usageOf(finish).inputTokens.total.orNull(), 3767.0, "content tools input usage");
+		eq(usageOf(finish).outputTokens.total.orNull(), 19.0, "content tools output usage");
+	}
+
+	static function reasoningOpaqueToolCallsWithoutReasoningText():Void {
+		final events = CopilotChatStream.collect([
+			{
+				choices: [
+					{
+						delta: {
+							reasoning_opaque: "opaque-tool-only",
+							tool_calls: [
+								{
+									index: 0,
+									id: "call_reasoning_only",
+									fn: {
+										name: "read_file",
+										arguments: "{}",
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+			{
+				choices: [{finish_reason: "tool_calls", delta: {}},],
+			},
+		]);
+
+		eq(only(events, [
+			CopilotChatStreamEventType.ReasoningStart,
+			CopilotChatStreamEventType.ReasoningDelta,
+			CopilotChatStreamEventType.ReasoningEnd
+		]).length, 0, "tool opaque without reasoning has no reasoning events");
+		final toolCall = first(events, CopilotChatStreamEventType.ToolCall);
+		eq(toolCall.toolCallId.orNull(), "call_reasoning_only", "tool opaque call id");
+		eq(toolCall.toolName.orNull(), "read_file", "tool opaque call name");
+		eq(reasoningOpaque(toolCall), "opaque-tool-only", "tool opaque metadata");
 	}
 
 	static function lateReasoningOpaque():Void {
