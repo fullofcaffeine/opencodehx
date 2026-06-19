@@ -13,6 +13,7 @@ import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
 import opencodehx.provider.AiSdkLanguageLoader.AiSdkLanguageResolution;
 import opencodehx.provider.CopilotLanguageLoader.CopilotChatLanguageResolution;
+import opencodehx.provider.CopilotLanguageLoader.CopilotResponsesLanguageResolution;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ModelsDevCatalog;
 import opencodehx.provider.ProviderTypes.ModelsDevCost;
@@ -90,6 +91,8 @@ class ProviderRegistry {
 	public function getLanguage(model:ProviderModel):AiLanguageModel {
 		if (CopilotLanguageLoader.canResolveChat(model))
 			return resolveCopilotChat(model).sdkLanguage;
+		if (CopilotLanguageLoader.canResolveResponses(model))
+			return resolveCopilotResponses(model).sdkLanguage;
 		return resolveLanguage(model).language;
 	}
 
@@ -98,6 +101,13 @@ class ProviderRegistry {
 		if (provider == null)
 			throw notFound(model.providerID, model.id, providerSuggestions(model.providerID.toString()));
 		return CopilotLanguageLoader.resolveChat(provider, model);
+	}
+
+	public function resolveCopilotResponses(model:ProviderModel):CopilotResponsesLanguageResolution {
+		final provider = getProvider(model.providerID);
+		if (provider == null)
+			throw notFound(model.providerID, model.id, providerSuggestions(model.providerID.toString()));
+		return CopilotLanguageLoader.resolveResponses(provider, model);
 	}
 
 	public function closest(providerID:ProviderID, query:Array<String>):Null<ParsedModelRef> {

@@ -8,11 +8,19 @@ import opencodehx.provider.copilot.CopilotAiSdkLanguageModel;
 import opencodehx.provider.copilot.CopilotChatLanguageModel;
 import opencodehx.provider.copilot.CopilotOpenAICompatibleProvider;
 import opencodehx.provider.copilot.CopilotOpenAICompatibleProvider.CopilotOpenAICompatibleModelConfig;
+import opencodehx.provider.copilot.CopilotResponsesLanguageModel;
 
 using StringTools;
 
 typedef CopilotChatLanguageResolution = {
 	final language:CopilotChatLanguageModel;
+	final sdkLanguage:AiLanguageModel;
+	final sdkModelID:String;
+	final modelConfig:CopilotOpenAICompatibleModelConfig;
+}
+
+typedef CopilotResponsesLanguageResolution = {
+	final language:CopilotResponsesLanguageModel;
 	final sdkLanguage:AiLanguageModel;
 	final sdkModelID:String;
 	final modelConfig:CopilotOpenAICompatibleModelConfig;
@@ -29,6 +37,10 @@ typedef CopilotChatLanguageResolution = {
 class CopilotLanguageLoader {
 	public static function canResolveChat(model:ProviderModel):Bool {
 		return model.api.npm == "@ai-sdk/github-copilot" && !shouldUseResponsesApi(model.api.id);
+	}
+
+	public static function canResolveResponses(model:ProviderModel):Bool {
+		return model.api.npm == "@ai-sdk/github-copilot" && shouldUseResponsesApi(model.api.id);
 	}
 
 	public static function shouldUseResponsesApi(modelID:String):Bool {
@@ -67,6 +79,30 @@ class CopilotLanguageLoader {
 		return {
 			language: language,
 			sdkLanguage: new CopilotAiSdkLanguageModel({chat: language}),
+			sdkModelID: model.api.id,
+			modelConfig: modelConfig,
+		};
+	}
+
+	public static function resolveResponses(provider:ProviderInfo, model:ProviderModel):CopilotResponsesLanguageResolution {
+		if (model.api.npm != "@ai-sdk/github-copilot")
+			throw 'Provider ${provider.id} model ${model.id} is not a GitHub Copilot SDK model';
+		if (!shouldUseResponsesApi(model.api.id))
+			throw 'Provider ${provider.id} model ${model.id} should use the Copilot chat API';
+
+		final baseURL = ProviderOptionAccess.baseURL(provider.options, model);
+		if (baseURL == null || baseURL == "")
+			throw 'Provider ${provider.id} model ${model.id} needs api/baseURL before Copilot loading';
+
+		final settings = CopilotOpenAICompatibleProvider.settings(ProviderOptionAccess.string(provider.options, "apiKey", provider.key), baseURL,
+			provider.id.toString(), headersOrEmpty(ProviderOptionAccess.headers(provider.options, model.headers)));
+		final modelConfig = CopilotOpenAICompatibleProvider.responses(settings, model.api.id);
+		final language = new CopilotResponsesLanguageModel({
+			modelConfig: modelConfig,
+		});
+		return {
+			language: language,
+			sdkLanguage: language,
 			sdkModelID: model.api.id,
 			modelConfig: modelConfig,
 		};

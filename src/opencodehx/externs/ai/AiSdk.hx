@@ -174,11 +174,24 @@ typedef AiProviderOptionsMap = DynamicAccess<AiOpenAICompatibleProviderOptions>;
 typedef AiOpenAICompatibleProviderOptions = {
 	@:optional final user:String;
 	@:optional final reasoningEffort:String;
+	@:optional final reasoningSummary:String;
 	@:optional final textVerbosity:String;
 	@:native("thinking_budget") @:optional final thinkingBudgetSnake:Float;
 	@:optional final thinkingBudget:Float;
 	@:optional final reasoningOpaque:String;
 	@:native("copilot_cache_control") @:optional final copilotCacheControl:AiCopilotCacheControl;
+	@:optional final include:Array<String>;
+	@:optional final instructions:String;
+	@:optional final logprobs:EitherType<Bool, Float>;
+	@:optional final maxToolCalls:Float;
+	@:optional final metadata:AiJsonValue;
+	@:optional final parallelToolCalls:Bool;
+	@:optional final previousResponseId:String;
+	@:optional final promptCacheKey:String;
+	@:optional final safetyIdentifier:String;
+	@:optional final serviceTier:String;
+	@:optional final store:Bool;
+	@:optional final strictJsonSchema:Bool;
 }
 
 typedef AiCopilotCacheControl = {
@@ -194,6 +207,13 @@ typedef AiCopilotCacheControl = {
 @:ts.type("import('@ai-sdk/provider').SharedV3ProviderOptions")
 abstract AiProviderOptions(AiProviderOptionsMap) from AiProviderOptionsMap to AiProviderOptionsMap {}
 
+/**
+ * AI SDK metadata objects are JSON-shaped, not arbitrary JS objects.
+ *
+ * `fromBoundary` is the explicit crossing point after local code has built or
+ * decoded a JSON-compatible object. The backing `Unknown` keeps callers from
+ * reading unchecked fields while `@:ts.type` preserves the SDK declaration.
+ */
 @:ts.type("import('@ai-sdk/provider').JSONObject")
 abstract AiJsonObject(Unknown) from Unknown to Unknown {
 	public static inline function fromBoundary<T>(value:T):AiJsonObject {
@@ -201,10 +221,27 @@ abstract AiJsonObject(Unknown) from Unknown to Unknown {
 	}
 }
 
+/**
+ * AI SDK JSON payload bridge for values accepted by provider metadata, tool
+ * payloads, and response bodies. Keep construction explicit so non-JSON
+ * runtime values do not spread through application types by accident.
+ */
 @:ts.type("import('@ai-sdk/provider').JSONValue")
 abstract AiJsonValue(Unknown) from Unknown to Unknown {
 	public static inline function fromBoundary<T>(value:T):AiJsonValue {
 		return Unknown.fromBoundary(value);
+	}
+}
+
+/**
+ * Some AI SDK result fields reject `null` while still accepting any JSON
+ * scalar/object/array. This bridge keeps that TS contract precise without
+ * weakening the surrounding Haxe DTOs.
+ */
+@:ts.type("NonNullable<import('@ai-sdk/provider').JSONValue>")
+abstract AiNonNullJsonValue(AiJsonValue) from AiJsonValue to AiJsonValue {
+	public static inline function fromBoundary<T>(value:T):AiNonNullJsonValue {
+		return AiJsonValue.fromBoundary(value);
 	}
 }
 
@@ -348,19 +385,31 @@ enum abstract AiLanguageModelContentType(String) from String to String {
 	final ToolApprovalRequest = "tool-approval-request";
 }
 
+@:ts.type("'url' | 'document'")
+enum abstract AiLanguageModelSourceType(String) from String to String {
+	final Url = "url";
+	final Document = "document";
+}
+
 typedef AiLanguageModelContentShape = {
 	final type:AiLanguageModelContentType;
+	@:optional final id:String;
 	@:optional final text:String;
 	@:optional final mediaType:String;
 	@:optional final data:EitherType<String, Uint8Array>;
 	@:optional final toolCallId:String;
 	@:optional final toolName:String;
 	@:optional final input:String;
-	@:optional final result:Unknown;
+	@:optional final result:AiNonNullJsonValue;
+	@:optional final providerExecuted:Bool;
+	@:optional final sourceType:AiLanguageModelSourceType;
+	@:optional final url:String;
+	@:optional final title:String;
+	@:optional final filename:String;
 	@:optional final providerMetadata:Undefinable<AiProviderMetadata>;
 }
 
-@:forward(type, text, mediaType, data, toolCallId, toolName, input, result, providerMetadata)
+@:forward(type, id, text, mediaType, data, toolCallId, toolName, input, result, providerExecuted, sourceType, url, title, filename, providerMetadata)
 @:ts.type("import('@ai-sdk/provider').LanguageModelV3Content")
 abstract AiLanguageModelContent(AiLanguageModelContentShape) from AiLanguageModelContentShape to AiLanguageModelContentShape {}
 
@@ -439,7 +488,7 @@ typedef AiLanguageModelGenerateResultShape = {
 abstract AiLanguageModelGenerateResult(AiLanguageModelGenerateResultShape) from AiLanguageModelGenerateResultShape to AiLanguageModelGenerateResultShape {}
 
 typedef AiLanguageModelStreamResponseInfo = {
-	@:optional final headers:DynamicAccess<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
 }
 
 typedef AiLanguageModelStreamResultShape = {
@@ -455,13 +504,20 @@ abstract AiLanguageModelStreamResult(AiLanguageModelStreamResultShape) from AiLa
 typedef AiLanguageModelStreamPartShape = {
 	final type:String;
 	@:optional final warnings:Array<AiLanguageModelWarning>;
-	@:optional final id:Undefinable<String>;
-	@:optional final modelId:Undefinable<String>;
-	@:optional final timestamp:Undefinable<js.lib.Date>;
+	@:optional final id:String;
+	@:optional final modelId:String;
+	@:optional final timestamp:js.lib.Date;
 	@:optional final delta:String;
 	@:optional final toolName:String;
 	@:optional final toolCallId:String;
 	@:optional final input:String;
+	@:optional final providerExecuted:Bool;
+	@:optional final result:AiNonNullJsonValue;
+	@:optional final sourceType:AiLanguageModelSourceType;
+	@:optional final url:String;
+	@:optional final title:String;
+	@:optional final filename:String;
+	@:optional final mediaType:String;
 	@:optional final finishReason:AiLanguageModelFinishReason;
 	@:optional final usage:AiLanguageModelV3Usage;
 	@:optional final providerMetadata:Undefinable<AiProviderMetadata>;
@@ -526,7 +582,8 @@ abstract AiJsonSchema(Dynamic) from Dynamic to Dynamic {}
  * required discriminant and payload field has been supplied.
  */
 @:ts.type("import('@ai-sdk/provider').LanguageModelV3StreamPart")
-@:forward(type, warnings, id, modelId, timestamp, delta, toolName, toolCallId, input, finishReason, usage, providerMetadata, rawValue, error)
+@:forward(type, warnings, id, modelId, timestamp, delta, toolName, toolCallId, input, providerExecuted, result, sourceType, url, title, filename, mediaType,
+	finishReason, usage, providerMetadata, rawValue, error)
 abstract AiProviderStreamPart(AiLanguageModelStreamPartShape) from AiLanguageModelStreamPartShape to AiLanguageModelStreamPartShape {
 	public static inline function streamStart():AiProviderStreamPart {
 		return {type: "stream-start", warnings: []};

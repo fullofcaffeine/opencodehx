@@ -126,7 +126,7 @@ class CopilotAiSdkLanguageModel {
 	}
 
 	function requestFromOptions(options:AiLanguageModelCallOptions):CopilotChatRequestOptions {
-		final request = CopilotChatRequest.options(modelId, promptFromSdk(options.prompt));
+		final request = CopilotChatRequest.options(modelId, CopilotAiSdkPrompt.fromSdk(options.prompt));
 		request.maxOutputTokens = numberOrAbsent(options.maxOutputTokens);
 		request.temperature = numberOrAbsent(options.temperature);
 		request.topP = numberOrAbsent(options.topP);
@@ -406,9 +406,9 @@ class CopilotAiSdkLanguageModel {
 			case CopilotChatStreamEventType.ResponseMetadata:
 				{
 					type: "response-metadata",
-					id: optionalString(event.id),
-					modelId: optionalString(event.modelId),
-					timestamp: optionalDate(event.timestamp),
+					id: requireUndefinableString(event.id, "response metadata id"),
+					modelId: requireUndefinableString(event.modelId, "response metadata model id"),
+					timestamp: requireUndefinableDate(event.timestamp, "response metadata timestamp"),
 				};
 			case CopilotChatStreamEventType.ReasoningStart:
 				{type: "reasoning-start", id: requireUndefinableString(event.id, "reasoning start id"), providerMetadata: metadata(event.providerMetadata)};
@@ -662,6 +662,13 @@ class CopilotAiSdkLanguageModel {
 	}
 
 	static function requireStreamUsage(value:Null<Undefinable<CopilotMappedStreamUsage>>, label:String):CopilotMappedStreamUsage {
+		final present = value == null ? null : value.orNull();
+		if (present == null)
+			throw 'Missing Copilot ${label}';
+		return present;
+	}
+
+	static function requireUndefinableDate(value:Null<Undefinable<js.lib.Date>>, label:String):js.lib.Date {
 		final present = value == null ? null : value.orNull();
 		if (present == null)
 			throw 'Missing Copilot ${label}';

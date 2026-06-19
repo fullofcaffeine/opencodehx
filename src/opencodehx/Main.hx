@@ -20,6 +20,7 @@ import opencodehx.smoke.CopilotChatStreamAdapterSmoke;
 import opencodehx.smoke.CopilotChatStreamSmoke;
 import opencodehx.smoke.CopilotChatToolsSmoke;
 import opencodehx.smoke.CopilotProviderFactorySmoke;
+import opencodehx.smoke.CopilotResponsesLanguageModelSmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
@@ -105,6 +106,10 @@ class Main {
 			})
 			.then(_ -> {
 				Syntax.code("console.log({0})", "copilot-chat-language-model-smoke:ok");
+				return CopilotResponsesLanguageModelSmoke.run();
+			})
+			.then(_ -> {
+				Syntax.code("console.log({0})", "copilot-responses-language-model-smoke:ok");
 				return AiSdkProviderSmoke.run();
 			})
 			.then(_ -> {
