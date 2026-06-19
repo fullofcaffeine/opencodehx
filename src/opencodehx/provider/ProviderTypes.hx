@@ -81,6 +81,10 @@ typedef ProviderApiInfo = {
 	final npm:String;
 }
 
+// Boundary debt: provider options are SDK-owned passthrough data. Upstream uses
+// Record<string, any> here and runtime custom loaders may add functions such as
+// fetch or credentialProvider. Keep this confined to provider/factory seams and
+// narrow stable provider-specific options into typed facades as those slices land.
 typedef ProviderOptions = DynamicAccess<Dynamic>;
 typedef ProviderHeaders = DynamicAccess<String>;
 typedef ProviderVariants = DynamicAccess<DynamicAccess<Dynamic>>;

@@ -31,6 +31,6 @@ Every `partial` or `deferred` executable test row has a `skip_or_defer_reason`, 
 
 ## Current Reading
 
-OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider registry, credential-free AI SDK stream mechanics, CLI, project/git/worktree/sync/npm, parser-backed bash permissions, PTY lifecycle/WebSocket replay, and one-turn session behavior. Large product surfaces remain deferred: full server/API and SDK compatibility, real provider SDK loading/transforms, full session lifecycle, MCP/ACP, plugin loading, LSP, live TUI, live package-manager installation side effects, and packaging.
+OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider registry, credential-free AI SDK stream mechanics, a first OpenAI-compatible SDK factory path, CLI, project/git/worktree/sync/npm, parser-backed bash permissions, PTY lifecycle/WebSocket replay, and one-turn session behavior. Large product surfaces remain deferred: full server/API and SDK compatibility, broader provider SDK loading/transforms, full session lifecycle, MCP/ACP, plugin loading, LSP, live TUI, live package-manager installation side effects, and packaging.
 
 The next practical move is to use this matrix while selecting Beads: before starting a subsystem, filter `reference/opencode-test-port-matrix.csv` by `next_bead` and promote the relevant upstream tests into Haxe-owned fixtures or differential harnesses.

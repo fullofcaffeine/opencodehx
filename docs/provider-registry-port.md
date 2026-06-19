@@ -14,6 +14,7 @@ This slice adds the first Haxe-owned provider registry:
 - `FakeProvider` now uses the same typed provider/model records as the registry instead of local duplicate DTOs.
 - `opencodehx.provider.AiSdkProvider` adds the first AI SDK `streamText` facade through narrow Haxe externs.
 - `opencodehx.smoke.AiSdkProviderSmoke` exercises credential-free AI SDK streaming via `ai/test` `MockLanguageModelV3`.
+- `opencodehx.provider.AiSdkLanguageLoader` resolves the first real bundled SDK factory path through `@ai-sdk/openai-compatible`.
 
 ## Evidence
 
@@ -33,6 +34,7 @@ This slice adds the first Haxe-owned provider registry:
 - Stream error callback handling and final error finish reason.
 - Abort propagation through `AbortController`.
 - AI SDK usage aggregation and finish reason typing.
+- A credential-free OpenAI-compatible provider factory path from Haxe config through `ProviderRegistry.resolveLanguage`, including alias-to-upstream model ID selection and `LanguageModelV3` metadata.
 
 Run it with:
 
@@ -54,13 +56,13 @@ The upstream `interleaved` capability is not `Dynamic`: it is modeled as `Either
 
 Config, auth, and env inputs are still dynamic JSON/process boundaries. The registry normalizes them into typed provider/model records as soon as the current slice has enough schema knowledge. Further config-schema tightening belongs to `opencodehx-ajd`.
 
-The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)` only for SDK-owned types such as `LanguageModelV3`, `Tool`, `JSONSchema7`, and provider stream parts; the app-facing surface is the typed `AiSdkProvider` event/result model. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
+The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)` only for SDK-owned types such as `LanguageModelV3`, OpenAI-compatible factory settings, `Tool`, `JSONSchema7`, and provider stream parts; the app-facing surface is the typed `AiSdkProvider` event/result model. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
 
 ## Deferred Scope
 
 This is not the full provider runtime:
 
-- Real provider SDK dynamic loading, `getLanguageModel`, provider-specific request options, `models.dev` fetch/cache, plugin provider hooks, and provider transform variants remain `opencodehx-nrh`.
+- More bundled providers, non-bundled dynamic provider installation/loading, provider-specific request options, `models.dev` fetch/cache, plugin provider hooks, and provider transform variants remain `opencodehx-nrh`.
 - GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
 

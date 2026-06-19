@@ -129,6 +129,37 @@ typedef AiProviderReadableStreamOptions = {
 	@:optional final chunkDelayInMs:Null<Int>;
 }
 
+typedef AiSdkFactoryOptionsShape = {
+	final name:String;
+	final baseURL:String;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+	final includeUsage:Undefinable<Bool>;
+}
+
+typedef AiSdkBundledProvider = {
+	function languageModel(modelID:String):AiLanguageModel;
+}
+
+typedef AiSdkProviderFactory = AiSdkFactoryOptions->AiSdkBundledProvider;
+
+typedef AiLanguageModelShape = {
+	final provider:String;
+	final modelId:String;
+}
+
+/**
+ * Type-only bridge for OpenAI-compatible provider factory settings.
+ *
+ * Haxe's `@:optional` fields currently lower to `T | null | undefined`, but
+ * this package requires JavaScript `undefined` rather than `null`. The Haxe
+ * shape therefore uses explicit `Undefinable<T>` fields and this raw override
+ * keeps the public TypeScript type aligned with the SDK declaration.
+ */
+@:forward(name, baseURL, apiKey, headers, includeUsage)
+@:ts.type("import('@ai-sdk/openai-compatible').OpenAICompatibleProviderSettings")
+abstract AiSdkFactoryOptions(AiSdkFactoryOptionsShape) from AiSdkFactoryOptionsShape to AiSdkFactoryOptionsShape {}
+
 /**
  * Type-only bridge for AI SDK `LanguageModelV3`.
  *
@@ -136,8 +167,9 @@ typedef AiProviderReadableStreamOptions = {
  * duplicating the SDK. Keep this raw TS type confined to the extern boundary;
  * app-facing code consumes typed `AiSdkProvider` results instead.
  */
+@:forward(provider, modelId)
 @:ts.type("import('@ai-sdk/provider').LanguageModelV3")
-abstract AiLanguageModel(Dynamic) from Dynamic to Dynamic {}
+abstract AiLanguageModel(AiLanguageModelShape) from AiLanguageModelShape to AiLanguageModelShape {}
 
 /**
  * Type-only bridge for AI SDK `Tool`.

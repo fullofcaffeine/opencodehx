@@ -1,12 +1,20 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
+import haxe.DynamicAccess;
 import js.lib.Promise;
+import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigInfo.ConfigProviderConfig;
+import opencodehx.config.ConfigInfo.ConfigProviderModelConfig;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamResult;
+import opencodehx.provider.ProviderRegistry;
+import opencodehx.provider.ProviderTypes.ModelID;
+import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
 
 class AiSdkProviderSmoke {
 	@:async
@@ -15,6 +23,7 @@ class AiSdkProviderSmoke {
 		await(toolCallStream());
 		await(errorStream());
 		await(abortStream());
+		openAICompatibleFactory();
 	}
 
 	@:async
@@ -78,6 +87,51 @@ class AiSdkProviderSmoke {
 			case StreamAbort(AiSdkProvider.ABORT_REASON): true;
 			case _: false;
 		}), true, "ai sdk abort event");
+	}
+
+	static function openAICompatibleFactory():Void {
+		final registry = new ProviderRegistry({config: sdkConfig(), env: {}, auth: {}});
+		final model = registry.getModel(ProviderID.make("sdk-compatible"), ModelID.make("local-alias"));
+		final resolved = registry.resolveLanguage(model);
+		eq(resolved.sdkModelID, "remote-model", "ai sdk factory model id");
+		eq(resolved.language.modelId, "remote-model", "ai sdk language model id");
+		eq(resolved.language.provider, "sdk-compatible.chat", "ai sdk language provider");
+		eq(resolved.options.baseURL, "https://llm.example.test/v1", "ai sdk factory base url");
+	}
+
+	static function sdkConfig():ConfigInfo {
+		final info = ConfigInfo.empty("fixture-user");
+		final providers = new DynamicAccess<ConfigProviderConfig>();
+		final models = new DynamicAccess<ConfigProviderModelConfig>();
+		models.set("local-alias", {
+			id: "remote-model",
+			name: "Local Alias",
+			tool_call: true,
+			limit: {context: 128000, output: 4096},
+		});
+		providers.set("sdk-compatible", {
+			name: "SDK Compatible",
+			npm: "@ai-sdk/openai-compatible",
+			api: "https://llm.example.test/v1",
+			env: [],
+			options: sdkOptions(),
+			models: models,
+		});
+		info.provider = providers;
+		return info;
+	}
+
+	static function sdkOptions():ProviderOptions {
+		// Fixture boundary: ProviderOptions is intentionally SDK passthrough data.
+		// This smoke keeps the values to the OpenAI-compatible factory's stable
+		// subset and lets AiSdkLanguageLoader narrow them before use.
+		final options = new DynamicAccess<Dynamic>();
+		options.set("apiKey", "local-key");
+		options.set("includeUsage", true);
+		final headers = new DynamicAccess<String>();
+		headers.set("x-opencodehx-smoke", "present");
+		options.set("headers", headers);
+		return options;
 	}
 
 	static function hasEvent(result:AiSdkStreamResult, predicate:AiSdkStreamEvent->Bool):Bool {

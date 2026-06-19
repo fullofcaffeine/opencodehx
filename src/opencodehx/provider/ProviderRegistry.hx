@@ -11,6 +11,7 @@ import opencodehx.config.ConfigInfo.ConfigProviderModelLimitConfig;
 import opencodehx.config.ConfigInfo.ConfigProviderModalitiesConfig;
 import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
+import opencodehx.provider.AiSdkLanguageLoader.AiSdkLanguageResolution;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ParsedModelRef;
 import opencodehx.provider.ProviderTypes.ProviderID;
@@ -18,6 +19,7 @@ import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderInterleaved;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
+import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 
 typedef ProviderRegistryInput = {
 	final config:ConfigInfo;
@@ -64,6 +66,17 @@ class ProviderRegistry {
 		if (model == null)
 			throw notFound(providerID, modelID, modelSuggestions(provider, modelID.toString()));
 		return model;
+	}
+
+	public function resolveLanguage(model:ProviderModel):AiSdkLanguageResolution {
+		final provider = getProvider(model.providerID);
+		if (provider == null)
+			throw notFound(model.providerID, model.id, providerSuggestions(model.providerID.toString()));
+		return AiSdkLanguageLoader.resolve(provider, model);
+	}
+
+	public function getLanguage(model:ProviderModel):AiLanguageModel {
+		return resolveLanguage(model).language;
 	}
 
 	public function closest(providerID:ProviderID, query:Array<String>):Null<ParsedModelRef> {
