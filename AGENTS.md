@@ -33,7 +33,9 @@ This is a Haxe port, not TypeScript written with Haxe syntax.
 - Use GADT-style typed enum patterns where they make illegal states harder to represent, especially for protocol messages, tool parts, provider stream events, permission outcomes, and state transitions.
 - Use macros when they materially improve the system: deriving schema/codec glue, keeping DTOs and fixtures in sync, generating extern boilerplate, enforcing invariants, or emulating useful TypeScript features in a cleaner Haxe-native way.
 - Do not use macros for cleverness alone. Macro output must remain understandable, deterministic, typed, and covered by tests or snapshots.
+- When a string parameter represents a checkable artifact rather than arbitrary user text, prefer a typed wrapper or macro-checked constructor. Route names, keybind IDs, tool IDs, config keys, schema names, resource names, event discriminants, provider/model IDs, fixture names, and generated file targets should fail at Haxe compile time whenever a catalog, enum, manifest, or local artifact can prove validity.
 - Avoid long positional constructors for DTOs and protocol records. Use typed field records, named factories, or builders when call sites would otherwise lose meaning.
+- Prefer Haxe extension-style APIs with `using` for common helper modules such as `StringTools` when it makes code read as a domain transformation (`text.trim()`, `path.startsWith(...)`) instead of a utility detour. Keep static calls when the helper is rare, ambiguous, or clearer as a namespaced operation.
 - Keep strings at the boundary: JSON, CLI, filesystem paths, environment variables, npm APIs, and upstream compatibility. Convert to typed values as soon as practical.
 - Prefer a more functional style for pure transformations, but do not force functional purity across host seams where OpenCode behavior depends on effects.
 - Keep early session-processing helpers deterministic and typed around the message/part model; promote only provider/tool/permission edges when async behavior is needed.
@@ -191,6 +193,7 @@ The TUI is the most sensitive UX surface.
 
 - First compile one minimal Solid/OpenTUI TSX/HXX component through `genes-ts`.
 - Prefer genes-ts default inline markup (`<box>...</box>`) for Haxe-authored TUI components. String-based `jsx("...")` remains an escape for parser gaps such as fragment roots, but normal handwritten UI should prove the HHX path and keep Haxe expression splices typed.
+- Prefer macro-checked TUI artifact constructors over naked strings for known routes, keybind action IDs, component slots, test fixture names, and snapshot paths. The built-in plugin route path uses `TuiRoutes.plugin("themes")` so a typo fails during Haxe compilation instead of becoming a missing runtime route.
 - Keep the first TUI gate small and reproducible: a Haxe-authored TSX scaffold, OpenTUI's test renderer contract, generated TSX snapshot, strict `tsc`, and an explicitly tracked runtime smoke before moving to the full terminal renderer.
 - Run OpenTUI/Solid runtime gates with the repo-pinned Bun binary, not Node or a developer's global Bun. The current scaffold uses `scripts/harness/opentui-solid-preload.mjs` so Babel accepts `genes-ts` support-module `declare` fields while preserving OpenTUI's Solid transform behavior.
 - Add compiler fixtures for props, children, signals/memos, imports, components, and generated TSX accepted by TypeScript.

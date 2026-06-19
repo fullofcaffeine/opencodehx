@@ -3,11 +3,15 @@ package opencodehx.tui;
 enum TuiRoute {
 	Home;
 	Session(sessionID:String);
-	Plugin(name:String);
+	Plugin(name:TuiPluginRouteName);
+}
+
+enum abstract TuiPluginRouteName(String) to String {
+	var Themes = "themes";
 }
 
 typedef TuiPluginRoute = {
-	final name:String;
+	final name:TuiPluginRouteName;
 	final label:String;
 }
 
@@ -22,7 +26,7 @@ class TuiRouteStore {
 
 	public static function demo():TuiRouteStore {
 		final store = new TuiRouteStore(Home);
-		store.register([{name: "themes", label: "Theme List"}]);
+		store.register(TuiRoutes.builtinPlugins());
 		return store;
 	}
 
@@ -61,7 +65,7 @@ class TuiRouteStore {
 		}
 	}
 
-	public function pluginLabel(name:String):String {
+	public function pluginLabel(name:TuiPluginRouteName):String {
 		for (i in 0...pluginRoutes.length) {
 			final route = pluginRoutes[pluginRoutes.length - 1 - i];
 			if (route.name == name)

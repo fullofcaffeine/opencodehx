@@ -39,7 +39,7 @@ class TuiFoundation {
 		final matchedThemeList = keybind.match("theme_list", key, leaderActive);
 		leaderActive = false;
 		if (matchedThemeList) {
-			route.navigate(TuiRoute.Plugin("themes"));
+			route.navigate(TuiRoutes.plugin("themes"));
 			return ThemeList;
 		}
 
