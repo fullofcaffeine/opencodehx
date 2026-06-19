@@ -1,12 +1,12 @@
 {
   "schema": "opencodehx.reference.genes-pin.v1",
-  "recorded_at": "2026-06-19T17:50:19Z",
+  "recorded_at": "2026-06-19T18:43:39Z",
   "bead": "opencodehx-nrh",
   "canonical_checkout": {
     "path": "../genes",
     "role": "canonical Genes checkout for genes-ts compiler work",
     "branch": "main",
-    "commit": "b96af41741e6ea2b0e36c5a50005e38af4aebeb3",
+    "commit": "5c4adb14cb397e43eec5eeeba650a94d01ae73fa",
     "remotes": {
       "origin": "git@github.com:fullofcaffeine/genes-ts.git",
       "upstream": "git@github.com:benmerckx/genes.git"
@@ -18,7 +18,6 @@
       "tracked_changes": false,
       "untracked_paths": [
         "genes-ts.xml",
-        "repomix-output-genes-ts 9.25.13\\u202fp.m..xml",
         "repomix-output-genes-ts.xml.zip"
       ]
     }
@@ -38,8 +37,8 @@
       "../fullofcaffeine/tools/cafetera/vendor/genes-ts/src"
     ],
     "source_file_count": 35,
-    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, target-polymorphic helper docs, optional-field boolean branch narrowing, enum switch case scoping, optional enum constructor declaration arity, block-scoped switch-case locals without js-es, Undefinable assignment output fixes, and null-guarded local cast elision landed",
-    "relative_path_sha256_manifest_hash": "43e0bd91f96ef925415835ba26c8e5c4268db28bdc148934aee9dd21af8bc4a0"
+    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, target-polymorphic helper docs, optional-field boolean branch narrowing, enum switch case scoping, optional enum constructor declaration arity, block-scoped switch-case locals without js-es, Undefinable assignment output fixes, null-guarded local cast elision, @:native anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, and abstract-underlying anonymous-field context fixes landed",
+    "relative_path_sha256_manifest_hash": "22e49865af9a047390a0df2128d1b37721af8a36c9dc861d3317de069e832538"
   },
   "decision": {
     "canonical_dependency": "../genes",

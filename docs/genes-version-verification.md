@@ -1,7 +1,7 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-19T17:54:15Z
+**Recorded:** 2026-06-19T18:43:39Z
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
@@ -19,15 +19,15 @@ The canonical compiler checkout is now ahead of the Cafetera vendored reference 
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 35 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, and null-guarded local cast elision landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `43e0bd91f96ef925415835ba26c8e5c4268db28bdc148934aee9dd21af8bc4a0`
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, and abstract-underlying anonymous-field context fixes landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `22e49865af9a047390a0df2128d1b37721af8a36c9dc861d3317de069e832538`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `b96af41741e6ea2b0e36c5a50005e38af4aebeb3`
+- Commit: `5c4adb14cb397e43eec5eeeba650a94d01ae73fa`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
@@ -39,6 +39,10 @@ Canonical `../genes` checkout:
 - Optional-field boolean narrowing fix: `bed806092d198f075a62d7da52f1d90b53feb860` (`fix(ts): narrow optional fields through boolean conditions`), carrying optional-field non-null facts through boolean `&&` and `||` branches so strict TypeScript accepts dominated field reads without source workarounds.
 - Undefinable assignment output fix: `dacd5f8572adad6c0f194549795ac5be04ffa4b5` (`fix(ts): preserve undefinable assignment output`), preserving `undefined` for `genes.ts.Undefinable<T>` assignments, returns, ternaries, array elements, and variable initializers.
 - Null-guarded local cast elision: `b96af41741e6ea2b0e36c5a50005e38af4aebeb3` (`fix(ts): elide null-guarded local casts`), removing unnecessary generated `Register.unsafeCast<T>(value)` after stable nullable local null guards while preserving conservative casts for unproven paths.
+- Native anonymous-field emission: `72fe8de0ced809cc07f5f9954bae2185697a7c68` (`fix(ts): honor native anonymous fields`), honoring `@:native("...")` on anonymous/typedef fields in generated TS type members, object literal keys, field access, and classic JS runtime object keys.
+- Array element expected-type propagation: `0e722e4ad5cf86a35e81813d8d92eddd20932ad3` (`fix(ts): propagate array element context`), carrying expected `Array<T>` element types into array literal object members so nested `@:native` fields and helper abstractions emit the same idiomatic TS as direct object fields.
+- Ternary branch expected-type propagation: `e6a9d8c23b3ed3e415b924aef96173acbc413e61` (`fix(ts): propagate ternary expected types`), carrying object-field and destination types into conditional-expression branches so `genes.ts.Undefinable<T>` emits `undefined` instead of `null` inside typed ternary object fields.
+- Abstract anonymous-field context: `5c4adb14cb397e43eec5eeeba650a94d01ae73fa` (`fix(ts): use abstract object field context`), looking through Haxe abstracts over anonymous shapes during contextual object-field emission so raw TS bridge abstracts still preserve field metadata such as `Undefinable<T>`.
 
 Cafetera vendored reference:
 
