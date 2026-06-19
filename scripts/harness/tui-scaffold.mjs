@@ -5,6 +5,8 @@ import { spawnSync } from "node:child_process";
 const root = path.resolve(new URL("../..", import.meta.url).pathname);
 const snapshotPath = path.join(root, "reference", "tui-scaffold.TuiScaffold.tsx");
 const generatedPath = path.join(root, "src-gen", "tui", "opencodehx", "tui", "TuiScaffold.tsx");
+const bunPath = path.join(root, "node_modules", ".bin", process.platform === "win32" ? "bun.exe" : "bun");
+const preloadPath = path.join(root, "scripts", "harness", "opentui-solid-preload.mjs");
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -37,14 +39,4 @@ if (generated !== expected) {
   process.exit(1);
 }
 
-if (process.env.OPENCODEHX_TUI_RUNTIME === "1") {
-  console.error(
-    "[tui-scaffold] Runtime smoke is intentionally gated: OpenTUI/Solid requires its Bun preload/build path."
-  );
-  console.error(
-    "[tui-scaffold] The current local Bun 1.0.11 rejects OpenTUI's import attribute type \"file\"."
-  );
-  process.exit(1);
-}
-
-console.log("[tui-scaffold] TSX compile and snapshot passed; runtime smoke tracked by opencodehx-nc7.");
+run(bunPath, ["--preload", preloadPath, "./src-gen/tui/index.tsx"]);
