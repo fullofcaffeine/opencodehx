@@ -1,12 +1,12 @@
 {
   "schema": "opencodehx.reference.genes-pin.v1",
-  "recorded_at": "2026-06-19T18:43:39Z",
+  "recorded_at": "2026-06-19T19:06:22Z",
   "bead": "opencodehx-nrh",
   "canonical_checkout": {
     "path": "../genes",
     "role": "canonical Genes checkout for genes-ts compiler work",
     "branch": "main",
-    "commit": "5c4adb14cb397e43eec5eeeba650a94d01ae73fa",
+    "commit": "909b9cfae0c8bf917cd93e5644d22c48718a3c51",
     "remotes": {
       "origin": "git@github.com:fullofcaffeine/genes-ts.git",
       "upstream": "git@github.com:benmerckx/genes.git"
@@ -37,8 +37,8 @@
       "../fullofcaffeine/tools/cafetera/vendor/genes-ts/src"
     ],
     "source_file_count": 35,
-    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, target-polymorphic helper docs, optional-field boolean branch narrowing, enum switch case scoping, optional enum constructor declaration arity, block-scoped switch-case locals without js-es, Undefinable assignment output fixes, null-guarded local cast elision, @:native anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, and abstract-underlying anonymous-field context fixes landed",
-    "relative_path_sha256_manifest_hash": "22e49865af9a047390a0df2128d1b37721af8a36c9dc861d3317de069e832538"
+    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, target-polymorphic helper docs, optional-field boolean branch narrowing, enum switch case scoping, optional enum constructor declaration arity, block-scoped switch-case locals without js-es, Undefinable assignment output fixes, null-guarded local cast elision, @:native anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, and raw syntax-template native-field fixes landed",
+    "relative_path_sha256_manifest_hash": "9f731d85a627cdd986ed4bccb7a7794998e4ad78f65f594f76245df4a48f19d9"
   },
   "decision": {
     "canonical_dependency": "../genes",

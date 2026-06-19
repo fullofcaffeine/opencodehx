@@ -21,6 +21,7 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
 - `CopilotChatCompletion` ports pure GitHub Copilot response metadata, non-stream response content assembly, finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
 - `CopilotChatStream` ports the pure GitHub Copilot chat stream state machine over typed parsed chunks, before the actual SSE/Web Stream adapter lands.
+- `CopilotChatTools` ports pure GitHub Copilot request-body tool formatting for OpenAI-compatible function tools and tool-choice modes.
 
 ## Evidence
 
@@ -83,6 +84,13 @@ This slice adds the first Haxe-owned provider registry:
 - Final finish reason, token usage/no-cache accounting, and accepted/rejected prediction metadata.
 - Error chunks and invalid chunk diagnostics for duplicate reasoning opaque, missing tool IDs, and missing tool names.
 
+`CopilotChatToolsSmoke` covers representative upstream request-body formatting from `provider/copilot/copilot-chat-model.test.ts`:
+
+- Empty tool arrays become absent `tools` and `tool_choice`.
+- Function tools emit the OpenAI-compatible function/tool schema shape.
+- Provider tools emit unsupported warnings and are filtered from the OpenAI-compatible request tools.
+- Auto, none, required, and named tool-choice modes map to the upstream OpenAI-compatible shape.
+
 Run it with:
 
 ```bash
@@ -122,5 +130,9 @@ The Haxe model generates strict-checkable TypeScript, but the provider registry 
 The models.dev runtime-options path exposed a generic optional-field narrowing hole for Haxe conditions such as `field == null || field == "" ? fallback : field`. The fix landed in `../genes` commit `bed806092d198f075a62d7da52f1d90b53feb860` (`genes-o41`), teaching `genes-ts` to carry optional-field non-null facts through boolean `&&`/`||` branches without OpenCodeHX-specific knowledge.
 
 The Copilot usage-mapping helpers exposed generated cast noise after null-guarded locals used for `genes.ts.Undefinable<T>` output. The fix landed in `../genes` commit `b96af41741e6ea2b0e36c5a50005e38af4aebeb3` (`genes-9lz`), teaching `genes-ts` to emit direct TypeScript locals after stable null guards instead of `Register.unsafeCast<T>(value)`.
+
+The Copilot request-body tool formatter exposed two generic object-context gaps: call arguments such as `Array<T>.push({ ... })` lost the expected anonymous record type, and `EitherType<String, { @:native("function") ... }>` object arms lost native-field metadata after abstract following. The fix landed in `../genes` commit `5b93d285bbf3325c5647c16863af02c7e7fd1c45` (`genes-izm`), teaching `genes-ts` to propagate callee parameter context and inspect `EitherType` parameters before the abstract erases to `Dynamic`.
+
+The same formatter also exposed a generic raw-template gap: `genes.ts.Undefinable<T>.orNull()` lowers through `js.Syntax.code("{0} ?? null", value)`, and placeholder emission was bypassing Genes' native-aware field-name path. The fix landed in `../genes` commit `909b9cfae0c8bf917cd93e5644d22c48718a3c51` (`genes-1im`), teaching `genes-ts` raw syntax templates to emit placeholder values through Genes' raw JS value path so `@:native` anonymous fields remain correct without adding TS-only casts to raw snippets.
 
 Regular Genes' existing ES6 output path is a useful performance-oriented secondary profile. `../genes-vanilla` is the read-only reference for original Genes behavior; OpenCodeHX compiler work still lands in `../genes`, and idiomatic TypeScript remains the default output surface.

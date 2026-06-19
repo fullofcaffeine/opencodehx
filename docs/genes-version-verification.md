@@ -1,7 +1,7 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-19T18:43:39Z
+**Recorded:** 2026-06-19T19:06:22Z
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
@@ -19,15 +19,15 @@ The canonical compiler checkout is now ahead of the Cafetera vendored reference 
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 35 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, and abstract-underlying anonymous-field context fixes landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `22e49865af9a047390a0df2128d1b37721af8a36c9dc861d3317de069e832538`
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, and raw syntax-template native-field fixes landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `9f731d85a627cdd986ed4bccb7a7794998e4ad78f65f594f76245df4a48f19d9`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `5c4adb14cb397e43eec5eeeba650a94d01ae73fa`
+- Commit: `909b9cfae0c8bf917cd93e5644d22c48718a3c51`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
@@ -43,6 +43,8 @@ Canonical `../genes` checkout:
 - Array element expected-type propagation: `0e722e4ad5cf86a35e81813d8d92eddd20932ad3` (`fix(ts): propagate array element context`), carrying expected `Array<T>` element types into array literal object members so nested `@:native` fields and helper abstractions emit the same idiomatic TS as direct object fields.
 - Ternary branch expected-type propagation: `e6a9d8c23b3ed3e415b924aef96173acbc413e61` (`fix(ts): propagate ternary expected types`), carrying object-field and destination types into conditional-expression branches so `genes.ts.Undefinable<T>` emits `undefined` instead of `null` inside typed ternary object fields.
 - Abstract anonymous-field context: `5c4adb14cb397e43eec5eeeba650a94d01ae73fa` (`fix(ts): use abstract object field context`), looking through Haxe abstracts over anonymous shapes during contextual object-field emission so raw TS bridge abstracts still preserve field metadata such as `Undefinable<T>`.
+- Call-argument and EitherType object context: `5b93d285bbf3325c5647c16863af02c7e7fd1c45` (`fix(ts): propagate call argument object context`), carrying typed function-parameter context into call arguments and looking through `haxe.extern.EitherType` object arms so `@:native` anonymous fields emit correctly inside `Array<T>.push(...)` and TS-style union object returns.
+- Raw syntax-template native fields: `909b9cfae0c8bf917cd93e5644d22c48718a3c51` (`fix(ts): preserve native fields in syntax templates`), emitting `js.Syntax.code("...", args...)` placeholder values through Genes' raw JS value path so helper templates such as `Undefinable.orNull()` preserve `@:native` anonymous field names without injecting TS-only casts into raw runtime snippets.
 
 Cafetera vendored reference:
 

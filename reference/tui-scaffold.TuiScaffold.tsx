@@ -40,7 +40,7 @@ export class TuiScaffold {
 		TuiScaffold.assertAction("session ses_today", TuiDialogReplay.selectSession(TuiDialogReplay.sessionFixture(), 0), "session selection");
 		TuiScaffold.assertAction("permission once", TuiDialogReplay.replyPermission(TuiDialogReplay.permissionFixture(), "once"), "permission allow once");
 		TuiScaffold.assertAction("permission reject: Use a smaller edit", TuiDialogReplay.replyPermission(TuiDialogReplay.permissionFixture(), "reject", "Use a smaller edit"), "permission rejection");
-		var rendered: OpenTuiTestRender = await OpenTuiSolid.testRender(TuiScaffold.renderView,{ width : 76, height : 30});
+		var rendered: OpenTuiTestRender = await OpenTuiSolid.testRender(TuiScaffold.renderView, {"width": 76, "height": 30});
 		await rendered.renderOnce();
 		var first: string = rendered.captureCharFrame();
 		TuiScaffold.contains(first, "OpenCodeHX TUI", "static title");
