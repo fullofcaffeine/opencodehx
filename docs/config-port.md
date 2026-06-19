@@ -41,7 +41,7 @@ Implemented:
 - Typed `skills` config for local extra skill paths and remote skill index URLs. Local path consumption and remote URL discovery/cache behavior are covered by `docs/skill-registry-port.md`.
 - Narrow Node fs/os/url externs used only by the config smoke and host boundary.
 
-Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, remote well-known config, remote account config token substitution, managed config metadata stripping, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, plugin directory discovery, plugin path resolution, global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, top-level legacy tools migration, env-driven finalization flags, command/agent/mode markdown discovery, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
+Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, remote well-known config, remote account config token substitution, managed config metadata stripping, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, plugin directory discovery, plugin path resolution, global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, top-level legacy tools migration, env-driven finalization flags, dependency bootstrap gitignore/install success/failure behavior, command/agent/mode markdown discovery, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
 
 ## Deliberate Boundaries
 
@@ -53,7 +53,7 @@ Markdown frontmatter is intentionally typed as an `unknown` boundary at parse ti
 
 Plugin options remain open passthrough maps because upstream models them as `Record<string, unknown>` for plugin packages to consume. Path-like specs are normalized for file-backed config loads, but this slice does not load plugin modules or install npm dependencies; those belong to the plugin/runtime slices.
 
-This slice does not reimplement upstream's Effect service layer, the real account repo/service, platform-specific managed preference discovery, npm dependency install side effects, plugin runtime loading, or TUI migration. Those should be added when the dependent account/session/provider/server/TUI slices need them.
+This slice does not reimplement upstream's Effect service layer, the real account repo/service, platform-specific managed preference discovery, live npm package-manager side effects, plugin runtime loading, or TUI migration. Dependency bootstrap is represented by a typed `ConfigDependencyRuntime` seam and deterministic smoke fixture; live package-manager harnessing should stay opt-in.
 
 The writable JSON tree in `ConfigWriter` is intentionally typed as an `unknown` boundary in generated TypeScript. It exists only to round-trip arbitrary JSON/JSONC fields whose owning modules are not ported yet; app-facing code should stay on `ConfigInfo` and typed nested records.
 

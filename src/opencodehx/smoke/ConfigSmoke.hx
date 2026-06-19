@@ -7,6 +7,7 @@ import js.Syntax;
 import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigError.ConfigFailure;
+import opencodehx.config.ConfigDependencyRuntime;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.OpenConfigValue;
 import opencodehx.config.ConfigInfo.AutoUpdate;
@@ -26,9 +27,20 @@ import opencodehx.externs.node.Url;
 import opencodehx.externs.web.Fetch.FetchFunction;
 import opencodehx.externs.web.Fetch.RemoteConfigObject;
 import opencodehx.host.node.NodePath;
+import opencodehx.npm.Npm as NpmRuntime;
+import opencodehx.npm.Npm.NpmDeps;
+import opencodehx.npm.Npm.NpmHttpResponse;
+import opencodehx.npm.Npm.NpmReifyRequest;
 
 typedef RemoteMcpEntry = {
 	final enabled:Bool;
+}
+
+typedef ConfigNpmFixture = {
+	final deps:NpmDeps;
+	final requests:Array<NpmReifyRequest>;
+	final responses:Map<String, NpmHttpResponse>;
+	final fail:Array<Bool>;
 }
 
 class ConfigSmoke {
@@ -51,6 +63,7 @@ class ConfigSmoke {
 			legacyToolsMigration(root);
 			finalizationEnvFlags(root);
 			managedConfig(root);
+			dependencyBootstrap(root);
 			commandAgentDiscovery(root);
 			projectDisableSkipsDiscoveredEntries(root);
 			invalidJson(root);
@@ -484,6 +497,33 @@ disabled_providers = ["openai"]
 		notContains(managedText, "_manualProfile", "managed manual profile stripped");
 	}
 
+	static function dependencyBootstrap(root:String):Void {
+		final fixture = configNpmFixture(NodePath.join(root, "config-npm-cache"));
+		final dir = directory(root, "dependency-bootstrap");
+		final success = ConfigDependencyRuntime.bootstrapPluginDependency(fixture.deps, dir, "1.2.3", false);
+		eq(success.installed, true, "dependency bootstrap success");
+		eq(success.error, null, "dependency bootstrap success error");
+		eq(Fs.readFileSync(NodePath.join(dir, ".gitignore"), "utf8"), "node_modules\npackage.json\npackage-lock.json\nbun.lock\n.gitignore",
+			"dependency bootstrap gitignore");
+		eq(fixture.requests[0].dir, dir, "dependency bootstrap install dir");
+		eq(fixture.requests[0].add.join(","), "@opencode-ai/plugin@1.2.3", "dependency bootstrap plugin version");
+
+		final localDir = directory(root, "dependency-bootstrap-local");
+		ConfigDependencyRuntime.bootstrapPluginDependency(fixture.deps, localDir, "1.2.3", true);
+		eq(fixture.requests[1].add.join(","), "@opencode-ai/plugin", "dependency bootstrap local omits version");
+
+		final keepDir = directory(root, "dependency-bootstrap-keep-gitignore");
+		write(keepDir, ".gitignore", "custom\n");
+		ConfigDependencyRuntime.bootstrapPluginDependency(fixture.deps, keepDir, "1.2.3", false);
+		eq(Fs.readFileSync(NodePath.join(keepDir, ".gitignore"), "utf8"), "custom\n", "dependency bootstrap preserves gitignore");
+
+		final failing = configNpmFixture(NodePath.join(root, "config-npm-failure"));
+		failing.fail[0] = true;
+		final failed = ConfigDependencyRuntime.bootstrapPluginDependency(failing.deps, directory(root, "dependency-bootstrap-failure"), "1.2.3", false);
+		eq(failed.installed, false, "dependency bootstrap failure");
+		contains(failed.error, "reify failed", "dependency bootstrap failure error");
+	}
+
 	static function commandAgentDiscovery(root:String):Void {
 		final worktree = directory(root, "entry-discovery");
 		final project = directory(worktree, "project");
@@ -611,6 +651,33 @@ Global command template');
 		write(dir, "opencode.json", '{"username":"{file:included.txt}"}');
 		final config = ConfigLoader.loadProject(dir, {defaultUsername: "fixture-user"});
 		eq(config.username, "file-user", "file substitution");
+	}
+
+	static function configNpmFixture(root:String):ConfigNpmFixture {
+		final requests:Array<NpmReifyRequest> = [];
+		final responses = new Map<String, NpmHttpResponse>();
+		final fail = [false];
+		Fs.mkdirSync(root, {recursive: true});
+		return {
+			requests: requests,
+			responses: responses,
+			fail: fail,
+			deps: {
+				cache: root,
+				http: url -> responses.exists(url) ? responses.get(url) : {ok: false, body: ""},
+				reify: request -> {
+					if (fail[0])
+						throw "reify failed";
+					requests.push(request);
+					Fs.mkdirSync(request.dir, {recursive: true});
+					for (spec in request.add) {
+						final name = NpmRuntime.packageName(spec);
+						Fs.mkdirSync(NodePath.join(NodePath.join(request.dir, "node_modules"), name), {recursive: true});
+					}
+					return {edges: []};
+				},
+			},
+		};
 	}
 
 	static function directory(root:String, name:String):String {

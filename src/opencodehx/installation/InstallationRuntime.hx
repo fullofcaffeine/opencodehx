@@ -154,6 +154,27 @@ class InstallationRuntime {
 		return result;
 	}
 
+	public static function uninstallPackage(deps:InstallationDeps, installMethod:InstallationMethod):InstallationProcessResult {
+		return switch installMethod {
+			case Npm:
+				run(deps, {command: "npm", args: ["uninstall", "-g", "opencode-ai"]});
+			case Pnpm:
+				run(deps, {command: "pnpm", args: ["uninstall", "-g", "opencode-ai"]});
+			case Bun:
+				run(deps, {command: "bun", args: ["remove", "-g", "opencode-ai"]});
+			case Yarn:
+				run(deps, {command: "yarn", args: ["global", "remove", "opencode-ai"]});
+			case Brew:
+				run(deps, {command: "brew", args: ["uninstall", "opencode"]});
+			case Choco:
+				run(deps, {command: "choco", args: ["uninstall", "opencode", "-y", "-r"]});
+			case Scoop:
+				run(deps, {command: "scoop", args: ["uninstall", "opencode"]});
+			case Curl | UnknownMethod:
+				processResult(0, "", "");
+		}
+	}
+
 	static function latestBrew(deps:InstallationDeps):String {
 		final formula = getBrewFormula(deps);
 		if (formula.indexOf("/") != -1)

@@ -573,6 +573,25 @@ class ProjectRuntimeSmoke {
 		eq(InstallationRuntime.upgrade(chocoUpgrade.deps, InstallationMethod.Choco, "9.9.9").stderr, "not running from an elevated command shell",
 			"installation choco failure message");
 
+		final uninstallFixture = installationFixture("/usr/local/bin/opencode");
+		InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Npm);
+		InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Pnpm);
+		InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Bun);
+		InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Yarn);
+		InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Brew);
+		InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Choco);
+		InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Scoop);
+		eq(commandKey(uninstallFixture.commands[0]), "npm uninstall -g opencode-ai", "installation npm uninstall command");
+		eq(commandKey(uninstallFixture.commands[1]), "pnpm uninstall -g opencode-ai", "installation pnpm uninstall command");
+		eq(commandKey(uninstallFixture.commands[2]), "bun remove -g opencode-ai", "installation bun uninstall command");
+		eq(commandKey(uninstallFixture.commands[3]), "yarn global remove opencode-ai", "installation yarn uninstall command");
+		eq(commandKey(uninstallFixture.commands[4]), "brew uninstall opencode", "installation brew uninstall command");
+		eq(commandKey(uninstallFixture.commands[5]), "choco uninstall opencode -y -r", "installation choco uninstall command");
+		eq(commandKey(uninstallFixture.commands[6]), "scoop uninstall opencode", "installation scoop uninstall command");
+		final beforeCurlUninstall = uninstallFixture.commands.length;
+		eq(InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Curl).code, 0, "installation curl uninstall package noop");
+		eq(uninstallFixture.commands.length, beforeCurlUninstall, "installation curl uninstall package no command");
+
 		eq(InstallationRuntime.getReleaseType("1.2.3", "1.2.4"), InstallationReleaseType.Patch, "installation patch release type");
 		eq(InstallationRuntime.getReleaseType("1.2.3", "1.3.0"), InstallationReleaseType.Minor, "installation minor release type");
 		eq(InstallationRuntime.getReleaseType("1.2.3", "2.0.0"), InstallationReleaseType.Major, "installation major release type");

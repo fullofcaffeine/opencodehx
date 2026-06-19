@@ -55,7 +55,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - package `outdated` covers registry failure, exact-version comparison, and semver range satisfaction,
   - installation method detection follows upstream manager priority and installed-name checks,
   - latest-version lookup covers GitHub releases, npm registry, bun/pnpm registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
-  - upgrade command planning covers curl, npm, pnpm, bun, Homebrew tap refresh/upgrade, Scoop, and Chocolatey elevated-shell failure messaging.
+  - upgrade command planning covers curl, npm, pnpm, bun, Homebrew tap refresh/upgrade, Scoop, and Chocolatey elevated-shell failure messaging,
+  - uninstall package-manager command planning covers npm, pnpm, bun, yarn, Homebrew, Chocolatey, Scoop, and the curl no-op package-manager case.
 - Sync:
   - typed event sequencing,
   - aggregate history,
@@ -65,7 +66,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 
 ## Deferred
 
-- Full installation side effects against real package managers and dependency bootstrap command behavior.
+- Full installation side effects against real package managers.
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching bindings beyond typed HEAD-event bus refresh.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
