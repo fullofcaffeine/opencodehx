@@ -6,6 +6,7 @@ typedef ServerOptions = {
 	final directory:String;
 	final dbPath:String;
 	@:optional final hostname:String;
+	@:optional final syncTypes:Array<String>;
 }
 
 typedef ServerListener = {

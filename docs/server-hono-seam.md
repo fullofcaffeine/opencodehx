@@ -11,6 +11,7 @@ Primary upstream evidence:
 - `../opencode/packages/opencode/src/server/server.ts`
 - `../opencode/packages/opencode/src/server/routes/instance/event.ts`
 - `../opencode/packages/opencode/src/server/routes/instance/session.ts`
+- `../opencode/packages/opencode/src/server/routes/instance/sync.ts`
 - `../opencode/packages/opencode/src/server/routes/instance/tui.ts`
 - `../opencode/packages/opencode/test/control-plane/sse.test.ts`
 - `../opencode/packages/opencode/test/server/session-{actions,list,messages,select}.test.ts`
@@ -23,8 +24,9 @@ OpenCodeHX now has a first Node/Hono server seam:
 - `opencodehx.externs.hono.NodeWs` models `createNodeWebSocket()` as a typed `NodeWebSocketRuntime` instead of a broad `Dynamic` value.
 - `opencodehx.externs.hono.NodeServer` models `createAdaptorServer()` as Hono's exported `ServerType`, so the generated adapter infers server methods instead of declaring `server: any`.
 - `opencodehx.server.NodeHonoAdapter` starts and stops the Node server, injects WebSocket support, preserves upstream's port-0 behavior of trying `4096` before a random port, and structurally narrows optional Node close helpers.
-- `opencodehx.server.OpenCodeServer` exposes a first route set: `/health`, `/event`, `/session` GET/POST, `/session/:sessionID/message`, `/session/:sessionID/abort`, `/tui/select-session`, and `/ws`.
+- `opencodehx.server.OpenCodeServer` exposes a first route set: `/health`, `/event`, `/session` GET/POST, `/session/:sessionID/message`, `/session/:sessionID/abort`, `/sync/start`, `/sync/replay`, `/sync/history`, `/tui/select-session`, and `/ws`.
 - `opencodehx.smoke.ServerSmoke` covers in-memory `app.request()` routes, SSE text emission, cursor headers, bad/missing session cases, select-session validation, abort success, listener start/stop, and a real WebSocket echo.
+- `opencodehx.sync.SyncRouteRuntime` decodes sync replay/history request bodies from `genes.ts.Unknown` into typed route records before route logic sees them. Raw sync event `data` remains `unknown` until the full SyncEvent schema/projector registry lands.
 
 ## Typing Lesson
 
@@ -43,4 +45,4 @@ Upstream currently uses `@hono/node-server@1.19.11` and deprecated `@hono/node-w
 
 ## Deferred Scope
 
-This is not full server parity yet. Remaining work includes Bus/AsyncQueue-backed events, SSE heartbeat/parser behavior, OpenAPI middleware, request validation/error taxonomy, global/session filters, generated SDK compatibility, real session prompt/action routes, provider streams, PTY WebSocket control frames, auth/CORS/compression, workspace routing, and Bun adapter parity.
+This is not full server parity yet. Remaining work includes Bus/AsyncQueue-backed events, SSE heartbeat/parser behavior, OpenAPI middleware, request validation/error taxonomy, generated SDK compatibility, real session prompt/action routes, provider streams, PTY WebSocket control frames, auth/CORS/compression, workspace routing, full SyncEvent service graph wiring, and Bun adapter parity.

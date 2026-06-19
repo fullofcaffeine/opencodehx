@@ -19,6 +19,7 @@ class ServerSmoke {
 		final server = new OpenCodeServer({
 			directory: root,
 			dbPath: NodePath.join(root, "opencodehx.db"),
+			syncTypes: ["item.created.1"],
 		});
 		var listener:Null<ServerListener> = null;
 		try {
@@ -46,6 +47,107 @@ class ServerSmoke {
 	static function appRequestRoutes(server:OpenCodeServer, root:String):Promise<Void> {
 		final health = await(jsonResponse(await(server.app.request("/health"))));
 		eq(Reflect.field(health, "service"), "opencodehx", "health service");
+
+		final syncStart = await(jsonResponse(await(server.app.request("/sync/start", {method: "POST"}))));
+		eq(syncStart, true, "sync start route");
+
+		final syncReplay = await(jsonResponse(await(server.app.request("/sync/replay", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({
+				directory: root,
+				events: [
+					{
+						id: "evt_sync_1",
+						type: "item.created.1",
+						seq: 0,
+						aggregateID: "sync_session_1",
+						data: {id: "item_1", name: "one"}
+					},
+					{
+						id: "evt_sync_2",
+						type: "item.created.1",
+						seq: 1,
+						aggregateID: "sync_session_1",
+						data: {id: "item_1", name: "two"}
+					},
+				],
+			}),
+		}))));
+		eq(Reflect.field(syncReplay, "sessionID"), "sync_session_1", "sync replay session id");
+
+		final syncReplayNext = await(jsonResponse(await(server.app.request("/sync/replay", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({
+				directory: root,
+				events: [
+					{
+						id: "evt_sync_3",
+						type: "item.created.1",
+						seq: 2,
+						aggregateID: "sync_session_1",
+						data: {id: "item_1", name: "three"}
+					},
+				],
+			}),
+		}))));
+		eq(Reflect.field(syncReplayNext, "sessionID"), "sync_session_1", "sync replay next session id");
+
+		// Parsed sync route JSON is kept as Dynamic only inside this smoke
+		// assertion boundary; the production route decodes request JSON into
+		// typed SyncRouteRuntime records before using it.
+		final syncHistory:Dynamic = await(jsonResponse(await(server.app.request("/sync/history", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({}),
+		}))));
+		eq(syncHistory.length, 3, "sync history count");
+		eq(Reflect.field(cast syncHistory[0], "aggregate_id"), "sync_session_1", "sync history aggregate field");
+
+		final syncTail:Dynamic = await(jsonResponse(await(server.app.request("/sync/history", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({sync_session_1: 1}),
+		}))));
+		eq(syncTail.length, 1, "sync history known tail count");
+		eq(Reflect.field(cast syncTail[0], "seq"), 2, "sync history known tail seq");
+
+		final syncUnknown = await(server.app.request("/sync/replay", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({
+				directory: root,
+				events: [
+					{
+						id: "evt_sync_bad",
+						type: "unknown.event.1",
+						seq: 0,
+						aggregateID: "sync_session_bad",
+						data: {id: "item_bad"}
+					},
+				],
+			}),
+		}));
+		eq(Reflect.field(syncUnknown, "status"), 400, "sync unknown status");
+
+		final syncGap = await(server.app.request("/sync/replay", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({
+				directory: root,
+				events: [
+					{
+						id: "evt_sync_gap",
+						type: "item.created.1",
+						seq: 5,
+						aggregateID: "sync_session_gap",
+						data: {id: "item_gap"}
+					},
+				],
+			}),
+		}));
+		eq(Reflect.field(syncGap, "status"), 400, "sync gap status");
 
 		final created = await(jsonResponse(await(server.app.request("/session", {
 			method: "POST",

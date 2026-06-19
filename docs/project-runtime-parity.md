@@ -1,6 +1,6 @@
 # Project Runtime Parity
 
-**Beads:** `opencodehx-who`, expanded by `opencodehx-hic`
+**Beads:** `opencodehx-who`, expanded by `opencodehx-hic` and `opencodehx-99y`
 
 This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, worktree, npm, installation-adjacent, and sync tests. The executable fixture is `src/opencodehx/smoke/ProjectRuntimeSmoke.hx`, which runs as part of `npm run smoke`.
 
@@ -59,10 +59,18 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - uninstall package-manager command planning covers npm, pnpm, bun, yarn, Homebrew, Chocolatey, Scoop, and the curl no-op package-manager case.
 - Sync:
   - typed event sequencing,
+  - custom aggregate fields,
   - aggregate history,
+  - history after a caller's last-known aggregate sequence,
+  - typed persistence hooks,
+  - restart-style reload from persisted rows,
+  - aggregate event removal from the in-memory store and persistence hook,
+  - run publish defaults,
+  - replay publish opt-in,
   - replay,
   - unknown event type errors,
-  - sequence-gap errors.
+  - sequence-gap errors,
+  - guarded `/sync/start`, `/sync/replay`, and `/sync/history` server routes.
 
 ## Deferred
 
@@ -70,7 +78,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching bindings beyond typed HEAD-event bus refresh.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
-- Sync persistence, bus wiring, server routes, and cross-process behavior.
+- Full SyncEvent service graph: definition reset/init/freeze, projector registration and diagnostics, SQLite EventSequence/EventTable-backed persistence, old-version run rejection, ProjectBus/GlobalBus payload conversion, payload schema registry output, and live cross-process workspace sync.
 
 ## Boundary Notes
 

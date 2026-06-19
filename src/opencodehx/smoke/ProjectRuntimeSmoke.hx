@@ -40,6 +40,8 @@ import opencodehx.session.SessionID;
 import opencodehx.session.SessionInfo.SessionInfo;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.sync.SyncEventStore;
+import opencodehx.sync.SyncEventStore.SyncPersistence;
+import opencodehx.sync.SyncEventStore.SyncStoredEvent;
 import opencodehx.worktree.WorktreeRuntime.WorktreeEvent;
 import opencodehx.worktree.WorktreeRuntime.WorktreeEventType;
 import opencodehx.worktree.WorktreeRuntime;
@@ -49,6 +51,11 @@ using StringTools;
 typedef SmokeSyncItem = {
 	final id:String;
 	final name:String;
+}
+
+typedef SmokeSyncSentItem = {
+	final itemID:String;
+	final to:String;
 }
 
 typedef SmokeInstallationDeps = {
@@ -670,21 +677,75 @@ class ProjectRuntimeSmoke {
 	}
 
 	static function syncEvents():Void {
+		final persisted:Array<SyncStoredEvent<SmokeSyncItem>> = [];
+		final published:Array<SyncStoredEvent<SmokeSyncItem>> = [];
+		final persistence:SyncPersistence<SmokeSyncItem> = {
+			load: () -> persisted.copy(),
+			save: event -> {
+				persisted.push(event);
+			},
+			remove: aggregateID -> {
+				var index = persisted.length - 1;
+				while (index >= 0) {
+					if (persisted[index].aggregateID == aggregateID)
+						persisted.splice(index, 1);
+					index -= 1;
+				}
+			},
+		};
 		final store = new SyncEventStore<SmokeSyncItem>({
 			type: "item.created",
 			version: 1,
 			aggregate: item -> item.id,
+		}, {
+			persistence: persistence,
+			publisher: event -> {
+				published.push(event);
+			},
 		});
 		final first = store.run({id: "item_1", name: "first"});
 		final second = store.run({id: "item_1", name: "second"});
 		eq(first.seq, 0, "sync first seq");
 		eq(second.seq, 1, "sync second seq");
 		eq(store.history("item_1").length, 2, "sync history length");
+		eq(persisted.length, 2, "sync persisted run count");
+		eq(published.length, 2, "sync published run count");
 
+		final sent = new SyncEventStore<SmokeSyncSentItem>({
+			type: "item.sent",
+			version: 1,
+			aggregate: item -> item.itemID,
+		});
+		eq(sent.run({itemID: "item_custom", to: "james"}, false).aggregateID, "item_custom", "sync custom aggregate");
+
+		final restarted = new SyncEventStore<SmokeSyncItem>({
+			type: "item.created",
+			version: 1,
+			aggregate: item -> item.id,
+		}, {
+			persistence: persistence,
+			publisher: event -> {
+				published.push(event);
+			},
+		});
+		eq(restarted.history("item_1").length, 2, "sync restart history length");
+		final third = restarted.run({id: "item_1", name: "third"});
+		eq(third.id, "evt_3", "sync restart next id");
+		eq(third.seq, 2, "sync restart next seq");
+		eq(restarted.historyAfter([{aggregateID: "item_1", seq: 1}]).length, 1, "sync history after known seq");
+		restarted.remove("item_1");
+		eq(restarted.history("item_1").length, 0, "sync remove store history");
+		eq(persisted.length, 0, "sync remove persisted history");
+
+		final replayPublished:Array<SyncStoredEvent<SmokeSyncItem>> = [];
 		final replay = new SyncEventStore<SmokeSyncItem>({
 			type: "item.created",
 			version: 1,
 			aggregate: item -> item.id,
+		}, {
+			publisher: event -> {
+				replayPublished.push(event);
+			},
 		});
 		final source = replay.replayAll([
 			{
@@ -701,8 +762,9 @@ class ProjectRuntimeSmoke {
 				aggregateID: "item_2",
 				data: {id: "item_2", name: "b"}
 			},
-		]);
+		], true);
 		eq(source, "item_2", "sync replay source");
+		eq(replayPublished.length, 2, "sync replay publish count");
 		expectFailure(() -> replay.replay({
 			id: "evt_bad",
 			type: "unknown.event.1",

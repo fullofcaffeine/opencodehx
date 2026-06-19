@@ -21,6 +21,8 @@ import opencodehx.server.ServerTypes.ServerOptions;
 import opencodehx.storage.SessionStore;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.storage.StorageError.StorageException;
+import opencodehx.sync.SyncRouteRuntime;
+import opencodehx.sync.SyncRouteRuntime.SyncRouteDecode;
 
 class OpenCodeServer {
 	public final app:Hono;
@@ -29,12 +31,14 @@ class OpenCodeServer {
 	final store:SessionStore;
 	final directory:String;
 	final eventBus = new ServerEventBus();
+	final syncRuntime:SyncRouteRuntime;
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
 
 	public function new(options:ServerOptions) {
 		directory = options.directory;
 		store = new SqliteSessionStore(options.dbPath);
+		syncRuntime = new SyncRouteRuntime(options.syncTypes);
 		app = new Hono();
 		ws = NodeWs.createNodeWebSocket({app: app});
 		routes();
@@ -58,6 +62,9 @@ class OpenCodeServer {
 		app.post("/session", c -> createSession(c));
 		app.get("/session/:sessionID/message", c -> sessionMessages(c));
 		app.post("/session/:sessionID/abort", c -> json(c, true));
+		app.post("/sync/start", c -> json(c, syncRuntime.start()));
+		app.post("/sync/replay", c -> syncReplay(c));
+		app.post("/sync/history", c -> syncHistory(c));
 		app.post("/tui/select-session", c -> selectSession(c));
 		app.get("/ws", ws.upgradeWebSocket(Syntax.code("() => ({ onMessage(event: any, socket: any) { socket.send(event.data); } })")));
 	}
@@ -180,6 +187,35 @@ class OpenCodeServer {
 			return json(c, ServerProtocol.error("Session not found"), 404);
 		eventBus.publish(ServerProtocol.sessionEvent("session.selected", request.sessionID));
 		return json(c, true);
+	}
+
+	@:async
+	function syncReplay(c:HonoContext):Promise<Response> {
+		final decoded = SyncRouteRuntime.decodeReplay(await(readJson(c)));
+		final request = switch decoded {
+			case SyncRejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case SyncDecoded(value):
+				value;
+		};
+		try {
+			final source = syncRuntime.replayAll(request.events);
+			return json(c, {sessionID: source});
+		} catch (error:haxe.Exception) {
+			return json(c, ServerProtocol.error(error.message), 400);
+		}
+	}
+
+	@:async
+	function syncHistory(c:HonoContext):Promise<Response> {
+		final decoded = SyncRouteRuntime.decodeHistory(await(readJson(c)));
+		final known = switch decoded {
+			case SyncRejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case SyncDecoded(value):
+				value;
+		};
+		return json(c, syncRuntime.history(known));
 	}
 
 	function eventStream(c:HonoContext):Response {
