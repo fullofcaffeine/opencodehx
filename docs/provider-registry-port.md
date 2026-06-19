@@ -20,6 +20,7 @@ This slice adds the first Haxe-owned provider registry:
 - `ProviderModelsDev` adds the first models.dev fetch/cache seam with injected fetcher support, Node cache file selection, forced refresh, local file override, snapshot fallback, and typed catalog output.
 - `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
 - `CopilotChatCompletion` ports pure GitHub Copilot response metadata, non-stream response content assembly, finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
+- `CopilotChatStream` ports the pure GitHub Copilot chat stream state machine over typed parsed chunks, before the actual SSE/Web Stream adapter lands.
 
 ## Evidence
 
@@ -71,6 +72,17 @@ This slice adds the first Haxe-owned provider registry:
 - Raw stream usage nulls when usage is absent.
 - Accepted/rejected prediction-token metadata.
 
+`CopilotChatStreamSmoke` covers representative upstream stream-state behavior from `provider/copilot/copilot-chat-model.test.ts`:
+
+- `stream-start` and first-chunk response metadata.
+- Text start/delta/end ordering.
+- Reasoning start/delta/end ordering.
+- Reasoning-to-tool transition ordering.
+- Reasoning opaque metadata on reasoning, tool-call, and late finish events.
+- Tool input start/delta/end and tool-call assembly from parsed argument chunks.
+- Final finish reason, token usage/no-cache accounting, and accepted/rejected prediction metadata.
+- Error chunks and invalid chunk diagnostics for duplicate reasoning opaque, missing tool IDs, and missing tool names.
+
 Run it with:
 
 ```bash
@@ -99,7 +111,7 @@ The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)`
 
 This is not the full provider runtime:
 
-- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, plugin provider hooks, and full Copilot live streaming model/response parsing remain `opencodehx-nrh`.
+- More bundled providers, non-bundled dynamic provider installation/loading, deeper provider-specific request options, plugin provider hooks, and the full Copilot live SSE/Web Stream provider adapter remain `opencodehx-nrh`.
 - GitLab model discovery, OAuth flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
 
