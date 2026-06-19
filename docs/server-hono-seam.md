@@ -20,12 +20,12 @@ Primary upstream evidence:
 
 OpenCodeHX now has a first Node/Hono server seam:
 
-- `opencodehx.externs.hono.Hono` defines the narrow context/request/handler surface used by current routes. It preserves Hono's real `req.query()` boundary as `string | undefined` in generated TypeScript while route code normalizes it to `Null<String>`.
+- `opencodehx.externs.hono.Hono` defines the narrow context/request/handler surface used by current routes. It preserves Hono's real `req.param()`/`req.query()` boundary as `string | undefined` in generated TypeScript while route code normalizes it to `String`/`Null<String>`.
 - `opencodehx.externs.hono.NodeWs` models `createNodeWebSocket()` as a typed `NodeWebSocketRuntime` instead of a broad `Dynamic` value.
 - `opencodehx.externs.hono.NodeServer` models `createAdaptorServer()` as Hono's exported `ServerType`, so the generated adapter infers server methods instead of declaring `server: any`.
 - `opencodehx.server.NodeHonoAdapter` starts and stops the Node server, injects WebSocket support, preserves upstream's port-0 behavior of trying `4096` before a random port, and structurally narrows optional Node close helpers.
-- `opencodehx.server.OpenCodeServer` exposes a first route set: `/health`, `/event`, `/session` GET/POST, `/session/:sessionID/message`, `/session/:sessionID/abort`, `/sync/start`, `/sync/replay`, `/sync/history`, `/tui/select-session`, and `/ws`.
-- `opencodehx.smoke.ServerSmoke` covers in-memory `app.request()` routes, SSE text emission, cursor headers, bad/missing session cases, select-session validation, abort success, listener start/stop, and a real WebSocket echo.
+- `opencodehx.server.OpenCodeServer` exposes a first route set: `/health`, `/event`, `/session` GET/POST, `/session/:sessionID/message`, `/session/:sessionID/abort`, `/sync/start`, `/sync/replay`, `/sync/history`, `/tui/select-session`, `/pty`, `/pty/:ptyID`, and `/pty/:ptyID/connect`.
+- `opencodehx.smoke.ServerSmoke` covers in-memory `app.request()` routes, SSE text emission, cursor headers, bad/missing session cases, select-session validation, abort success, PTY HTTP routes, listener start/stop, and a real PTY WebSocket write/replay/tail flow.
 - `opencodehx.sync.SyncRouteRuntime` decodes sync replay/history request bodies from `genes.ts.Unknown` into typed route records before route logic sees them. Raw sync event `data` remains `unknown` until the full SyncEvent schema/projector registry lands.
 
 ## Typing Lesson
@@ -36,7 +36,7 @@ Remaining `Dynamic` values in this slice are boundary debt:
 
 - JSON request bodies remain dynamic until each route gets its Zod/schema-equivalent Haxe decoder.
 - JSON response payload helpers remain dynamic until route-specific response DTOs are ported.
-- WebSocket callback payloads remain dynamic until PTY/control-frame protocols land.
+- Non-PTY WebSocket/proxy callback payloads remain future boundary work; PTY WebSocket frames now narrow through `PtyService` and the server adapter before application logic sees them.
 - `SessionInfo` title patching uses a temporary mutable cast because the storage DTO has final fields; this should move to a named copy/update helper with the fuller session model.
 
 ## Dependency Note
@@ -45,4 +45,4 @@ Upstream currently uses `@hono/node-server@1.19.11` and deprecated `@hono/node-w
 
 ## Deferred Scope
 
-This is not full server parity yet. Remaining work includes Bus/AsyncQueue-backed events, SSE heartbeat/parser behavior, OpenAPI middleware, request validation/error taxonomy, generated SDK compatibility, real session prompt/action routes, provider streams, PTY WebSocket control frames, auth/CORS/compression, workspace routing, full SyncEvent service graph wiring, and Bun adapter parity.
+This is not full server parity yet. Remaining work includes Bus/AsyncQueue-backed events, SSE heartbeat/parser behavior, OpenAPI middleware, request validation/error taxonomy, generated SDK compatibility, real session prompt/action routes, provider streams, auth/CORS/compression, workspace routing, full SyncEvent service graph wiring, and Bun adapter parity.

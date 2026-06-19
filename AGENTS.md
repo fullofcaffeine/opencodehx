@@ -261,6 +261,8 @@ For parser-backed bash permissions, preload `web-tree-sitter` and grammar WASM a
 
 For PTY work, keep `@lydell/node-pty` and future `bun-pty` details behind `PtyService`/host externs. App-facing code should consume typed `PtyInfo`, lifecycle events, and operations instead of raw process handles or package-specific objects.
 
+For PTY WebSocket work, keep output buffering, cursor metadata frames, write/resize control flow, and subscriber identity inside `PtyService` plus the narrow server adapter. Hono/Bun may recycle or mutate WebSocket wrapper objects; mirror upstream by keying subscribers on `ws.data` object identity when present and never let reused socket wrappers leak output between PTY sessions. Any `unknown` used for socket identity must stay at this host boundary and be compared only by strict JS identity.
+
 For npm package-cache parity, keep registry fetches, Arborist-style reify, and package-manager side effects behind typed seams. Haxe smoke fixtures should assert cache paths, package-lock dirtiness, bin selection, and semver/outdated behavior deterministically without invoking live package managers; real npm/bun/pnpm/Homebrew/Scoop/Chocolatey side effects belong in explicit side-effect harnesses.
 
 For permission work, preserve upstream's last-match wildcard rule semantics. Config-derived wildcard permission keys should sort before specific keys so specific rules override fallback rules regardless of JSON key order.

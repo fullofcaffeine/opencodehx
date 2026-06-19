@@ -10,7 +10,7 @@ typedef HonoQueryValue = Undefinable<String>;
 
 typedef HonoRequest = {
 	function json():Promise<Unknown>;
-	function param(name:String):String;
+	function param(name:String):HonoQueryValue;
 	function query(name:String):HonoQueryValue;
 }
 
@@ -35,6 +35,7 @@ extern class Hono {
 	function new();
 	function get(path:String, handler:HonoHandler):Hono;
 	function post(path:String, handler:HonoHandler):Hono;
+	function put(path:String, handler:HonoHandler):Hono;
 	function delete(path:String, handler:HonoHandler):Hono;
 	function route(path:String, app:Hono):Hono;
 	function request(path:String, ?init:RequestInit):Promise<Response>;

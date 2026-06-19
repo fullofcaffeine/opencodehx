@@ -1,6 +1,7 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
 import js.Syntax;
 import js.lib.Promise;
 import opencodehx.externs.node.Fs;
@@ -10,6 +11,7 @@ import opencodehx.host.node.NodeProcess;
 import opencodehx.pty.PtyService;
 import opencodehx.pty.PtyTypes.PtyEvent;
 import opencodehx.pty.PtyTypes.PtyID;
+import opencodehx.pty.PtyTypes.PtySocketPayload;
 
 class PtySmoke {
 	@:async
@@ -22,6 +24,10 @@ class PtySmoke {
 		try {
 			await(shortLivedLifecycle(service));
 			await(removeLifecycle(service));
+			await(outputReplay(service));
+			await(reusedSocketIsolation(service));
+			await(recycledSocketIsolation(service));
+			await(inPlaceSocketDataMutation(service));
 			bashLoginArgs(service);
 			service.dispose();
 			Fs.rmSync(root, {recursive: true, force: true});
@@ -68,6 +74,71 @@ class PtySmoke {
 		service.remove(info.id);
 	}
 
+	@:async
+	static function outputReplay(service:PtyService):Promise<Void> {
+		final info = service.create({command: "cat", title: "replay"});
+		final first = new FakePtySocket(Unknown.fromBoundary({connection: "replay-first"}));
+		final handler = service.connect(info.id, first);
+		first.clear();
+		service.write(info.id, "AAA\n");
+		await(waitUntil(() -> first.text().indexOf("AAA") != -1, "pty replay first output"));
+		final replay = new FakePtySocket(Unknown.fromBoundary({connection: "replay-second"}));
+		service.connect(info.id, replay, 0);
+		eq(replay.text().indexOf("AAA") != -1, true, "pty replays buffered output");
+		final cursor = replay.cursor();
+		eq(cursor > 0, true, "pty replay cursor");
+		final tail = new FakePtySocket(Unknown.fromBoundary({connection: "replay-tail"}));
+		service.connect(info.id, tail, -1);
+		eq(tail.text().indexOf("AAA"), -1, "pty cursor -1 skips replay");
+		eq(tail.cursor(), cursor, "pty tail cursor");
+		if (handler != null)
+			handler.onClose();
+		service.remove(info.id);
+	}
+
+	@:async
+	static function reusedSocketIsolation(service:PtyService):Promise<Void> {
+		final a = service.create({command: "cat", title: "a"});
+		final b = service.create({command: "cat", title: "b"});
+		final socket = new FakePtySocket(Unknown.fromBoundary({connection: "a"}));
+		service.connect(a.id, socket);
+		socket.data = Unknown.fromBoundary({connection: "b"});
+		socket.sink = [];
+		service.connect(b.id, socket);
+		socket.clear();
+		service.write(a.id, "AAA\n");
+		await(sleep(100));
+		eq(socket.text().indexOf("AAA"), -1, "reused socket does not leak old pty output");
+		service.remove(a.id);
+		service.remove(b.id);
+	}
+
+	@:async
+	static function recycledSocketIsolation(service:PtyService):Promise<Void> {
+		final info = service.create({command: "cat", title: "recycled"});
+		final socket = new FakePtySocket(Unknown.fromBoundary({connection: "a"}));
+		service.connect(info.id, socket);
+		socket.data = Unknown.fromBoundary({connection: "b"});
+		socket.sink = [];
+		service.write(info.id, "AAA\n");
+		await(sleep(100));
+		eq(socket.text().indexOf("AAA"), -1, "recycled socket object does not leak output");
+		service.remove(info.id);
+	}
+
+	@:async
+	static function inPlaceSocketDataMutation(service:PtyService):Promise<Void> {
+		final info = service.create({command: "cat", title: "mutated"});
+		final context = {connection: "a"};
+		final socket = new FakePtySocket(Unknown.fromBoundary(context));
+		service.connect(info.id, socket);
+		socket.clear();
+		context.connection = "b";
+		service.write(info.id, "AAA\n");
+		await(waitUntil(() -> socket.text().indexOf("AAA") != -1, "mutated socket data keeps connection"));
+		service.remove(info.id);
+	}
+
 	static function types(events:Array<PtyEvent>, id:PtyID):Array<String> {
 		final out:Array<String> = [];
 		for (event in events) {
@@ -109,5 +180,46 @@ class PtySmoke {
 	static function eq<T>(actual:T, expected:T, label:String):Void {
 		if (actual != expected)
 			throw '$label: expected ${expected}, got ${actual}';
+	}
+}
+
+private class FakePtySocket {
+	public var readyState = 1;
+	public var data:Unknown;
+	public var sink:Array<String> = [];
+	public var closed = 0;
+
+	public function new(data:Unknown) {
+		this.data = data;
+	}
+
+	public function send(data:PtySocketPayload):Void {
+		sink.push(payloadText(data));
+	}
+
+	public function close(?code:Int, ?reason:String):Void {
+		readyState = 3;
+		closed += 1;
+	}
+
+	public function clear():Void {
+		sink.resize(0);
+	}
+
+	public function text():String {
+		return sink.join("");
+	}
+
+	public function cursor():Int {
+		for (index in 0...sink.length) {
+			final item = sink[sink.length - index - 1];
+			if (item.length > 0 && item.charCodeAt(0) == 0)
+				return Syntax.code("JSON.parse({0}.slice(1)).cursor", item);
+		}
+		return -1;
+	}
+
+	static function payloadText(payload:PtySocketPayload):String {
+		return Syntax.code("typeof {0} === 'string' ? {0} : Buffer.from({0}).toString('utf8')", payload);
 	}
 }

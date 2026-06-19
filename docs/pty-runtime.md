@@ -1,18 +1,20 @@
 # PTY Runtime
 
-**Bead:** `opencodehx-3qi`  
+**Beads:** `opencodehx-3qi`, `opencodehx-m5b`
 **Upstream oracle:** `../opencode/packages/opencode/src/pty/index.ts`, `../opencode/packages/opencode/src/pty/pty.node.ts`, `../opencode/packages/opencode/test/pty/*.test.ts`
 
 ## Slice
 
-OpenCodeHX now has a first real Node PTY lifecycle seam:
+OpenCodeHX now has a real Node PTY lifecycle and WebSocket interaction seam:
 
 - `opencodehx.pty.PtyService` owns active PTY sessions, generated `pty_` IDs, titles, status, command, args, cwd, pid, and lifecycle events.
 - `opencodehx.externs.node.NodePty` binds the used subset of `@lydell/node-pty`.
 - `PtyService.create()` adds `-l` for login shells, sets upstream terminal environment variables, spawns a real pseudo-terminal, and publishes `pty.created`.
 - PTY exit publishes `pty.exited` then removes the session and publishes `pty.deleted`.
 - Explicit `remove()` on a running PTY publishes the same created/exited/deleted lifecycle order deterministically before teardown.
-- `resize`, `write`, `update`, `list`, `get`, and `dispose` are present as app-facing operations for later server/TUI routes.
+- `PtyService` buffers recent output, tracks a monotonic cursor, sends upstream-style `0x00 + JSON.stringify({cursor})` control frames on connect/replay, and chunks replay output.
+- `connect()` returns typed message/close callbacks for route adapters and keys subscribers by the same `ws.data` object-identity rule upstream uses to prevent recycled socket wrappers from leaking output.
+- `OpenCodeServer` exposes `/pty`, `/pty/:ptyID`, and `/pty/:ptyID/connect` routes for create/list/get/update/delete plus WebSocket write/replay/tail behavior.
 
 ## Evidence
 
@@ -20,7 +22,19 @@ Runtime smoke in `PtySmoke` covers:
 
 - short-lived `/usr/bin/env sh -c "sleep 0.1"` lifecycle,
 - long-lived `/bin/sh` create/remove lifecycle,
-- bash login argument insertion when `/bin/bash` exists.
+- bash login argument insertion when `/bin/bash` exists,
+- buffered output replay and `cursor=-1` tail connections,
+- subscriber isolation for reused WebSocket wrappers,
+- Bun-style socket object recycling before reconnect,
+- in-place `ws.data` mutation preserving the active connection.
+
+`ServerSmoke` covers:
+
+- PTY HTTP create/list/get/update/delete routes,
+- real WebSocket connect through Hono/node-ws,
+- writing to a PTY through a WebSocket message,
+- replaying buffered output from `cursor=0`,
+- tailing from `cursor=-1` without replaying old output.
 
 Run:
 
@@ -31,6 +45,6 @@ npm run smoke
 
 ## Boundary
 
-This is not the full upstream PTY WebSocket protocol yet. Output buffering, cursor control frames, subscriber isolation, server routes, WebSocket connect/write/resize controls, and Bun's `bun-pty` adapter remain follow-up work.
+This is still Node-first. Bun's `bun-pty` adapter, full Effect service integration, OpenAPI route metadata, and the broader Windows/PowerShell shell-selection matrix remain follow-up work.
 
 `@lydell/node-pty` currently ships declarations that TypeScript cannot resolve through the package `exports` field. `types/lydell-node-pty.d.ts` is a local declaration bridge for the narrow API used here; remove it when the package exposes its own declarations correctly.

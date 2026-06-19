@@ -1,6 +1,7 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
+import haxe.DynamicAccess;
 import haxe.Json;
 import js.Syntax;
 import js.html.Response;
@@ -11,6 +12,17 @@ import opencodehx.externs.ws.WebSocket;
 import opencodehx.host.node.NodePath;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
+
+typedef PtyWebSocketResult = {
+	final text:String;
+	final cursor:Int;
+}
+
+typedef SmokeFetchInit = {
+	final method:String;
+	final headers:DynamicAccess<String>;
+	final body:String;
+}
 
 class ServerSmoke {
 	@:async
@@ -27,8 +39,7 @@ class ServerSmoke {
 			listener = await(server.listen(0, "127.0.0.1"));
 			final health = await(fetchJson(listener.url + "/health"));
 			eq(Reflect.field(health, "ok"), true, "listener health");
-			final echo = await(websocketEcho(StringTools.replace(listener.url, "http://", "ws://") + "/ws", "server-smoke"));
-			eq(echo, "server-smoke", "websocket echo");
+			await(ptyWebSocketRoute(listener.url));
 			await(listener.stop(true));
 			server.close();
 			Fs.rmSync(root, {recursive: true, force: true});
@@ -47,6 +58,30 @@ class ServerSmoke {
 	static function appRequestRoutes(server:OpenCodeServer, root:String):Promise<Void> {
 		final health = await(jsonResponse(await(server.app.request("/health"))));
 		eq(Reflect.field(health, "service"), "opencodehx", "health service");
+
+		// Parsed PTY route JSON is inspected as a smoke boundary payload here;
+		// production PTY request bodies decode through PtyRouteProtocol first.
+		final ptyCreated = await(jsonResponse(await(server.app.request("/pty", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({command: "cat", title: "Server PTY"}),
+		}))));
+		final ptyID = Std.string(Reflect.field(ptyCreated, "id"));
+		eq(Reflect.field(ptyCreated, "title"), "Server PTY", "pty created title");
+		final ptyList:Dynamic = await(jsonResponse(await(server.app.request("/pty"))));
+		eq(Reflect.field(cast ptyList[0], "id"), ptyID, "pty listed id");
+		final ptyGet = await(jsonResponse(await(server.app.request('/pty/${ptyID}'))));
+		eq(Reflect.field(ptyGet, "status"), "running", "pty get status");
+		final ptyUpdated = await(jsonResponse(await(server.app.request('/pty/${ptyID}', {
+			method: "PUT",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({title: "Renamed PTY", size: {cols: 90, rows: 25}}),
+		}))));
+		eq(Reflect.field(ptyUpdated, "title"), "Renamed PTY", "pty updated title");
+		final ptyDeleted = await(jsonResponse(await(server.app.request('/pty/${ptyID}', {method: "DELETE"}))));
+		eq(ptyDeleted, true, "pty delete route");
+		final ptyMissing = await(server.app.request('/pty/${ptyID}'));
+		eq(Reflect.field(ptyMissing, "status"), 404, "pty missing route");
 
 		final syncStart = await(jsonResponse(await(server.app.request("/sync/start", {method: "POST"}))));
 		eq(syncStart, true, "sync start route");
@@ -264,8 +299,30 @@ class ServerSmoke {
 	}
 
 	@:async
-	static function fetchJson(url:String):Promise<Dynamic> {
-		final response:Response = await(Syntax.code("fetch({0})", url));
+	static function ptyWebSocketRoute(baseUrl:String):Promise<Void> {
+		final created = await(fetchJson(baseUrl + "/pty", {
+			method: "POST",
+			headers: jsonHeaders(),
+			body: Json.stringify({command: "cat", title: "Server WebSocket PTY"}),
+		}));
+		final ptyID = Std.string(Reflect.field(created, "id"));
+		final wsUrl = StringTools.replace(baseUrl, "http://", "ws://") + '/pty/${ptyID}/connect';
+		final first = await(ptyWebsocket(wsUrl + "?cursor=0", "server-ws\n", "server-ws"));
+		eq(first.text.indexOf("server-ws") != -1, true, "pty websocket write output");
+		eq(first.cursor >= 0, true, "pty websocket initial cursor");
+		final replay = await(ptyWebsocket(wsUrl + "?cursor=0", null, "server-ws"));
+		eq(replay.text.indexOf("server-ws") != -1, true, "pty websocket replay output");
+		eq(replay.cursor > first.cursor, true, "pty websocket replay cursor advances");
+		final tail = await(ptyWebsocket(wsUrl + "?cursor=-1", null, null));
+		eq(tail.text.indexOf("server-ws"), -1, "pty websocket tail skips replay");
+		eq(tail.cursor >= replay.cursor, true, "pty websocket tail cursor");
+		final removed = await(fetchJson(baseUrl + '/pty/${ptyID}', methodInit("DELETE")));
+		eq(removed, true, "pty websocket delete route");
+	}
+
+	@:async
+	static function fetchJson(url:String, ?init:SmokeFetchInit):Promise<Dynamic> {
+		final response:Response = init == null ? await(Syntax.code("fetch({0})", url)) : await(Syntax.code("fetch({0}, {1})", url, init));
 		return jsonResponse(response);
 	}
 
@@ -295,25 +352,65 @@ class ServerSmoke {
 		})()", response, eventCount);
 	}
 
-	static function websocketEcho(url:String, message:String):Promise<String> {
-		return Syntax.code("new Promise((resolve: (value: string) => void, reject: (reason?: any) => void) => {
-			const socket: any = new {0}({1});
+	static function ptyWebsocket(url:String, ?message:String, ?expected:String):Promise<PtyWebSocketResult> {
+		return Syntax.code("new Promise((resolve: (value: PtyWebSocketResult) => void, reject: (reason?: unknown) => void) => {
+			const socket = new {0}({1});
+			let text = '';
+			let cursor = -1;
+			let done = false;
 			const timeout = setTimeout(() => {
+				done = true;
 				socket.close();
-				reject(new Error('websocket echo timed out'));
+				reject(new Error('pty websocket timed out'));
 			}, 1000);
-			socket.on('open', () => socket.send({2}));
-			socket.on('message', (data: any) => {
+			const finish = () => {
+				if (done) return;
+				done = true;
 				clearTimeout(timeout);
-				const text = typeof data === 'string' ? data : data.toString();
 				socket.close();
-				resolve(text);
+				resolve({ text, cursor });
+			};
+			socket.on('open', () => {
+				if ({2} !== null) socket.send({2});
+			});
+			socket.on('message', (data: unknown) => {
+				let payload: string;
+				if (typeof data === 'string') {
+					payload = data;
+				} else if (data instanceof ArrayBuffer) {
+					payload = Buffer.from(data).toString('utf8');
+				} else if (ArrayBuffer.isView(data)) {
+					payload = Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString('utf8');
+				} else {
+					payload = String(data);
+				}
+				if (payload.charCodeAt(0) === 0) {
+					cursor = JSON.parse(payload.slice(1)).cursor;
+				} else {
+					text += payload;
+				}
+				if (cursor >= 0 && ({3} === null || text.includes({3}))) finish();
 			});
 			socket.on('error', (error: Error) => {
+				done = true;
 				clearTimeout(timeout);
 				reject(error);
 			});
-		})", WebSocket, url, message);
+		})", WebSocket, url, message, expected);
+	}
+
+	static function methodInit(method:String):SmokeFetchInit {
+		return {
+			method: method,
+			headers: new DynamicAccess<String>(),
+			body: "",
+		};
+	}
+
+	static function jsonHeaders():DynamicAccess<String> {
+		final headers = new DynamicAccess<String>();
+		headers.set("content-type", "application/json");
+		return headers;
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

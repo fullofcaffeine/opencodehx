@@ -1,6 +1,10 @@
 package opencodehx.pty;
 
+import genes.ts.Unknown;
 import haxe.DynamicAccess;
+import haxe.extern.EitherType;
+import js.lib.ArrayBuffer;
+import js.lib.Uint8Array;
 
 abstract PtyID(String) from String to String {
 	public inline function new(value:String) {
@@ -61,4 +65,19 @@ typedef PtyEvent = {
 	final id:PtyID;
 	@:optional final info:PtyInfo;
 	@:optional final exitCode:Int;
+}
+
+typedef PtySocketPayload = EitherType<String, Uint8Array>;
+typedef PtySocketMessage = EitherType<String, ArrayBuffer>;
+
+typedef PtySocket = {
+	var readyState:Int;
+	@:optional var data:Unknown;
+	function send(data:PtySocketPayload):Void;
+	function close(?code:Int, ?reason:String):Void;
+}
+
+typedef PtyConnectHandler = {
+	final onMessage:PtySocketMessage->Void;
+	final onClose:Void->Void;
 }

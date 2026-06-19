@@ -8,7 +8,14 @@ import js.lib.Promise;
 import opencodehx.externs.hono.Hono;
 import opencodehx.externs.hono.Hono.HonoContext;
 import opencodehx.externs.hono.NodeWs;
+import opencodehx.externs.hono.NodeWs.NodeWebSocketHandlerCallbacks;
+import opencodehx.externs.hono.NodeWs.NodeWebSocketMessage;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketRuntime;
+import opencodehx.pty.PtyService;
+import opencodehx.pty.PtyTypes.PtyConnectHandler;
+import opencodehx.pty.PtyTypes.PtyID;
+import opencodehx.pty.PtyTypes.PtySocket;
+import opencodehx.pty.PtyTypes.PtySocketMessage;
 import opencodehx.session.MessageCodec;
 import opencodehx.session.MessageError.MessageException;
 import opencodehx.session.SessionID;
@@ -32,6 +39,7 @@ class OpenCodeServer {
 	final directory:String;
 	final eventBus = new ServerEventBus();
 	final syncRuntime:SyncRouteRuntime;
+	final ptyService:PtyService;
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
 
@@ -39,12 +47,14 @@ class OpenCodeServer {
 		directory = options.directory;
 		store = new SqliteSessionStore(options.dbPath);
 		syncRuntime = new SyncRouteRuntime(options.syncTypes);
+		ptyService = new PtyService(directory);
 		app = new Hono();
 		ws = NodeWs.createNodeWebSocket({app: app});
 		routes();
 	}
 
 	public function close():Void {
+		ptyService.dispose();
 		store.close();
 	}
 
@@ -66,7 +76,12 @@ class OpenCodeServer {
 		app.post("/sync/replay", c -> syncReplay(c));
 		app.post("/sync/history", c -> syncHistory(c));
 		app.post("/tui/select-session", c -> selectSession(c));
-		app.get("/ws", ws.upgradeWebSocket(Syntax.code("() => ({ onMessage(event: any, socket: any) { socket.send(event.data); } })")));
+		app.get("/pty", c -> json(c, ptyService.list()));
+		app.post("/pty", c -> createPty(c));
+		app.get("/pty/:ptyID", c -> getPty(c));
+		app.put("/pty/:ptyID", c -> updatePty(c));
+		app.delete("/pty/:ptyID", c -> removePty(c));
+		app.get("/pty/:ptyID/connect", ws.upgradeWebSocket(c -> ptyConnect(c)));
 	}
 
 	@:async
@@ -218,6 +233,94 @@ class OpenCodeServer {
 		return json(c, syncRuntime.history(known));
 	}
 
+	@:async
+	function createPty(c:HonoContext):Promise<Response> {
+		final decoded = PtyRouteProtocol.decodeCreate(await(readJson(c)));
+		final request = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		return json(c, ptyService.create(request));
+	}
+
+	function getPty(c:HonoContext):Response {
+		final info = ptyService.get(ptyID(c));
+		if (info == null)
+			return json(c, ServerProtocol.error("Session not found"), 404);
+		return json(c, info);
+	}
+
+	@:async
+	function updatePty(c:HonoContext):Promise<Response> {
+		final decoded = PtyRouteProtocol.decodeUpdate(await(readJson(c)));
+		final request = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		final info = ptyService.update(ptyID(c), request);
+		if (info == null)
+			return json(c, ServerProtocol.error("Session not found"), 404);
+		return json(c, info);
+	}
+
+	function removePty(c:HonoContext):Response {
+		final id = ptyID(c);
+		if (ptyService.get(id) == null)
+			return json(c, ServerProtocol.error("Session not found"), 404);
+		ptyService.remove(id);
+		return json(c, true);
+	}
+
+	function ptyConnect(c:HonoContext):NodeWebSocketHandlerCallbacks {
+		final id = ptyID(c);
+		final cursor = parsePtyCursor(query(c, "cursor"));
+		var handler:Null<PtyConnectHandler> = null;
+		final pending:Array<PtySocketMessage> = [];
+		var ready = false;
+		return {
+			onOpen: (_event, socket) -> {
+				final raw = socket.raw;
+				if (raw == null) {
+					socket.close();
+					return;
+				}
+				final rawSocket:PtySocket = raw;
+				handler = ptyService.connect(id, rawSocket, cursor);
+				ready = true;
+				if (handler == null) {
+					socket.close();
+					return;
+				}
+				for (message in pending)
+					handler.onMessage(message);
+				pending.resize(0);
+			},
+			onMessage: event -> {
+				final message = ptyMessage(event.data);
+				if (message == null)
+					return;
+				if (!ready) {
+					pending.push(message);
+					return;
+				}
+				if (handler != null)
+					handler.onMessage(message);
+			},
+			onClose: () -> {
+				if (handler != null)
+					handler.onClose();
+			},
+			onError: () -> {
+				if (handler != null)
+					handler.onClose();
+			},
+		};
+	}
+
 	function eventStream(c:HonoContext):Response {
 		Syntax.code("{0}.header('Cache-Control', 'no-cache, no-transform')", c);
 		Syntax.code("{0}.header('X-Accel-Buffering', 'no')", c);
@@ -232,6 +335,30 @@ class OpenCodeServer {
 		} catch (_:StorageException) {
 			return false;
 		}
+	}
+
+	static function ptyID(c:HonoContext):PtyID {
+		return PtyID.make(param(c, "ptyID"));
+	}
+
+	static function parsePtyCursor(value:Null<String>):Null<Int> {
+		if (value == null || value == "")
+			return null;
+		final parsed:Float = Syntax.code("Number({0})", value);
+		final safe:Bool = Syntax.code("Number.isSafeInteger({0})", parsed);
+		if (!safe || parsed < -1)
+			return null;
+		return Std.int(parsed);
+	}
+
+	static function ptyMessage(value:Unknown):Null<PtySocketMessage> {
+		return Syntax.code("typeof {0} === 'string'
+			? {0}
+			: {0} instanceof ArrayBuffer
+				? {0}
+				: ArrayBuffer.isView({0})
+					? {0}.buffer.slice({0}.byteOffset, {0}.byteOffset + {0}.byteLength)
+					: null", value);
 	}
 
 	@:async
@@ -255,7 +382,8 @@ class OpenCodeServer {
 	}
 
 	static function param(c:HonoContext, name:String):String {
-		return c.req.param(name);
+		final value = c.req.param(name).orNull();
+		return value == null ? "" : value;
 	}
 
 	static function query(c:HonoContext, name:String):Null<String> {

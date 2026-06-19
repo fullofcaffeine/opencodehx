@@ -11,10 +11,10 @@ The project intentionally uses 0.x beta versioning until upstream OpenCode parit
 Current Beads-based completion snapshot:
 
 ```text
-[#########################---------------] 63% (50/79 non-epic port beads closed)
+[##########################--------------] 65% (51/79 non-epic port beads closed)
 ```
 
-This is an unweighted planning indicator, not a parity claim. The working port already has the core scaffold, config, tools, parser-backed bash permissions, real Node PTY lifecycle, permissions, provider registry, headless fake-provider flow, server seam, and first TUI scaffold/transcript/dialog slices. Remaining major work includes real AI SDK streaming, CLI surface parity, SDK/MCP/ACP/LSP/plugin surfaces, live TUI behavior, PTY WebSocket controls, packaging, and upstream drift/rebase discipline.
+This is an unweighted planning indicator, not a parity claim. The working port already has the core scaffold, config, tools, parser-backed bash permissions, real Node PTY lifecycle and WebSocket replay controls, permissions, provider registry, headless fake-provider flow, server seam, and first TUI scaffold/transcript/dialog slices. Remaining major work includes real AI SDK streaming, CLI surface parity, SDK/MCP/ACP/LSP/plugin surfaces, live TUI behavior, packaging, and upstream drift/rebase discipline.
 
 The working plan lives in [opencodehx-prd-plan.md](opencodehx-prd-plan.md). Day-to-day work is tracked in Beads under `.beads/issues.jsonl`; start with:
 
