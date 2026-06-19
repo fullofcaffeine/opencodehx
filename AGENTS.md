@@ -70,6 +70,8 @@ When OpenCodeHX exposes a compiler limitation:
 5. Return to OpenCodeHX, update the pin/manifest or notes, and unblock the port slice.
 6. Record the limitation and fix status in Beads or `docs/genes-ts-limitation-ledger.md` until Beads fully represents it.
 
+Before changing `../genes`, read `../genes/AGENTS.md` and follow that repository's local workflow, test, commit, and push conventions in addition to this repo's compiler-improvement loop. Treat `../genes` as an independent project with its own rules, even when compiler work is discovered from OpenCodeHX.
+
 Generated TS quality problems are compiler work, not source contortion work, when the Haxe source is otherwise a good model.
 
 The high-level goal is deliberately twofold: build the best Haxe-native, future-portable OpenCodeHX, and build the best Haxe-to-JS/TS compiler in `genes-ts`. These goals reinforce each other only when compiler improvements remain project-agnostic. If an OpenCodeHX case tempts a special-case compiler patch, stop and extract the underlying generic language/codegen rule instead.
