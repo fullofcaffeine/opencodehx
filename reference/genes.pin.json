@@ -1,12 +1,12 @@
 {
   "schema": "opencodehx.reference.genes-pin.v1",
-  "recorded_at": "2026-06-19T16:57:14Z",
+  "recorded_at": "2026-06-19T17:35:33Z",
   "bead": "opencodehx-nrh",
   "canonical_checkout": {
     "path": "../genes",
     "role": "canonical Genes checkout for genes-ts compiler work",
     "branch": "main",
-    "commit": "bed806092d198f075a62d7da52f1d90b53feb860",
+    "commit": "dacd5f8572adad6c0f194549795ac5be04ffa4b5",
     "remotes": {
       "origin": "git@github.com:fullofcaffeine/genes-ts.git",
       "upstream": "git@github.com:benmerckx/genes.git"
@@ -38,7 +38,7 @@
       "../fullofcaffeine/tools/cafetera/vendor/genes-ts/src"
     ],
     "source_file_count": 35,
-    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, target-polymorphic helper docs, and optional-field boolean branch narrowing landed",
+    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, target-polymorphic helper docs, optional-field boolean branch narrowing, enum switch case scoping, optional enum constructor declaration arity, block-scoped switch-case locals without js-es, and Undefinable assignment output fixes landed",
     "relative_path_sha256_manifest_hash": "3da340866271f936416844f820230bd3e08951f17306dbee12fe64121f9cf8e7"
   },
   "decision": {

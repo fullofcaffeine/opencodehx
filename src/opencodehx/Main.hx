@@ -7,9 +7,10 @@ import opencodehx.cli.Cli;
 import opencodehx.fixtures.DynamicFixture;
 import opencodehx.fx.Task;
 import opencodehx.host.node.NodePath;
+import opencodehx.smoke.AiSdkProviderSmoke;
 import opencodehx.smoke.CliSmoke;
 import opencodehx.smoke.ConfigSmoke;
-import opencodehx.smoke.AiSdkProviderSmoke;
+import opencodehx.smoke.CopilotChatMessagesSmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
@@ -69,6 +70,8 @@ class Main {
 				Syntax.code("console.log({0})", "provider-smoke:ok");
 				ProviderTransformSmoke.run();
 				Syntax.code("console.log({0})", "provider-transform-smoke:ok");
+				CopilotChatMessagesSmoke.run();
+				Syntax.code("console.log({0})", "copilot-chat-messages-smoke:ok");
 				return AiSdkProviderSmoke.run();
 			})
 			.then(_ -> {
