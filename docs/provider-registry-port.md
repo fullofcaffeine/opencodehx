@@ -22,6 +22,7 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotChatCompletion` ports pure GitHub Copilot response metadata, non-stream response content assembly, finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
 - `CopilotChatRequest` ports pure GitHub Copilot request argument shaping for OpenAI-compatible chat calls.
 - `CopilotOpenAICompatibleProvider` ports the pure GitHub Copilot/OpenAI-compatible provider factory settings: default/base URL handling, provider name/kind IDs, request URL construction, header merging, authorization defaults, and AI SDK user-agent suffixing.
+- `CopilotChatSseDecoder` ports the first pure SSE `data:` decoder layer for GitHub Copilot chat streams, turning event-source response text into typed parsed/raw chunks before the Web Stream adapter lands.
 - `CopilotChatStream` ports the pure GitHub Copilot chat stream state machine over typed parsed chunks, before the actual SSE/Web Stream adapter lands.
 - `CopilotChatTools` ports pure GitHub Copilot request-body tool formatting for OpenAI-compatible function tools and tool-choice modes.
 
@@ -107,6 +108,13 @@ This slice adds the first Haxe-owned provider registry:
 - Final finish reason, token usage/no-cache accounting, and accepted/rejected prediction metadata.
 - Error chunks and invalid chunk diagnostics for duplicate reasoning opaque, missing tool IDs, and missing tool names.
 
+`CopilotChatSseDecoderSmoke` covers the first typed SSE boundary before live Web Stream wiring:
+
+- `data:` frame extraction, comment/unknown-field skipping, and `[DONE]` omission.
+- Raw JSON preservation for `includeRawChunks` parity.
+- Typed chunk decoding for response metadata, text deltas, usage details, and provider error frames.
+- Invalid JSON, invalid `choices`, and invalid tool-call index diagnostics.
+
 `CopilotChatToolsSmoke` covers representative upstream request-body formatting from `provider/copilot/copilot-chat-model.test.ts`:
 
 - Empty tool arrays become absent `tools` and `tool_choice`.
@@ -135,6 +143,8 @@ The upstream `interleaved` capability is not `Dynamic`: it is modeled as `Either
 Config, auth, and env inputs are still dynamic JSON/process boundaries. The registry normalizes them into typed provider/model records as soon as the current slice has enough schema knowledge. Further config-schema tightening belongs to `opencodehx-ajd`.
 
 `ProviderModelsDev.parse` keeps `Dynamic` and a single cast inside the JSON decoder boundary because Haxe's `Json.parse` and `Reflect.field` cannot refine runtime objects into structural typedefs. The boundary validates the consumed models.dev shape first, then returns a typed `ModelsDevCatalog` to the registry.
+
+`CopilotChatSseDecoder` has the same kind of contained boundary: `Json.parse` and `Reflect.field` are private to the decoder, every consumed field is shape-checked, and callers receive only `CopilotChatRawStreamChunk` / `CopilotChatStreamChunk`. Generated `any` is expected only in that private decoder surface until a reusable typed JSON decoder exists.
 
 The AI SDK boundary is intentionally small. `AiSdk.hx` uses raw `@:ts.type(...)` only for SDK-owned types such as `LanguageModelV3`, OpenAI-compatible factory settings, `Tool`, `JSONSchema7`, and provider stream parts; the app-facing surface is the typed `AiSdkProvider` event/result model. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
 
