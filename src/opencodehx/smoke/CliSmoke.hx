@@ -5,6 +5,11 @@ import haxe.Json;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.cli.Cli;
+import opencodehx.config.ConfigInfo;
+import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Os;
+import opencodehx.host.node.NodeProcess;
+import opencodehx.host.node.NodePath;
 
 class CliSmoke {
 	public static function run():Void {
@@ -63,6 +68,46 @@ class CliSmoke {
 		final liveMissingProvider = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "missing-provider/model", "Hello"]);
 		eq(liveMissingProvider.exitCode, 1, "live cli missing provider exit");
 		eq(liveMissingProvider.stderr.indexOf("Provider not available") != -1, true, "live cli missing provider message");
+
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-"));
+		try {
+			final xdg = NodePath.join(root, "xdg");
+			final global = NodePath.join(xdg, "opencode");
+			final project = NodePath.join(root, "project");
+			Fs.mkdirSync(global, {recursive: true});
+			Fs.mkdirSync(project, {recursive: true});
+			Fs.writeFileSync(NodePath.join(global, "opencode.json"),
+				'{"' + "$" +
+				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","provider":{"global-live":{"npm":"@ai-sdk/openai-compatible","name":"Global Live","options":{"baseURL":"https://global.example.com","apiKey":"global-key"},"models":{"chat":{"name":"Chat"}}}}}');
+			Fs.writeFileSync(NodePath.join(project, "opencode.json"),
+				'{"' + "$" +
+				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","provider":{"project-live":{"npm":"@ai-sdk/openai-compatible","name":"Project Live","options":{"baseURL":"https://project.example.com","apiKey":"project-key"},"models":{"chat":{"name":"Chat"}}}}}');
+			final originalXdg = NodeProcess.envValue("XDG_CONFIG_HOME");
+			NodeProcess.setEnv("XDG_CONFIG_HOME", xdg);
+			final globalLoaded = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "global-live/missing", "Hello"]);
+			eq(globalLoaded.exitCode, 1, "live cli global config provider exit");
+			eq(globalLoaded.stderr.indexOf("Provider model not found: global-live/missing") != -1, true, "live cli global config provider loaded");
+			final projectLoaded = @:await Cli.runAsync([
+				"run",
+				"--live-ai-sdk",
+				"--model",
+				"project-live/missing",
+				"--dir",
+				project,
+				"Hello"
+			]);
+			eq(projectLoaded.exitCode, 1, "live cli project config provider exit");
+			eq(projectLoaded.stderr.indexOf("Provider model not found: project-live/missing") != -1, true, "live cli project config provider loaded");
+			if (originalXdg == null)
+				NodeProcess.unsetEnv("XDG_CONFIG_HOME");
+			else
+				NodeProcess.setEnv("XDG_CONFIG_HOME", originalXdg);
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			NodeProcess.unsetEnv("XDG_CONFIG_HOME");
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

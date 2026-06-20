@@ -4,8 +4,12 @@ import genes.js.Async.await;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigLoader;
+import opencodehx.config.ConfigWriter;
+import opencodehx.host.node.GlobalPaths;
 import opencodehx.harness.TranscriptHarness;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.host.node.NodePath;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
 import opencodehx.provider.ProviderRegistry;
@@ -107,13 +111,27 @@ class Cli {
 			return fail('Invalid --format "${format}". Expected "default" or "json".');
 		if (modelText == "")
 			return fail("Live AI SDK runs require --model provider/model for now.");
+		final directoryResult = liveDirectory(args);
+		final directoryError = directoryResult.error;
+		if (directoryError != null)
+			return fail(directoryError);
+		final directory = directoryResult.directory;
 		final prompt = message(args);
 		if (StringTools.trim(prompt) == "")
 			return fail("You must provide a message or a command");
 		try {
+			final env = NodeProcess.env();
+			final config = ConfigInfo.empty("cli");
+			config.merge(ConfigWriter.loadGlobal(GlobalPaths.config(env), {env: env}));
+			config.merge(ConfigLoader.loadProject(directory, {
+				defaultUsername: config.username == null ? "cli" : config.username,
+				worktree: directory,
+				env: env,
+				includeDefaultUsername: false,
+			}));
 			final registry = new ProviderRegistry({
-				config: ConfigInfo.empty("cli"),
-				env: NodeProcess.env(),
+				config: config,
+				env: env,
 				auth: {},
 			});
 			final parsed = ProviderRegistry.parseModel(modelText);
@@ -124,7 +142,7 @@ class Cli {
 			final language = registry.getLanguage(model);
 			final processed = @:await SessionProcessor.runAiSdk({
 				prompt: prompt,
-				directory: SessionProcessor.FIXTURE_DIRECTORY,
+				directory: directory,
 				provider: provider,
 				model: model,
 				language: language,
@@ -132,6 +150,19 @@ class Cli {
 			return formatRunResult(processed, format);
 		} catch (error:haxe.Exception) {
 			return fail(error.message == null ? Std.string(error) : error.message);
+		}
+	}
+
+	static function liveDirectory(args:Array<String>):{final directory:String; final error:Null<String>;} {
+		final raw = option(args, "--dir", "");
+		if (raw == "")
+			return {directory: NodeProcess.cwd(), error: null};
+		try {
+			final resolved = NodePath.isAbsolute(raw) ? raw : NodePath.resolve(NodeProcess.cwd(), raw);
+			NodeProcess.chdir(resolved);
+			return {directory: NodeProcess.cwd(), error: null};
+		} catch (error:haxe.Exception) {
+			return {directory: NodeProcess.cwd(), error: 'Failed to change directory to ${raw}'};
 		}
 	}
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
@@ -10,12 +11,13 @@ const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, "../..");
 const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
 
-function run(args) {
-  return spawnSync("node", ["dist/index.js", ...args], {
-    cwd: root,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+function run(args, options = {}) {
+	return spawnSync("node", ["dist/index.js", ...args], {
+		cwd: options.cwd ?? root,
+		env: options.env ?? process.env,
+		encoding: "utf8",
+		stdio: ["ignore", "pipe", "pipe"],
+	});
 }
 
 function canonical(value) {
@@ -70,6 +72,38 @@ assert.match(liveMissingModel.stderr, /require --model/);
 const liveMissingProvider = run(["run", "--live-ai-sdk", "--model", "missing-provider\/model", "Hello"]);
 assert.equal(liveMissingProvider.status, 1);
 assert.match(liveMissingProvider.stderr, /Provider not available/);
+
+const tempRoot = mkdtempSync(path.join(os.tmpdir(), "opencodehx-cli-"));
+try {
+	const xdg = path.join(tempRoot, "xdg");
+	const globalConfig = path.join(xdg, "opencode");
+	const project = path.join(tempRoot, "project");
+	mkdirSync(globalConfig, { recursive: true });
+	mkdirSync(project, { recursive: true });
+	const configFor = (provider, baseURL) =>
+		JSON.stringify({
+			$schema: "https://opencode.ai/config.json",
+			provider: {
+				[provider]: {
+					npm: "@ai-sdk/openai-compatible",
+					name: provider,
+					options: { baseURL, apiKey: "test-key" },
+					models: { chat: { name: "Chat" } },
+				},
+			},
+		});
+	writeFileSync(path.join(globalConfig, "opencode.json"), configFor("global-live", "https://global.example.com"));
+	writeFileSync(path.join(project, "opencode.json"), configFor("project-live", "https://project.example.com"));
+	const env = { ...process.env, XDG_CONFIG_HOME: xdg };
+	const globalLoaded = run(["run", "--live-ai-sdk", "--model", "global-live/missing", "Hello"], { env });
+	assert.equal(globalLoaded.status, 1);
+	assert.match(globalLoaded.stderr, /Provider model not found: global-live\/missing/);
+	const projectLoaded = run(["run", "--live-ai-sdk", "--model", "project-live/missing", "--dir", project, "Hello"], { env });
+	assert.equal(projectLoaded.status, 1);
+	assert.match(projectLoaded.stderr, /Provider model not found: project-live\/missing/);
+} finally {
+	rmSync(tempRoot, { recursive: true, force: true });
+}
 
 const missing = run(["run"]);
 assert.equal(missing.status, 1);

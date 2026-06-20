@@ -47,6 +47,30 @@ class NodeProcess {
 		})()", key);
 	}
 
+	public static function setEnv(key:String, value:String):Void {
+		// Mutating process.env is a Node host boundary used by CLI smokes and
+		// config bootstrap. Keep it centralized so app logic receives typed env maps.
+		Syntax.code("process.env[{0}] = {1}", key, value);
+	}
+
+	public static function unsetEnv(key:String):Void {
+		// See setEnv: deleting a process env key is host mutation and should stay
+		// behind this helper rather than scattered across application modules.
+		Syntax.code("delete process.env[{0}]", key);
+	}
+
+	public static function cwd():String {
+		// process.cwd() is the Node host boundary for CLI directory defaults.
+		// Keep the raw process read here so callers do not embed js.Syntax.code.
+		return Syntax.code("process.cwd()");
+	}
+
+	public static function chdir(path:String):Void {
+		// process.chdir() is a CLI host effect; app code should pass resolved
+		// directories explicitly once it crosses this boundary.
+		Syntax.code("process.chdir({0})", path);
+	}
+
 	public static function platform():String {
 		return Syntax.code("process.platform");
 	}
