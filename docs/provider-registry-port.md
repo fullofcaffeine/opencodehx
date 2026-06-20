@@ -41,8 +41,8 @@ This slice adds the first Haxe-owned provider registry:
 `ProviderSmoke` is the executable fixture for this slice. It covers:
 
 - Anthropic env loading, config option overlays, env-source precedence when config also augments the provider, fallback env variable lookup, and single-vs-multiple env key capture.
-- Custom providers, custom model aliases, provider-name defaults, provider `api` to model API URL inheritance, provider `baseURL` options, new model SDK/API inheritance from existing providers, model defaults, custom cost/cache values, tool-call capability defaults/overrides, text modality defaults, default zero limits, and model headers.
-- Provider and model filtering.
+- Custom providers, brand-new providers, custom model aliases, provider-name defaults, provider `api` to model API URL inheritance, provider `baseURL` options, new model SDK/API inheritance from existing providers, model defaults, custom cost/cache values, tool-call capability defaults/overrides, text/image modality defaults and overrides, default zero limits, and model headers.
+- Provider and model filtering, including empty enabled lists, enabled-plus-disabled precedence, and combined whitelist/blacklist behavior.
 - User-facing `ModelNotFound` suggestions for misspelled provider IDs and model IDs.
 - Auth file-shaped API keys.
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.

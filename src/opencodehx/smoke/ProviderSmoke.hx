@@ -142,6 +142,16 @@ class ProviderSmoke {
 		eq(enabled.getProvider(ProviderID.make("anthropic")) != null, true, "enabled provider present");
 		eq(enabled.getProvider(ProviderID.make("openai")) == null, true, "enabled provider excludes openai");
 
+		final emptyEnabled = registry(config({enabled_providers: []}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
+		eq(emptyEnabled.all().length, 0, "empty enabled providers allows no providers");
+
+		final enabledDisabled = registry(config({
+			enabled_providers: ["anthropic", "openai"],
+			disabled_providers: ["openai"],
+		}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
+		eq(enabledDisabled.getProvider(ProviderID.make("anthropic")) != null, true, "enabled and not disabled provider kept");
+		eq(enabledDisabled.getProvider(ProviderID.make("openai")) == null, true, "enabled and disabled provider removed");
+
 		final whitelist = registry(config({
 			provider: {
 				anthropic: {
@@ -160,6 +170,18 @@ class ProviderSmoke {
 			},
 		}), {ANTHROPIC_API_KEY: "test-api-key"});
 		eq(blacklist.getProvider(ProviderID.make("anthropic")).models.exists("claude-sonnet-4-20250514"), false, "blacklist removes model");
+
+		final combined = registry(config({
+			provider: {
+				anthropic: {
+					whitelist: ["claude-sonnet-4-20250514", "claude-opus-4-20250514"],
+					blacklist: ["claude-opus-4-20250514"],
+				},
+			},
+		}), {ANTHROPIC_API_KEY: "test-api-key"});
+		eq(combined.getProvider(ProviderID.make("anthropic")).models.exists("claude-sonnet-4-20250514"), true, "combined filter keeps whitelist model");
+		eq(combined.getProvider(ProviderID.make("anthropic")).models.exists("claude-opus-4-20250514"), false, "combined filter removes blacklist model");
+		eq(modelCount(combined, "anthropic"), 1, "combined filter count");
 	}
 
 	static function registryPluginConfigHooks():Void {
@@ -230,6 +252,25 @@ class ProviderSmoke {
 					},
 					options: {apiKey: "anonymous-key"},
 				},
+				"brand-new-provider": {
+					name: "Brand New",
+					npm: "@ai-sdk/openai-compatible",
+					api: "https://new-api.com/v1",
+					models: {
+						"new-model": {
+							name: "New Model",
+							reasoning: true,
+							attachment: true,
+							temperature: true,
+							modalities: {
+								input: ["text", "image"],
+								output: ["text"],
+							},
+							limit: {context: 32000, output: 8000},
+						},
+					},
+					options: {apiKey: "new-key"},
+				},
 				anthropic: {
 					models: {
 						"my-alias": {
@@ -255,8 +296,10 @@ class ProviderSmoke {
 		eq(custom.getProvider(ProviderID.make("anonymous-provider")).name, "anonymous-provider", "provider name defaults to id");
 		eq(Reflect.field(custom.getProvider(ProviderID.make("custom-provider")).options, "baseURL"), "https://custom.override.com/v1",
 			"provider baseURL option");
+		eq(custom.getProvider(ProviderID.make("brand-new-provider")).name, "Brand New", "brand-new provider name");
 		eq(custom.getModel(ProviderID.make("custom-provider"), ModelID.make("custom-model")).name, "Custom Model", "custom model name");
 		final customModel = custom.getModel(ProviderID.make("custom-provider"), ModelID.make("custom-model"));
+		eq(customModel.api.npm, "@ai-sdk/openai-compatible", "custom provider npm package");
 		eq(customModel.api.url, "https://api.custom.com/v1", "provider api field sets model api url");
 		eq(customModel.cost.input, 0, "model default input cost");
 		eq(customModel.cost.output, 0, "model default output cost");
@@ -280,6 +323,11 @@ class ProviderSmoke {
 		final openaiCustom = custom.getModel(ProviderID.make("openai"), ModelID.make("my-custom-model"));
 		eq(openaiCustom.api.npm, "@ai-sdk/openai", "custom model inherits provider npm package");
 		eq(openaiCustom.api.url, "https://api.openai.com/v1", "custom model inherits provider api url");
+		final newModel = custom.getModel(ProviderID.make("brand-new-provider"), ModelID.make("new-model"));
+		eq(newModel.capabilities.reasoning, true, "brand-new model reasoning");
+		eq(newModel.capabilities.attachment, true, "brand-new model attachment");
+		eq(newModel.capabilities.input.image, true, "brand-new model image input");
+		eq(newModel.capabilities.output.text, true, "brand-new model text output");
 		eq(custom.getModel(ProviderID.make("anthropic"), ModelID.make("my-alias")).name, "My Custom Alias", "alias model name");
 		eq(Reflect.field(custom.getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonnet-4-20250514")).options, "customOption"), "custom-value",
 			"model option merge");
