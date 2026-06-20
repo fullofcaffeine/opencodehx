@@ -181,6 +181,30 @@ typedef AiAzureFactoryOptionsShape = {
 	final useDeploymentBasedUrls:Undefinable<Bool>;
 }
 
+typedef AiOptionalHeaderMap = DynamicAccess<Undefinable<String>>;
+
+typedef AiGoogleFactoryOptionsShape = {
+	final name:Undefinable<String>;
+	final baseURL:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<AiOptionalHeaderMap>;
+}
+
+typedef AiVertexFactoryOptionsShape = {
+	final project:Undefinable<String>;
+	final location:Undefinable<String>;
+	final baseURL:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<AiOptionalHeaderMap>;
+}
+
+typedef AiVertexAnthropicFactoryOptionsShape = {
+	final project:Undefinable<String>;
+	final location:Undefinable<String>;
+	final baseURL:Undefinable<String>;
+	final headers:Undefinable<AiOptionalHeaderMap>;
+}
+
 typedef AiSdkBundledProvider = {
 	function languageModel(modelID:String):AiLanguageModel;
 	@:optional final chat:String->AiLanguageModel;
@@ -193,6 +217,9 @@ typedef AiAnthropicProviderFactory = AiAnthropicFactoryOptions->AiSdkBundledProv
 typedef AiOpenAIProviderFactory = AiOpenAIFactoryOptions->AiSdkBundledProvider;
 typedef AiXaiProviderFactory = AiXaiFactoryOptions->AiSdkBundledProvider;
 typedef AiAzureProviderFactory = AiAzureFactoryOptions->AiSdkBundledProvider;
+typedef AiGoogleProviderFactory = AiGoogleFactoryOptions->AiSdkBundledProvider;
+typedef AiVertexProviderFactory = AiVertexFactoryOptions->AiSdkBundledProvider;
+typedef AiVertexAnthropicProviderFactory = AiVertexAnthropicFactoryOptions->AiSdkBundledProvider;
 
 @:ts.type("'v3'")
 enum abstract AiLanguageModelSpecificationVersion(String) from String to String {
@@ -671,6 +698,39 @@ abstract AiXaiFactoryOptions(AiXaiFactoryOptionsShape) from AiXaiFactoryOptionsS
 @:forward(resourceName, baseURL, apiKey, headers, apiVersion, useDeploymentBasedUrls)
 @:ts.type("import('@ai-sdk/azure').AzureOpenAIProviderSettings")
 abstract AiAzureFactoryOptions(AiAzureFactoryOptionsShape) from AiAzureFactoryOptionsShape to AiAzureFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Google Generative AI provider settings.
+ *
+ * Google accepts string-or-undefined header values, so the Haxe backing map of
+ * strings remains assignable while still keeping provider option narrowing in
+ * `ProviderOptionAccess`.
+ */
+@:forward(name, baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/google').GoogleGenerativeAIProviderSettings")
+abstract AiGoogleFactoryOptions(AiGoogleFactoryOptionsShape) from AiGoogleFactoryOptionsShape to AiGoogleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Google Vertex provider settings.
+ *
+ * Project/location/API-key express mode are stable string settings. Google auth
+ * options and custom fetch/token hooks stay out of this bridge until a typed
+ * Google host-auth seam owns them.
+ */
+@:forward(project, location, baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/google-vertex').GoogleVertexProviderSettings")
+abstract AiVertexFactoryOptions(AiVertexFactoryOptionsShape) from AiVertexFactoryOptionsShape to AiVertexFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Vertex Anthropic provider settings.
+ *
+ * This package subpath has a distinct settings type and no API-key field, so
+ * keeping it separate prevents accidental extra properties in generated TS.
+ */
+@:forward(project, location, baseURL, headers)
+@:ts.type("import('@ai-sdk/google-vertex/anthropic').GoogleVertexAnthropicProviderSettings")
+abstract AiVertexAnthropicFactoryOptions(AiVertexAnthropicFactoryOptionsShape) from AiVertexAnthropicFactoryOptionsShape
+	to AiVertexAnthropicFactoryOptionsShape {}
 
 /**
  * Type-only bridge for AI SDK `Tool`.

@@ -13,12 +13,19 @@ import opencodehx.externs.ai.AiSdk.AiAzureFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiAzureProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiBedrockFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiBedrockProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiGoogleFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiGoogleProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.externs.ai.AiSdk.AiOptionalHeaderMap;
 import opencodehx.externs.ai.AiSdk.AiOpenAIFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiOpenAIProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiSdkBundledProvider;
 import opencodehx.externs.ai.AiSdk.AiSdkFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiSdkProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiVertexAnthropicFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiVertexAnthropicProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiVertexFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiVertexProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiXaiFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiXaiProviderFactory;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
@@ -53,6 +60,10 @@ class AiSdkLanguageLoader {
 	static final createOpenAI:AiOpenAIProviderFactory = Imports.namedImport("@ai-sdk/openai", "createOpenAI", "createOpenAI");
 	static final createXai:AiXaiProviderFactory = Imports.namedImport("@ai-sdk/xai", "createXai", "createXai");
 	static final createAzure:AiAzureProviderFactory = Imports.namedImport("@ai-sdk/azure", "createAzure", "createAzure");
+	static final createGoogle:AiGoogleProviderFactory = Imports.namedImport("@ai-sdk/google", "createGoogleGenerativeAI", "createGoogleGenerativeAI");
+	static final createVertex:AiVertexProviderFactory = Imports.namedImport("@ai-sdk/google-vertex", "createVertex", "createVertex");
+	static final createVertexAnthropic:AiVertexAnthropicProviderFactory = Imports.namedImport("@ai-sdk/google-vertex/anthropic", "createVertexAnthropic",
+		"createVertexAnthropic");
 	static final fromNodeProviderChain:AwsNodeProviderChainFactory = Imports.namedImport("@aws-sdk/credential-providers", "fromNodeProviderChain",
 		"fromNodeProviderChain");
 
@@ -86,6 +97,12 @@ class AiSdkLanguageLoader {
 				createXai(xaiFactoryOptions(provider, model));
 			case "@ai-sdk/azure":
 				createAzure(azureFactoryOptions(provider, model));
+			case "@ai-sdk/google":
+				createGoogle(googleFactoryOptions(provider, model));
+			case "@ai-sdk/google-vertex":
+				createVertex(vertexFactoryOptions(provider, model));
+			case "@ai-sdk/google-vertex/anthropic":
+				createVertexAnthropic(vertexAnthropicFactoryOptions(provider, model));
 			case "ai-gateway-provider":
 				CloudflareAiGatewayLoader.sdk(provider, model);
 			case npm:
@@ -189,6 +206,36 @@ class AiSdkLanguageLoader {
 		};
 	}
 
+	public static function googleFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiGoogleFactoryOptions {
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		return {
+			name: stringOrAbsent(provider.id.toString()),
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+		};
+	}
+
+	public static function vertexFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiVertexFactoryOptions {
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		return {
+			project: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "project", null)),
+			location: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "location", null)),
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			headers: optionalHeadersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+		};
+	}
+
+	public static function vertexAnthropicFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiVertexAnthropicFactoryOptions {
+		return {
+			project: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "project", null)),
+			location: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "location", null)),
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			headers: optionalHeadersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+		};
+	}
+
 	static function bedrockCredentialProvider(provider:ProviderInfo):Undefinable<AwsCredentialProvider> {
 		final profile = ProviderOptionAccess.string(provider.options, "profile", null);
 		final options:AwsNodeProviderChainOptions = {profile: stringOrAbsent(profile)};
@@ -244,5 +291,17 @@ class AiSdkLanguageLoader {
 
 	static function headersOrAbsent(value:Null<DynamicAccess<String>>):Undefinable<DynamicAccess<String>> {
 		return value == null ? Undefinable.absent() : value;
+	}
+
+	static function optionalHeadersOrAbsent(value:Null<DynamicAccess<String>>):Undefinable<AiOptionalHeaderMap> {
+		if (value == null)
+			return Undefinable.absent();
+		final result = new DynamicAccess<Undefinable<String>>();
+		for (field in value.keys()) {
+			final header = value.get(field);
+			if (header != null)
+				result.set(field, header);
+		}
+		return result;
 	}
 }

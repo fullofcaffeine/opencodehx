@@ -46,6 +46,9 @@ class AiSdkProviderSmoke {
 		officialOpenAIFactory();
 		xaiFactory();
 		azureFactory();
+		googleFactory();
+		vertexFactory();
+		vertexAnthropicFactory();
 		sdkModelSelection();
 		sdkFailureSelection();
 	}
@@ -251,6 +254,62 @@ class AiSdkProviderSmoke {
 		eq(chatResolved.language.provider, "azure.chat", "azure chat language provider");
 	}
 
+	static function googleFactory():Void {
+		final provider = providerWithOptions("google", "fixture-google-key", googleOptions());
+		final model = modelWithApiURL("google", "gemini-3-pro", "@ai-sdk/google", "https://generativelanguage.example.test/v1beta");
+		model.headers.set("x-model-header", "google-model");
+		final settings = AiSdkLanguageLoader.googleFactoryOptions(provider, model);
+		eq(settings.name.orNull(), "google", "google provider name");
+		eq(settings.baseURL.orNull(), "https://generativelanguage.example.test/v1beta", "google base url");
+		eq(settings.apiKey.orNull(), "fixture-google-key", "google api key");
+		final headers = settings.headers.orNull();
+		if (headers == null)
+			throw "google headers: expected merged headers";
+		eq(headers.get("x-provider-header"), "google-provider", "google provider header");
+		eq(headers.get("x-model-header"), "google-model", "google model header");
+
+		final resolved = AiSdkLanguageLoader.resolve(provider, model);
+		eq(resolved.sdkModelID, "gemini-3-pro", "google sdk model id");
+		eq(resolved.method, AiSdkModelMethod.LanguageModel, "google real model method");
+		eq(resolved.language.modelId, "gemini-3-pro", "google language model id");
+		eq(resolved.language.provider, "google", "google language provider");
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "google language model spec");
+	}
+
+	static function vertexFactory():Void {
+		final provider = providerWithOptions("google-vertex", "fixture-vertex-key", vertexOptions());
+		final model = modelWithApiURL("google-vertex", "gemini-3-pro", "@ai-sdk/google-vertex", "https://vertex.example.test");
+		final settings = AiSdkLanguageLoader.vertexFactoryOptions(provider, model);
+		eq(settings.project.orNull(), "fixture-project", "vertex project");
+		eq(settings.location.orNull(), "us-central1", "vertex location");
+		eq(settings.baseURL.orNull(), "https://vertex.example.test", "vertex base url");
+		eq(settings.apiKey.orNull(), "fixture-vertex-key", "vertex api key");
+
+		final resolved = AiSdkLanguageLoader.resolve(provider, model);
+		eq(resolved.sdkModelID, "gemini-3-pro", "vertex sdk model id");
+		eq(resolved.method, AiSdkModelMethod.LanguageModel, "vertex real model method");
+		eq(resolved.language.modelId, "gemini-3-pro", "vertex language model id");
+		eq(resolved.language.provider, "google.vertex.chat", "vertex language provider");
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "vertex language model spec");
+	}
+
+	static function vertexAnthropicFactory():Void {
+		final provider = providerWithOptions("google-vertex-anthropic", null, vertexOptions());
+		final model = modelWithApiURL("google-vertex-anthropic", "claude-sonnet-4@20250514", "@ai-sdk/google-vertex/anthropic",
+			"https://vertex-anthropic.example.test");
+		final settings = AiSdkLanguageLoader.vertexAnthropicFactoryOptions(provider, model);
+		eq(settings.project.orNull(), "fixture-project", "vertex anthropic project");
+		eq(settings.location.orNull(), "us-central1", "vertex anthropic location");
+		eq(settings.baseURL.orNull(), "https://vertex-anthropic.example.test", "vertex anthropic base url");
+
+		final resolved = AiSdkLanguageLoader.resolve(provider, model);
+		eq(resolved.sdkModelID, "claude-sonnet-4@20250514", "vertex anthropic sdk model id");
+		eq(resolved.method, AiSdkModelMethod.LanguageModel, "vertex anthropic real model method");
+		eq(resolved.language.modelId, "claude-sonnet-4@20250514", "vertex anthropic language model id");
+		eq(resolved.language.provider, "vertex.anthropic.messages", "vertex anthropic language provider");
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "vertex anthropic language model spec");
+	}
+
 	static function sdkModelSelection():Void {
 		final sdk = fixtureSdk();
 		final openai = AiSdkLanguageLoader.resolveWithSdk(sdk, provider("openai"), model("openai", "gpt-5.2", "@ai-sdk/openai"));
@@ -390,6 +449,29 @@ class AiSdkProviderSmoke {
 		options.set("useDeploymentBasedUrls", true);
 		final headers = new DynamicAccess<String>();
 		headers.set("x-provider-header", "azure-provider");
+		options.set("headers", headers);
+		return options;
+	}
+
+	static function googleOptions():ProviderOptions {
+		// Fixture boundary: Google provider options are open SDK-owned data, but
+		// this smoke writes only stable settings consumed by the typed bridge.
+		final options = new DynamicAccess<Dynamic>();
+		final headers = new DynamicAccess<String>();
+		headers.set("x-provider-header", "google-provider");
+		options.set("headers", headers);
+		return options;
+	}
+
+	static function vertexOptions():ProviderOptions {
+		// Fixture boundary: project/location are stable Vertex settings. Deeper
+		// google-auth-library objects and token generators need a typed auth seam
+		// before they should enter this map.
+		final options = new DynamicAccess<Dynamic>();
+		options.set("project", "fixture-project");
+		options.set("location", "us-central1");
+		final headers = new DynamicAccess<String>();
+		headers.set("x-provider-header", "vertex-provider");
 		options.set("headers", headers);
 		return options;
 	}

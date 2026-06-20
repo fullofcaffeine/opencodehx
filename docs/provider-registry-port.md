@@ -14,7 +14,7 @@ This slice adds the first Haxe-owned provider registry:
 - `FakeProvider` now uses the same typed provider/model records as the registry instead of local duplicate DTOs.
 - `opencodehx.provider.AiSdkProvider` adds the first AI SDK `streamText` facade through narrow Haxe externs.
 - `opencodehx.smoke.AiSdkProviderSmoke` exercises credential-free AI SDK streaming via `ai/test` `MockLanguageModelV3`.
-- `opencodehx.provider.AiSdkLanguageLoader` resolves the first real bundled SDK factory paths through `@ai-sdk/openai-compatible`, `@ai-sdk/openai`, `@ai-sdk/xai`, `@ai-sdk/azure`, `@ai-sdk/anthropic`, and `@ai-sdk/amazon-bedrock`.
+- `opencodehx.provider.AiSdkLanguageLoader` resolves the first real bundled SDK factory paths through `@ai-sdk/openai-compatible`, `@ai-sdk/openai`, `@ai-sdk/xai`, `@ai-sdk/azure`, `@ai-sdk/google`, `@ai-sdk/google-vertex`, `@ai-sdk/google-vertex/anthropic`, `@ai-sdk/anthropic`, and `@ai-sdk/amazon-bedrock`.
 - `opencodehx.provider.BedrockLanguageLoader` ports Bedrock cross-region inference-profile model ID selection before SDK `languageModel(...)` calls.
 - `opencodehx.provider.ProviderTransform` ports the first pure provider request-option transforms from upstream.
 - `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
@@ -67,6 +67,7 @@ This slice adds the first Haxe-owned provider registry:
 - AI SDK usage aggregation and finish reason typing.
 - Credential-free provider factory paths from Haxe config through `ProviderRegistry.resolveLanguage`, including OpenAI-compatible alias-to-upstream model ID selection and Anthropic/Bedrock no-network factory/model selection.
 - Official OpenAI-family no-network factory/model selection through `@ai-sdk/openai`, `@ai-sdk/xai`, and `@ai-sdk/azure`, including responses-vs-chat selection, OpenAI organization/project settings, xAI's narrower settings shape, Azure resource/API-version/deployment URL settings, and provider/model header merging.
+- Google-family no-network factory/model selection through `@ai-sdk/google`, `@ai-sdk/google-vertex`, and `@ai-sdk/google-vertex/anthropic`, including Google API-key/baseURL/name forwarding, Vertex project/location/API-key settings, Vertex Anthropic's narrower no-API-key settings shape, and the current V3 descriptor providers.
 - Cloudflare AI Gateway no-network factory/model selection, including account ID, gateway ID, API key, cache key, cache TTL, cache skipping, log collection, and opaque metadata forwarding.
 - Typed SDK loader failure paths for unsupported bundled packages, missing `api`/`baseURL`, and missing `chat(...)`/`responses(...)` methods.
 
@@ -206,7 +207,9 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 
 `opencodehx.externs.web.WebStreams` owns the current Web stream extern gap. Haxe 4.3's `js.html.Response` does not expose the standard `body` property, so the structural cast is localized in `WebResponseStreams.body`; provider code consumes a typed `ReadableStream<Uint8Array>` reader.
 
-The AI SDK boundary is intentionally named and narrow. `AiSdk.hx` uses raw `@:ts.type(...)` for SDK-owned declaration surfaces such as language models, call options, generated content, stream parts, provider metadata, OpenAI-compatible/OpenAI/xAI/Azure/Anthropic/Bedrock factory settings, `Tool`, and `JSONSchema7`. Each raw alias has a Haxe backing shape where OpenCodeHX needs to read or construct values, so production provider code can satisfy SDK contracts structurally instead of casting. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
+The AI SDK boundary is intentionally named and narrow. `AiSdk.hx` uses raw `@:ts.type(...)` for SDK-owned declaration surfaces such as language models, call options, generated content, stream parts, provider metadata, OpenAI-compatible/OpenAI/xAI/Azure/Google/Vertex/Anthropic/Bedrock factory settings, `Tool`, and `JSONSchema7`. Each raw alias has a Haxe backing shape where OpenCodeHX needs to read or construct values, so production provider code can satisfy SDK contracts structurally instead of casting. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
+
+Google Vertex headers are typed by the SDK as `Resolvable<Record<string, string | undefined>>`, not as a plain header map. `AiSdkLanguageLoader.optionalHeadersOrAbsent(...)` performs only a narrow map-to-map widening from already validated `DynamicAccess<String>` headers into that optional-value record; it does not inspect unknown provider payloads or accept promise/function headers until a typed host-auth/request seam owns them.
 
 Do not assume every loaded AI SDK package returns `LanguageModelV3`. The public `ai.streamText` model input accepts both `LanguageModelV2` and `LanguageModelV3`, and the current `@ai-sdk/anthropic` factory returns a `LanguageModelV2` descriptor. OpenCodeHX therefore uses a V2/V3 union for loaded SDK models, while keeping V3-specific DTOs and a V3-only bridge for Haxe-owned adapters and SDKs such as Cloudflare AI Gateway that explicitly require V3 models.
 
