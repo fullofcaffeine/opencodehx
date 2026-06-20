@@ -422,6 +422,7 @@ class ProviderTransformSmoke {
 		], anthropic, optionMap());
 		final anthropicCache = object(get(messageOptions(systemCached[0]), "anthropic"));
 		eq(get(object(get(anthropicCache, "cacheControl")), "type"), "ephemeral", "anthropic message-level cache");
+		assertCacheBundle(messageOptions(systemCached[0]), "anthropic cache bundle");
 		eq(partsOf(systemCached[0])[0].providerOptions == null, true, "anthropic cache not on part");
 
 		final gateway = model("vercel", "anthropic/claude-sonnet-4", "@ai-sdk/gateway", true);
@@ -437,12 +438,18 @@ class ProviderTransformSmoke {
 		eq(get(object(get(messageOptions(awsBedrock[0]), "bedrock")), "cachePoint") != null, true, "bedrock npm cache at message level");
 		eq(partsOf(awsBedrock[0])[0].providerOptions == null, true, "bedrock cache not on part");
 
+		final customBedrock = ProviderTransform.message([message(ProviderMessageRole.User, textContent("Hello")),],
+			modelWithApiID("amazon-bedrock", "custom-claude-sonnet-4.5", "arn:aws:bedrock:xxx:yyy:application-inference-profile/zzz", "@ai-sdk/amazon-bedrock"),
+			optionMap());
+		eq(get(object(get(messageOptions(customBedrock[0]), "bedrock")), "cachePoint") != null, true, "bedrock custom profile cache");
+
 		final vertexAnthropic = ProviderTransform.message([
 			message(ProviderMessageRole.System, textContent("You are helpful")),
 			message(ProviderMessageRole.User, textContent("Hello")),
 		],
 			model("google-vertex-anthropic", "claude-sonnet-4@20250514", "@ai-sdk/google-vertex/anthropic"), optionMap());
 		eq(get(object(get(messageOptions(vertexAnthropic[0]), "anthropic")), "cacheControl") != null, true, "vertex anthropic cache");
+		assertCacheBundle(messageOptions(vertexAnthropic[0]), "vertex anthropic cache bundle");
 
 		final itemIdPart = textPart("Hello");
 		itemIdPart.providerOptions = record1("openai", record2("itemId", "msg_456", "reasoningEncryptedContent", "encrypted"));
@@ -524,6 +531,43 @@ class ProviderTransformSmoke {
 
 	static function modelWithOutputLimit(providerID:String, apiID:String, npm:String, output:Float):ProviderModel {
 		return modelWithRelease(providerID, apiID, npm, "2024-01-01", false, null, true, true, output);
+	}
+
+	static function modelWithApiID(providerID:String, modelID:String, apiID:String, npm:String):ProviderModel {
+		return {
+			id: ModelID.make(modelID),
+			providerID: ProviderID.make(providerID),
+			name: modelID,
+			api: {id: apiID, url: "https://api.example.test", npm: npm},
+			status: "active",
+			capabilities: {
+				temperature: true,
+				reasoning: true,
+				attachment: true,
+				toolcall: true,
+				input: {
+					text: true,
+					audio: false,
+					image: true,
+					video: false,
+					pdf: true
+				},
+				output: {
+					text: true,
+					audio: false,
+					image: false,
+					video: false,
+					pdf: false
+				},
+				interleaved: false,
+			},
+			cost: {input: 0.001, output: 0.002, cache: {read: 0.0001, write: 0.0002}},
+			limit: {context: 200000, output: 8192},
+			options: optionMap(),
+			headers: new DynamicAccess<String>(),
+			release_date: "2024-01-01",
+			variants: new DynamicAccess<ProviderOptions>(),
+		};
 	}
 
 	static function optionMap():ProviderOptions {
@@ -741,6 +785,15 @@ class ProviderTransformSmoke {
 		// ProviderOptions boundary. This cast is confined to smoke assertions for
 		// keys that this fixture just created or that ProviderTransform produced.
 		return cast value;
+	}
+
+	static function assertCacheBundle(options:ProviderOptions, label:String):Void {
+		eq(get(object(get(object(get(options, "anthropic")), "cacheControl")), "type"), "ephemeral", label + " anthropic");
+		eq(get(object(get(object(get(options, "openrouter")), "cacheControl")), "type"), "ephemeral", label + " openrouter");
+		eq(get(object(get(object(get(options, "bedrock")), "cachePoint")), "type"), "default", label + " bedrock");
+		eq(get(object(get(object(get(options, "openaiCompatible")), "cache_control")), "type"), "ephemeral", label + " openai compatible");
+		eq(get(object(get(object(get(options, "copilot")), "copilot_cache_control")), "type"), "ephemeral", label + " copilot");
+		eq(get(object(get(object(get(options, "alibaba")), "cacheControl")), "type"), "ephemeral", label + " alibaba");
 	}
 
 	static function stringArray(value:Dynamic):Array<String> {
