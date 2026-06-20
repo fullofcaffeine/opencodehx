@@ -3,6 +3,8 @@ package opencodehx;
 import genes.Genes;
 import genes.ts.Imports;
 import js.Syntax;
+import opencodehx.externs.node.Console;
+import opencodehx.externs.node.Process;
 import opencodehx.cli.Cli;
 import opencodehx.fixtures.DynamicFixture;
 import opencodehx.fx.Task;
@@ -52,113 +54,117 @@ class Main {
 		final smokeTask = Task.succeed(smokePath);
 		final resource:SmokeResource = Imports.defaultImportWith("#opencodehx/smoke-resource", "json", "SmokeResourceJson");
 		Syntax.code("void {0}", smokeTask.toEffect());
-		Syntax.code("console.log({0})", '${BuildInfo.label()} ${smokePath}');
-		Syntax.code("console.log({0})", '${resource.name}:${resource.mode}');
+		log('${BuildInfo.label()} ${smokePath}');
+		log('${resource.name}:${resource.mode}');
 		UtilSmoke.run();
-		Syntax.code("console.log({0})", "util-smoke:ok");
+		log("util-smoke:ok");
 		CliSmoke.run();
-		Syntax.code("console.log({0})", "cli-smoke:ok");
+		log("cli-smoke:ok");
 		ConfigSmoke.run();
-		Syntax.code("console.log({0})", "config-smoke:ok");
+		log("config-smoke:ok");
 		FileSmoke.run();
-		Syntax.code("console.log({0})", "file-smoke:ok");
+		log("file-smoke:ok");
 		ResourceSmoke.run();
-		Syntax.code("console.log({0})", "resource-smoke:ok");
+		log("resource-smoke:ok");
 		MessageSmoke.run();
-		Syntax.code("console.log({0})", "message-smoke:ok");
+		log("message-smoke:ok");
 		PermissionSmoke.run();
-		Syntax.code("console.log({0})", "permission-smoke:ok");
+		log("permission-smoke:ok");
 		StorageSmoke.run();
-		Syntax.code("console.log({0})", "storage-smoke:ok");
+		log("storage-smoke:ok");
 		ToolSmoke.run()
 			.then(_ -> {
-				Syntax.code("console.log({0})", "tool-smoke:ok");
+				log("tool-smoke:ok");
 				ProviderSmoke.run();
 				return ProviderSmoke.runRemote();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "provider-smoke:ok");
+				log("provider-smoke:ok");
 				ProviderTransformSmoke.run();
-				Syntax.code("console.log({0})", "provider-transform-smoke:ok");
+				log("provider-transform-smoke:ok");
 				CopilotChatMessagesSmoke.run();
-				Syntax.code("console.log({0})", "copilot-chat-messages-smoke:ok");
+				log("copilot-chat-messages-smoke:ok");
 				CopilotChatCompletionSmoke.run();
-				Syntax.code("console.log({0})", "copilot-chat-completion-smoke:ok");
+				log("copilot-chat-completion-smoke:ok");
 				CopilotChatRequestSmoke.run();
-				Syntax.code("console.log({0})", "copilot-chat-request-smoke:ok");
+				log("copilot-chat-request-smoke:ok");
 				CopilotProviderFactorySmoke.run();
-				Syntax.code("console.log({0})", "copilot-provider-factory-smoke:ok");
+				log("copilot-provider-factory-smoke:ok");
 				CopilotChatSseDecoderSmoke.run();
-				Syntax.code("console.log({0})", "copilot-chat-sse-decoder-smoke:ok");
+				log("copilot-chat-sse-decoder-smoke:ok");
 				return CopilotChatStreamAdapterSmoke.run();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "copilot-chat-stream-adapter-smoke:ok");
+				log("copilot-chat-stream-adapter-smoke:ok");
 				CopilotChatStreamSmoke.run();
-				Syntax.code("console.log({0})", "copilot-chat-stream-smoke:ok");
+				log("copilot-chat-stream-smoke:ok");
 				CopilotChatToolsSmoke.run();
-				Syntax.code("console.log({0})", "copilot-chat-tools-smoke:ok");
+				log("copilot-chat-tools-smoke:ok");
 				return CopilotChatHttpClientSmoke.run();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "copilot-chat-http-client-smoke:ok");
+				log("copilot-chat-http-client-smoke:ok");
 				return CopilotChatLanguageModelSmoke.run();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "copilot-chat-language-model-smoke:ok");
+				log("copilot-chat-language-model-smoke:ok");
 				return CopilotResponsesLanguageModelSmoke.run();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "copilot-responses-language-model-smoke:ok");
+				log("copilot-responses-language-model-smoke:ok");
 				return AiSdkProviderSmoke.run();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "ai-sdk-provider-smoke:ok");
+				log("ai-sdk-provider-smoke:ok");
 				ProjectRuntimeSmoke.run();
-				Syntax.code("console.log({0})", "project-runtime-smoke:ok");
+				log("project-runtime-smoke:ok");
 				SkillSmoke.run();
-				Syntax.code("console.log({0})", "skill-smoke:ok");
+				log("skill-smoke:ok");
 				SessionProcessorSmoke.run();
-				Syntax.code("console.log({0})", "session-processor-smoke:ok");
+				log("session-processor-smoke:ok");
 				return PtySmoke.run();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "pty-smoke:ok");
+				log("pty-smoke:ok");
 				return SkillSmoke.runRemote();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "skill-remote-smoke:ok");
+				log("skill-remote-smoke:ok");
 				return ConfigSmoke.runRemote();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "config-remote-smoke:ok");
+				log("config-remote-smoke:ok");
 				return ServerSmoke.run();
 			})
 			.then(_ -> {
-				Syntax.code("console.log({0})", "server-smoke:ok");
+				log("server-smoke:ok");
 				Genes.dynamicImport(DynamicFixture -> DynamicFixture.label()).then(label -> {
-					Syntax.code("console.log({0})", label);
+					log(label);
 					return null;
 				});
 				return null;
 			})
 			.catchError(error -> {
-				Syntax.code("console.error({0})", error);
-				Syntax.code("process.exitCode = 1");
+				Console.error(error);
+				Process.exitCode = 1;
 				return null;
 			});
 	}
 
 	static function argv():Array<String> {
-		return Syntax.code("process.argv.slice(2)");
+		return Process.argv.slice(2);
 	}
 
 	static function write(stdout:String, stderr:String, exitCode:Int):Void {
 		if (stdout != "")
-			Syntax.code("process.stdout.write({0})", stdout);
+			Process.stdout.write(stdout);
 		if (stderr != "")
-			Syntax.code("process.stderr.write({0})", stderr);
+			Process.stderr.write(stderr);
 		if (exitCode != 0)
-			Syntax.code("process.exitCode = {0}", exitCode);
+			Process.exitCode = exitCode;
+	}
+
+	static function log(value:String):Void {
+		Console.log(value);
 	}
 }
