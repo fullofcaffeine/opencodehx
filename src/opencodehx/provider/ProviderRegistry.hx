@@ -534,8 +534,9 @@ class ProviderRegistry {
 			final cloudflareResolved = cloudflareGatewayOptions(cloudflareBase, env, auths.get("cloudflare-ai-gateway"));
 			if (cloudflareAlreadyLoaded || cloudflareResolved.autoload) {
 				providers.set("cloudflare-ai-gateway", withPatch(cloudflareBase, {
-					source: cloudflareAlreadyLoaded ? cloudflareBase.source : "env",
-					options: cloudflareBase.options,
+					source: cloudflareResolved.source,
+					key: cloudflareResolved.key,
+					options: cloudflareResolved.options,
 				}));
 			}
 		}
@@ -967,15 +968,39 @@ class ProviderRegistry {
 		return withPatch(provider, {models: models});
 	}
 
-	static function cloudflareGatewayOptions(provider:ProviderInfo, env:Dynamic,
-			auth:Null<{final type:String; final key:String; final metadata:Dynamic;}>):{final autoload:Bool;} {
+	static function cloudflareGatewayOptions(provider:ProviderInfo, env:Dynamic, auth:Null<{final type:String; final key:String; final metadata:Dynamic;}>):{
+		final autoload:Bool;
+		final source:String;
+		final key:String;
+		final options:ProviderOptions;
+	} {
 		if (ProviderOptionAccess.string(provider.options, "baseURL", null) != null)
-			return {autoload: false};
+			return {
+				autoload: false,
+				source: provider.source,
+				key: stringOr(provider.key, ""),
+				options: provider.options
+			};
 		final authMetadata = auth == null || auth.type != "api" ? null : auth.metadata;
 		final accountID = stringOr(Reflect.field(env, "CLOUDFLARE_ACCOUNT_ID"), stringOr(Reflect.field(authMetadata, "accountId"), ""));
 		final gatewayID = stringOr(Reflect.field(env, "CLOUDFLARE_GATEWAY_ID"), stringOr(Reflect.field(authMetadata, "gatewayId"), ""));
-		final apiToken = stringOr(Reflect.field(env, "CLOUDFLARE_API_TOKEN"), stringOr(Reflect.field(env, "CF_AIG_TOKEN"), auth == null ? "" : auth.key));
-		return {autoload: accountID != "" && gatewayID != "" && apiToken != ""};
+		final envToken = stringOr(Reflect.field(env, "CLOUDFLARE_API_TOKEN"), stringOr(Reflect.field(env, "CF_AIG_TOKEN"), ""));
+		final authToken = auth == null || auth.type != "api" ? "" : auth.key;
+		final configuredToken = ProviderOptionAccess.string(provider.options, "apiKey", null);
+		final apiToken = configuredToken != null && configuredToken != "" ? configuredToken : envToken != "" ? envToken : authToken;
+		final source = configuredToken != null
+			&& configuredToken != "" ? "config" : envToken != "" ? "env" : authToken != "" ? "api" : provider.source;
+		final options:ProviderOptions = cast mergeObject(provider.options, {
+			accountId: accountID,
+			gatewayId: gatewayID,
+			apiKey: apiToken,
+		});
+		return {
+			autoload: accountID != "" && gatewayID != "" && apiToken != "",
+			source: source,
+			key: apiToken,
+			options: options,
+		};
 	}
 
 	static function gitlabOptions(provider:ProviderInfo, env:Dynamic, auth:Null<{final type:String; final key:String; final metadata:Dynamic;}>):{

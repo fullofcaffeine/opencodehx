@@ -23,6 +23,11 @@ class ProviderOptionAccess {
 		return Std.isOfType(value, Bool) ? value : fallback;
 	}
 
+	public static function numberValue(options:ProviderOptions, field:String, fallback:Null<Float>):Null<Float> {
+		final value = options.get(field);
+		return Std.isOfType(value, Float) || Std.isOfType(value, Int) ? Std.parseFloat(Std.string(value)) : fallback;
+	}
+
 	public static function baseURL(options:ProviderOptions, model:ProviderModel):Null<String> {
 		final configured = string(options, "baseURL", null);
 		if (configured != null && configured != "")

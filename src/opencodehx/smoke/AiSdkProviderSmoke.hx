@@ -21,6 +21,7 @@ import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamResult;
+import opencodehx.provider.CloudflareAiGatewayLoader;
 import opencodehx.provider.ProviderRegistry;
 import opencodehx.provider.ProviderTypes.ProviderCapabilities;
 import opencodehx.provider.ProviderTypes.ProviderCost;
@@ -40,6 +41,7 @@ class AiSdkProviderSmoke {
 		await(errorStream());
 		await(abortStream());
 		openAICompatibleFactory();
+		cloudflareGatewayFactory();
 		sdkModelSelection();
 		sdkFailureSelection();
 	}
@@ -118,6 +120,38 @@ class AiSdkProviderSmoke {
 		eq(AiSdkLanguageLoader.factoryOptions(provider, model).baseURL, "https://llm.example.test/v1", "ai sdk factory base url");
 	}
 
+	static function cloudflareGatewayFactory():Void {
+		final registry = new ProviderRegistry({
+			config: cloudflareConfig(),
+			env: {
+				CLOUDFLARE_ACCOUNT_ID: "fixture-account",
+				CLOUDFLARE_GATEWAY_ID: "fixture-gateway",
+				CLOUDFLARE_API_TOKEN: "fixture-token",
+			},
+			auth: {},
+		});
+		final provider = registry.getProvider(ProviderID.make("cloudflare-ai-gateway"));
+		final model = registry.getModel(ProviderID.make("cloudflare-ai-gateway"), ModelID.make("openai/gpt-5.2-codex"));
+		final settings = CloudflareAiGatewayLoader.settings(provider, model);
+		eq(settings.accountId, "fixture-account", "cloudflare account id");
+		eq(settings.gateway, "fixture-gateway", "cloudflare gateway id");
+		eq(settings.apiKey.orNull(), "fixture-token", "cloudflare api token");
+		final options = settings.options.orNull();
+		if (options == null)
+			throw "cloudflare options: expected forwarded options";
+		eq(options.cacheKey.orNull(), "cache-key", "cloudflare cache key");
+		eq(options.cacheTtl.orNull(), 120, "cloudflare cache ttl");
+		eq(options.skipCache.orNull(), true, "cloudflare skip cache");
+		eq(options.collectLog.orNull(), false, "cloudflare collect log");
+		final hasMetadata:Bool = options.metadata.orNull() != null;
+		eq(hasMetadata, true, "cloudflare metadata forwarded");
+
+		final resolved = registry.resolveLanguage(model);
+		eq(resolved.sdkModelID, "openai/gpt-5.2-codex", "cloudflare sdk model id");
+		eq(resolved.language.modelId, "openai/gpt-5.2-codex", "cloudflare language model id");
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "cloudflare language model spec");
+	}
+
 	static function sdkModelSelection():Void {
 		final sdk = fixtureSdk();
 		final openai = AiSdkLanguageLoader.resolveWithSdk(sdk, provider("openai"), model("openai", "gpt-5.2", "@ai-sdk/openai"));
@@ -171,6 +205,29 @@ class AiSdkProviderSmoke {
 			env: [],
 			options: sdkOptions(),
 			models: models,
+		});
+		info.provider = providers;
+		return info;
+	}
+
+	static function cloudflareConfig():ConfigInfo {
+		final info = ConfigInfo.empty("fixture-user");
+		final providers = new DynamicAccess<ConfigProviderConfig>();
+		// Fixture boundary: Cloudflare options are provider-owned passthrough
+		// data. The production loader narrows stable leaves before constructing
+		// typed AiGatewaySettings, while metadata remains an opaque forwarded
+		// record because Haxe never reads its provider-specific fields.
+		final options = new DynamicAccess<Dynamic>();
+		final metadata = new DynamicAccess<Dynamic>();
+		metadata.set("invoked_by", "test");
+		metadata.set("project", "opencodehx");
+		options.set("metadata", metadata);
+		options.set("cacheKey", "cache-key");
+		options.set("cacheTtl", 120);
+		options.set("skipCache", true);
+		options.set("collectLog", false);
+		providers.set("cloudflare-ai-gateway", {
+			options: options,
 		});
 		info.provider = providers;
 		return info;

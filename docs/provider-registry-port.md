@@ -20,6 +20,7 @@ This slice adds the first Haxe-owned provider registry:
 - `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
 - `ProviderModelsDev` adds the first models.dev fetch/cache seam with injected fetcher support, Node cache file selection, forced refresh, local file override, snapshot fallback, and typed catalog output.
 - `ProviderRegistry` covers the first Cloudflare AI Gateway loading seam: required account/gateway/token env or auth credentials autoload the provider, and config metadata options survive the provider merge.
+- `CloudflareAiGatewayLoader` wires the real `ai-gateway-provider` package into the typed AI SDK loader surface, forwarding account/gateway credentials plus cache/log/metadata options through narrow externs before calling `gateway.chat(...)`.
 - `ProviderRegistry` ports upstream OpenCode provider paid-model gating: public access keeps free models and a public API key, while env/auth/config API keys keep paid models visible.
 - `opencodehx.plugin.PluginConfigHooks` models the upstream `server().config(cfg)` hook order for provider loading: typed plugin hooks mutate the live config before `ProviderRegistry` reads `cfg.provider`, `enabled_providers`, or `disabled_providers`.
 - `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
@@ -49,7 +50,7 @@ This slice adds the first Haxe-owned provider registry:
 - Auth file-shaped API keys.
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, OpenCode/GitHub Copilot small-model priority, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
-- Cloudflare AI Gateway env autoload for `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, and `CLOUDFLARE_API_TOKEN`, plus preservation of configured `options.metadata`.
+- Cloudflare AI Gateway env autoload for `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, and `CLOUDFLARE_API_TOKEN`, preservation of configured `options.metadata`, and no-network AI SDK factory/model resolution through `ai-gateway-provider`.
 - GitLab Duo registry loading for `GITLAB_TOKEN`, config `options.apiKey`, API-auth keys, OAuth access-token auth shape, `GITLAB_INSTANCE_URL`, default/custom AI Gateway headers, feature flags, and static `duo-chat-*` models.
 - OpenCode provider public/paid model gating: no key hides paid models, while `OPENCODE_API_KEY`, auth content, or config `options.apiKey` keeps paid models visible.
 - `models.dev` provider normalization for provider API inheritance, required defaults, reasoning variants, experimental mode naming, body-key camel casing, mode cost overrides, and preservation of base over-200k pricing.
@@ -64,6 +65,7 @@ This slice adds the first Haxe-owned provider registry:
 - Abort propagation through `AbortController`.
 - AI SDK usage aggregation and finish reason typing.
 - Credential-free provider factory paths from Haxe config through `ProviderRegistry.resolveLanguage`, including OpenAI-compatible alias-to-upstream model ID selection and Bedrock no-network factory/model selection.
+- Cloudflare AI Gateway no-network factory/model selection, including account ID, gateway ID, API key, cache key, cache TTL, cache skipping, log collection, and opaque metadata forwarding.
 - Typed SDK loader failure paths for unsupported bundled packages, missing `api`/`baseURL`, and missing `chat(...)`/`responses(...)` methods.
 
 `ProviderTransformSmoke` covers the first upstream `provider/transform.test.ts` subset:
@@ -208,7 +210,9 @@ Bedrock bearer auth is passed as an explicit SDK `apiKey` instead of mutating `p
 
 Bedrock small-model selection intentionally follows upstream `Provider.getSmallModel`, not the broader SDK inference-profile prefixing helper. It prefers `global.` matches first, then `us.` or `eu.` regional matches derived from `provider.options.region`, then an unprefixed match. Other Bedrock inference-profile prefixes such as `jp.`, `apac.`, and `au.` belong to `BedrockLanguageLoader.sdkModelID(...)` when resolving the concrete SDK model ID for a selected model.
 
-Cloudflare AI Gateway provider loading is currently a registry/listing seam, not the full dynamic SDK loader. The provider autoloads only when the account ID, gateway ID, and API token are all available through env/auth. Configured metadata stays in `provider.options.metadata` for the future `ai-gateway-provider` loader to forward.
+Cloudflare AI Gateway now has a real no-network SDK loader seam. The provider autoloads only when the account ID, gateway ID, and API token are all available through env/auth/config, then `CloudflareAiGatewayLoader` forwards the stable options into `ai-gateway-provider` and calls `gateway.chat(...)` with the unified model. `metadata` remains opaque provider-owned passthrough data because the SDK accepts arbitrary scalar metadata; the Haxe boundary names that openness rather than widening the registry model.
+
+The installed `ai-gateway-provider` declarations do not currently expose upstream's custom user-agent header hook as a stable typed option. Do not smuggle it through raw `Syntax.code` or untyped object mutation; add a narrow extern/facade once the package surface or an explicit fetch-wrapper seam gives us a typed runtime contract.
 
 OpenCode provider paid-model filtering intentionally mirrors upstream's listing behavior. Without a user-owned key, auth entry, or `OPENCODE_API_KEY`, the registry leaves only zero-cost models and sets `options.apiKey` to `"public"` so the free public API path remains target-shaped. Once any of those credential seams is present, paid models remain visible and the user-provided credentials flow through the same env/auth/config loading paths as other providers.
 
@@ -216,7 +220,7 @@ OpenCode provider paid-model filtering intentionally mirrors upstream's listing 
 
 This is not the full provider runtime:
 
-- More bundled providers beyond OpenAI-compatible/Bedrock, non-bundled dynamic provider installation/loading, the real Cloudflare AI Gateway SDK model factory, deeper provider-specific request options, live Bedrock credential-chain/signing evidence, and real external plugin runtime/loading hooks remain `opencodehx-nrh`.
+- More bundled providers beyond OpenAI-compatible/Bedrock/Cloudflare AI Gateway, non-bundled dynamic provider installation/loading, deeper provider-specific request options, live Bedrock credential-chain/signing evidence, Cloudflare user-agent/header parity once the SDK exposes a typed seam, and real external plugin runtime/loading hooks remain `opencodehx-nrh`.
 - Deeper Copilot Responses parity remains provider-runtime scope: provider-executed tool argument schemas, richer annotations/logprobs, image/code/file-search payload details, and live session-loop consumption need broader upstream fixtures before they should be treated as complete.
 - GitLab live workflow model discovery, `gitlab-ai-provider` model-class routing, OAuth browser/login flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.
@@ -228,6 +232,8 @@ The Haxe model generates strict-checkable TypeScript, but the provider registry 
 The models.dev runtime-options path exposed a generic optional-field narrowing hole for Haxe conditions such as `field == null || field == "" ? fallback : field`. The fix landed in `../genes` commit `bed806092d198f075a62d7da52f1d90b53feb860` (`genes-o41`), teaching `genes-ts` to carry optional-field non-null facts through boolean `&&`/`||` branches without OpenCodeHX-specific knowledge.
 
 The Bedrock small-model fixture exposed a generic emitted-local naming bug: inline-expanded Haxe helpers such as `Map.set(key, value)` can introduce ordinary locals with the same source name but different types in one TypeScript function. The fix landed in `../genes` commit `8acd1061fb633ea99a2c78c0267cbec436bef6ff` (`genes-t55`), teaching `genes-ts` to allocate emitted local names by typed `TVar.id` within each function/lexical block and suffix real collisions such as `value_1`.
+
+The Cloudflare AI Gateway smoke exposed a generic TypeScript precedence bug around `genes.ts.Undefinable<T>.orNull()`: generated `value ?? null != null` is parsed as `value ?? (null != null)`, not `(value ?? null) != null`. The fix landed in `../genes` commit `ab862272e1813d44393fa5e8bc059a8fb7d67298` (`genes-20r`), teaching `genes-ts` to parenthesize nullish-coalescing operands in null comparisons without adding OpenCodeHX-specific source workarounds.
 
 The Copilot usage-mapping helpers exposed generated cast noise after null-guarded locals used for `genes.ts.Undefinable<T>` output. The fix landed in `../genes` commit `b96af41741e6ea2b0e36c5a50005e38af4aebeb3` (`genes-9lz`), teaching `genes-ts` to emit direct TypeScript locals after stable null guards instead of `Register.unsafeCast<T>(value)`.
 

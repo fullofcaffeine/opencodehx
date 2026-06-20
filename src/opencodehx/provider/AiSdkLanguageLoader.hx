@@ -66,6 +66,8 @@ class AiSdkLanguageLoader {
 				createOpenAICompatible(factoryOptions(provider, model));
 			case "@ai-sdk/amazon-bedrock":
 				createAmazonBedrock(bedrockFactoryOptions(provider, model));
+			case "ai-gateway-provider":
+				CloudflareAiGatewayLoader.sdk(provider, model);
 			case npm:
 				throw new Exception('Unsupported bundled AI SDK provider: ${npm}');
 		}
