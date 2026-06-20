@@ -75,7 +75,7 @@ class ProviderRegistry {
 		return result;
 	}
 
-	public function getProvider(providerID:ProviderID):ProviderInfo {
+	public function getProvider(providerID:ProviderID):Null<ProviderInfo> {
 		return providers.get(providerID.toString());
 	}
 

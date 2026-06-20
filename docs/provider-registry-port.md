@@ -40,11 +40,12 @@ This slice adds the first Haxe-owned provider registry:
 
 `ProviderSmoke` is the executable fixture for this slice. It covers:
 
-- Anthropic env loading, config option overlays, env-source precedence when config also augments the provider, fallback env variable lookup, and single-vs-multiple env key capture.
+- Anthropic env loading, config option overlays, nested provider option deep merge, multiple configured providers loading together, env-source precedence when config also augments the provider, fallback env variable lookup, and single-vs-multiple env key capture.
 - Custom providers, brand-new providers, custom model aliases, provider-name defaults, provider `api` to model API URL inheritance, provider `baseURL` options, new model SDK/API inheritance from existing providers, Google Vertex proxy `baseURL` preservation, per-model provider API/package overrides, model defaults, custom cost/cache values, tool-call capability defaults/overrides, text/image modality defaults and overrides, default zero limits, and model headers.
 - Provider and model filtering, including empty enabled lists, enabled-plus-disabled precedence, and combined whitelist/blacklist behavior.
 - Reasoning model variant generation plus config customization, database-model final-pass filtering, custom reasoning model variants, per-variant disable, all-variant disable, and stripping `disabled` from kept variant options.
 - User-facing `ModelNotFound` suggestions for misspelled provider IDs and model IDs.
+- Provider lookup and closest-model helpers, including missing providers, no-match queries, and ordered multi-term matching.
 - Auth file-shaped API keys.
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.

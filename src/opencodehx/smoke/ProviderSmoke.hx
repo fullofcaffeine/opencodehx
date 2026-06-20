@@ -110,14 +110,26 @@ class ProviderSmoke {
 			provider: {
 				anthropic: {
 					options: {
+						headers: {
+							"X-Custom": "custom-value",
+						},
 						timeout: 60000,
 					},
 				},
+				openai: {
+					options: {
+						timeout: 30000,
+					},
+				},
 			},
-		}), {ANTHROPIC_API_KEY: "test-api-key"});
+		}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
 		final envConfiguredAnthropic = envWithConfig.getProvider(ProviderID.make("anthropic"));
 		eq(envConfiguredAnthropic.source, "env", "env source survives config merge");
 		eq(Reflect.field(envConfiguredAnthropic.options, "timeout"), 60000, "env provider config option merge");
+		final mergedHeaders = Reflect.field(envConfiguredAnthropic.options, "headers");
+		eq(Reflect.field(mergedHeaders, "X-Custom"), "custom-value", "provider nested option deep merge");
+		eq(Reflect.hasField(mergedHeaders, "anthropic-beta"), true, "provider loader header survives deep merge");
+		eq(Reflect.field(envWithConfig.getProvider(ProviderID.make("openai")).options, "timeout"), 30000, "multiple configured providers load together");
 
 		final configured = registry(config({
 			provider: {
@@ -346,6 +358,24 @@ class ProviderSmoke {
 		if (small == null)
 			throw "small model: expected model";
 		eq(small.id.toString(), "claude-haiku-4-5", "small model priority");
+		final smallOverride = registry(config({small_model: "anthropic/claude-sonnet-4-20250514"}),
+			{ANTHROPIC_API_KEY: "test-api-key"}).smallModel(ProviderID.make("anthropic"));
+		eq(requireModel(smallOverride, "small model override").id.toString(), "claude-sonnet-4-20250514", "small_model config override");
+
+		eq(custom.getProvider(ProviderID.make("missing-provider")) == null, true, "missing provider lookup returns null");
+		eq(requireProvider(custom.getProvider(ProviderID.make("anthropic")), "anthropic provider lookup").id.toString(), "anthropic", "provider lookup info");
+
+		final closest = custom.closest(ProviderID.make("anthropic"), ["sonnet-4"]);
+		if (closest == null)
+			throw "closest model: expected match";
+		eq(closest.providerID.toString(), "anthropic", "closest provider id");
+		eq(closest.modelID.toString().indexOf("sonnet-4") != -1, true, "closest partial match");
+		eq(custom.closest(ProviderID.make("missing-provider"), ["model"]) == null, true, "closest missing provider");
+		eq(custom.closest(ProviderID.make("anthropic"), ["nonexistent-xyz-model"]) == null, true, "closest no partial match");
+		final secondClosest = custom.closest(ProviderID.make("anthropic"), ["nonexistent", "haiku"]);
+		if (secondClosest == null)
+			throw "closest model: expected second query match";
+		eq(secondClosest.modelID.toString().indexOf("haiku") != -1, true, "closest checks query terms in order");
 
 		expectProviderFailure(() -> custom.getModel(ProviderID.make("anthropic"), ModelID.make("missing-model")), "missing model", function(failure) {
 			return switch failure {
@@ -1118,6 +1148,12 @@ class ProviderSmoke {
 		if (model == null)
 			throw '${label}: expected model';
 		return model;
+	}
+
+	static function requireProvider(provider:Null<ProviderInfo>, label:String):ProviderInfo {
+		if (provider == null)
+			throw '${label}: expected provider';
+		return provider;
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {
