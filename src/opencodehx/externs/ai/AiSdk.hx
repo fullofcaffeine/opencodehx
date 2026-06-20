@@ -205,6 +205,12 @@ typedef AiVertexAnthropicFactoryOptionsShape = {
 	final headers:Undefinable<AiOptionalHeaderMap>;
 }
 
+typedef AiSimpleFactoryOptionsShape = {
+	final baseURL:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+}
+
 typedef AiSdkBundledProvider = {
 	function languageModel(modelID:String):AiLanguageModel;
 	@:optional final chat:String->AiLanguageModel;
@@ -220,6 +226,10 @@ typedef AiAzureProviderFactory = AiAzureFactoryOptions->AiSdkBundledProvider;
 typedef AiGoogleProviderFactory = AiGoogleFactoryOptions->AiSdkBundledProvider;
 typedef AiVertexProviderFactory = AiVertexFactoryOptions->AiSdkBundledProvider;
 typedef AiVertexAnthropicProviderFactory = AiVertexAnthropicFactoryOptions->AiSdkBundledProvider;
+typedef AiMistralProviderFactory = AiMistralFactoryOptions->AiSdkBundledProvider;
+typedef AiGroqProviderFactory = AiGroqFactoryOptions->AiSdkBundledProvider;
+typedef AiCohereProviderFactory = AiCohereFactoryOptions->AiSdkBundledProvider;
+typedef AiPerplexityProviderFactory = AiPerplexityFactoryOptions->AiSdkBundledProvider;
 
 @:ts.type("'v3'")
 enum abstract AiLanguageModelSpecificationVersion(String) from String to String {
@@ -731,6 +741,40 @@ abstract AiVertexFactoryOptions(AiVertexFactoryOptionsShape) from AiVertexFactor
 @:ts.type("import('@ai-sdk/google-vertex/anthropic').GoogleVertexAnthropicProviderSettings")
 abstract AiVertexAnthropicFactoryOptions(AiVertexAnthropicFactoryOptionsShape) from AiVertexAnthropicFactoryOptionsShape
 	to AiVertexAnthropicFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Mistral provider settings.
+ *
+ * Mistral's stable loader settings match the simple baseURL/apiKey/headers
+ * shape. `generateId` stays out until a typed request/ID seam owns it.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/mistral').MistralProviderSettings")
+abstract AiMistralFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Groq provider settings.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/groq').GroqProviderSettings")
+abstract AiGroqFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Cohere provider settings.
+ *
+ * Cohere also supports `generateId`, but OpenCodeHX does not own that runtime
+ * seam in this slice, so the backing shape keeps only stable request settings.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/cohere').CohereProviderSettings")
+abstract AiCohereFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Perplexity provider settings.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/perplexity').PerplexityProviderSettings")
+abstract AiPerplexityFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
 
 /**
  * Type-only bridge for AI SDK `Tool`.

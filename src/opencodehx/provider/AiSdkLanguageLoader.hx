@@ -13,15 +13,24 @@ import opencodehx.externs.ai.AiSdk.AiAzureFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiAzureProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiBedrockFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiBedrockProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiCohereFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiCohereProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiGoogleFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiGoogleProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiGroqFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiGroqProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.externs.ai.AiSdk.AiMistralFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiMistralProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiOptionalHeaderMap;
 import opencodehx.externs.ai.AiSdk.AiOpenAIFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiOpenAIProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiPerplexityFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiPerplexityProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiSdkBundledProvider;
 import opencodehx.externs.ai.AiSdk.AiSdkFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiSdkProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiSimpleFactoryOptionsShape;
 import opencodehx.externs.ai.AiSdk.AiVertexAnthropicFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiVertexAnthropicProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiVertexFactoryOptions;
@@ -64,6 +73,10 @@ class AiSdkLanguageLoader {
 	static final createVertex:AiVertexProviderFactory = Imports.namedImport("@ai-sdk/google-vertex", "createVertex", "createVertex");
 	static final createVertexAnthropic:AiVertexAnthropicProviderFactory = Imports.namedImport("@ai-sdk/google-vertex/anthropic", "createVertexAnthropic",
 		"createVertexAnthropic");
+	static final createMistral:AiMistralProviderFactory = Imports.namedImport("@ai-sdk/mistral", "createMistral", "createMistral");
+	static final createGroq:AiGroqProviderFactory = Imports.namedImport("@ai-sdk/groq", "createGroq", "createGroq");
+	static final createCohere:AiCohereProviderFactory = Imports.namedImport("@ai-sdk/cohere", "createCohere", "createCohere");
+	static final createPerplexity:AiPerplexityProviderFactory = Imports.namedImport("@ai-sdk/perplexity", "createPerplexity", "createPerplexity");
 	static final fromNodeProviderChain:AwsNodeProviderChainFactory = Imports.namedImport("@aws-sdk/credential-providers", "fromNodeProviderChain",
 		"fromNodeProviderChain");
 
@@ -103,6 +116,14 @@ class AiSdkLanguageLoader {
 				createVertex(vertexFactoryOptions(provider, model));
 			case "@ai-sdk/google-vertex/anthropic":
 				createVertexAnthropic(vertexAnthropicFactoryOptions(provider, model));
+			case "@ai-sdk/mistral":
+				createMistral(mistralFactoryOptions(provider, model));
+			case "@ai-sdk/groq":
+				createGroq(groqFactoryOptions(provider, model));
+			case "@ai-sdk/cohere":
+				createCohere(cohereFactoryOptions(provider, model));
+			case "@ai-sdk/perplexity":
+				createPerplexity(perplexityFactoryOptions(provider, model));
 			case "ai-gateway-provider":
 				CloudflareAiGatewayLoader.sdk(provider, model);
 			case npm:
@@ -233,6 +254,31 @@ class AiSdkLanguageLoader {
 			location: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "location", null)),
 			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
 			headers: optionalHeadersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+		};
+	}
+
+	public static function mistralFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiMistralFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function groqFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiGroqFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function cohereFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiCohereFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function perplexityFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiPerplexityFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	static function simpleFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiSimpleFactoryOptionsShape {
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		return {
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
 		};
 	}
 

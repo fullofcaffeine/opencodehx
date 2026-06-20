@@ -49,6 +49,7 @@ class AiSdkProviderSmoke {
 		googleFactory();
 		vertexFactory();
 		vertexAnthropicFactory();
+		simpleProviderFactories();
 		sdkModelSelection();
 		sdkFailureSelection();
 	}
@@ -310,6 +311,25 @@ class AiSdkProviderSmoke {
 		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "vertex anthropic language model spec");
 	}
 
+	static function simpleProviderFactories():Void {
+		simpleProviderFactory("mistral", "@ai-sdk/mistral", "mistral-small-latest", "https://mistral.example.test/v1", "mistral.chat");
+		simpleProviderFactory("groq", "@ai-sdk/groq", "llama-4", "https://groq.example.test/openai/v1", "groq.chat");
+		simpleProviderFactory("cohere", "@ai-sdk/cohere", "command-a-03-2025", "https://cohere.example.test/v2", "cohere.chat");
+		simpleProviderFactory("perplexity", "@ai-sdk/perplexity", "sonar-pro", "https://perplexity.example.test", "perplexity");
+	}
+
+	static function simpleProviderFactory(providerID:String, npm:String, modelID:String, baseURL:String, expectedProvider:String):Void {
+		final provider = providerWithOptions(providerID, 'fixture-${providerID}-key', simpleProviderOptions(providerID));
+		final model = modelWithApiURL(providerID, modelID, npm, baseURL);
+		model.headers.set("x-model-header", '${providerID}-model');
+		final resolved = AiSdkLanguageLoader.resolve(provider, model);
+		eq(resolved.sdkModelID, modelID, '${providerID} sdk model id');
+		eq(resolved.method, AiSdkModelMethod.LanguageModel, '${providerID} real model method');
+		eq(resolved.language.modelId, modelID, '${providerID} language model id');
+		eq(resolved.language.provider, expectedProvider, '${providerID} language provider');
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, '${providerID} language model spec');
+	}
+
 	static function sdkModelSelection():Void {
 		final sdk = fixtureSdk();
 		final openai = AiSdkLanguageLoader.resolveWithSdk(sdk, provider("openai"), model("openai", "gpt-5.2", "@ai-sdk/openai"));
@@ -472,6 +492,17 @@ class AiSdkProviderSmoke {
 		options.set("location", "us-central1");
 		final headers = new DynamicAccess<String>();
 		headers.set("x-provider-header", "vertex-provider");
+		options.set("headers", headers);
+		return options;
+	}
+
+	static function simpleProviderOptions(providerID:String):ProviderOptions {
+		// Fixture boundary: these providers share the same stable SDK settings
+		// subset. ProviderOptionAccess narrows this open passthrough map before
+		// the package-specific factory bridge sees it.
+		final options = new DynamicAccess<Dynamic>();
+		final headers = new DynamicAccess<String>();
+		headers.set("x-provider-header", '${providerID}-provider');
 		options.set("headers", headers);
 		return options;
 	}
