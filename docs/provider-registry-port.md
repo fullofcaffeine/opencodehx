@@ -8,7 +8,7 @@
 This slice adds the first Haxe-owned provider registry:
 
 - `opencodehx.provider.ProviderTypes` defines `ProviderID` and `ModelID` abstracts, typed provider/model/capability/cost/limit records, and the upstream `interleaved` union as `Bool | { field }`.
-- `opencodehx.provider.ProviderRegistry` resolves providers from config, env, auth content, and Bedrock env/config/auth seams.
+- `opencodehx.provider.ProviderRegistry` resolves providers from config, env, typed auth entries, and Bedrock env/config/auth seams.
 - Provider filters cover `disabled_providers`, `enabled_providers`, per-provider `whitelist`, and `blacklist`.
 - Model lookup covers aliases, slash-containing model IDs, default model config, Anthropic/OpenCode/GitHub Copilot small-model priority, Bedrock small-model cross-region precedence, and missing-model errors.
 - `FakeProvider` now uses the same typed provider/model records as the registry instead of local duplicate DTOs.
@@ -20,6 +20,7 @@ This slice adds the first Haxe-owned provider registry:
 - `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
 - `ProviderModelsDev` adds the first models.dev fetch/cache seam with injected fetcher support, Node cache file selection, forced refresh, local file override, snapshot fallback, and typed catalog output.
 - `ProviderRegistry` covers the first Cloudflare AI Gateway loading seam: required account/gateway/token env or auth credentials autoload the provider, and config metadata options survive the provider merge.
+- `opencodehx.auth.AuthStore` owns the Node auth storage seam for `OPENCODE_AUTH_CONTENT` and XDG data `auth.json`, validating upstream `api`, `oauth`, and `wellknown` entry shapes before provider code sees them.
 - `CloudflareAiGatewayLoader` wires the real `ai-gateway-provider` package into the typed AI SDK loader surface, forwarding account/gateway credentials plus cache/log/metadata options through narrow externs before calling `gateway.chat(...)`.
 - `ProviderRegistry` ports upstream OpenCode provider paid-model gating: public access keeps free models and a public API key, while env/auth/config API keys keep paid models visible.
 - `opencodehx.plugin.PluginConfigHooks` models the upstream `server().config(cfg)` hook order for provider loading: typed plugin hooks mutate the live config before `ProviderRegistry` reads `cfg.provider`, `enabled_providers`, or `disabled_providers`.

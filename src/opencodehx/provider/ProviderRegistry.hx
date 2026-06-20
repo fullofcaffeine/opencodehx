@@ -1,6 +1,5 @@
 package opencodehx.provider;
 
-import haxe.Json;
 import js.Syntax;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.ConfigProviderConfig;
@@ -899,15 +898,7 @@ class ProviderRegistry {
 
 	static function authEntries(data:Dynamic):Map<String, {final type:String; final key:String; final metadata:Dynamic;}> {
 		final result = new Map<String, {final type:String; final key:String; final metadata:Dynamic;}>();
-		var raw = data;
-		if (raw == null) {
-			final text:Null<String> = Syntax.code("process.env.OPENCODE_AUTH_CONTENT ?? null");
-			if (text != null && text != "") {
-				try {
-					raw = Json.parse(text);
-				} catch (_:Dynamic) {}
-			}
-		}
+		final raw = data;
 		if (!isRecord(raw))
 			return result;
 		for (id in Reflect.fields(raw)) {

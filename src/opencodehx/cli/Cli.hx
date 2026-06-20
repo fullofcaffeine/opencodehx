@@ -3,6 +3,7 @@ package opencodehx.cli;
 import genes.js.Async.await;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
+import opencodehx.auth.AuthStore;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigWriter;
@@ -129,10 +130,11 @@ class Cli {
 				env: env,
 				includeDefaultUsername: false,
 			}));
+			final auth = AuthStore.load(env);
 			final registry = new ProviderRegistry({
 				config: config,
 				env: env,
-				auth: {},
+				auth: auth,
 			});
 			final parsed = ProviderRegistry.parseModel(modelText);
 			final provider = registry.getProvider(parsed.providerID);

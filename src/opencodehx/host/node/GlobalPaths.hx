@@ -10,6 +10,12 @@ class GlobalPaths {
 		return NodePath.join(base, "opencode");
 	}
 
+	public static function data(env:DynamicAccess<String>):String {
+		final xdgData = env.get("XDG_DATA_HOME");
+		final base:String = if (xdgData != null && xdgData != "") xdgData; else NodePath.join(NodePath.join(home(env), ".local"), "share");
+		return NodePath.join(base, "opencode");
+	}
+
 	static function home(env:DynamicAccess<String>):String {
 		final testHome = env.get("OPENCODE_TEST_HOME");
 		return testHome != null && testHome != "" ? testHome : Os.homedir();

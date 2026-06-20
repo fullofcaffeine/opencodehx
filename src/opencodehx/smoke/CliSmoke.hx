@@ -70,20 +70,41 @@ class CliSmoke {
 		eq(liveMissingProvider.stderr.indexOf("Provider not available") != -1, true, "live cli missing provider message");
 
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-"));
+		var originalXdg:Null<String> = null;
+		var originalXdgData:Null<String> = null;
+		var originalCloudflareAccount:Null<String> = null;
+		var originalCloudflareGateway:Null<String> = null;
+		var originalCloudflareToken:Null<String> = null;
+		var originalCloudflareAiGatewayToken:Null<String> = null;
 		try {
 			final xdg = NodePath.join(root, "xdg");
 			final global = NodePath.join(xdg, "opencode");
 			final project = NodePath.join(root, "project");
 			Fs.mkdirSync(global, {recursive: true});
 			Fs.mkdirSync(project, {recursive: true});
+			final xdgData = NodePath.join(root, "data");
+			final authDir = NodePath.join(xdgData, "opencode");
+			Fs.mkdirSync(authDir, {recursive: true});
 			Fs.writeFileSync(NodePath.join(global, "opencode.json"),
 				'{"' + "$" +
 				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","provider":{"global-live":{"npm":"@ai-sdk/openai-compatible","name":"Global Live","options":{"baseURL":"https://global.example.com","apiKey":"global-key"},"models":{"chat":{"name":"Chat"}}}}}');
 			Fs.writeFileSync(NodePath.join(project, "opencode.json"),
 				'{"' + "$" +
 				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","provider":{"project-live":{"npm":"@ai-sdk/openai-compatible","name":"Project Live","options":{"baseURL":"https://project.example.com","apiKey":"project-key"},"models":{"chat":{"name":"Chat"}}}}}');
-			final originalXdg = NodeProcess.envValue("XDG_CONFIG_HOME");
+			Fs.writeFileSync(NodePath.join(authDir, "auth.json"),
+				'{"cloudflare-ai-gateway":{"type":"api","key":"auth-cf-token","metadata":{"accountId":"auth-account","gatewayId":"auth-gateway"}}}');
+			originalXdg = NodeProcess.envValue("XDG_CONFIG_HOME");
+			originalXdgData = NodeProcess.envValue("XDG_DATA_HOME");
+			originalCloudflareAccount = NodeProcess.envValue("CLOUDFLARE_ACCOUNT_ID");
+			originalCloudflareGateway = NodeProcess.envValue("CLOUDFLARE_GATEWAY_ID");
+			originalCloudflareToken = NodeProcess.envValue("CLOUDFLARE_API_TOKEN");
+			originalCloudflareAiGatewayToken = NodeProcess.envValue("CF_AIG_TOKEN");
 			NodeProcess.setEnv("XDG_CONFIG_HOME", xdg);
+			NodeProcess.setEnv("XDG_DATA_HOME", xdgData);
+			NodeProcess.unsetEnv("CLOUDFLARE_ACCOUNT_ID");
+			NodeProcess.unsetEnv("CLOUDFLARE_GATEWAY_ID");
+			NodeProcess.unsetEnv("CLOUDFLARE_API_TOKEN");
+			NodeProcess.unsetEnv("CF_AIG_TOKEN");
 			final globalLoaded = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "global-live/missing", "Hello"]);
 			eq(globalLoaded.exitCode, 1, "live cli global config provider exit");
 			eq(globalLoaded.stderr.indexOf("Provider model not found: global-live/missing") != -1, true, "live cli global config provider loaded");
@@ -98,16 +119,35 @@ class CliSmoke {
 			]);
 			eq(projectLoaded.exitCode, 1, "live cli project config provider exit");
 			eq(projectLoaded.stderr.indexOf("Provider model not found: project-live/missing") != -1, true, "live cli project config provider loaded");
-			if (originalXdg == null)
-				NodeProcess.unsetEnv("XDG_CONFIG_HOME");
-			else
-				NodeProcess.setEnv("XDG_CONFIG_HOME", originalXdg);
+			final authLoaded = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "cloudflare-ai-gateway/missing", "Hello"]);
+			eq(authLoaded.exitCode, 1, "live cli auth provider exit");
+			eq(authLoaded.stderr.indexOf("Provider model not found: cloudflare-ai-gateway/missing") != -1, true, "live cli auth provider loaded");
+			restoreEnv("XDG_CONFIG_HOME", originalXdg);
+			restoreEnv("XDG_DATA_HOME", originalXdgData);
+			restoreEnv("CLOUDFLARE_ACCOUNT_ID", originalCloudflareAccount);
+			restoreEnv("CLOUDFLARE_GATEWAY_ID", originalCloudflareGateway);
+			restoreEnv("CLOUDFLARE_API_TOKEN", originalCloudflareToken);
+			restoreEnv("CF_AIG_TOKEN", originalCloudflareAiGatewayToken);
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
-			NodeProcess.unsetEnv("XDG_CONFIG_HOME");
+			// Haxe JS catch values can be host-native values here. Re-throw after
+			// restoring the mutated test env so failure diagnostics keep the cause.
+			restoreEnv("XDG_CONFIG_HOME", originalXdg);
+			restoreEnv("XDG_DATA_HOME", originalXdgData);
+			restoreEnv("CLOUDFLARE_ACCOUNT_ID", originalCloudflareAccount);
+			restoreEnv("CLOUDFLARE_GATEWAY_ID", originalCloudflareGateway);
+			restoreEnv("CLOUDFLARE_API_TOKEN", originalCloudflareToken);
+			restoreEnv("CF_AIG_TOKEN", originalCloudflareAiGatewayToken);
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	static function restoreEnv(key:String, value:Null<String>):Void {
+		if (value == null)
+			NodeProcess.unsetEnv(key);
+		else
+			NodeProcess.setEnv(key, value);
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

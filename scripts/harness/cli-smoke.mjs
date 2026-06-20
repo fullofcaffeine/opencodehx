@@ -76,9 +76,12 @@ assert.match(liveMissingProvider.stderr, /Provider not available/);
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "opencodehx-cli-"));
 try {
 	const xdg = path.join(tempRoot, "xdg");
+	const xdgData = path.join(tempRoot, "data");
 	const globalConfig = path.join(xdg, "opencode");
+	const authDir = path.join(xdgData, "opencode");
 	const project = path.join(tempRoot, "project");
 	mkdirSync(globalConfig, { recursive: true });
+	mkdirSync(authDir, { recursive: true });
 	mkdirSync(project, { recursive: true });
 	const configFor = (provider, baseURL) =>
 		JSON.stringify({
@@ -94,13 +97,30 @@ try {
 		});
 	writeFileSync(path.join(globalConfig, "opencode.json"), configFor("global-live", "https://global.example.com"));
 	writeFileSync(path.join(project, "opencode.json"), configFor("project-live", "https://project.example.com"));
-	const env = { ...process.env, XDG_CONFIG_HOME: xdg };
+	writeFileSync(
+		path.join(authDir, "auth.json"),
+		JSON.stringify({
+			"cloudflare-ai-gateway": {
+				type: "api",
+				key: "auth-cf-token",
+				metadata: { accountId: "auth-account", gatewayId: "auth-gateway" },
+			},
+		}),
+	);
+	const env = { ...process.env, XDG_CONFIG_HOME: xdg, XDG_DATA_HOME: xdgData };
+	delete env.CLOUDFLARE_ACCOUNT_ID;
+	delete env.CLOUDFLARE_GATEWAY_ID;
+	delete env.CLOUDFLARE_API_TOKEN;
+	delete env.CF_AIG_TOKEN;
 	const globalLoaded = run(["run", "--live-ai-sdk", "--model", "global-live/missing", "Hello"], { env });
 	assert.equal(globalLoaded.status, 1);
 	assert.match(globalLoaded.stderr, /Provider model not found: global-live\/missing/);
 	const projectLoaded = run(["run", "--live-ai-sdk", "--model", "project-live/missing", "--dir", project, "Hello"], { env });
 	assert.equal(projectLoaded.status, 1);
 	assert.match(projectLoaded.stderr, /Provider model not found: project-live\/missing/);
+	const authLoaded = run(["run", "--live-ai-sdk", "--model", "cloudflare-ai-gateway/missing", "Hello"], { env });
+	assert.equal(authLoaded.status, 1);
+	assert.match(authLoaded.stderr, /Provider model not found: cloudflare-ai-gateway\/missing/);
 } finally {
 	rmSync(tempRoot, { recursive: true, force: true });
 }
