@@ -3,6 +3,7 @@ package opencodehx.auth;
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import haxe.Json;
+import opencodehx.config.ConfigLoader.WellKnownAuth;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.GlobalPaths;
 import opencodehx.host.node.NodePath;
@@ -43,6 +44,21 @@ class AuthStore {
 		if (!Fs.existsSync(file))
 			return empty();
 		return parse(Fs.readFileSync(file, "utf8")) ?? empty();
+	}
+
+	public static function wellKnown(auth:AuthMap):Array<WellKnownAuth> {
+		final result:Array<WellKnownAuth> = [];
+		for (url in auth.keys()) {
+			final entry = auth.get(url);
+			if (entry.type == "wellknown" && entry.key != null && entry.token != null) {
+				result.push({
+					url: url,
+					key: entry.key,
+					token: entry.token,
+				});
+			}
+		}
+		return result;
 	}
 
 	private static function parse(text:String):Null<AuthMap> {

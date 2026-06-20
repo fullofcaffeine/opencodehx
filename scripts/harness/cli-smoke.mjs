@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,39 @@ function run(args, options = {}) {
 		env: options.env ?? process.env,
 		encoding: "utf8",
 		stdio: ["ignore", "pipe", "pipe"],
+		timeout: 15_000,
+	});
+}
+
+function runAsync(args, options = {}) {
+	return new Promise((resolve, reject) => {
+		const child = spawn("node", ["dist/index.js", ...args], {
+			cwd: options.cwd ?? root,
+			env: options.env ?? process.env,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		let stdout = "";
+		let stderr = "";
+		const timeout = setTimeout(() => {
+			child.kill("SIGTERM");
+			reject(new Error(`Timed out running dist/index.js ${args.join(" ")}`));
+		}, 15_000);
+		child.stdout.setEncoding("utf8");
+		child.stderr.setEncoding("utf8");
+		child.stdout.on("data", (chunk) => {
+			stdout += chunk;
+		});
+		child.stderr.on("data", (chunk) => {
+			stderr += chunk;
+		});
+		child.once("error", (error) => {
+			clearTimeout(timeout);
+			reject(error);
+		});
+		child.once("close", (status) => {
+			clearTimeout(timeout);
+			resolve({ status, stdout, stderr });
+		});
 	});
 }
 
@@ -34,6 +68,45 @@ function flattenKeys(value, keys = {}) {
     }
   }
   return keys;
+}
+
+async function withRemoteConfigServer(fn) {
+	const server = createServer((req, res) => {
+		if (req.url !== "/.well-known/opencode") {
+			res.writeHead(404);
+			res.end();
+			return;
+		}
+		res.writeHead(200, { "content-type": "application/json" });
+		res.end(
+			JSON.stringify({
+				config: {
+					provider: {
+						"remote-live": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "Remote Live",
+							options: { baseURL: "https://remote.example.com/v1", apiKey: "{env:LIVE_REMOTE_TOKEN}" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				},
+			}),
+		);
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	const baseUrl = `http://127.0.0.1:${address.port}`;
+	try {
+		return await fn(baseUrl);
+	} finally {
+		await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+	}
 }
 
 const help = run(["--help"]);
@@ -121,6 +194,21 @@ try {
 	const authLoaded = run(["run", "--live-ai-sdk", "--model", "cloudflare-ai-gateway/missing", "Hello"], { env });
 	assert.equal(authLoaded.status, 1);
 	assert.match(authLoaded.stderr, /Provider model not found: cloudflare-ai-gateway\/missing/);
+	await withRemoteConfigServer(async (remoteUrl) => {
+		writeFileSync(
+			path.join(authDir, "auth.json"),
+			JSON.stringify({
+				[remoteUrl]: {
+					type: "wellknown",
+					key: "LIVE_REMOTE_TOKEN",
+					token: "remote-live-token",
+				},
+			}),
+		);
+		const remoteLoaded = await runAsync(["run", "--live-ai-sdk", "--model", "remote-live/missing", "Hello"], { env });
+		assert.equal(remoteLoaded.status, 1);
+		assert.match(remoteLoaded.stderr, /Provider model not found: remote-live\/missing/);
+	});
 } finally {
 	rmSync(tempRoot, { recursive: true, force: true });
 }

@@ -2,12 +2,14 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import haxe.Json;
+import js.Syntax;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.cli.Cli;
 import opencodehx.config.ConfigInfo;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.web.Fetch.FetchFunction;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
 
@@ -76,6 +78,7 @@ class CliSmoke {
 		var originalCloudflareGateway:Null<String> = null;
 		var originalCloudflareToken:Null<String> = null;
 		var originalCloudflareAiGatewayToken:Null<String> = null;
+		final originalFetch:FetchFunction = Syntax.code("globalThis.fetch");
 		try {
 			final xdg = NodePath.join(root, "xdg");
 			final global = NodePath.join(xdg, "opencode");
@@ -92,7 +95,28 @@ class CliSmoke {
 				'{"' + "$" +
 				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","provider":{"project-live":{"npm":"@ai-sdk/openai-compatible","name":"Project Live","options":{"baseURL":"https://project.example.com","apiKey":"project-key"},"models":{"chat":{"name":"Chat"}}}}}');
 			Fs.writeFileSync(NodePath.join(authDir, "auth.json"),
-				'{"cloudflare-ai-gateway":{"type":"api","key":"auth-cf-token","metadata":{"accountId":"auth-account","gatewayId":"auth-gateway"}}}');
+				'{"cloudflare-ai-gateway":{"type":"api","key":"auth-cf-token","metadata":{"accountId":"auth-account","gatewayId":"auth-gateway"}},' +
+				'"https://remote.example.com/":{"type":"wellknown","key":"LIVE_REMOTE_TOKEN","token":"remote-live-token"}}');
+			// Smoke-only host patch: the generated CLI harness uses a real local
+			// HTTP server, while this in-process fixture replaces fetch so it can
+			// assert live CLI remote config loading without external network calls.
+			Syntax.code("(globalThis as unknown as { __opencodehxCliFetchedUrl?: string }).__opencodehxCliFetchedUrl = undefined");
+			Syntax.code("globalThis.fetch = (url: string | URL | Request) => {
+				const text = url instanceof Request ? url.url : url instanceof URL ? url.href : String(url);
+				(globalThis as unknown as { __opencodehxCliFetchedUrl?: string }).__opencodehxCliFetchedUrl = text;
+				return Promise.resolve(new Response(JSON.stringify({
+					config: {
+						provider: {
+							'remote-live': {
+								npm: '@ai-sdk/openai-compatible',
+								name: 'Remote Live',
+								options: { baseURL: 'https://remote.example.com/v1', apiKey: '{env:LIVE_REMOTE_TOKEN}' },
+								models: { chat: { name: 'Chat' } }
+							}
+						}
+					}
+				}), { status: 200 }));
+			}");
 			originalXdg = NodeProcess.envValue("XDG_CONFIG_HOME");
 			originalXdgData = NodeProcess.envValue("XDG_DATA_HOME");
 			originalCloudflareAccount = NodeProcess.envValue("CLOUDFLARE_ACCOUNT_ID");
@@ -122,6 +146,12 @@ class CliSmoke {
 			final authLoaded = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "cloudflare-ai-gateway/missing", "Hello"]);
 			eq(authLoaded.exitCode, 1, "live cli auth provider exit");
 			eq(authLoaded.stderr.indexOf("Provider model not found: cloudflare-ai-gateway/missing") != -1, true, "live cli auth provider loaded");
+			final remoteLoaded = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "remote-live/missing", "Hello"]);
+			eq(remoteLoaded.exitCode, 1, "live cli remote well-known provider exit");
+			eq(remoteLoaded.stderr.indexOf("Provider model not found: remote-live/missing") != -1, true, "live cli remote well-known provider loaded");
+			eq(Syntax.code("(globalThis as unknown as { __opencodehxCliFetchedUrl?: string }).__opencodehxCliFetchedUrl ?? null"),
+				"https://remote.example.com/.well-known/opencode", "live cli remote well-known URL normalized");
+			Syntax.code("globalThis.fetch = {0}", originalFetch);
 			restoreEnv("XDG_CONFIG_HOME", originalXdg);
 			restoreEnv("XDG_DATA_HOME", originalXdgData);
 			restoreEnv("CLOUDFLARE_ACCOUNT_ID", originalCloudflareAccount);
@@ -132,6 +162,7 @@ class CliSmoke {
 		} catch (error:Dynamic) {
 			// Haxe JS catch values can be host-native values here. Re-throw after
 			// restoring the mutated test env so failure diagnostics keep the cause.
+			Syntax.code("globalThis.fetch = {0}", originalFetch);
 			restoreEnv("XDG_CONFIG_HOME", originalXdg);
 			restoreEnv("XDG_DATA_HOME", originalXdgData);
 			restoreEnv("CLOUDFLARE_ACCOUNT_ID", originalCloudflareAccount);

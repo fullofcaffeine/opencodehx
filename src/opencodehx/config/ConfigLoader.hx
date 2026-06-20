@@ -124,11 +124,39 @@ class ConfigLoader {
 	}
 
 	@:async
+	public static function loadRemoteWellKnown(auths:Array<WellKnownAuth>, ?options:LoadOptions):Promise<ConfigInfo> {
+		final opts:LoadOptions = options == null ? {} : options;
+		final env = ensureEnv(opts);
+		final result = new ConfigInfo();
+		@:await mergeRemoteWellKnown(result, auths, opts, env);
+		return result;
+	}
+
+	@:async
 	public static function loadProjectWithRemoteSources(directory:String, auths:Array<WellKnownAuth>, accountConfigs:Array<AccountRemoteConfig>,
 			?options:LoadOptions):Promise<ConfigInfo> {
 		final opts:LoadOptions = options == null ? {} : options;
 		final result = new ConfigInfo();
 		final env = ensureEnv(opts);
+		@:await mergeRemoteWellKnown(result, auths, opts, env);
+		result.merge(loadProject(directory, withoutDefaultUsername(withEnv(opts, env))));
+		for (accountConfig in accountConfigs) {
+			final url = normalizeBaseUrl(accountConfig.url);
+			final token = accountConfig.token;
+			if (token != null)
+				setEnvValue(env, "OPENCODE_CONSOLE_TOKEN", token);
+			final source = url + "/api/config";
+			result.merge(loadText(Json.stringify(accountConfig.config), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
+		}
+		mergeManagedConfig(result, withEnv(opts, env));
+		finalizeConfig(result, withEnv(opts, env));
+		if (result.username == null)
+			result.username = defaultUsername(opts);
+		return result;
+	}
+
+	@:async
+	static function mergeRemoteWellKnown(result:ConfigInfo, auths:Array<WellKnownAuth>, opts:LoadOptions, env:ConfigEnv):Promise<Void> {
 		for (auth in auths) {
 			final url = normalizeBaseUrl(auth.url);
 			setEnvValue(env, auth.key, auth.token);
@@ -144,20 +172,6 @@ class ConfigLoader {
 			final source = url + "/.well-known/opencode";
 			result.merge(loadText(Json.stringify(remote), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
 		}
-		result.merge(loadProject(directory, withoutDefaultUsername(withEnv(opts, env))));
-		for (accountConfig in accountConfigs) {
-			final url = normalizeBaseUrl(accountConfig.url);
-			final token = accountConfig.token;
-			if (token != null)
-				setEnvValue(env, "OPENCODE_CONSOLE_TOKEN", token);
-			final source = url + "/api/config";
-			result.merge(loadText(Json.stringify(accountConfig.config), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
-		}
-		mergeManagedConfig(result, withEnv(opts, env));
-		finalizeConfig(result, withEnv(opts, env));
-		if (result.username == null)
-			result.username = defaultUsername(opts);
-		return result;
 	}
 
 	static function mergeManagedConfig(result:ConfigInfo, options:LoadOptions):Void {

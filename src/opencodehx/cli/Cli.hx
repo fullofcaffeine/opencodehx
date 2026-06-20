@@ -131,8 +131,12 @@ class Cli {
 				includeDefaultUsername: false,
 			}));
 			final auth = AuthStore.load(env);
+			final remote = @:await ConfigLoader.loadRemoteWellKnown(AuthStore.wellKnown(auth), {
+				env: env,
+				includeDefaultUsername: false,
+			});
 			final registry = new ProviderRegistry({
-				config: config,
+				config: remote.merge(config),
 				env: env,
 				auth: auth,
 			});
