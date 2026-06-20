@@ -157,6 +157,30 @@ typedef AiAnthropicFactoryOptionsShape = {
 	final headers:Undefinable<DynamicAccess<String>>;
 }
 
+typedef AiOpenAIFactoryOptionsShape = {
+	final name:Undefinable<String>;
+	final baseURL:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final organization:Undefinable<String>;
+	final project:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+}
+
+typedef AiXaiFactoryOptionsShape = {
+	final baseURL:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+}
+
+typedef AiAzureFactoryOptionsShape = {
+	final resourceName:Undefinable<String>;
+	final baseURL:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+	final apiVersion:Undefinable<String>;
+	final useDeploymentBasedUrls:Undefinable<Bool>;
+}
+
 typedef AiSdkBundledProvider = {
 	function languageModel(modelID:String):AiLanguageModel;
 	@:optional final chat:String->AiLanguageModel;
@@ -166,6 +190,9 @@ typedef AiSdkBundledProvider = {
 typedef AiSdkProviderFactory = AiSdkFactoryOptions->AiSdkBundledProvider;
 typedef AiBedrockProviderFactory = AiBedrockFactoryOptions->AiSdkBundledProvider;
 typedef AiAnthropicProviderFactory = AiAnthropicFactoryOptions->AiSdkBundledProvider;
+typedef AiOpenAIProviderFactory = AiOpenAIFactoryOptions->AiSdkBundledProvider;
+typedef AiXaiProviderFactory = AiXaiFactoryOptions->AiSdkBundledProvider;
+typedef AiAzureProviderFactory = AiAzureFactoryOptions->AiSdkBundledProvider;
 
 @:ts.type("'v3'")
 enum abstract AiLanguageModelSpecificationVersion(String) from String to String {
@@ -612,6 +639,38 @@ abstract AiLanguageModelV3(AiLanguageModelShape) from AiLanguageModelShape to Ai
 @:forward(name, baseURL, apiKey, headers)
 @:ts.type("import('@ai-sdk/anthropic').AnthropicProviderSettings")
 abstract AiAnthropicFactoryOptions(AiAnthropicFactoryOptionsShape) from AiAnthropicFactoryOptionsShape to AiAnthropicFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for official OpenAI provider settings.
+ *
+ * OpenAI has its own package-owned settings type. It mostly resembles the
+ * OpenAI-compatible bridge, but also carries organization/project and returns
+ * V3 response/chat models from its own factory methods.
+ */
+@:forward(name, baseURL, apiKey, organization, project, headers)
+@:ts.type("import('@ai-sdk/openai').OpenAIProviderSettings")
+abstract AiOpenAIFactoryOptions(AiOpenAIFactoryOptionsShape) from AiOpenAIFactoryOptionsShape to AiOpenAIFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for official xAI provider settings.
+ *
+ * xAI intentionally has no `name` field in its published settings contract.
+ * Keep this separate from the OpenAI bridge so generated TypeScript does not
+ * rely on extra object-literal properties that the SDK type rejects.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/xai').XaiProviderSettings")
+abstract AiXaiFactoryOptions(AiXaiFactoryOptionsShape) from AiXaiFactoryOptionsShape to AiXaiFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Azure OpenAI provider settings.
+ *
+ * Azure can be addressed by either `baseURL` or `resourceName`, and it carries
+ * deployment/API-version switches that do not exist on plain OpenAI providers.
+ */
+@:forward(resourceName, baseURL, apiKey, headers, apiVersion, useDeploymentBasedUrls)
+@:ts.type("import('@ai-sdk/azure').AzureOpenAIProviderSettings")
+abstract AiAzureFactoryOptions(AiAzureFactoryOptionsShape) from AiAzureFactoryOptionsShape to AiAzureFactoryOptionsShape {}
 
 /**
  * Type-only bridge for AI SDK `Tool`.

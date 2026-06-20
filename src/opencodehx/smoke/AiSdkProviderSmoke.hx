@@ -43,6 +43,9 @@ class AiSdkProviderSmoke {
 		openAICompatibleFactory();
 		cloudflareGatewayFactory();
 		anthropicFactory();
+		officialOpenAIFactory();
+		xaiFactory();
+		azureFactory();
 		sdkModelSelection();
 		sdkFailureSelection();
 	}
@@ -178,6 +181,76 @@ class AiSdkProviderSmoke {
 		eq(resolved.language.specificationVersion, "v2", "anthropic language model spec");
 	}
 
+	static function officialOpenAIFactory():Void {
+		final provider = providerWithOptions("openai", "fixture-openai-key", officialOpenAIOptions());
+		final model = modelWithApiURL("openai", "gpt-5.2", "@ai-sdk/openai", "https://openai.example.test/v1");
+		model.headers.set("x-model-header", "openai-model");
+		final settings = AiSdkLanguageLoader.openAIFactoryOptions(provider, model);
+		eq(settings.name.orNull(), "openai", "openai provider name");
+		eq(settings.baseURL.orNull(), "https://openai.example.test/v1", "openai base url");
+		eq(settings.apiKey.orNull(), "fixture-openai-key", "openai api key");
+		eq(settings.organization.orNull(), "org_fixture", "openai organization");
+		eq(settings.project.orNull(), "proj_fixture", "openai project");
+		final headers = settings.headers.orNull();
+		if (headers == null)
+			throw "openai headers: expected merged headers";
+		eq(headers.get("x-provider-header"), "openai-provider", "openai provider header");
+		eq(headers.get("x-model-header"), "openai-model", "openai model header");
+
+		final resolved = AiSdkLanguageLoader.resolve(provider, model);
+		eq(resolved.sdkModelID, "gpt-5.2", "openai sdk model id");
+		eq(resolved.method, AiSdkModelMethod.Responses, "openai real model method");
+		eq(resolved.language.modelId, "gpt-5.2", "openai language model id");
+		eq(resolved.language.provider, "openai.responses", "openai language provider");
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "openai language model spec");
+	}
+
+	static function xaiFactory():Void {
+		final provider = providerWithOptions("xai", "fixture-xai-key", xaiOptions());
+		final model = modelWithApiURL("xai", "grok-4", "@ai-sdk/xai", "https://xai.example.test/v1");
+		final settings = AiSdkLanguageLoader.xaiFactoryOptions(provider, model);
+		eq(settings.baseURL.orNull(), "https://xai.example.test/v1", "xai base url");
+		eq(settings.apiKey.orNull(), "fixture-xai-key", "xai api key");
+		final headers = settings.headers.orNull();
+		if (headers == null)
+			throw "xai headers: expected forwarded headers";
+		eq(headers.get("x-provider-header"), "xai-provider", "xai provider header");
+
+		final resolved = AiSdkLanguageLoader.resolve(provider, model);
+		eq(resolved.sdkModelID, "grok-4", "xai sdk model id");
+		eq(resolved.method, AiSdkModelMethod.Responses, "xai real model method");
+		eq(resolved.language.modelId, "grok-4", "xai language model id");
+		eq(resolved.language.provider, "xai.responses", "xai language provider");
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "xai language model spec");
+	}
+
+	static function azureFactory():Void {
+		final provider = providerWithOptions("azure", "fixture-azure-key", azureOptions());
+		final model = modelWithApiURL("azure", "gpt-5", "@ai-sdk/azure", "https://azure.example.test/openai");
+		final settings = AiSdkLanguageLoader.azureFactoryOptions(provider, model);
+		eq(settings.resourceName.orNull(), "fixture-resource", "azure resource name");
+		eq(settings.baseURL.orNull(), "https://azure.example.test/openai", "azure base url");
+		eq(settings.apiKey.orNull(), "fixture-azure-key", "azure api key");
+		eq(settings.apiVersion.orNull(), "2025-04-01-preview", "azure api version");
+		eq(settings.useDeploymentBasedUrls.orNull(), true, "azure deployment url mode");
+		final headers = settings.headers.orNull();
+		if (headers == null)
+			throw "azure headers: expected forwarded headers";
+		eq(headers.get("x-provider-header"), "azure-provider", "azure provider header");
+
+		final resolved = AiSdkLanguageLoader.resolve(provider, model);
+		eq(resolved.sdkModelID, "gpt-5", "azure sdk model id");
+		eq(resolved.method, AiSdkModelMethod.Responses, "azure real default model method");
+		eq(resolved.language.modelId, "gpt-5", "azure language model id");
+		eq(resolved.language.provider, "azure.responses", "azure language provider");
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "azure language model spec");
+
+		final chatModel = modelWithApiURL("azure", "gpt-4.1", "@ai-sdk/azure", "https://azure.example.test/openai", useCompletionUrlsOptions());
+		final chatResolved = AiSdkLanguageLoader.resolve(provider, chatModel);
+		eq(chatResolved.method, AiSdkModelMethod.Chat, "azure real chat model method");
+		eq(chatResolved.language.provider, "azure.chat", "azure chat language provider");
+	}
+
 	static function sdkModelSelection():Void {
 		final sdk = fixtureSdk();
 		final openai = AiSdkLanguageLoader.resolveWithSdk(sdk, provider("openai"), model("openai", "gpt-5.2", "@ai-sdk/openai"));
@@ -284,13 +357,55 @@ class AiSdkProviderSmoke {
 		return options;
 	}
 
+	static function officialOpenAIOptions():ProviderOptions {
+		// Fixture boundary: provider options are SDK-owned passthrough data.
+		// The loader narrows only the OpenAI settings keys that the published
+		// `OpenAIProviderSettings` type owns before calling the real factory.
+		final options = new DynamicAccess<Dynamic>();
+		options.set("organization", "org_fixture");
+		options.set("project", "proj_fixture");
+		final headers = new DynamicAccess<String>();
+		headers.set("x-provider-header", "openai-provider");
+		options.set("headers", headers);
+		return options;
+	}
+
+	static function xaiOptions():ProviderOptions {
+		// Fixture boundary: xAI settings deliberately omit OpenAI's `name`,
+		// organization, and project fields. This catches accidental reuse of the
+		// broader OpenAI settings bridge.
+		final options = new DynamicAccess<Dynamic>();
+		final headers = new DynamicAccess<String>();
+		headers.set("x-provider-header", "xai-provider");
+		options.set("headers", headers);
+		return options;
+	}
+
+	static function azureOptions():ProviderOptions {
+		// Fixture boundary: these are stable Azure provider settings, narrowed by
+		// AiSdkLanguageLoader before the typed `createAzure(...)` call.
+		final options = new DynamicAccess<Dynamic>();
+		options.set("resourceName", "fixture-resource");
+		options.set("apiVersion", "2025-04-01-preview");
+		options.set("useDeploymentBasedUrls", true);
+		final headers = new DynamicAccess<String>();
+		headers.set("x-provider-header", "azure-provider");
+		options.set("headers", headers);
+		return options;
+	}
+
 	static function provider(id:String):ProviderInfo {
+		return providerWithOptions(id, null, emptyOptions());
+	}
+
+	static function providerWithOptions(id:String, key:Null<String>, options:ProviderOptions):ProviderInfo {
 		return {
 			id: ProviderID.make(id),
 			name: id,
 			source: "fixture",
 			env: [],
-			options: emptyOptions(),
+			key: key,
+			options: options,
 			models: new Map<String, ProviderModel>(),
 		};
 	}

@@ -9,12 +9,18 @@ import opencodehx.externs.aws.AwsCredentialProviders.AwsNodeProviderChainFactory
 import opencodehx.externs.aws.AwsCredentialProviders.AwsNodeProviderChainOptions;
 import opencodehx.externs.ai.AiSdk.AiAnthropicFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiAnthropicProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiAzureFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiAzureProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiBedrockFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiBedrockProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.externs.ai.AiSdk.AiOpenAIFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiOpenAIProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiSdkBundledProvider;
 import opencodehx.externs.ai.AiSdk.AiSdkFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiSdkProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiXaiFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiXaiProviderFactory;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 
@@ -44,6 +50,9 @@ class AiSdkLanguageLoader {
 		"createOpenAICompatible");
 	static final createAmazonBedrock:AiBedrockProviderFactory = Imports.namedImport("@ai-sdk/amazon-bedrock", "createAmazonBedrock", "createAmazonBedrock");
 	static final createAnthropic:AiAnthropicProviderFactory = Imports.namedImport("@ai-sdk/anthropic", "createAnthropic", "createAnthropic");
+	static final createOpenAI:AiOpenAIProviderFactory = Imports.namedImport("@ai-sdk/openai", "createOpenAI", "createOpenAI");
+	static final createXai:AiXaiProviderFactory = Imports.namedImport("@ai-sdk/xai", "createXai", "createXai");
+	static final createAzure:AiAzureProviderFactory = Imports.namedImport("@ai-sdk/azure", "createAzure", "createAzure");
 	static final fromNodeProviderChain:AwsNodeProviderChainFactory = Imports.namedImport("@aws-sdk/credential-providers", "fromNodeProviderChain",
 		"fromNodeProviderChain");
 
@@ -71,6 +80,12 @@ class AiSdkLanguageLoader {
 				createAmazonBedrock(bedrockFactoryOptions(provider, model));
 			case "@ai-sdk/anthropic":
 				createAnthropic(anthropicFactoryOptions(provider, model));
+			case "@ai-sdk/openai":
+				createOpenAI(openAIFactoryOptions(provider, model));
+			case "@ai-sdk/xai":
+				createXai(xaiFactoryOptions(provider, model));
+			case "@ai-sdk/azure":
+				createAzure(azureFactoryOptions(provider, model));
 			case "ai-gateway-provider":
 				CloudflareAiGatewayLoader.sdk(provider, model);
 			case npm:
@@ -141,6 +156,39 @@ class AiSdkLanguageLoader {
 		};
 	}
 
+	public static function openAIFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiOpenAIFactoryOptions {
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		return {
+			name: stringOrAbsent(provider.id.toString()),
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			organization: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "organization", null)),
+			project: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "project", null)),
+			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+		};
+	}
+
+	public static function xaiFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiXaiFactoryOptions {
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		return {
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+		};
+	}
+
+	public static function azureFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiAzureFactoryOptions {
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		return {
+			resourceName: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "resourceName", null)),
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+			apiVersion: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "apiVersion", null)),
+			useDeploymentBasedUrls: boolOrAbsent(ProviderOptionAccess.bool(provider.options, "useDeploymentBasedUrls", null)),
+		};
+	}
+
 	static function bedrockCredentialProvider(provider:ProviderInfo):Undefinable<AwsCredentialProvider> {
 		final profile = ProviderOptionAccess.string(provider.options, "profile", null);
 		final options:AwsNodeProviderChainOptions = {profile: stringOrAbsent(profile)};
@@ -188,6 +236,10 @@ class AiSdkLanguageLoader {
 
 	static function nonEmptyStringOrAbsent(value:Null<String>):Undefinable<String> {
 		return value == null || value == "" ? Undefinable.absent() : value;
+	}
+
+	static function boolOrAbsent(value:Null<Bool>):Undefinable<Bool> {
+		return value == null ? Undefinable.absent() : value;
 	}
 
 	static function headersOrAbsent(value:Null<DynamicAccess<String>>):Undefinable<DynamicAccess<String>> {
