@@ -113,7 +113,7 @@ class SessionProcessorSmoke {
 				case _:
 					throw "session processor async: expected assistant text";
 			}
-			final runtime = AiSdkMockModel.inspectableToolCall("read", "{\"filePath\":\"src/input.txt\"}");
+			final runtime = AiSdkMockModel.inspectableToolThenText("The file says: ai sdk tool fixture.", "read", "{\"filePath\":\"src/input.txt\"}");
 			final toolResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_tool",
 				prompt: "Read the AI SDK fixture.",
@@ -123,11 +123,14 @@ class SessionProcessorSmoke {
 				language: runtime.language,
 			});
 			eq(hasLanguageTool(runtime.mock.doStreamCalls[0].tools, "read"), true, "ai sdk session advertises read tool");
+			eq(hasLanguageTool(runtime.mock.doStreamCalls[1].tools, "read"), true, "ai sdk continuation advertises read tool");
+			eq(runtime.mock.doStreamCalls.length, 2, "ai sdk continuation call count");
 			eq(toolResult.events[1].type, "tool-call", "ai sdk tool model event");
 			eq(toolResult.events[3].type, "tool-call-start", "ai sdk tool execute start");
 			eq(toolResult.events[4].status, "completed", "ai sdk tool execute finish");
+			eq(toolResult.events[5].text, "The file says: ai sdk tool fixture.", "ai sdk continuation text event");
 			assertToolOutcome(toolResult.tool);
-			assertAssistantParts(toolResult.messages[1].parts, "ai sdk tool", "tool_1", "");
+			assertAssistantParts(toolResult.messages[1].parts, "ai sdk tool", "tool_1", "The file says: ai sdk tool fixture.");
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			// Smoke cleanup must catch arbitrary Haxe/JS failures so the temp

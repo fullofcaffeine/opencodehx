@@ -120,10 +120,12 @@ typedef AiStreamTextResult = {
 	final totalUsage:Thenable<AiLanguageModelUsage>;
 }
 
+typedef AiMockLanguageModelDoStream = EitherType<AiProviderStreamResult, Array<AiProviderStreamResult>>;
+
 typedef AiMockLanguageModelOptions = {
 	@:optional final provider:String;
 	@:optional final modelId:String;
-	@:optional final doStream:AiProviderStreamResult;
+	@:optional final doStream:AiMockLanguageModelDoStream;
 }
 
 typedef AiProviderStreamResult = {

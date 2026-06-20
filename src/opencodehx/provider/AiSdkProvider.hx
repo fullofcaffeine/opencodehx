@@ -13,6 +13,7 @@ import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelUsage;
 import opencodehx.externs.ai.AiSdk.AiProviderFinishReason;
 import opencodehx.externs.ai.AiSdk.AiProviderStreamPart;
+import opencodehx.externs.ai.AiSdk.AiProviderStreamResult;
 import opencodehx.externs.ai.AiSdk.AiProviderUsage;
 import opencodehx.externs.ai.AiSdk.AiSdk;
 import opencodehx.externs.ai.AiSdk.AiSdkTest;
@@ -247,6 +248,36 @@ class AiSdkMockModel {
 		], null, null);
 	}
 
+	public static function inspectableToolThenText(text:String, ?toolName:String, ?input:String):AiSdkInspectableMock {
+		final name = toolName == null ? "read" : toolName;
+		final payload = input == null ? "{\"path\":\"README.md\"}" : input;
+		final first = streamResult([
+			AiProviderStreamPart.streamStart(),
+			AiProviderStreamPart.toolCall("tool_1", name, payload),
+			AiProviderStreamPart.finish(finishReason(AiFinishReason.ToolCalls, "tool_calls"), usage(3, 4)),
+		], null, null);
+		final second = streamResult([
+			AiProviderStreamPart.streamStart(),
+			AiProviderStreamPart.textStart("txt_2"),
+			AiProviderStreamPart.textDelta("txt_2", text),
+			AiProviderStreamPart.textEnd("txt_2"),
+			AiProviderStreamPart.finish(finishReason(AiFinishReason.Stop, "stop"), usage(5, 6)),
+		], null, null);
+		final mock = new MockLanguageModelV3({
+			provider: "opencodehx-test",
+			modelId: "mock-tool-then-text",
+			// ai/test records the call before indexing array fixtures, so index
+			// zero is unused and the first real stream lives at index one.
+			doStream: [first, first, second],
+		});
+		// MockLanguageModelV3 implements the AI SDK LanguageModelV3 interface,
+		// but Haxe cannot see that external TypeScript `implements` clause.
+		return {
+			language: cast mock,
+			mock: mock,
+		};
+	}
+
 	public static function error(message:String):AiLanguageModel {
 		return model("mock-error", [
 			AiProviderStreamPart.streamStart(),
@@ -274,19 +305,23 @@ class AiSdkMockModel {
 		final mock = new MockLanguageModelV3({
 			provider: "opencodehx-test",
 			modelId: modelId,
-			doStream: {
-				stream: AiSdkTest.simulateReadableStream({
-					chunks: chunks,
-					initialDelayInMs: initialDelayInMs,
-					chunkDelayInMs: chunkDelayInMs,
-				}),
-			},
+			doStream: streamResult(chunks, initialDelayInMs, chunkDelayInMs),
 		});
 		// MockLanguageModelV3 implements the AI SDK LanguageModelV3 interface,
 		// but Haxe cannot see that external TypeScript `implements` clause.
 		return {
 			language: cast mock,
 			mock: mock,
+		};
+	}
+
+	static function streamResult(chunks:Array<AiProviderStreamPart>, initialDelayInMs:Null<Int>, chunkDelayInMs:Null<Int>):AiProviderStreamResult {
+		return {
+			stream: AiSdkTest.simulateReadableStream({
+				chunks: chunks,
+				initialDelayInMs: initialDelayInMs,
+				chunkDelayInMs: chunkDelayInMs,
+			}),
 		};
 	}
 

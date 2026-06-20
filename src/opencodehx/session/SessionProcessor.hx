@@ -103,6 +103,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final registry:ToolRegistry;
 	@:optional final permission:opencodehx.permission.PermissionRuntime;
 	@:optional final toolCall:SessionToolCall;
+	@:optional final continueAfterToolResult:Bool;
 }
 
 typedef SessionProcessorResult = {
@@ -239,6 +240,7 @@ class SessionProcessor {
 		final aborted = input.aborted == true;
 		var tokens = tokenUsage();
 		var modelToolCall:Null<SessionToolCall> = null;
+		var toolOutcome:Null<SessionToolOutcome> = null;
 		if (aborted) {
 			events.push({type: "start"});
 			events.push({type: "abort", message: "User aborted the request"});
@@ -261,6 +263,25 @@ class SessionProcessor {
 		final toolCall = input.toolCall == null ? modelToolCall : input.toolCall;
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, toolCall, registry,
 			input.permission, events, null, null, aborted, tokens);
+		toolOutcome = assistantMessage.tool;
+		if (!aborted
+			&& input.continueAfterToolResult != false
+			&& input.toolCall == null
+			&& toolOutcome != null
+			&& toolOutcome.success
+			&& toolOutcome.result != null) {
+			final continuation = @:await AiSdkProvider.stream({
+				model: input.language,
+				prompt: continuationPrompt(prompt, toolOutcome),
+				tools: AiSdkProvider.toolsFromRegistry(registry),
+			});
+			final continuationEvents = encodeAiSdkEvents(continuation.events);
+			for (event in continuationEvents)
+				events.push(event);
+			final continuedText = collectText(continuationEvents);
+			if (continuedText != "")
+				replaceAssistantText(assistantMessage.message, continuedText);
+		}
 
 		if (input.store != null) {
 			persist(input.store, projectID, sessionIDText, input.directory, userMessage, assistantMessage.message);
@@ -283,7 +304,7 @@ class SessionProcessor {
 			retry: null,
 			compaction: null,
 			aborted: aborted ? true : null,
-			tool: assistantMessage.tool,
+			tool: toolOutcome,
 		};
 	}
 
@@ -618,6 +639,30 @@ class SessionProcessor {
 			}
 		}
 		return raw;
+	}
+
+	static function continuationPrompt(prompt:String, outcome:SessionToolOutcome):String {
+		final result = outcome.result;
+		final output = result == null ? "" : result.output;
+		return 'User request:\n${prompt}\n\nTool ${outcome.call.tool} returned:\n${output}\n\nAnswer the user using the tool result.';
+	}
+
+	static function replaceAssistantText(message:WithParts, text:String):Void {
+		for (index in 0...message.parts.length) {
+			switch message.parts[index] {
+				case TextPart(data):
+					message.parts[index] = TextPart({
+						id: data.id,
+						sessionID: data.sessionID,
+						messageID: data.messageID,
+						type: data.type,
+						text: text,
+						time: data.time,
+					});
+					return;
+				case _:
+			}
+		}
 	}
 
 	static function collectText(events:Array<SessionEvent>):String {
