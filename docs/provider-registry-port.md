@@ -20,6 +20,7 @@ This slice adds the first Haxe-owned provider registry:
 - `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
 - `ProviderModelsDev` adds the first models.dev fetch/cache seam with injected fetcher support, Node cache file selection, forced refresh, local file override, snapshot fallback, and typed catalog output.
 - `ProviderRegistry` covers the first Cloudflare AI Gateway loading seam: required account/gateway/token env or auth credentials autoload the provider, and config metadata options survive the provider merge.
+- `ProviderRegistry` ports upstream OpenCode provider paid-model gating: public access keeps free models and a public API key, while env/auth/config API keys keep paid models visible.
 - `opencodehx.plugin.PluginConfigHooks` models the upstream `server().config(cfg)` hook order for provider loading: typed plugin hooks mutate the live config before `ProviderRegistry` reads `cfg.provider`, `enabled_providers`, or `disabled_providers`.
 - `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
 - `CopilotChatCompletion` ports pure GitHub Copilot response metadata, non-stream response content assembly, finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
@@ -46,6 +47,7 @@ This slice adds the first Haxe-owned provider registry:
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
 - Cloudflare AI Gateway env autoload for `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, and `CLOUDFLARE_API_TOKEN`, plus preservation of configured `options.metadata`.
+- OpenCode provider public/paid model gating: no key hides paid models, while `OPENCODE_API_KEY`, auth content, or config `options.apiKey` keeps paid models visible.
 - `models.dev` provider normalization for provider API inheritance, required defaults, reasoning variants, experimental mode naming, body-key camel casing, mode cost overrides, and preservation of base over-200k pricing.
 - `models.dev` fetch/cache orchestration for custom source URLs, user-agent headers, cache writes and reads, fresh-cache refresh skips, forced refresh, local `modelsPath` override, snapshot fallback, and disabled-fetch empty catalog behavior.
 - The pre-existing credential-free fake provider transcript harness.
@@ -198,6 +200,8 @@ Bedrock bearer auth is passed as an explicit SDK `apiKey` instead of mutating `p
 Bedrock small-model selection intentionally follows upstream `Provider.getSmallModel`, not the broader SDK inference-profile prefixing helper. It prefers `global.` matches first, then `us.` or `eu.` regional matches derived from `provider.options.region`, then an unprefixed match. Other Bedrock inference-profile prefixes such as `jp.`, `apac.`, and `au.` belong to `BedrockLanguageLoader.sdkModelID(...)` when resolving the concrete SDK model ID for a selected model.
 
 Cloudflare AI Gateway provider loading is currently a registry/listing seam, not the full dynamic SDK loader. The provider autoloads only when the account ID, gateway ID, and API token are all available through env/auth. Configured metadata stays in `provider.options.metadata` for the future `ai-gateway-provider` loader to forward.
+
+OpenCode provider paid-model filtering intentionally mirrors upstream's listing behavior. Without a user-owned key, auth entry, or `OPENCODE_API_KEY`, the registry leaves only zero-cost models and sets `options.apiKey` to `"public"` so the free public API path remains target-shaped. Once any of those credential seams is present, paid models remain visible and the user-provided credentials flow through the same env/auth/config loading paths as other providers.
 
 ## Deferred Scope
 

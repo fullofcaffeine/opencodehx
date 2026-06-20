@@ -486,6 +486,23 @@ class ProviderRegistry {
 			}));
 		}
 
+		final opencode = database.get("opencode");
+		if (opencode != null && !disabled.exists("opencode")) {
+			// Upstream exposes free OpenCode-hosted models with a public key, but
+			// removes paid models unless env/auth/config proves user-owned access.
+			final opencodeAlreadyLoaded = providers.exists("opencode");
+			final existingOpencode = providers.get("opencode");
+			final opencodeBase:ProviderInfo = existingOpencode == null ? opencode : existingOpencode;
+			final ok = opencodePaidAccess(opencodeBase, configProviders.get("opencode"), env, auths.get("opencode"));
+			final opencodeResolved:ProviderInfo = ok ? opencodeBase : withoutPaidModels(opencodeBase);
+			if (opencodeAlreadyLoaded || opencodeResolved.models.iterator().hasNext()) {
+				providers.set("opencode", withPatch(opencodeResolved, {
+					source: opencodeAlreadyLoaded ? opencodeBase.source : "custom",
+					options: ok ? opencodeBase.options : mergeObject(opencodeBase.options, {apiKey: "public"}),
+				}));
+			}
+		}
+
 		final bedrock = database.get("amazon-bedrock");
 		if (bedrock != null && !disabled.exists("amazon-bedrock")) {
 			final bedrockAlreadyLoaded = providers.exists("amazon-bedrock");
@@ -621,7 +638,10 @@ class ProviderRegistry {
 			model("amazon-bedrock", "global.anthropic.claude-haiku-4-5-20250929-v1:0", "Claude Haiku 4.5", "@ai-sdk/amazon-bedrock", "", 200000, 32000,
 				{reasoning: true, attachment: true}),
 		]));
-		add(result, provider("opencode", "opencode", [], [
+		add(result, provider("opencode", "opencode", ["OPENCODE_API_KEY"], [
+			withCost(model("opencode", "gpt-5.2", "GPT-5.2", "@ai-sdk/openai-compatible", "https://api.opencode.ai/v1", 200000, 10000, {
+				reasoning: true
+			}), 1.25, 10),
 			model("opencode", "gpt-5-nano", "GPT-5 nano", "@ai-sdk/openai-compatible", "https://api.opencode.ai/v1", 200000, 10000, {
 				reasoning: true
 			}),
@@ -687,6 +707,14 @@ class ProviderRegistry {
 			release_date: "",
 			variants: {},
 		};
+	}
+
+	static function withCost(base:ProviderModel, input:Float, output:Float):ProviderModel {
+		return copyModel(base, base.variants, null, null, {
+			input: input,
+			output: output,
+			cache: {read: 0, write: 0},
+		});
 	}
 
 	static function filterProviderModels(provider:ProviderInfo, configEntry:Null<ConfigProviderConfig>):ProviderInfo {
@@ -825,6 +853,26 @@ class ProviderRegistry {
 		if (endpoint != "")
 			Reflect.setField(options, "baseURL", endpoint);
 		return {autoload: true, options: options};
+	}
+
+	static function opencodePaidAccess(provider:ProviderInfo, configEntry:Null<ConfigProviderConfig>, env:Dynamic,
+			auth:Null<{final type:String; final key:String; final metadata:Dynamic;}>):Bool {
+		if (firstEnv(provider.env, env) != null)
+			return true;
+		if (auth != null && auth.type == "api")
+			return true;
+		final configOptions = configEntry == null ? null : configEntry.options;
+		return configOptions != null && ProviderOptionAccess.string(configOptions, "apiKey", null) != null;
+	}
+
+	static function withoutPaidModels(provider:ProviderInfo):ProviderInfo {
+		final models = new Map<String, ProviderModel>();
+		for (modelID in provider.models.keys()) {
+			final model = provider.models.get(modelID);
+			if (model.cost.input == 0)
+				models.set(modelID, model);
+		}
+		return withPatch(provider, {models: models});
 	}
 
 	static function cloudflareGatewayOptions(provider:ProviderInfo, env:Dynamic,

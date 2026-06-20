@@ -41,6 +41,7 @@ class ProviderSmoke {
 		registryModels();
 		registryAuthAndBedrock();
 		cloudflareAiGatewayLoading();
+		opencodePaidModelLoading();
 		modelsDevNormalization();
 		final transcript = TranscriptHarness.oneTurn();
 		eq(transcript.provider.id, "openai", "provider id");
@@ -333,6 +334,32 @@ class ProviderSmoke {
 		final metadata = Reflect.field(configured.getProvider(ProviderID.make("cloudflare-ai-gateway")).options, "metadata");
 		eq(Reflect.field(metadata, "invoked_by"), "test", "cloudflare metadata invoked_by");
 		eq(Reflect.field(metadata, "project"), "opencode", "cloudflare metadata project");
+	}
+
+	static function opencodePaidModelLoading():Void {
+		eq(paidModelCount(registry(config({}))), 0, "opencode public hides paid models");
+
+		final configured = registry(config({
+			provider: {
+				opencode: {
+					options: {
+						apiKey: "test-key",
+					},
+				},
+			},
+		}));
+		eq(paidModelCount(configured) > 0, true, "opencode config apiKey keeps paid models");
+
+		final authenticated = registry(config({}), {}, {
+			opencode: {
+				type: "api",
+				key: "test-key",
+			},
+		});
+		eq(paidModelCount(authenticated) > 0, true, "opencode auth keeps paid models");
+
+		final env = registry(config({}), {OPENCODE_API_KEY: "test-key"});
+		eq(paidModelCount(env) > 0, true, "opencode env key keeps paid models");
 	}
 
 	static function modelsDevNormalization():Void {
@@ -726,6 +753,16 @@ class ProviderSmoke {
 		var count = 0;
 		for (_ in registry.getProvider(ProviderID.make(providerID)).models.keys())
 			count++;
+		return count;
+	}
+
+	static function paidModelCount(registry:ProviderRegistry):Int {
+		var count = 0;
+		final provider = registry.getProvider(ProviderID.make("opencode"));
+		for (model in provider.models) {
+			if (model.cost.input > 0)
+				count++;
+		}
 		return count;
 	}
 
