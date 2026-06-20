@@ -40,6 +40,7 @@ class ProviderSmoke {
 		registryPluginConfigHooks();
 		registryModels();
 		registryModelVariants();
+		registryVertexProviders();
 		registryAuthAndBedrock();
 		cloudflareAiGatewayLoading();
 		opencodePaidModelLoading();
@@ -737,6 +738,53 @@ class ProviderSmoke {
 		eq(generatedModel.variants.exists("high"), true, "reasoning model high variant generated");
 		eq(generatedModel.variants.exists("max"), true, "reasoning model max variant generated");
 
+		final databaseVariantFilter = registry(config({
+			provider: {
+				openai: {
+					models: {
+						"gpt-5.2": {
+							variants: {
+								high: {disabled: true},
+							},
+						},
+					},
+				},
+			},
+		}),
+			{OPENAI_API_KEY: "openai-key"}).getModel(ProviderID.make("openai"), ModelID.make("gpt-5.2"));
+		eq(databaseVariantFilter.variants.exists("high"), false, "database model high variant removed in final pass");
+		eq(databaseVariantFilter.variants.exists("medium"), true, "database model medium variant remains after final pass");
+
+		final customReasoning = registry(config({
+			provider: {
+				"custom-reasoning": {
+					name: "Custom Reasoning",
+					npm: "@ai-sdk/openai-compatible",
+					api: "https://reasoning.example.com/v1",
+					models: {
+						"reasoning-model": {
+							name: "Reasoning Model",
+							reasoning: true,
+							limit: {context: 128000, output: 16000},
+							variants: {
+								low: {reasoningEffort: "low"},
+								medium: {reasoningEffort: "medium"},
+								high: {reasoningEffort: "high", disabled: true},
+								custom: {reasoningEffort: "custom", budgetTokens: 5000},
+							},
+						},
+					},
+					options: {apiKey: "reasoning-key"},
+				},
+			},
+		})).getModel(ProviderID.make("custom-reasoning"), ModelID.make("reasoning-model"));
+		eq(customReasoning.variants.exists("low"), true, "custom reasoning low variant kept");
+		eq(customReasoning.variants.exists("medium"), true, "custom reasoning medium variant kept");
+		eq(customReasoning.variants.exists("custom"), true, "custom reasoning custom variant kept");
+		eq(customReasoning.variants.exists("high"), false, "custom reasoning disabled variant removed");
+		eq(Reflect.field(customReasoning.variants.get("custom"), "budgetTokens"), 5000, "custom reasoning variant option kept");
+		eq(Reflect.hasField(customReasoning.variants.get("low"), "disabled"), false, "custom reasoning enabled variant stripped");
+
 		final disabledHigh = variantRegistry({
 			high: {disabled: true},
 		});
@@ -774,6 +822,60 @@ class ProviderSmoke {
 		});
 		eq(Reflect.hasField(merged.variants.get("high"), "thinking"), true, "variant generated option retained");
 		eq(Reflect.field(merged.variants.get("high"), "extraOption"), "custom-value", "variant config option merged");
+	}
+
+	static function registryVertexProviders():Void {
+		final vertex = registry(config({
+			provider: {
+				"google-vertex-proxy": {
+					name: "Vertex Proxy",
+					npm: "@ai-sdk/google-vertex",
+					api: "https://my-proxy.com/v1",
+					env: ["GOOGLE_APPLICATION_CREDENTIALS"],
+					models: {
+						"gemini-pro": {
+							name: "Gemini Pro",
+							reasoning: true,
+							provider: {
+								api: "https://my-proxy.com/v1",
+							},
+						},
+					},
+					options: {
+						project: "fixture-project",
+						location: "us-central1",
+						baseURL: "https://my-proxy.com/v1",
+					},
+				},
+				"google-vertex-openai": {
+					name: "Vertex OpenAI Compatible",
+					npm: "@ai-sdk/google-vertex",
+					env: ["GOOGLE_APPLICATION_CREDENTIALS"],
+					models: {
+						"gpt-4": {
+							name: "GPT-4 via Vertex",
+							provider: {
+								npm: "@ai-sdk/openai-compatible",
+								api: "https://api.openai.com/v1",
+							},
+						},
+					},
+					options: {
+						project: "fixture-project",
+						location: "us-central1",
+					},
+				},
+			},
+		}), {GOOGLE_APPLICATION_CREDENTIALS: "/tmp/google-credentials.json"});
+		final proxyProvider = vertex.getProvider(ProviderID.make("google-vertex-proxy"));
+		eq(Reflect.field(proxyProvider.options, "baseURL"), "https://my-proxy.com/v1", "vertex proxy baseURL option preserved");
+		final gemini = vertex.getModel(ProviderID.make("google-vertex-proxy"), ModelID.make("gemini-pro"));
+		eq(gemini.api.npm, "@ai-sdk/google-vertex", "vertex proxy model inherits provider npm");
+		eq(gemini.api.url, "https://my-proxy.com/v1", "vertex proxy model api override");
+		eq(gemini.variants.exists("low"), true, "vertex reasoning low variant generated");
+		final openaiModel = vertex.getModel(ProviderID.make("google-vertex-openai"), ModelID.make("gpt-4"));
+		eq(openaiModel.api.npm, "@ai-sdk/openai-compatible", "vertex model provider npm override");
+		eq(openaiModel.api.url, "https://api.openai.com/v1", "vertex model provider api override");
 	}
 
 	static function demoProviderHook():PluginServerHooks {
