@@ -484,6 +484,18 @@ class ProviderTransformSmoke {
 		eq(exists(messageOptions(remapped[0]), "azure"), true, "message provider options remapped");
 		eq(exists(messageOptions(remapped[0]), "azure-cognitive-services"), false, "message provider id removed");
 		eq(exists(partOptionsOf(partsOf(remapped[0])[0]), "azure"), true, "part provider options remapped");
+
+		final copilotMessage = message(ProviderMessageRole.User, textContent("Hello"));
+		copilotMessage.providerOptions = record1("github-copilot", record1("someOption", "value"));
+		final copilotRemapped = ProviderTransform.message([copilotMessage], model("github-copilot", "gpt-5-mini", "@ai-sdk/github-copilot"), optionMap());
+		eq(exists(messageOptions(copilotRemapped[0]), "copilot"), true, "copilot provider options remapped");
+		eq(exists(messageOptions(copilotRemapped[0]), "github-copilot"), false, "copilot provider id removed");
+
+		final bedrockMessage = message(ProviderMessageRole.User, textContent("Hello"));
+		bedrockMessage.providerOptions = record1("my-bedrock", record1("someOption", "value"));
+		final bedrockRemapped = ProviderTransform.message([bedrockMessage], model("my-bedrock", "test-model", "@ai-sdk/amazon-bedrock"), optionMap());
+		eq(exists(messageOptions(bedrockRemapped[0]), "bedrock"), true, "bedrock provider options remapped");
+		eq(exists(messageOptions(bedrockRemapped[0]), "my-bedrock"), false, "bedrock provider id removed");
 	}
 
 	static function model(providerID:String, apiID:String, npm:String, ?reasoning:Bool = false, ?interleaved:ProviderInterleaved, ?inputImage:Bool = true,
