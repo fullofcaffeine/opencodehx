@@ -45,11 +45,21 @@ typedef SmokeResource = {
 
 class Main {
 	static function main():Void {
-		final cli = Cli.run(argv());
-		if (cli.handled) {
-			write(cli.stdout, cli.stderr, cli.exitCode);
-			return;
-		}
+		Cli.runAsync(argv()).then(cli -> {
+			if (cli.handled) {
+				write(cli.stdout, cli.stderr, cli.exitCode);
+				return null;
+			}
+			runSmoke();
+			return null;
+		}).catchError(error -> {
+			Console.error(error);
+			Process.exitCode = 1;
+			return null;
+		});
+	}
+
+	static function runSmoke():Void {
 		final smokePath = NodePath.normalize(NodePath.join("opencodehx", "smoke"));
 		final smokeTask = Task.succeed(smokePath);
 		final resource:SmokeResource = Imports.defaultImportWith("#opencodehx/smoke-resource", "json", "SmokeResourceJson");
@@ -116,6 +126,10 @@ class Main {
 			})
 			.then(_ -> {
 				log("ai-sdk-provider-smoke:ok");
+				return CliSmoke.runAsync();
+			})
+			.then(_ -> {
+				log("cli-async-smoke:ok");
 				ProjectRuntimeSmoke.run();
 				log("project-runtime-smoke:ok");
 				SkillSmoke.run();

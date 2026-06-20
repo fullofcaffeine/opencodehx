@@ -12,6 +12,7 @@
 - `SessionRetry` models the first provider retry classification/backoff rules, including retry headers, 5xx retryability, context-overflow non-retry, JSON rate-limit messages, and plain-text rate-limit patterns.
 - `SessionCompaction` models usable context and overflow decisions from provider model limits plus config compaction settings, and can create upstream-shaped compaction parts for the current fixture processor.
 - `SessionProcessor.runAiSdk` is the first async provider/session bridge. It accepts a typed `AiLanguageModel`, consumes `AiSdkProvider.stream`, maps SDK text/tool/error/finish events into the session event shape, and reuses the same user/assistant message construction path.
+- `Cli.runAsync` and `run --mock-ai-sdk` exercise that bridge from the generated CLI process while remaining credential-free.
 - `SessionProcessorSmoke` covers model stream events, a permission-approved `read` call, final assistant text, retry status/part creation, context-overflow compaction markers, abort recording, SQLite hydration, recovery through the persisted `SessionStore`, and a credential-free AI SDK mock-model session run.
 
 ## Current Boundary

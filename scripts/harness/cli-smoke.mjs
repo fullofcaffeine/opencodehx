@@ -51,6 +51,18 @@ assert.equal(json.status, 0);
 const golden = JSON.parse(readFileSync(path.join(root, "fixtures/transcripts/one-turn.golden.json"), "utf8"));
 assert.equal(canonical(JSON.parse(json.stdout)), canonical(golden));
 
+const mockText = run(["run", "--mock-ai-sdk", "Say", "hello", "through", "the", "SDK."]);
+assert.equal(mockText.status, 0);
+assert.equal(mockText.stdout, "Hello from the AI SDK session.\n");
+
+const mockJson = run(["run", "--mock-ai-sdk", "--format", "json", "Say", "hello", "through", "the", "SDK."]);
+assert.equal(mockJson.status, 0);
+const mockParsed = JSON.parse(mockJson.stdout);
+assert.equal(mockParsed.provider.id, "openai");
+assert.equal(mockParsed.request.system[0], "You are an AI SDK provider runtime.");
+assert.equal(mockParsed.events[0].type, "start");
+assert.equal(mockParsed.events[1].text, "Hello ");
+
 const missing = run(["run"]);
 assert.equal(missing.status, 1);
 assert.match(missing.stderr, /You must provide a message/);

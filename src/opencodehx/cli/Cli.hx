@@ -1,8 +1,14 @@
 package opencodehx.cli;
 
+import genes.js.Async.await;
+import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.harness.TranscriptHarness;
+import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
+import opencodehx.provider.FakeProvider;
+import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.SessionProcessor;
+import opencodehx.session.SessionProcessor.SessionProcessorResult;
 
 typedef CliResult = {
 	final handled:Bool;
@@ -26,6 +32,21 @@ class Cli {
 		return fail('Unknown command: ${args[0]}\n\n${help()}');
 	}
 
+	@:async
+	public static function runAsync(args:Array<String>):Promise<CliResult> {
+		if (args.length == 0)
+			return pass();
+		if (has(args, "--transcript-fixture"))
+			return ok(TranscriptHarness.oneTurnJson());
+		if (has(args, "--version") || has(args, "-v"))
+			return ok(BuildInfo.version);
+		if (has(args, "--help") || has(args, "-h"))
+			return ok(help());
+		if (args[0] == "run")
+			return @:await runCommandAsync(args.slice(1));
+		return fail('Unknown command: ${args[0]}\n\n${help()}');
+	}
+
 	static function runCommand(args:Array<String>):CliResult {
 		if (has(args, "--help") || has(args, "-h"))
 			return ok(runHelp());
@@ -42,14 +63,53 @@ class Cli {
 			prompt: prompt,
 			directory: SessionProcessor.FIXTURE_DIRECTORY,
 		});
+		return formatRunResult(processed, format);
+	}
+
+	@:async
+	static function runCommandAsync(args:Array<String>):Promise<CliResult> {
+		if (!has(args, "--mock-ai-sdk"))
+			return runCommand(args);
+		if (has(args, "--help") || has(args, "-h"))
+			return ok(runHelp());
+		final format = option(args, "--format", "default");
+		final model = option(args, "--model", option(args, "-m", "openai/gpt-5.2"));
+		if (format != "default" && format != "json")
+			return fail('Invalid --format "${format}". Expected "default" or "json".');
+		if (model != "openai/gpt-5.2")
+			return fail('The mock AI SDK harness currently provides only: openai/gpt-5.2');
+		final prompt = message(args);
+		if (StringTools.trim(prompt) == "")
+			return fail("You must provide a message or a command");
+		final fixture = new FakeProvider();
+		final processed = @:await SessionProcessor.runAiSdk({
+			prompt: prompt,
+			directory: SessionProcessor.FIXTURE_DIRECTORY,
+			provider: fixture.info,
+			model: fixture.model,
+			language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
+		});
+		return formatRunResult(processed, format);
+	}
+
+	static function formatRunResult(processed:SessionProcessorResult, format:String):CliResult {
 		final transcript:Dynamic = SessionProcessor.toTranscript(processed);
 		if (format == "json")
 			return ok(haxe.Json.stringify(transcript, null, "  "));
-		final messages:Array<Dynamic> = Reflect.field(transcript, "messages");
-		final assistant = messages[1];
-		final parts:Array<Dynamic> = Reflect.field(assistant, "parts");
-		final text = Std.string(Reflect.field(parts[0], "text"));
-		return ok(text);
+		return ok(assistantText(processed));
+	}
+
+	static function assistantText(processed:SessionProcessorResult):String {
+		if (processed.messages.length < 2)
+			return "";
+		for (part in processed.messages[1].parts) {
+			switch part {
+				case TextPart(text):
+					return text.text;
+				case _:
+			}
+		}
+		return "";
 	}
 
 	static function message(args:Array<String>):String {
@@ -110,6 +170,7 @@ class Cli {
 			"Options:",
 			"  --model, -m   model to use in the format of provider/model",
 			"  --format      format: default (formatted) or json (raw JSON events)",
+			"  --mock-ai-sdk run through the credential-free AI SDK session harness",
 		].join("\n");
 	}
 
