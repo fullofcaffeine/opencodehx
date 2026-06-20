@@ -10,7 +10,7 @@ This slice adds the first Haxe-owned provider registry:
 - `opencodehx.provider.ProviderTypes` defines `ProviderID` and `ModelID` abstracts, typed provider/model/capability/cost/limit records, and the upstream `interleaved` union as `Bool | { field }`.
 - `opencodehx.provider.ProviderRegistry` resolves providers from config, env, auth content, and Bedrock env/config/auth seams.
 - Provider filters cover `disabled_providers`, `enabled_providers`, per-provider `whitelist`, and `blacklist`.
-- Model lookup covers aliases, slash-containing model IDs, default model config, small-model priority, and missing-model errors.
+- Model lookup covers aliases, slash-containing model IDs, default model config, small-model priority, Bedrock small-model cross-region precedence, and missing-model errors.
 - `FakeProvider` now uses the same typed provider/model records as the registry instead of local duplicate DTOs.
 - `opencodehx.provider.AiSdkProvider` adds the first AI SDK `streamText` facade through narrow Haxe externs.
 - `opencodehx.smoke.AiSdkProviderSmoke` exercises credential-free AI SDK streaming via `ai/test` `MockLanguageModelV3`.
@@ -43,7 +43,7 @@ This slice adds the first Haxe-owned provider registry:
 - Provider and model filtering.
 - Auth file-shaped API keys.
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
-- Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
+- Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
 - `models.dev` provider normalization for provider API inheritance, required defaults, reasoning variants, experimental mode naming, body-key camel casing, mode cost overrides, and preservation of base over-200k pricing.
 - `models.dev` fetch/cache orchestration for custom source URLs, user-agent headers, cache writes and reads, fresh-cache refresh skips, forced refresh, local `modelsPath` override, snapshot fallback, and disabled-fetch empty catalog behavior.
 - The pre-existing credential-free fake provider transcript harness.
@@ -193,6 +193,8 @@ The AI SDK boundary is intentionally named and narrow. `AiSdk.hx` uses raw `@:ts
 
 Bedrock bearer auth is passed as an explicit SDK `apiKey` instead of mutating `process.env`. When no bearer token exists, `AwsCredentialProvider` is an opaque exact-TS bridge for the SDK's `credentialProvider` field, produced by `@aws-sdk/credential-providers` and never inspected in Haxe.
 
+Bedrock small-model selection intentionally follows upstream `Provider.getSmallModel`, not the broader SDK inference-profile prefixing helper. It prefers `global.` matches first, then `us.` or `eu.` regional matches derived from `provider.options.region`, then an unprefixed match. Other Bedrock inference-profile prefixes such as `jp.`, `apac.`, and `au.` belong to `BedrockLanguageLoader.sdkModelID(...)` when resolving the concrete SDK model ID for a selected model.
+
 ## Deferred Scope
 
 This is not the full provider runtime:
@@ -207,6 +209,8 @@ This is not the full provider runtime:
 The Haxe model generates strict-checkable TypeScript, but the provider registry exposed output polish debt: repeated temporary declarations, `tmpN` names in larger object literals, and visible `StringMap.inst` access in generated user modules. Keep the Haxe source typed and clear; reduce these shapes into generic `../genes` fixtures instead of weakening the provider model.
 
 The models.dev runtime-options path exposed a generic optional-field narrowing hole for Haxe conditions such as `field == null || field == "" ? fallback : field`. The fix landed in `../genes` commit `bed806092d198f075a62d7da52f1d90b53feb860` (`genes-o41`), teaching `genes-ts` to carry optional-field non-null facts through boolean `&&`/`||` branches without OpenCodeHX-specific knowledge.
+
+The Bedrock small-model fixture exposed a generic emitted-local naming bug: inline-expanded Haxe helpers such as `Map.set(key, value)` can introduce ordinary locals with the same source name but different types in one TypeScript function. The fix landed in `../genes` commit `8acd1061fb633ea99a2c78c0267cbec436bef6ff` (`genes-t55`), teaching `genes-ts` to allocate emitted local names by typed `TVar.id` within each function/lexical block and suffix real collisions such as `value_1`.
 
 The Copilot usage-mapping helpers exposed generated cast noise after null-guarded locals used for `genes.ts.Undefinable<T>` output. The fix landed in `../genes` commit `b96af41741e6ea2b0e36c5a50005e38af4aebeb3` (`genes-9lz`), teaching `genes-ts` to emit direct TypeScript locals after stable null guards instead of `Register.unsafeCast<T>(value)`.
 

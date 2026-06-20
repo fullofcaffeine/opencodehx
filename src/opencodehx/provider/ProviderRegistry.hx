@@ -34,6 +34,8 @@ import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.plugin.PluginConfigHooks;
 import opencodehx.plugin.PluginServerHooks;
 
+using StringTools;
+
 typedef ProviderRegistryInput = {
 	final config:ConfigInfo;
 	// Upstream Provider.Service loads plugin hooks before it reads cfg.provider,
@@ -158,11 +160,17 @@ class ProviderRegistry {
 			"gemini-2.5-flash",
 			"gpt-5-nano"
 		];
-		if (StringTools.startsWith(providerID.toString(), "opencode"))
+		if (providerID.toString().startsWith("opencode"))
 			priority = ["gpt-5-nano"];
-		if (StringTools.startsWith(providerID.toString(), "github-copilot"))
+		if (providerID.toString().startsWith("github-copilot"))
 			priority = ["gpt-5-mini", "claude-haiku-4.5"].concat(priority);
 		for (needle in priority) {
+			if (providerID.toString() == "amazon-bedrock") {
+				final bedrock = smallBedrockModel(provider, needle);
+				if (bedrock != null)
+					return bedrock;
+				continue;
+			}
 			for (modelID in provider.models.keys()) {
 				if (modelID.indexOf(needle) != -1)
 					return provider.models.get(modelID);
@@ -708,6 +716,38 @@ class ProviderRegistry {
 		return -1;
 	}
 
+	static function smallBedrockModel(provider:ProviderInfo, needle:String):Null<ProviderModel> {
+		final global = firstMatchingModel(provider, needle, modelID -> modelID.startsWith("global."));
+		if (global != null)
+			return global;
+
+		final region = ProviderOptionAccess.string(provider.options, "region", null);
+		if (region != null) {
+			final regionPrefix = region.split("-")[0];
+			if (regionPrefix == "us" || regionPrefix == "eu") {
+				final regional = firstMatchingModel(provider, needle, modelID -> modelID.startsWith('${regionPrefix}.'));
+				if (regional != null)
+					return regional;
+			}
+		}
+
+		return firstMatchingModel(provider, needle, modelID -> !bedrockSmallCrossRegion(modelID));
+	}
+
+	static function firstMatchingModel(provider:ProviderInfo, needle:String, accept:String->Bool):Null<ProviderModel> {
+		for (modelID in provider.models.keys()) {
+			if (modelID.indexOf(needle) != -1 && accept(modelID))
+				return provider.models.get(modelID);
+		}
+		return null;
+	}
+
+	static function bedrockSmallCrossRegion(modelID:String):Bool {
+		// Keep this list aligned with upstream getSmallModel fallback semantics.
+		// Broader Bedrock SDK inference-profile prefixing remains in BedrockLanguageLoader.
+		return modelID.startsWith("global.") || modelID.startsWith("us.") || modelID.startsWith("eu.");
+	}
+
 	static function providerConfigEntries(data:Null<ConfigProviderMap>):Map<String, ConfigProviderConfig> {
 		final result = new Map<String, ConfigProviderConfig>();
 		if (data == null)
@@ -959,7 +999,7 @@ class ProviderRegistry {
 
 	static function trimRightSlashes(value:String):String {
 		var result = value;
-		while (StringTools.endsWith(result, "/"))
+		while (result.endsWith("/"))
 			result = result.substr(0, result.length - 1);
 		return result;
 	}

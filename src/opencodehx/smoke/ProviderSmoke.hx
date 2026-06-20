@@ -28,6 +28,9 @@ import opencodehx.provider.ProviderTypes.ModelsDevModel;
 import opencodehx.provider.ProviderTypes.ModelsDevProvider;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderInfo;
+import opencodehx.provider.ProviderTypes.ProviderModel;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.session.MessageCodec;
 
 class ProviderSmoke {
@@ -238,6 +241,7 @@ class ProviderSmoke {
 		eq(webIdentity.getProvider(ProviderID.make("amazon-bedrock")) != null, true, "bedrock web identity autoload");
 
 		bedrockCrossRegionPrefixes(authBedrock);
+		bedrockSmallModelSelection();
 	}
 
 	static function bedrockCrossRegionPrefixes(provider:opencodehx.provider.ProviderTypes.ProviderInfo):Void {
@@ -274,6 +278,23 @@ class ProviderSmoke {
 		final resolution = AiSdkLanguageLoader.resolve(provider, base);
 		eq(resolution.sdkModelID, "us.anthropic.claude-sonnet-4-20250514-v1:0", "bedrock sdk loader model prefix");
 		eq(resolution.language.modelId, "us.anthropic.claude-sonnet-4-20250514-v1:0", "bedrock language model id");
+	}
+
+	static function bedrockSmallModelSelection():Void {
+		final providerID = ProviderID.make("amazon-bedrock");
+		final unprefixed = "anthropic.claude-haiku-4-5-20250929-v1:0";
+		final us = "us.anthropic.claude-haiku-4-5-20250929-v1:0";
+		final eu = "eu.anthropic.claude-haiku-4-5-20250929-v1:0";
+		final global = "global.anthropic.claude-haiku-4-5-20250929-v1:0";
+
+		eq(requireModel(bedrockSmallRegistry("us-east-1", [unprefixed, us]).smallModel(providerID), "bedrock us small").id.toString(), us,
+			"bedrock small prefers us regional");
+		eq(requireModel(bedrockSmallRegistry("eu-west-1", [unprefixed, eu]).smallModel(providerID), "bedrock eu small").id.toString(), eu,
+			"bedrock small prefers eu regional");
+		eq(requireModel(bedrockSmallRegistry("us-east-1", [unprefixed, us, global]).smallModel(providerID), "bedrock global small").id.toString(), global,
+			"bedrock small prefers global");
+		eq(requireModel(bedrockSmallRegistry("ap-south-1", [unprefixed, us]).smallModel(providerID), "bedrock fallback small").id.toString(), unprefixed,
+			"bedrock small falls back to unprefixed");
 	}
 
 	static function modelsDevNormalization():Void {
@@ -525,6 +546,85 @@ class ProviderSmoke {
 		return result;
 	}
 
+	static function bedrockSmallRegistry(region:String, modelIDs:Array<String>):ProviderRegistry {
+		final providerConfig = new DynamicAccess<ConfigProviderConfig>();
+		providerConfig.set("amazon-bedrock", {
+			options: bedrockProviderOptions(region),
+		});
+		final info = ConfigInfo.empty("fixture-user");
+		info.provider = providerConfig;
+		return new ProviderRegistry({
+			config: info,
+			env: {},
+			auth: {},
+			database: bedrockDatabase(modelIDs),
+		});
+	}
+
+	static function bedrockProviderOptions(region:String):ProviderOptions {
+		final options:ProviderOptions = new DynamicAccess();
+		options.set("region", region);
+		return options;
+	}
+
+	static function bedrockDatabase(modelIDs:Array<String>):Map<String, ProviderInfo> {
+		final providers = new Map<String, ProviderInfo>();
+		final models = new Map<String, ProviderModel>();
+		for (id in modelIDs)
+			models.set(id, bedrockModel(id));
+		providers.set("amazon-bedrock", {
+			id: ProviderID.make("amazon-bedrock"),
+			name: "Amazon Bedrock",
+			source: "custom",
+			env: [],
+			options: bedrockProviderOptions("us-east-1"),
+			models: models,
+		});
+		return providers;
+	}
+
+	static function bedrockModel(id:String):ProviderModel {
+		return {
+			id: ModelID.make(id),
+			providerID: ProviderID.make("amazon-bedrock"),
+			name: id,
+			family: "claude",
+			api: {
+				id: id,
+				url: "",
+				npm: "@ai-sdk/amazon-bedrock",
+			},
+			status: "active",
+			capabilities: {
+				temperature: true,
+				reasoning: true,
+				attachment: true,
+				toolcall: true,
+				input: {
+					text: true,
+					audio: false,
+					image: true,
+					video: false,
+					pdf: true
+				},
+				output: {
+					text: true,
+					audio: false,
+					image: false,
+					video: false,
+					pdf: false
+				},
+				interleaved: false,
+			},
+			cost: {input: 0, output: 0, cache: {read: 0, write: 0}},
+			limit: {context: 200000, output: 32000},
+			options: new DynamicAccess(),
+			headers: new DynamicAccess(),
+			release_date: "",
+			variants: new DynamicAccess(),
+		};
+	}
+
 	static function unknownMap(entries:Array<{final key:String; final value:String;}>):DynamicAccess<Unknown> {
 		final result = new DynamicAccess<Unknown>();
 		for (entry in entries)
@@ -600,6 +700,12 @@ class ProviderSmoke {
 			throw '${label}: unexpected failure ${error.message}';
 		}
 		throw '${label}: expected failure';
+	}
+
+	static function requireModel(model:Null<ProviderModel>, label:String):ProviderModel {
+		if (model == null)
+			throw '${label}: expected model';
+		return model;
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

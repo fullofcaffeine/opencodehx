@@ -1,7 +1,7 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-19T21:21:53Z
+**Recorded:** 2026-06-20T00:06:30Z
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
@@ -19,15 +19,15 @@ The canonical compiler checkout is now ahead of the Cafetera vendored reference 
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 35 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, and closed enum abstract declaration/field/local literal-union preservation landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `36150ab272f0c8125e64b08d5faf4d69571e871628f1accdae3ebeabfea411d3`
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, and inline local-name collision handling landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `d272665847b5d57e3063ba93dd59ec38cd4d245c4c885b310528c25b6b891bc7`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `ea54cb1251877e2f408a56cbfc9d2d4598e526ae`
+- Commit: `8acd1061fb633ea99a2c78c0267cbec436bef6ff`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
@@ -52,10 +52,11 @@ Canonical `../genes` checkout:
 - Full CI gate restoration: `5236989aa6f5acaa6a6d879a2aa1d01f37245ae8` (`fix(ci): restore full genes gate`), refreshing dependency/security pins and eliding the Haxe stdlib `ThenableStruct` overload cast for `Promise.resolve(null)` so full `genes-ts` output emits idiomatic `Promise.resolve(null)` instead of leaking unresolved target helper types.
 - Raw syntax-template receiver parenthesization: `5254f9fc4b405824b8cf406b0201687e0c21e7cd` (`fix(genes-ts): parenthesize raw template receivers`), parenthesizing non-trivial `js.Syntax.code("...", args...)` placeholder templates before chained `[]`/`.` access so helpers such as `genes.ts.Undefinable<T>.orNull()` emit valid, handwritten-looking TypeScript in receiver position.
 - Closed enum abstract literal-union preservation: `ea54cb1251877e2f408a56cbfc9d2d4598e526ae` (`fix(ts): preserve closed enum abstract unions`), keeping closed enum abstract literal unions through typedef fields, class fields, and locals initialized from cached calls/fields while deliberately degrading open `from` abstracts to their backing type.
+- Inline local-name collision handling: `8acd1061fb633ea99a2c78c0267cbec436bef6ff` (`fix(ts): avoid inline local name collisions`), allocating emitted local names by typed `TVar.id` within each function/lexical block so inline-expanded Haxe helpers such as `Map.set(key, value)` can generate `value`/`value_1` instead of duplicate function-scoped declarations with incompatible TS types.
 
 ## Current Gate Evidence
 
-- `../genes`: `yarn test:ci` passed on 2026-06-19 at `ea54cb1251877e2f408a56cbfc9d2d4598e526ae`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
+- `../genes`: `yarn test:ci` passed on 2026-06-19 at `8acd1061fb633ea99a2c78c0267cbec436bef6ff`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
 
 Cafetera vendored reference:
 
