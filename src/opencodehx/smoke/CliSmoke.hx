@@ -55,6 +55,14 @@ class CliSmoke {
 		final unsupported = @:await Cli.runAsync(["run", "--mock-ai-sdk", "--model", "anthropic/claude", "Hello"]);
 		eq(unsupported.exitCode, 1, "async cli unsupported model exit");
 		eq(unsupported.stderr.indexOf("mock AI SDK harness") != -1, true, "async cli unsupported model message");
+
+		final liveMissingModel = @:await Cli.runAsync(["run", "--live-ai-sdk", "Hello"]);
+		eq(liveMissingModel.exitCode, 1, "live cli missing model exit");
+		eq(liveMissingModel.stderr.indexOf("require --model") != -1, true, "live cli missing model message");
+
+		final liveMissingProvider = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "missing-provider/model", "Hello"]);
+		eq(liveMissingProvider.exitCode, 1, "live cli missing provider exit");
+		eq(liveMissingProvider.stderr.indexOf("Provider not available") != -1, true, "live cli missing provider message");
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

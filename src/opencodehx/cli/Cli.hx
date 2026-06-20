@@ -3,9 +3,12 @@ package opencodehx.cli;
 import genes.js.Async.await;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
+import opencodehx.config.ConfigInfo;
 import opencodehx.harness.TranscriptHarness;
+import opencodehx.host.node.NodeProcess;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
+import opencodehx.provider.ProviderRegistry;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionProcessor.SessionProcessorResult;
@@ -68,6 +71,8 @@ class Cli {
 
 	@:async
 	static function runCommandAsync(args:Array<String>):Promise<CliResult> {
+		if (has(args, "--live-ai-sdk"))
+			return @:await runLiveAiSdk(args);
 		if (!has(args, "--mock-ai-sdk"))
 			return runCommand(args);
 		if (has(args, "--help") || has(args, "-h"))
@@ -90,6 +95,44 @@ class Cli {
 			language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
 		});
 		return formatRunResult(processed, format);
+	}
+
+	@:async
+	static function runLiveAiSdk(args:Array<String>):Promise<CliResult> {
+		if (has(args, "--help") || has(args, "-h"))
+			return ok(runHelp());
+		final format = option(args, "--format", "default");
+		final modelText = option(args, "--model", option(args, "-m", ""));
+		if (format != "default" && format != "json")
+			return fail('Invalid --format "${format}". Expected "default" or "json".');
+		if (modelText == "")
+			return fail("Live AI SDK runs require --model provider/model for now.");
+		final prompt = message(args);
+		if (StringTools.trim(prompt) == "")
+			return fail("You must provide a message or a command");
+		try {
+			final registry = new ProviderRegistry({
+				config: ConfigInfo.empty("cli"),
+				env: NodeProcess.env(),
+				auth: {},
+			});
+			final parsed = ProviderRegistry.parseModel(modelText);
+			final provider = registry.getProvider(parsed.providerID);
+			if (provider == null)
+				return fail('Provider not available for live AI SDK run: ${parsed.providerID.toString()}');
+			final model = registry.getModel(parsed.providerID, parsed.modelID);
+			final language = registry.getLanguage(model);
+			final processed = @:await SessionProcessor.runAiSdk({
+				prompt: prompt,
+				directory: SessionProcessor.FIXTURE_DIRECTORY,
+				provider: provider,
+				model: model,
+				language: language,
+			});
+			return formatRunResult(processed, format);
+		} catch (error:haxe.Exception) {
+			return fail(error.message == null ? Std.string(error) : error.message);
+		}
 	}
 
 	static function formatRunResult(processed:SessionProcessorResult, format:String):CliResult {
@@ -171,6 +214,7 @@ class Cli {
 			"  --model, -m   model to use in the format of provider/model",
 			"  --format      format: default (formatted) or json (raw JSON events)",
 			"  --mock-ai-sdk run through the credential-free AI SDK session harness",
+			"  --live-ai-sdk run through the provider registry and real AI SDK model",
 		].join("\n");
 	}
 

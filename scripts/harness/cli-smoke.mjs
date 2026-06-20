@@ -63,6 +63,14 @@ assert.equal(mockParsed.request.system[0], "You are an AI SDK provider runtime."
 assert.equal(mockParsed.events[0].type, "start");
 assert.equal(mockParsed.events[1].text, "Hello ");
 
+const liveMissingModel = run(["run", "--live-ai-sdk", "Hello"]);
+assert.equal(liveMissingModel.status, 1);
+assert.match(liveMissingModel.stderr, /require --model/);
+
+const liveMissingProvider = run(["run", "--live-ai-sdk", "--model", "missing-provider\/model", "Hello"]);
+assert.equal(liveMissingProvider.status, 1);
+assert.match(liveMissingProvider.stderr, /Provider not available/);
+
 const missing = run(["run"]);
 assert.equal(missing.status, 1);
 assert.match(missing.stderr, /You must provide a message/);
