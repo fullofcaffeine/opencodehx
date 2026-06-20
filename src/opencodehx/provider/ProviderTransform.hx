@@ -104,6 +104,36 @@ class ProviderTransform {
 		return result;
 	}
 
+	public static function smallOptions(model:ProviderModel):ProviderOptions {
+		final providerID = model.providerID.toString();
+		final apiID = model.api.id;
+
+		if (providerID == "openai" || model.api.npm == "@ai-sdk/openai" || model.api.npm == "@ai-sdk/github-copilot") {
+			if (apiID.contains("gpt-5")) {
+				final effort = apiID.contains("5.") || apiID.contains("5-mini") ? "low" : "minimal";
+				return record2("store", false, "reasoningEffort", effort);
+			}
+			return record1("store", false);
+		}
+
+		if (providerID == "google") {
+			if (apiID.contains("gemini-3"))
+				return record1("thinkingConfig", record1("thinkingLevel", "minimal"));
+			return record1("thinkingConfig", record1("thinkingBudget", 0));
+		}
+
+		if (providerID == "openrouter" || providerID == "llmgateway") {
+			if (apiID.contains("google"))
+				return record1("reasoning", record1("enabled", false));
+			return record1("reasoningEffort", "minimal");
+		}
+
+		if (providerID == "venice")
+			return record1("veniceParameters", record1("disableThinking", true));
+
+		return optionMap();
+	}
+
 	public static function providerOptions(model:ProviderModel, options:ProviderOptions):ProviderOptions {
 		if (model.api.npm == "@ai-sdk/gateway")
 			return gatewayProviderOptions(model, options);

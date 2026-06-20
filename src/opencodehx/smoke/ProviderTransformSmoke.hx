@@ -32,6 +32,7 @@ class ProviderTransformSmoke {
 		gpt5VerbosityOptions();
 		gatewayDefaults();
 		requestOptionEdgeCases();
+		smallOptionDefaults();
 		providerOptionRouting();
 		parameterDefaults();
 		variantDefaults();
@@ -182,6 +183,40 @@ class ProviderTransformSmoke {
 			providerOptions: optionMap(),
 		});
 		eq(get(venice, "promptCacheKey"), SESSION_ID, "venice prompt cache");
+	}
+
+	static function smallOptionDefaults():Void {
+		final openai52 = ProviderTransform.smallOptions(model("openai", "gpt-5.2", "@ai-sdk/openai", true));
+		eq(get(openai52, "store"), false, "small openai store");
+		eq(get(openai52, "reasoningEffort"), "low", "small gpt-5.2 effort");
+
+		final openai5 = ProviderTransform.smallOptions(model("openai", "gpt-5", "@ai-sdk/openai", true));
+		eq(get(openai5, "reasoningEffort"), "minimal", "small gpt-5 effort");
+
+		final copilotMini = ProviderTransform.smallOptions(model("github-copilot", "gpt-5-mini", "@ai-sdk/github-copilot", true));
+		eq(get(copilotMini, "store"), false, "small copilot store");
+		eq(get(copilotMini, "reasoningEffort"), "low", "small copilot mini effort");
+
+		final openaiNonReasoning = ProviderTransform.smallOptions(model("openai", "gpt-4o-mini", "@ai-sdk/openai"));
+		eq(get(openaiNonReasoning, "store"), false, "small openai non-gpt5 store");
+		eq(exists(openaiNonReasoning, "reasoningEffort"), false, "small openai non-gpt5 no effort");
+
+		final google3 = ProviderTransform.smallOptions(model("google", "gemini-3-pro", "@ai-sdk/google", true));
+		eq(get(object(get(google3, "thinkingConfig")), "thinkingLevel"), "minimal", "small google gemini-3 thinking level");
+
+		final google25 = ProviderTransform.smallOptions(model("google", "gemini-2.5-flash", "@ai-sdk/google", true));
+		eq(get(object(get(google25, "thinkingConfig")), "thinkingBudget"), 0, "small google gemini-2.5 budget");
+
+		final openrouterGoogle = ProviderTransform.smallOptions(model("openrouter", "google/gemini-3-pro", "@openrouter/ai-sdk-provider", true));
+		eq(get(object(get(openrouterGoogle, "reasoning")), "enabled"), false, "small openrouter google disables reasoning");
+
+		final llmGateway = ProviderTransform.smallOptions(model("llmgateway", "anthropic/claude-sonnet-4", "@llmgateway/ai-sdk-provider", true));
+		eq(get(llmGateway, "reasoningEffort"), "minimal", "small llmgateway effort");
+
+		final venice = ProviderTransform.smallOptions(model("venice", "qwen3-coder", "venice-ai-sdk-provider", true));
+		eq(get(object(get(venice, "veniceParameters")), "disableThinking"), true, "small venice disables thinking");
+
+		eq(empty(ProviderTransform.smallOptions(model("anthropic", "claude-sonnet-4", "@ai-sdk/anthropic"))), true, "small unsupported provider empty");
 	}
 
 	static function providerOptionRouting():Void {
@@ -503,6 +538,12 @@ class ProviderTransformSmoke {
 
 	static function exists(options:ProviderOptions, key:String):Bool {
 		return options.exists(key);
+	}
+
+	static function empty(options:ProviderOptions):Bool {
+		for (_ in options.keys())
+			return false;
+		return true;
 	}
 
 	static function variant(variants:ProviderVariants, key:String):ProviderOptions {
