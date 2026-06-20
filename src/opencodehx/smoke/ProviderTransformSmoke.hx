@@ -313,6 +313,22 @@ class ProviderTransformSmoke {
 		hasVariants(gatewayGeneric, ["none", "minimal", "low", "medium", "high", "xhigh"], "gateway generic efforts");
 		eq(get(variant(gatewayGeneric, "xhigh"), "reasoningEffort"), "xhigh", "gateway generic xhigh effort");
 
+		final cerebras = ProviderTransform.variants(model("cerebras", "llama-4", "@ai-sdk/cerebras", true));
+		hasVariants(cerebras, ["low", "medium", "high"], "cerebras efforts");
+		eq(get(variant(cerebras, "low"), "reasoningEffort"), "low", "cerebras low effort");
+
+		final together = ProviderTransform.variants(model("togetherai", "llama-4", "@ai-sdk/togetherai", true));
+		hasVariants(together, ["low", "medium", "high"], "togetherai efforts");
+		eq(get(variant(together, "high"), "reasoningEffort"), "high", "togetherai high effort");
+
+		final deepinfra = ProviderTransform.variants(model("deepinfra", "llama-4", "@ai-sdk/deepinfra", true));
+		hasVariants(deepinfra, ["low", "medium", "high"], "deepinfra efforts");
+		eq(get(variant(deepinfra, "medium"), "reasoningEffort"), "medium", "deepinfra medium effort");
+
+		final openaiCompatibleReasoning = ProviderTransform.variants(model("custom-provider", "custom-model", "@ai-sdk/openai-compatible", true));
+		hasVariants(openaiCompatibleReasoning, ["low", "medium", "high"], "openai-compatible generic efforts");
+		eq(get(variant(openaiCompatibleReasoning, "low"), "reasoningEffort"), "low", "openai-compatible low effort");
+
 		final copilot = ProviderTransform.variants(modelWithRelease("github-copilot", "gpt-5.2", "@ai-sdk/github-copilot", "2025-12-01", true));
 		hasVariants(copilot, ["low", "medium", "high", "xhigh"], "copilot gpt-5.2 variants");
 		eq(get(variant(copilot, "xhigh"), "reasoningSummary"), "auto", "copilot reasoning summary");
@@ -323,9 +339,11 @@ class ProviderTransformSmoke {
 		final azure = ProviderTransform.variants(model("azure", "gpt-5", "@ai-sdk/azure", true));
 		hasVariants(azure, ["minimal", "low", "medium", "high"], "azure gpt-5 variants");
 		eq(get(variant(azure, "minimal"), "reasoningEffort"), "minimal", "azure minimal effort");
+		eq(countVariants(ProviderTransform.variants(model("azure", "o1-mini", "@ai-sdk/azure", true))), 0, "azure o1-mini variants");
 
 		final openai = ProviderTransform.variants(modelWithRelease("openai", "gpt-5-nano", "@ai-sdk/openai", "2025-12-05", true));
 		hasVariants(openai, ["none", "minimal", "low", "medium", "high", "xhigh"], "openai dated variants");
+		eq(countVariants(ProviderTransform.variants(model("openai", "gpt-5-pro", "@ai-sdk/openai", true))), 0, "openai gpt-5-pro variants");
 
 		final anthropic = ProviderTransform.variants(model("anthropic", "claude-opus-4-7", "@ai-sdk/anthropic", true));
 		eq(get(object(get(variant(anthropic, "xhigh"), "thinking")), "display"), "summarized", "anthropic opus display");
