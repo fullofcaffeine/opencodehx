@@ -197,6 +197,26 @@ class ProviderSmoke {
 							tool_call: true,
 							limit: {context: 128000, output: 4096},
 						},
+						"cost-model": {
+							name: "Cost Model",
+							cost: {
+								input: 5,
+								output: 15,
+								cache_read: 2.5,
+								cache_write: 7.5,
+							},
+						},
+						"no-tools": {
+							name: "No Tools",
+							tool_call: false,
+						},
+						"headers-model": {
+							name: "Headers Model",
+							headers: {
+								"X-Custom-Header": "custom-value",
+								Authorization: "Bearer special-token",
+							},
+						},
 					},
 					options: {apiKey: "custom-key"},
 				},
@@ -215,6 +235,23 @@ class ProviderSmoke {
 		}), {ANTHROPIC_API_KEY: "test-api-key"});
 		eq(custom.getProvider(ProviderID.make("custom-provider")).name, "Custom Provider", "custom provider name");
 		eq(custom.getModel(ProviderID.make("custom-provider"), ModelID.make("custom-model")).name, "Custom Model", "custom model name");
+		final customModel = custom.getModel(ProviderID.make("custom-provider"), ModelID.make("custom-model"));
+		eq(customModel.cost.input, 0, "model default input cost");
+		eq(customModel.cost.output, 0, "model default output cost");
+		eq(customModel.cost.cache.read, 0, "model default cache read cost");
+		eq(customModel.cost.cache.write, 0, "model default cache write cost");
+		eq(customModel.capabilities.input.text, true, "model default input text modality");
+		eq(customModel.capabilities.output.text, true, "model default output text modality");
+		eq(customModel.capabilities.toolcall, true, "model explicit tool calls");
+		final costModel = custom.getModel(ProviderID.make("custom-provider"), ModelID.make("cost-model"));
+		eq(costModel.cost.input, 5, "model custom input cost");
+		eq(costModel.cost.output, 15, "model custom output cost");
+		eq(costModel.cost.cache.read, 2.5, "model custom cache read cost");
+		eq(costModel.cost.cache.write, 7.5, "model custom cache write cost");
+		eq(custom.getModel(ProviderID.make("custom-provider"), ModelID.make("no-tools")).capabilities.toolcall, false, "model disables tool calls");
+		final headers = custom.getModel(ProviderID.make("custom-provider"), ModelID.make("headers-model")).headers;
+		eq(headers.get("X-Custom-Header"), "custom-value", "model custom header");
+		eq(headers.get("Authorization"), "Bearer special-token", "model authorization header");
 		eq(custom.getModel(ProviderID.make("anthropic"), ModelID.make("my-alias")).name, "My Custom Alias", "alias model name");
 		eq(Reflect.field(custom.getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonnet-4-20250514")).options, "customOption"), "custom-value",
 			"model option merge");
