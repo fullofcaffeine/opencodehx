@@ -492,6 +492,18 @@ class ProviderTransformSmoke {
 		eq(get(object(get(messageOptions(vertexAnthropic[0]), "anthropic")), "cacheControl") != null, true, "vertex anthropic cache");
 		assertCacheBundle(messageOptions(vertexAnthropic[0]), "vertex anthropic cache bundle");
 
+		final alibabaPartCached = ProviderTransform.message([
+			message(ProviderMessageRole.User, partContent([textPart("Cache this final part")])),
+		], model("alibaba", "qwen3-max", "@ai-sdk/alibaba"), optionMap());
+		eq(alibabaPartCached[0].providerOptions == null, true, "alibaba cache stays off message for normal part");
+		assertCacheBundle(partOptionsOf(partsOf(alibabaPartCached[0])[0]), "alibaba normal part cache bundle");
+
+		final approvalPart = toolApprovalResponsePart();
+		final alibabaApprovalCached = ProviderTransform.message([message(ProviderMessageRole.User, partContent([approvalPart])),],
+			model("alibaba", "qwen3-max", "@ai-sdk/alibaba"), optionMap());
+		assertCacheBundle(messageOptions(alibabaApprovalCached[0]), "alibaba approval fallback cache bundle");
+		eq(partsOf(alibabaApprovalCached[0])[0].providerOptions == null, true, "tool approval part keeps cache off part");
+
 		final vertexSplit = ProviderTransform.message([
 			message(ProviderMessageRole.Assistant, partContent([
 				toolCallPart("toolu_1", "read"),
@@ -813,6 +825,10 @@ class ProviderTransformSmoke {
 			toolName: toolName,
 			output: Unknown.fromBoundary(record1("type", "text")),
 		};
+	}
+
+	static function toolApprovalResponsePart():ProviderMessagePart {
+		return {type: ProviderMessagePartType.ToolApprovalResponse};
 	}
 
 	static function partsOf(msg:ProviderMessage):Array<ProviderMessagePart> {
