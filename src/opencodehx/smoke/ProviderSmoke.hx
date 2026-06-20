@@ -39,6 +39,7 @@ class ProviderSmoke {
 		registryFilters();
 		registryPluginConfigHooks();
 		registryModels();
+		registryModelVariants();
 		registryAuthAndBedrock();
 		cloudflareAiGatewayLoading();
 		opencodePaidModelLoading();
@@ -730,6 +731,51 @@ class ProviderSmoke {
 		});
 	}
 
+	static function registryModelVariants():Void {
+		final generated = registry(config({}), {ANTHROPIC_API_KEY: "test-api-key"});
+		final generatedModel = generated.getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonnet-4-20250514"));
+		eq(generatedModel.variants.exists("high"), true, "reasoning model high variant generated");
+		eq(generatedModel.variants.exists("max"), true, "reasoning model max variant generated");
+
+		final disabledHigh = variantRegistry({
+			high: {disabled: true},
+		});
+		eq(disabledHigh.variants.exists("high"), false, "disabled variant removed");
+		eq(disabledHigh.variants.exists("max"), true, "other generated variant remains");
+
+		final customHigh = variantRegistry({
+			high: {
+				thinking: {
+					type: "enabled",
+					budgetTokens: 20000,
+				},
+			},
+		});
+		eq(Reflect.field(Reflect.field(customHigh.variants.get("high"), "thinking"), "budgetTokens"), 20000, "variant config customizes nested option");
+
+		final stripped = variantRegistry({
+			max: {
+				disabled: false,
+				customField: "test",
+			},
+		});
+		eq(stripped.variants.exists("max"), true, "enabled configured variant remains");
+		eq(Reflect.hasField(stripped.variants.get("max"), "disabled"), false, "variant disabled key stripped");
+		eq(Reflect.field(stripped.variants.get("max"), "customField"), "test", "variant custom field kept");
+
+		final allDisabled = variantRegistry({
+			high: {disabled: true},
+			max: {disabled: true},
+		});
+		eq(variantCount(allDisabled), 0, "all variants disabled");
+
+		final merged = variantRegistry({
+			high: {extraOption: "custom-value"},
+		});
+		eq(Reflect.hasField(merged.variants.get("high"), "thinking"), true, "variant generated option retained");
+		eq(Reflect.field(merged.variants.get("high"), "extraOption"), "custom-value", "variant config option merged");
+	}
+
 	static function demoProviderHook():PluginServerHooks {
 		return {
 			config: cfg -> {
@@ -930,6 +976,28 @@ class ProviderSmoke {
 			if (model.cost.input > 0)
 				count++;
 		}
+		return count;
+	}
+
+	static function variantRegistry(variants:ProviderOptions):ProviderModel {
+		return registry(config({
+			provider: {
+				anthropic: {
+					models: {
+						"claude-sonnet-4-20250514": {
+							variants: variants,
+						},
+					},
+				},
+			},
+		}),
+			{ANTHROPIC_API_KEY: "test-api-key"}).getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonnet-4-20250514"));
+	}
+
+	static function variantCount(model:ProviderModel):Int {
+		var count = 0;
+		for (_ in model.variants.keys())
+			count++;
 		return count;
 	}
 

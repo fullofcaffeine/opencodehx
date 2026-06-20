@@ -43,6 +43,7 @@ This slice adds the first Haxe-owned provider registry:
 - Anthropic env loading, config option overlays, env-source precedence when config also augments the provider, fallback env variable lookup, and single-vs-multiple env key capture.
 - Custom providers, brand-new providers, custom model aliases, provider-name defaults, provider `api` to model API URL inheritance, provider `baseURL` options, new model SDK/API inheritance from existing providers, model defaults, custom cost/cache values, tool-call capability defaults/overrides, text/image modality defaults and overrides, default zero limits, and model headers.
 - Provider and model filtering, including empty enabled lists, enabled-plus-disabled precedence, and combined whitelist/blacklist behavior.
+- Reasoning model variant generation plus config customization, per-variant disable, all-variant disable, and stripping `disabled` from kept variant options.
 - User-facing `ModelNotFound` suggestions for misspelled provider IDs and model IDs.
 - Auth file-shaped API keys.
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
@@ -183,6 +184,8 @@ Capabilities, costs, limits, headers, and provider/model maps are typed records 
 The upstream `interleaved` capability is not `Dynamic`: it is modeled as `EitherType<Bool, ProviderInterleavedConfig>`, which emits a TypeScript union.
 
 `options` and `variants` remain open records because upstream models them as `Record<string, any>` provider-SDK passthrough data. Keep that openness localized: once a provider-specific option shape becomes stable and useful, add a provider facade or typedef rather than widening the whole registry.
+
+Variant config follows upstream's control-data rule: `disabled` decides whether a variant exists, but it is not forwarded as a provider option. The registry regenerates canonical variants for loaded models, merges config over them, removes disabled entries, and strips the `disabled` key from variants that remain enabled.
 
 Config, auth, and env inputs are still dynamic JSON/process boundaries. The registry normalizes them into typed provider/model records as soon as the current slice has enough schema knowledge. Further config-schema tightening belongs to `opencodehx-ajd`.
 

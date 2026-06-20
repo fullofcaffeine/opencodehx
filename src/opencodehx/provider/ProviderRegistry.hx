@@ -590,7 +590,7 @@ class ProviderRegistry {
 		final apiUrl = stringOr(apiConfig == null ? null : apiConfig.api,
 			existing == null ? stringOr(providerConfig.api, inheritedApi.url) : stringOr(providerConfig.api, existing.api.url));
 		final interleaved = interleavedOr(data.interleaved, existing == null ? false : existing.capabilities.interleaved);
-		return {
+		final parsed:ProviderModel = {
 			id: ModelID.make(modelID),
 			providerID: providerID,
 			name: modelName,
@@ -615,8 +615,9 @@ class ProviderRegistry {
 			headers: cast mergeObject(existing == null ? {} : existing.headers, data.headers),
 			limit: limitFrom(data.limit, existing == null ? null : existing.limit),
 			release_date: stringOr(data.release_date, existing == null ? "" : existing.release_date),
-			variants: cast mergeObject(existing == null ? {} : existing.variants, data.variants),
+			variants: emptyProviderVariants(),
 		};
+		return copyModel(parsed, configuredVariants(parsed, data.variants));
 	}
 
 	static function providerDefaultApi(provider:Null<ProviderInfo>):ProviderApiInfo {
@@ -626,6 +627,38 @@ class ProviderRegistry {
 			return {id: "", url: "", npm: ""};
 		final model = sortedModels(provider.models)[0];
 		return model == null ? {id: "", url: "", npm: ""} : model.api;
+	}
+
+	static function configuredVariants(model:ProviderModel, config:Null<ProviderVariants>):ProviderVariants {
+		// Upstream treats `disabled` as variant-control metadata, not a provider
+		// option. Generate canonical variants, merge config, drop disabled entries,
+		// and strip the control field from variants that remain enabled.
+		final generated = ProviderTransform.variants(model);
+		final result = emptyProviderVariants();
+		for (key in generated.keys())
+			addConfiguredVariant(result, key, generated.get(key), config == null ? null : config.get(key));
+		if (config != null) {
+			for (key in config.keys()) {
+				if (!result.exists(key) && !generated.exists(key))
+					addConfiguredVariant(result, key, emptyProviderOptions(), config.get(key));
+			}
+		}
+		return result;
+	}
+
+	static function addConfiguredVariant(result:ProviderVariants, key:String, generated:ProviderOptions, config:Null<ProviderOptions>):Void {
+		final merged:ProviderOptions = cast mergeObject(generated, config);
+		if (!boolOr(Reflect.field(merged, "disabled"), false))
+			result.set(key, stripDisabledVariantField(merged));
+	}
+
+	static function stripDisabledVariantField(options:ProviderOptions):ProviderOptions {
+		final result = emptyProviderOptions();
+		for (field in Reflect.fields(options)) {
+			if (field != "disabled")
+				result.set(field, Reflect.field(options, field));
+		}
+		return result;
 	}
 
 	static function defaultDatabase():Map<String, ProviderInfo> {
@@ -748,9 +781,16 @@ class ProviderRegistry {
 				continue;
 			if (blacklist.exists(modelID))
 				continue;
-			models.set(modelID, model);
+			models.set(modelID, copyModel(model, configuredVariants(model, configModelVariants(configEntry, modelID))));
 		}
 		return withPatch(provider, {models: models});
+	}
+
+	static function configModelVariants(configEntry:Null<ConfigProviderConfig>, modelID:String):Null<ProviderVariants> {
+		if (configEntry == null || configEntry.models == null)
+			return null;
+		final model = configEntry.models.get(modelID);
+		return model == null ? null : model.variants;
 	}
 
 	static function sortedModels(models:Map<String, ProviderModel>):Array<ProviderModel> {
