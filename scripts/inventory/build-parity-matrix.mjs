@@ -167,8 +167,8 @@ function directEvidence(path) {
       [
         "partial",
         "fixtures/transcripts/one-turn.golden.json; scripts/harness/transcript-parity.mjs; scripts/harness/cli-smoke.mjs; src/opencodehx/smoke/SessionProcessorSmoke.hx",
-        "credential-backed success evidence and model-emitted tool-call dispatch remain deferred",
-        "one-turn fake-provider transcript golden plus credential-free async AI SDK session/CLI harness and live-registry CLI validation with well-known remote config plus global/project config/auth storage/active-account config discovery",
+        "credential-backed success evidence plus live tool schema advertisement and continuation after tool results remain deferred",
+        "one-turn fake-provider transcript golden plus credential-free async AI SDK session/CLI harness including first model-emitted tool-call dispatch and live-registry CLI validation with well-known remote config plus global/project config/auth storage/active-account config discovery",
         "opencodehx-023/opencodehx-048/opencodehx-nrh",
       ],
     ],

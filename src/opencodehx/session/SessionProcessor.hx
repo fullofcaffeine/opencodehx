@@ -1,6 +1,8 @@
 package opencodehx.session;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
+import haxe.Json;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
@@ -236,6 +238,7 @@ class SessionProcessor {
 		final events:Array<SessionEvent> = [];
 		final aborted = input.aborted == true;
 		var tokens = tokenUsage();
+		var modelToolCall:Null<SessionToolCall> = null;
 		if (aborted) {
 			events.push({type: "start"});
 			events.push({type: "abort", message: "User aborted the request"});
@@ -246,6 +249,7 @@ class SessionProcessor {
 				prompt: prompt,
 			});
 			tokens = tokenUsageFromAiSdk(stream.totalUsage);
+			modelToolCall = firstModelToolCall(stream.events);
 			for (event in encodeAiSdkEvents(stream.events))
 				events.push(event);
 		}
@@ -253,7 +257,8 @@ class SessionProcessor {
 		final assistantText = collectText(events);
 		final userMessage = userWithParts(sessionIDText, prompt, agent, provider);
 		final text = aborted ? "Request aborted." : assistantText;
-		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, input.toolCall, registry,
+		final toolCall = input.toolCall == null ? modelToolCall : input.toolCall;
+		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, toolCall, registry,
 			input.permission, events, null, null, aborted, tokens);
 
 		if (input.store != null) {
@@ -565,9 +570,9 @@ class SessionProcessor {
 			switch event {
 				case TextDelta(text):
 					encoded.push({type: "text-delta", text: text});
-				case ToolCall(toolCallID, toolName):
+				case ToolCall(toolCallID, toolName, _):
 					encoded.push({type: "tool-call", callID: toolCallID, tool: toolName});
-				case ToolResult(toolCallID, toolName):
+				case ToolResult(toolCallID, toolName, _):
 					encoded.push({type: "tool-result", callID: toolCallID, tool: toolName});
 				case StreamError(message):
 					encoded.push({type: "error", message: message});
@@ -578,6 +583,40 @@ class SessionProcessor {
 			}
 		}
 		return encoded;
+	}
+
+	static function firstModelToolCall(events:Array<AiSdkStreamEvent>):Null<SessionToolCall> {
+		for (event in events) {
+			switch event {
+				case ToolCall(toolCallID, toolName, input):
+					return {
+						id: toolCallID,
+						tool: toolName,
+						input: toolInput(input),
+					};
+				case _:
+			}
+		}
+		return null;
+	}
+
+	static function toolInput(input:Unknown):Dynamic {
+		// AI SDK providers may surface tool input as a parsed JSON value or as a
+		// JSON string. Tool schemas remain the authority, so this boundary only
+		// normalizes the transport shape before ToolRegistry validation.
+		final raw:Dynamic = cast input;
+		if (raw == null)
+			return {};
+		if (Std.isOfType(raw, String)) {
+			try {
+				return Json.parse(cast raw);
+			} catch (_:Dynamic) {
+				// If a provider sends a non-JSON string, keep it as-is and let the
+				// target tool report a normal invalid-arguments diagnostic.
+				return raw;
+			}
+		}
+		return raw;
 	}
 
 	static function collectText(events:Array<SessionEvent>):String {

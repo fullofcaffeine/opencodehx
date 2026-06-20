@@ -80,11 +80,11 @@ class AiSdkProviderSmoke {
 		eq(result.text, "", "ai sdk tool text");
 		eq(result.finishReason, AiFinishReason.ToolCalls, "ai sdk tool finish");
 		eq(hasEvent(result, function(event) return switch event {
-			case ToolCall("tool_1", "read"): true;
+			case ToolCall("tool_1", "read", _): true;
 			case _: false;
 		}), true, "ai sdk tool call event");
 		eq(hasEvent(result, function(event) return switch event {
-			case ToolResult("tool_1", "read"): true;
+			case ToolResult("tool_1", "read", _): true;
 			case _: false;
 		}), true, "ai sdk tool result event");
 	}

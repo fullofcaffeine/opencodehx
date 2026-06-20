@@ -22,8 +22,8 @@ import opencodehx.externs.ai.AiSdk.MockLanguageModelV3;
 
 enum AiSdkStreamEvent {
 	TextDelta(text:String);
-	ToolCall(toolCallID:String, toolName:String);
-	ToolResult(toolCallID:String, toolName:String);
+	ToolCall(toolCallID:String, toolName:String, input:Unknown);
+	ToolResult(toolCallID:String, toolName:String, output:Unknown);
 	StreamError(message:String);
 	StreamAbort(reason:String);
 	Finish(reason:AiFinishReason);
@@ -69,9 +69,9 @@ class AiSdkProvider {
 					case "text-delta":
 						if (chunk.text != null) events.push(TextDelta(chunk.text));
 					case "tool-call":
-						events.push(ToolCall(chunk.toolCallId, chunk.toolName));
+						events.push(ToolCall(chunk.toolCallId, chunk.toolName, optionalUnknown(chunk.input)));
 					case "tool-result":
-						events.push(ToolResult(chunk.toolCallId, chunk.toolName));
+						events.push(ToolResult(chunk.toolCallId, chunk.toolName, optionalUnknown(chunk.output)));
 					case _:
 				}
 			},
@@ -134,6 +134,10 @@ class AiSdkProvider {
 		return tools == null ? Undefinable.absent() : tools;
 	}
 
+	static function optionalUnknown(value:Null<Unknown>):Unknown {
+		return value == null ? Unknown.fromBoundary({}) : value;
+	}
+
 	static function pathInputSchema():AiJsonSchemaObject {
 		final properties = new DynamicAccess<AiJsonSchemaObject>();
 		properties.set("path", {type: "string"});
@@ -171,10 +175,12 @@ class AiSdkMockModel {
 		return model("mock-text", parts, null, null);
 	}
 
-	public static function toolCall():AiLanguageModel {
+	public static function toolCall(?toolName:String, ?input:String):AiLanguageModel {
+		final name = toolName == null ? "read" : toolName;
+		final payload = input == null ? "{\"path\":\"README.md\"}" : input;
 		return model("mock-tool", [
 			AiProviderStreamPart.streamStart(),
-			AiProviderStreamPart.toolCall("tool_1", "read", "{\"path\":\"README.md\"}"),
+			AiProviderStreamPart.toolCall("tool_1", name, payload),
 			AiProviderStreamPart.finish(finishReason(AiFinishReason.ToolCalls, "tool_calls"), usage(3, 4)),
 		], null, null);
 	}

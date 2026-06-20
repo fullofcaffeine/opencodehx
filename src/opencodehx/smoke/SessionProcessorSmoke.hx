@@ -57,7 +57,7 @@ class SessionProcessorSmoke {
 			eq(prompts[0].permission, "read", "permission name");
 			eq(prompts[0].tool.messageID, SessionProcessor.ASSISTANT_ID, "permission message id");
 			assertAssistant(result.messages[1].info);
-			assertAssistantParts(result.messages[1].parts);
+			assertAssistantParts(result.messages[1].parts, "sync tool", "call_read_one", "Hello from the fake provider.");
 			assertToolOutcome(result.tool);
 
 			final page = store.pageMessages(SessionID.make(SessionProcessor.SESSION_ID), 10);
@@ -83,6 +83,8 @@ class SessionProcessorSmoke {
 	public static function runAsync():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-session-processor-async-"));
 		try {
+			Fs.mkdirSync(NodePath.join(root, "src"), {recursive: true});
+			Fs.writeFileSync(NodePath.join(root, "src/input.txt"), "ai sdk tool fixture\n");
 			final fixture = new FakeProvider();
 			final result = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_one",
@@ -110,6 +112,19 @@ class SessionProcessorSmoke {
 				case _:
 					throw "session processor async: expected assistant text";
 			}
+			final toolResult = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_tool",
+				prompt: "Read the AI SDK fixture.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: AiSdkMockModel.toolCall("read", "{\"filePath\":\"src/input.txt\"}"),
+			});
+			eq(toolResult.events[1].type, "tool-call", "ai sdk tool model event");
+			eq(toolResult.events[3].type, "tool-call-start", "ai sdk tool execute start");
+			eq(toolResult.events[4].status, "completed", "ai sdk tool execute finish");
+			assertToolOutcome(toolResult.tool);
+			assertAssistantParts(toolResult.messages[1].parts, "ai sdk tool", "tool_1", "");
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			// Smoke cleanup must catch arbitrary Haxe/JS failures so the temp
@@ -199,38 +214,39 @@ class SessionProcessorSmoke {
 		}
 	}
 
-	static function assertAssistantParts(parts:Array<Part>):Void {
-		eq(parts.length, 4, "assistant part count");
+	static function assertAssistantParts(parts:Array<Part>, label:String, expectedCallID:String, expectedText:String):Void {
+		eq(parts.length, 4, label + " assistant part count");
 		switch parts[0] {
 			case StepStartPart(_):
 			case _:
-				throw "session processor: expected step-start part";
+				throw label + ": expected step-start part";
 		}
 		switch parts[1] {
 			case ToolPart(tool):
-				eq(tool.callID, "call_read_one", "tool call id");
+				eq(tool.callID, expectedCallID, label + " tool call id");
+				eq(tool.tool, "read", label + " tool name");
 				assertCompleted(tool.state);
 			case _:
-				throw "session processor: expected tool part";
+				throw label + ": expected tool part";
 		}
 		switch parts[2] {
 			case TextPart(text):
-				eq(text.text, "Hello from the fake provider.", "assistant text");
+				eq(text.text, expectedText, label + " assistant text");
 			case _:
-				throw "session processor: expected text part";
+				throw label + ": expected text part";
 		}
 		switch parts[3] {
 			case StepFinishPart(finish):
-				eq(finish.reason, "stop", "step finish reason");
+				eq(finish.reason, "stop", label + " step finish reason");
 			case _:
-				throw "session processor: expected step-finish part";
+				throw label + ": expected step-finish part";
 		}
 	}
 
 	static function assertCompleted(state:ToolState):Void {
 		switch state {
 			case ToolCompleted(completed):
-				eq(completed.output.indexOf("session processor fixture") != -1, true, "tool output");
+				eq(completed.output.indexOf("fixture") != -1, true, "tool output");
 				eq(completed.title, "src/input.txt", "tool title");
 			case _:
 				throw "session processor: expected completed tool";
