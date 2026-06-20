@@ -71,7 +71,7 @@ This slice adds the first Haxe-owned provider registry:
 - AI SDK `providerOptions` routing for package keys, Gateway upstream slugs, Gateway routing-option splits, and the Amazon-to-Bedrock slug override.
 - Temperature, `topP`, `topK`, max-output-token helpers now shared by session compaction, and reasoning variant generation across the main upstream provider families.
 - Gemini JSON Schema sanitization for missing array item schemas, nested arrays, combiner nodes, non-object cleanup, required filtering, enum stringification, and non-Gemini no-op behavior.
-- Message transforms for interleaved reasoning content, empty/unsupported attachment replacement, Anthropic/Bedrock empty-content filtering, Anthropic assistant tool-tail splitting, cache placement/skipping, Claude/Mistral tool-call ID normalization, Mistral assistant bridge insertion, and provider-option key remapping.
+- Message transforms for interleaved reasoning content, empty/unsupported attachment replacement, Anthropic/Bedrock empty-content filtering, Anthropic assistant tool-tail splitting, cache placement/skipping including Bedrock SDK and Vertex Anthropic edges, OpenAI item-metadata preservation before provider request-body stripping, Claude/Mistral tool-call ID normalization, Mistral assistant bridge insertion, and provider-option key remapping.
 
 `CopilotChatMessagesSmoke` covers representative upstream `provider/copilot/convert-to-copilot-messages.test.ts` cases:
 

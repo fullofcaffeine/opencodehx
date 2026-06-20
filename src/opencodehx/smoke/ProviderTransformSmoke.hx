@@ -317,6 +317,32 @@ class ProviderTransformSmoke {
 			optionMap());
 		eq(gatewayResult[0].providerOptions == null, true, "gateway skips anthropic cache");
 
+		final awsBedrock = ProviderTransform.message([
+			message(ProviderMessageRole.System, partContent([textPart("You are helpful")])),
+			message(ProviderMessageRole.User, partContent([textPart("Hello")])),
+		],
+			model("aws", "us.anthropic.claude-opus-4-6-v1", "@ai-sdk/amazon-bedrock"), optionMap());
+		eq(get(object(get(messageOptions(awsBedrock[0]), "bedrock")), "cachePoint") != null, true, "bedrock npm cache at message level");
+		eq(partsOf(awsBedrock[0])[0].providerOptions == null, true, "bedrock cache not on part");
+
+		final vertexAnthropic = ProviderTransform.message([
+			message(ProviderMessageRole.System, textContent("You are helpful")),
+			message(ProviderMessageRole.User, textContent("Hello")),
+		],
+			model("google-vertex-anthropic", "claude-sonnet-4@20250514", "@ai-sdk/google-vertex/anthropic"), optionMap());
+		eq(get(object(get(messageOptions(vertexAnthropic[0]), "anthropic")), "cacheControl") != null, true, "vertex anthropic cache");
+
+		final itemIdPart = textPart("Hello");
+		itemIdPart.providerOptions = record1("openai", record2("itemId", "msg_456", "reasoningEncryptedContent", "encrypted"));
+		final itemIdMessage = message(ProviderMessageRole.Assistant, partContent([itemIdPart]));
+		itemIdMessage.providerOptions = record2("openai", record1("itemId", "msg_root"), "extra", record1("itemId", "msg_extra"));
+		final preservedIds = ProviderTransform.message([itemIdMessage], model("openai", "gpt-5", "@ai-sdk/openai", true), record1("store", false));
+		eq(get(object(get(messageOptions(preservedIds[0]), "openai")), "itemId"), "msg_root", "store=false preserves root openai itemId");
+		eq(get(object(get(messageOptions(preservedIds[0]), "extra")), "itemId"), "msg_extra", "store=false preserves root extra itemId");
+		final preservedPartOpenAI = object(get(partOptionsOf(partsOf(preservedIds[0])[0]), "openai"));
+		eq(get(preservedPartOpenAI, "itemId"), "msg_456", "store=false preserves part itemId");
+		eq(get(preservedPartOpenAI, "reasoningEncryptedContent"), "encrypted", "store=false preserves encrypted reasoning metadata");
+
 		final claudeScrub = ProviderTransform.message([
 			message(ProviderMessageRole.Assistant, partContent([toolCallPart("bad/id!", "bash")])),
 		], model("anthropic", "claude-sonnet-4", "@ai-sdk/anthropic"), optionMap());
