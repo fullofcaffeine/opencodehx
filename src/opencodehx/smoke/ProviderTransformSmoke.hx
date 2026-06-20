@@ -249,8 +249,20 @@ class ProviderTransformSmoke {
 	static function parameterDefaults():Void {
 		eq(ProviderTransform.temperature(model("qwen", "qwen3-coder", "@ai-sdk/openai-compatible")), 0.55, "qwen temperature");
 		eq(ProviderTransform.temperature(model("anthropic", "claude-sonnet-4", "@ai-sdk/anthropic")), null, "claude temperature");
+		eq(ProviderTransform.temperature(model("google", "gemini-3-pro", "@ai-sdk/google")), 1.0, "gemini temperature");
+		eq(ProviderTransform.temperature(model("zai", "glm-4.7", "@ai-sdk/openai-compatible")), 1.0, "glm temperature");
+		eq(ProviderTransform.temperature(model("moonshot", "kimi-k2", "@ai-sdk/openai-compatible")), 0.6, "kimi k2 base temperature");
+		eq(ProviderTransform.temperature(model("moonshot", "kimi-k2-thinking", "@ai-sdk/openai-compatible")), 1.0, "kimi k2 thinking temperature");
 		eq(ProviderTransform.topP(model("google", "gemini-3-pro", "@ai-sdk/google")), 0.95, "gemini topP");
+		eq(ProviderTransform.topP(model("moonshot", "kimi-k2.5", "@ai-sdk/openai-compatible")), 0.95, "kimi k2.5 topP");
 		eq(ProviderTransform.topK(model("google", "gemini-3-pro", "@ai-sdk/google")), 64, "gemini topK");
+		eq(ProviderTransform.topK(model("minimax", "minimax-m2", "@ai-sdk/openai-compatible")), 20, "minimax m2 topK");
+		eq(ProviderTransform.topK(model("minimax", "minimax-m2.1", "@ai-sdk/openai-compatible")), 40, "minimax m2 point topK");
+		eq(ProviderTransform.maxOutputTokens(modelWithOutputLimit("openai", "gpt-4o", "@ai-sdk/openai", 128000)), ProviderTransform.OUTPUT_TOKEN_MAX,
+			"max output token cap");
+		eq(ProviderTransform.maxOutputTokens(modelWithOutputLimit("test", "tiny", "@ai-sdk/openai-compatible", 8192)), 8192, "max output under cap");
+		eq(ProviderTransform.maxOutputTokens(modelWithOutputLimit("test", "unknown-output", "@ai-sdk/openai-compatible", 0)),
+			ProviderTransform.OUTPUT_TOKEN_MAX, "max output zero fallback");
 	}
 
 	static function variantDefaults():Void {
@@ -473,7 +485,7 @@ class ProviderTransformSmoke {
 	}
 
 	static function modelWithRelease(providerID:String, apiID:String, npm:String, releaseDate:String, ?reasoning:Bool = false,
-			?interleaved:ProviderInterleaved, ?inputImage:Bool = true, ?inputPdf:Bool = true):ProviderModel {
+			?interleaved:ProviderInterleaved, ?inputImage:Bool = true, ?inputPdf:Bool = true, ?outputLimit:Float = 8192):ProviderModel {
 		return {
 			id: ModelID.make(apiID),
 			providerID: ProviderID.make(providerID),
@@ -502,12 +514,16 @@ class ProviderTransformSmoke {
 				interleaved: interleaved == null ? false : interleaved,
 			},
 			cost: {input: 0.001, output: 0.002, cache: {read: 0.0001, write: 0.0002}},
-			limit: {context: 200000, output: 8192},
+			limit: {context: 200000, output: outputLimit},
 			options: optionMap(),
 			headers: new DynamicAccess<String>(),
 			release_date: releaseDate,
 			variants: new DynamicAccess<ProviderOptions>(),
 		};
+	}
+
+	static function modelWithOutputLimit(providerID:String, apiID:String, npm:String, output:Float):ProviderModel {
+		return modelWithRelease(providerID, apiID, npm, "2024-01-01", false, null, true, true, output);
 	}
 
 	static function optionMap():ProviderOptions {
