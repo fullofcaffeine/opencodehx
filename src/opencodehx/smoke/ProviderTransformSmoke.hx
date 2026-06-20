@@ -445,6 +445,16 @@ class ProviderTransformSmoke {
 			"unsupported file error");
 
 		final anthropic = model("anthropic", "claude-3-5-sonnet-20241022", "@ai-sdk/anthropic");
+		final validImage = ProviderTransform.message([
+			message(ProviderMessageRole.User, partContent([
+				textPart("What is in this image?"),
+				imagePart('data:image/png;base64,${validBase64}'),
+			])),
+		], anthropic, optionMap());
+		eq(partsOf(validImage[0]).length, 2, "valid image message length");
+		eq(partsOf(validImage[0])[1].type, ProviderMessagePartType.Image, "valid image stays image");
+		eq(partsOf(validImage[0])[1].image, 'data:image/png;base64,${validBase64}', "valid image payload preserved");
+
 		final filtered = ProviderTransform.message([
 			message(ProviderMessageRole.User, textContent("Hello")),
 			message(ProviderMessageRole.Assistant, textContent("")),
@@ -456,6 +466,14 @@ class ProviderTransformSmoke {
 		eq(partsOf(filtered[1]).length, 1, "anthropic filters empty parts");
 		eq(partsOf(filtered[1])[0].text, "Answer", "anthropic keeps non-empty part");
 		eq(textOf(filtered[2]), "World", "anthropic keeps final text");
+
+		final openaiEmpty = ProviderTransform.message([
+			message(ProviderMessageRole.Assistant, textContent("")),
+			message(ProviderMessageRole.Assistant, partContent([textPart("")])),
+		], model("openai", "gpt-4", "@ai-sdk/openai"), optionMap());
+		eq(openaiEmpty.length, 2, "openai keeps empty messages");
+		eq(textOf(openaiEmpty[0]), "", "openai keeps empty string");
+		eq(partsOf(openaiEmpty[1]).length, 1, "openai keeps empty part");
 
 		final split = ProviderTransform.message([
 			message(ProviderMessageRole.User, partContent([textPart("Find PDFs")])),
