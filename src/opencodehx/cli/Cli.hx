@@ -3,6 +3,7 @@ package opencodehx.cli;
 import genes.js.Async.await;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
+import opencodehx.account.AccountStore;
 import opencodehx.auth.AuthStore;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigLoader;
@@ -135,8 +136,13 @@ class Cli {
 				env: env,
 				includeDefaultUsername: false,
 			});
+			final account = ConfigLoader.loadRemoteAccountConfigs(@:await AccountStore.loadRemoteConfigs(env), {
+				env: env,
+				includeDefaultUsername: false,
+			});
+			final mergedConfig = remote.merge(config).merge(account);
 			final registry = new ProviderRegistry({
-				config: remote.merge(config),
+				config: mergedConfig,
 				env: env,
 				auth: auth,
 			});

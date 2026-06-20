@@ -132,6 +132,14 @@ class ConfigLoader {
 		return result;
 	}
 
+	public static function loadRemoteAccountConfigs(accountConfigs:Array<AccountRemoteConfig>, ?options:LoadOptions):ConfigInfo {
+		final opts:LoadOptions = options == null ? {} : options;
+		final env = ensureEnv(opts);
+		final result = new ConfigInfo();
+		mergeRemoteAccountConfigs(result, accountConfigs, opts, env);
+		return result;
+	}
+
 	@:async
 	public static function loadProjectWithRemoteSources(directory:String, auths:Array<WellKnownAuth>, accountConfigs:Array<AccountRemoteConfig>,
 			?options:LoadOptions):Promise<ConfigInfo> {
@@ -140,14 +148,7 @@ class ConfigLoader {
 		final env = ensureEnv(opts);
 		@:await mergeRemoteWellKnown(result, auths, opts, env);
 		result.merge(loadProject(directory, withoutDefaultUsername(withEnv(opts, env))));
-		for (accountConfig in accountConfigs) {
-			final url = normalizeBaseUrl(accountConfig.url);
-			final token = accountConfig.token;
-			if (token != null)
-				setEnvValue(env, "OPENCODE_CONSOLE_TOKEN", token);
-			final source = url + "/api/config";
-			result.merge(loadText(Json.stringify(accountConfig.config), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
-		}
+		mergeRemoteAccountConfigs(result, accountConfigs, opts, env);
 		mergeManagedConfig(result, withEnv(opts, env));
 		finalizeConfig(result, withEnv(opts, env));
 		if (result.username == null)
@@ -171,6 +172,17 @@ class ConfigLoader {
 				remote.set("$schema", Unknown.fromBoundary(ConfigInfo.DEFAULT_SCHEMA));
 			final source = url + "/.well-known/opencode";
 			result.merge(loadText(Json.stringify(remote), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
+		}
+	}
+
+	static function mergeRemoteAccountConfigs(result:ConfigInfo, accountConfigs:Array<AccountRemoteConfig>, opts:LoadOptions, env:ConfigEnv):Void {
+		for (accountConfig in accountConfigs) {
+			final url = normalizeBaseUrl(accountConfig.url);
+			final token = accountConfig.token;
+			if (token != null)
+				setEnvValue(env, "OPENCODE_CONSOLE_TOKEN", token);
+			final source = url + "/api/config";
+			result.merge(loadText(Json.stringify(accountConfig.config), source, source, withPluginScope(withEnv(opts, env), PluginScopeGlobal)));
 		}
 	}
 

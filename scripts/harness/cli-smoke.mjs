@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
+import Database from "better-sqlite3";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,7 +72,28 @@ function flattenKeys(value, keys = {}) {
 }
 
 async function withRemoteConfigServer(fn) {
+	const observed = { accountAuth: null, accountOrg: null };
 	const server = createServer((req, res) => {
+		if (req.url === "/api/config") {
+			observed.accountAuth = req.headers.authorization ?? null;
+			observed.accountOrg = req.headers["x-org-id"] ?? null;
+			res.writeHead(200, { "content-type": "application/json" });
+			res.end(
+				JSON.stringify({
+					config: {
+						provider: {
+							"account-live": {
+								npm: "@ai-sdk/openai-compatible",
+								name: "Account Live",
+								options: { baseURL: "https://account.example.com/v1", apiKey: "{env:OPENCODE_CONSOLE_TOKEN}" },
+								models: { chat: { name: "Chat" } },
+							},
+						},
+					},
+				}),
+			);
+			return;
+		}
 		if (req.url !== "/.well-known/opencode") {
 			res.writeHead(404);
 			res.end();
@@ -103,9 +125,27 @@ async function withRemoteConfigServer(fn) {
 	const address = server.address();
 	const baseUrl = `http://127.0.0.1:${address.port}`;
 	try {
-		return await fn(baseUrl);
+		return await fn(baseUrl, observed);
 	} finally {
 		await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+	}
+}
+
+function writeAccountDatabase(file, url) {
+	const db = new Database(file);
+	try {
+		db.exec("create table account (id text primary key, email text not null, url text not null, access_token text not null, refresh_token text not null, token_expiry integer)");
+		db.exec("create table account_state (id integer primary key, active_account_id text, active_org_id text)");
+		db.prepare(
+			"insert into account (id, email, url, access_token, refresh_token, token_expiry) values (?, ?, ?, ?, ?, ?)",
+		).run("account-live", "user@example.com", url, "account-live-token", "refresh-token", 9999999999999);
+		db.prepare("insert into account_state (id, active_account_id, active_org_id) values (?, ?, ?)").run(
+			1,
+			"account-live",
+			"org-live",
+		);
+	} finally {
+		db.close();
 	}
 }
 
@@ -194,7 +234,7 @@ try {
 	const authLoaded = run(["run", "--live-ai-sdk", "--model", "cloudflare-ai-gateway/missing", "Hello"], { env });
 	assert.equal(authLoaded.status, 1);
 	assert.match(authLoaded.stderr, /Provider model not found: cloudflare-ai-gateway\/missing/);
-	await withRemoteConfigServer(async (remoteUrl) => {
+	await withRemoteConfigServer(async (remoteUrl, observed) => {
 		writeFileSync(
 			path.join(authDir, "auth.json"),
 			JSON.stringify({
@@ -208,6 +248,12 @@ try {
 		const remoteLoaded = await runAsync(["run", "--live-ai-sdk", "--model", "remote-live/missing", "Hello"], { env });
 		assert.equal(remoteLoaded.status, 1);
 		assert.match(remoteLoaded.stderr, /Provider model not found: remote-live\/missing/);
+		writeAccountDatabase(path.join(authDir, "opencode.db"), `${remoteUrl}/`);
+		const accountLoaded = await runAsync(["run", "--live-ai-sdk", "--model", "account-live/missing", "Hello"], { env });
+		assert.equal(accountLoaded.status, 1);
+		assert.match(accountLoaded.stderr, /Provider model not found: account-live\/missing/);
+		assert.equal(observed.accountAuth, "Bearer account-live-token");
+		assert.equal(observed.accountOrg, "org-live");
 	});
 } finally {
 	rmSync(tempRoot, { recursive: true, force: true });
