@@ -86,6 +86,13 @@ class ProviderTransformSmoke {
 		});
 		final thinkingConfig = object(get(reasoning, "thinkingConfig"));
 		eq(get(thinkingConfig, "includeThoughts"), true, "google include thoughts");
+
+		final vertexNoReasoning = ProviderTransform.options({
+			model: model("google-vertex", "gemini-2.0-flash", "@ai-sdk/google-vertex", false),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(exists(vertexNoReasoning, "thinkingConfig"), false, "vertex no reasoning");
 	}
 
 	static function gpt5VerbosityOptions():Void {
@@ -95,6 +102,15 @@ class ProviderTransformSmoke {
 			providerOptions: optionMap(),
 		});
 		eq(get(gpt52, "textVerbosity"), "low", "gpt-5.2 verbosity");
+		eq(get(gpt52, "reasoningEffort"), "medium", "gpt-5.2 effort");
+		eq(get(gpt52, "reasoningSummary"), "auto", "gpt-5.2 summary");
+
+		final gpt51 = ProviderTransform.options({
+			model: model("openai", "gpt-5.1", "@ai-sdk/openai", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(get(gpt51, "textVerbosity"), "low", "gpt-5.1 verbosity");
 
 		final chatLatest = ProviderTransform.options({
 			model: model("openai", "gpt-5.2-chat-latest", "@ai-sdk/openai", true),
@@ -102,6 +118,13 @@ class ProviderTransformSmoke {
 			providerOptions: optionMap(),
 		});
 		eq(exists(chatLatest, "textVerbosity"), false, "gpt-5 chat verbosity");
+
+		final chat = ProviderTransform.options({
+			model: model("openai", "gpt-5-chat", "@ai-sdk/openai", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(exists(chat, "textVerbosity"), false, "gpt-5-chat verbosity");
 
 		final codex = ProviderTransform.options({
 			model: model("openai", "gpt-5.2-codex", "@ai-sdk/openai", true),
