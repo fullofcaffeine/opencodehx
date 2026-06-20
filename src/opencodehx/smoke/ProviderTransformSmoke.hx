@@ -273,13 +273,29 @@ class ProviderTransformSmoke {
 		hasVariants(openrouter, ["none", "minimal", "low", "medium", "high", "xhigh"], "openrouter gpt efforts");
 		eq(get(object(get(variant(openrouter, "low"), "reasoning")), "effort"), "low", "openrouter reasoning effort");
 
+		final openrouterGrok = ProviderTransform.variants(model("openrouter", "grok-3-mini", "@openrouter/ai-sdk-provider", true));
+		hasVariants(openrouterGrok, ["low", "high"], "openrouter grok mini efforts");
+		eq(get(object(get(variant(openrouterGrok, "high"), "reasoning")), "effort"), "high", "openrouter grok mini reasoning effort");
+		eq(countVariants(ProviderTransform.variants(model("openrouter", "grok-4", "@openrouter/ai-sdk-provider", true))), 0, "openrouter grok-4 variants");
+
 		final gatewayAdaptive = ProviderTransform.variants(model("gateway", "anthropic/claude-opus-4-7", "@ai-sdk/gateway", true));
 		hasVariants(gatewayAdaptive, ["low", "medium", "high", "xhigh", "max"], "gateway adaptive efforts");
 		eq(get(object(get(variant(gatewayAdaptive, "xhigh"), "thinking")), "type"), "adaptive", "gateway adaptive thinking");
 
+		final gatewayGoogle25 = ProviderTransform.variants(model("gateway", "google/gemini-2.5-pro", "@ai-sdk/gateway", true));
+		hasVariants(gatewayGoogle25, ["high", "max"], "gateway google 2.5 budgets");
+		eq(get(object(get(variant(gatewayGoogle25, "high"), "thinkingConfig")), "thinkingBudget"), 16000, "gateway google 2.5 high budget");
+
+		final gatewayGeneric = ProviderTransform.variants(model("gateway", "gateway-model", "@ai-sdk/gateway", true));
+		hasVariants(gatewayGeneric, ["none", "minimal", "low", "medium", "high", "xhigh"], "gateway generic efforts");
+		eq(get(variant(gatewayGeneric, "xhigh"), "reasoningEffort"), "xhigh", "gateway generic xhigh effort");
+
 		final copilot = ProviderTransform.variants(modelWithRelease("github-copilot", "gpt-5.2", "@ai-sdk/github-copilot", "2025-12-01", true));
 		hasVariants(copilot, ["low", "medium", "high", "xhigh"], "copilot gpt-5.2 variants");
 		eq(get(variant(copilot, "xhigh"), "reasoningSummary"), "auto", "copilot reasoning summary");
+
+		final copilot54 = ProviderTransform.variants(modelWithRelease("github-copilot", "gpt-5.4", "@ai-sdk/github-copilot", "2026-03-05", true));
+		hasVariants(copilot54, ["low", "medium", "high", "xhigh"], "copilot dated gpt-5.4 variants");
 
 		final azure = ProviderTransform.variants(model("azure", "gpt-5", "@ai-sdk/azure", true));
 		hasVariants(azure, ["minimal", "low", "medium", "high"], "azure gpt-5 variants");
@@ -302,6 +318,11 @@ class ProviderTransformSmoke {
 
 		final groq = ProviderTransform.variants(model("groq", "llama-4", "@ai-sdk/groq", true));
 		hasVariants(groq, ["none", "low", "medium", "high"], "groq efforts");
+
+		final xaiGrokMini = ProviderTransform.variants(model("xai", "grok-3-mini", "@ai-sdk/xai", true));
+		hasVariants(xaiGrokMini, ["low", "high"], "xai grok mini efforts");
+		eq(get(variant(xaiGrokMini, "low"), "reasoningEffort"), "low", "xai grok mini low effort");
+		eq(countVariants(ProviderTransform.variants(model("xai", "grok-3", "@ai-sdk/xai", true))), 0, "xai grok-3 variants");
 
 		final mistral = ProviderTransform.variants(model("mistral", "mistral-small-latest", "@ai-sdk/mistral", true));
 		hasVariants(mistral, ["high"], "mistral small reasoning");
