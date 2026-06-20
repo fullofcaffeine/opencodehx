@@ -911,17 +911,61 @@ class ProviderRegistry {
 		return new ProviderException(ModelNotFound(providerID, modelID, suggestions));
 	}
 
-	static function providerSuggestions(query:String):Array<String> {
-		return [];
+	function providerSuggestions(query:String):Array<String> {
+		return suggestions(query, providers.keys());
 	}
 
 	static function modelSuggestions(provider:ProviderInfo, query:String):Array<String> {
+		return suggestions(query, provider.models.keys());
+	}
+
+	static function suggestions(query:String, candidates:Iterator<String>):Array<String> {
+		// Upstream uses fuzzysort here. A small Levenshtein ranker keeps the UX
+		// behavior deterministic and portable without adding a JS-only runtime dependency.
+		final ranked:Array<{final id:String; final score:Int;}> = [];
+		for (id in candidates)
+			ranked.push({id: id, score: suggestionScore(query, id)});
+		ranked.sort((a, b) -> a.score == b.score ? Reflect.compare(a.id, b.id) : a.score - b.score);
+
 		final result:Array<String> = [];
-		for (id in provider.models.keys()) {
-			if (id.indexOf(query) != -1 || query.indexOf(id) != -1)
-				result.push(id);
-		}
+		final limit = ranked.length < 3 ? ranked.length : 3;
+		for (index in 0...limit)
+			result.push(ranked[index].id);
 		return result;
+	}
+
+	static function suggestionScore(query:String, candidate:String):Int {
+		final a = query.toLowerCase();
+		final b = candidate.toLowerCase();
+		var score = levenshtein(a, b) * 10 + intAbs(a.length - b.length);
+		if (a.indexOf(b) != -1 || b.indexOf(a) != -1)
+			score -= 30;
+		return score;
+	}
+
+	static function levenshtein(a:String, b:String):Int {
+		var previous:Array<Int> = [];
+		for (column in 0...(b.length + 1))
+			previous.push(column);
+
+		for (row in 1...(a.length + 1)) {
+			final current:Array<Int> = [row];
+			for (column in 1...(b.length + 1)) {
+				final substitutionCost = a.charAt(row - 1) == b.charAt(column - 1) ? 0 : 1;
+				current.push(min3(current[column - 1] + 1, previous[column] + 1, previous[column - 1] + substitutionCost));
+			}
+			previous = current;
+		}
+
+		return previous[b.length];
+	}
+
+	static inline function min3(a:Int, b:Int, c:Int):Int {
+		return a < b ? (a < c ? a : c) : (b < c ? b : c);
+	}
+
+	static inline function intAbs(value:Int):Int {
+		return value < 0 ? -value : value;
 	}
 
 	static function firstEnv(keys:Array<String>, env:Dynamic):Null<String> {

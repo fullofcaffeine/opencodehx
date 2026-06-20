@@ -43,6 +43,7 @@ This slice adds the first Haxe-owned provider registry:
 - Anthropic env loading and config option overlays.
 - Custom providers and custom model aliases.
 - Provider and model filtering.
+- User-facing `ModelNotFound` suggestions for misspelled provider IDs and model IDs.
 - Auth file-shaped API keys.
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
@@ -174,6 +175,8 @@ npm run smoke
 ## Haxe Modeling
 
 Provider IDs and model IDs are Haxe abstracts over strings. This keeps upstream-compatible wire values while preventing accidental mixing at Haxe call sites.
+
+Provider/model typo suggestions are generated with a small deterministic Haxe Levenshtein scorer. Upstream uses `fuzzysort`; the Haxe version preserves the top-three suggestion behavior shape without adding a JavaScript-only dependency to core registry logic, which keeps the code easier to retarget.
 
 Capabilities, costs, limits, headers, and provider/model maps are typed records or maps. `headers` lowers to `Record<string, string>` in generated TypeScript.
 

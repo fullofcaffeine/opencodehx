@@ -198,6 +198,20 @@ class ProviderSmoke {
 				case _: false;
 			}
 		});
+		expectProviderFailure(() -> custom.getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonet-4")), "model typo suggestions",
+			function(failure) {
+				return switch failure {
+					case ModelNotFound(_, _, suggestions): suggestions.indexOf("claude-sonnet-4-20250514") != -1;
+					case _: false;
+				}
+			});
+		expectProviderFailure(() -> custom.getModel(ProviderID.make("antropic"), ModelID.make("claude-sonnet-4")), "provider typo suggestions",
+			function(failure) {
+				return switch failure {
+					case ModelNotFound(_, _, suggestions): suggestions.indexOf("anthropic") != -1;
+					case _: false;
+				}
+			});
 	}
 
 	static function registryAuthAndBedrock():Void {
