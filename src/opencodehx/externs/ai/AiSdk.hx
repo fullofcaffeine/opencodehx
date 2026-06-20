@@ -91,11 +91,13 @@ typedef AiStreamAbortEvent = {
 
 typedef AiToolOptions<I, O> = {
 	final inputSchema:AiJsonSchema;
-	final execute:I->Promise<O>;
+	@:optional final description:String;
+	@:optional final execute:I->Promise<O>;
 }
 
 typedef AiJsonSchemaObject = {
 	final type:String;
+	@:optional final description:String;
 	@:optional final properties:DynamicAccess<AiJsonSchemaObject>;
 	@:optional final required:Array<String>;
 	@:optional final additionalProperties:Bool;
@@ -963,6 +965,8 @@ extern class AiSdk {
 
 @:jsRequire("ai/test", "MockLanguageModelV3")
 extern class MockLanguageModelV3 {
+	final doStreamCalls:Array<AiLanguageModelCallOptions>;
+
 	function new(?options:AiMockLanguageModelOptions);
 }
 

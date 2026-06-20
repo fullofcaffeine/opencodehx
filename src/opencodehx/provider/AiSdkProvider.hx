@@ -19,6 +19,9 @@ import opencodehx.externs.ai.AiSdk.AiSdkTest;
 import opencodehx.externs.ai.AiSdk.AiStreamTextOptions;
 import opencodehx.externs.ai.AiSdk.AiTool;
 import opencodehx.externs.ai.AiSdk.MockLanguageModelV3;
+import opencodehx.tool.ToolRegistry;
+import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolParameter;
 
 enum AiSdkStreamEvent {
 	TextDelta(text:String);
@@ -47,6 +50,11 @@ typedef AiSdkStreamResult = {
 
 typedef AiReadToolInput = {
 	final path:String;
+}
+
+typedef AiSdkInspectableMock = {
+	final language:AiLanguageModel;
+	final mock:MockLanguageModelV3;
 }
 
 class AiSdkProvider {
@@ -119,15 +127,43 @@ class AiSdkProvider {
 
 	public static function readTool():AiTool {
 		return AiSdk.tool({
+			description: "Read a file from the workspace.",
 			inputSchema: AiSdk.jsonSchema(pathInputSchema()),
 			execute: input -> Promise.resolve('read:${input.path}'),
 		});
+	}
+
+	public static function toolsFromRegistry(registry:ToolRegistry):DynamicAccess<AiTool> {
+		final tools = new DynamicAccess<AiTool>();
+		for (def in registry.all()) {
+			tools.set(def.id, AiSdk.tool({
+				description: def.description,
+				inputSchema: AiSdk.jsonSchema(toolInputSchema(def)),
+			}));
+		}
+		return tools;
 	}
 
 	public static function toolSet(name:String, tool:AiTool):DynamicAccess<AiTool> {
 		final tools = new DynamicAccess<AiTool>();
 		tools.set(name, tool);
 		return tools;
+	}
+
+	public static function toolInputSchema(def:ToolDef):AiJsonSchemaObject {
+		final properties = new DynamicAccess<AiJsonSchemaObject>();
+		final required:Array<String> = [];
+		for (parameter in def.schema.parameters) {
+			properties.set(parameter.name, parameterSchema(parameter));
+			if (parameter.required)
+				required.push(parameter.name);
+		}
+		return {
+			type: "object",
+			properties: properties,
+			required: required,
+			additionalProperties: false,
+		};
 	}
 
 	static function toolsOrAbsent(tools:Null<DynamicAccess<AiTool>>):Undefinable<DynamicAccess<AiTool>> {
@@ -147,6 +183,22 @@ class AiSdkProvider {
 			required: ["path"],
 			additionalProperties: false,
 		};
+	}
+
+	static function parameterSchema(parameter:ToolParameter):AiJsonSchemaObject {
+		final type = switch parameter.type {
+			case "string":
+				"string";
+			case "integer":
+				"integer";
+			case "number":
+				"number";
+			case "boolean":
+				"boolean";
+			case unknown:
+				throw 'Unsupported tool parameter type for ${parameter.name}: ${unknown}';
+		}
+		return parameter.description == null ? {type: type} : {type: type, description: parameter.description};
 	}
 
 	static function messageFromUnknown(error:Unknown):String {
@@ -185,6 +237,16 @@ class AiSdkMockModel {
 		], null, null);
 	}
 
+	public static function inspectableToolCall(?toolName:String, ?input:String):AiSdkInspectableMock {
+		final name = toolName == null ? "read" : toolName;
+		final payload = input == null ? "{\"path\":\"README.md\"}" : input;
+		return inspectableModel("mock-tool", [
+			AiProviderStreamPart.streamStart(),
+			AiProviderStreamPart.toolCall("tool_1", name, payload),
+			AiProviderStreamPart.finish(finishReason(AiFinishReason.ToolCalls, "tool_calls"), usage(3, 4)),
+		], null, null);
+	}
+
 	public static function error(message:String):AiLanguageModel {
 		return model("mock-error", [
 			AiProviderStreamPart.streamStart(),
@@ -204,6 +266,11 @@ class AiSdkMockModel {
 	}
 
 	static function model(modelId:String, chunks:Array<AiProviderStreamPart>, initialDelayInMs:Null<Int>, chunkDelayInMs:Null<Int>):AiLanguageModel {
+		return inspectableModel(modelId, chunks, initialDelayInMs, chunkDelayInMs).language;
+	}
+
+	static function inspectableModel(modelId:String, chunks:Array<AiProviderStreamPart>, initialDelayInMs:Null<Int>,
+			chunkDelayInMs:Null<Int>):AiSdkInspectableMock {
 		final mock = new MockLanguageModelV3({
 			provider: "opencodehx-test",
 			modelId: modelId,
@@ -217,7 +284,10 @@ class AiSdkMockModel {
 		});
 		// MockLanguageModelV3 implements the AI SDK LanguageModelV3 interface,
 		// but Haxe cannot see that external TypeScript `implements` clause.
-		return cast mock;
+		return {
+			language: cast mock,
+			mock: mock,
+		};
 	}
 
 	static function finishReason(unified:AiFinishReason, raw:String):AiProviderFinishReason {

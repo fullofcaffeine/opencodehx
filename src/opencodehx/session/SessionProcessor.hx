@@ -247,6 +247,7 @@ class SessionProcessor {
 			final stream = @:await AiSdkProvider.stream({
 				model: input.language,
 				prompt: prompt,
+				tools: AiSdkProvider.toolsFromRegistry(registry),
 			});
 			tokens = tokenUsageFromAiSdk(stream.totalUsage);
 			modelToolCall = firstModelToolCall(stream.events);
@@ -275,7 +276,7 @@ class SessionProcessor {
 				sessionID: sessionIDText,
 				prompt: prompt,
 				system: provider.system,
-				tools: transcriptTools(),
+				tools: registry.ids(),
 			},
 			events: events,
 			messages: [userMessage, assistantMessage.message],

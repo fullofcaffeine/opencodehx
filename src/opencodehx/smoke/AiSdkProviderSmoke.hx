@@ -10,6 +10,7 @@ import opencodehx.config.ConfigInfo.ConfigProviderModelConfig;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelCallOptions;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelGenerateResult;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelTool;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelSpecificationVersion;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelStreamResult;
 import opencodehx.externs.ai.AiSdk.AiSdkBundledProvider;
@@ -32,12 +33,15 @@ import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
+import opencodehx.tool.ReadTool;
+import opencodehx.tool.ToolRegistry;
 
 class AiSdkProviderSmoke {
 	@:async
 	public static function run():Promise<Void> {
 		await(textStream());
 		await(toolCallStream());
+		await(toolSchemaAdvertisement());
 		await(errorStream());
 		await(abortStream());
 		openAICompatibleFactory();
@@ -87,6 +91,38 @@ class AiSdkProviderSmoke {
 			case ToolResult("tool_1", "read", _): true;
 			case _: false;
 		}), true, "ai sdk tool result event");
+	}
+
+	@:async
+	static function toolSchemaAdvertisement():Promise<Void> {
+		final read = ReadTool.define();
+		final schema = AiSdkProvider.toolInputSchema(read);
+		eq(schema.type, "object", "ai sdk tool schema object");
+		final required = schema.required;
+		if (required == null)
+			throw "ai sdk tool schema: expected required fields";
+		eq(required[0], "filePath", "ai sdk tool schema required");
+		final properties = schema.properties;
+		if (properties == null)
+			throw "ai sdk tool schema: expected properties";
+		eq(properties.get("filePath").type, "string", "ai sdk tool schema property");
+		final runtime = AiSdkMockModel.inspectableToolCall("read", "{\"filePath\":\"README.md\"}");
+		final result = @:await AiSdkProvider.stream({
+			model: runtime.language,
+			prompt: "Read README.md.",
+			tools: AiSdkProvider.toolsFromRegistry(new ToolRegistry([read])),
+		});
+		eq(result.finishReason, AiFinishReason.ToolCalls, "ai sdk advertised tool finish");
+		eq(hasEvent(result, function(event) return switch event {
+			case ToolResult(_, _, _): true;
+			case _: false;
+		}), false, "ai sdk advertised tools do not auto-execute");
+		eq(runtime.mock.doStreamCalls.length, 1, "ai sdk provider call count");
+		final sentTools = runtime.mock.doStreamCalls[0].tools;
+		if (sentTools == null)
+			throw "ai sdk advertised tools: expected provider tools";
+		final sentRead = findLanguageTool(sentTools, "read");
+		eq(sentRead.type, "function", "ai sdk provider tool type");
 	}
 
 	@:async
@@ -696,6 +732,14 @@ class AiSdkProviderSmoke {
 				return true;
 		}
 		return false;
+	}
+
+	static function findLanguageTool(tools:Array<AiLanguageModelTool>, name:String):AiLanguageModelTool {
+		for (tool in tools) {
+			if (tool.name == name)
+				return tool;
+		}
+		throw 'Expected AI SDK language tool: ${name}';
 	}
 
 	static function count(result:AiSdkStreamResult, predicate:AiSdkStreamEvent->Bool):Int {

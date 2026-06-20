@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import opencodehx.config.ConfigInfo;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelTool;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
@@ -112,14 +113,16 @@ class SessionProcessorSmoke {
 				case _:
 					throw "session processor async: expected assistant text";
 			}
+			final runtime = AiSdkMockModel.inspectableToolCall("read", "{\"filePath\":\"src/input.txt\"}");
 			final toolResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_tool",
 				prompt: "Read the AI SDK fixture.",
 				directory: root,
 				provider: fixture.info,
 				model: fixture.model,
-				language: AiSdkMockModel.toolCall("read", "{\"filePath\":\"src/input.txt\"}"),
+				language: runtime.language,
 			});
+			eq(hasLanguageTool(runtime.mock.doStreamCalls[0].tools, "read"), true, "ai sdk session advertises read tool");
 			eq(toolResult.events[1].type, "tool-call", "ai sdk tool model event");
 			eq(toolResult.events[3].type, "tool-call-start", "ai sdk tool execute start");
 			eq(toolResult.events[4].status, "completed", "ai sdk tool execute finish");
@@ -258,6 +261,16 @@ class SessionProcessorSmoke {
 			throw "session processor: expected tool outcome";
 		eq(outcome.success, true, "tool outcome success");
 		eq(outcome.call.tool, "read", "tool outcome name");
+	}
+
+	static function hasLanguageTool(tools:Null<Array<AiLanguageModelTool>>, name:String):Bool {
+		if (tools == null)
+			return false;
+		for (tool in tools) {
+			if (tool.name == name)
+				return true;
+		}
+		return false;
 	}
 
 	static function assertCompactionPart(parts:Array<Part>, label:String):Void {

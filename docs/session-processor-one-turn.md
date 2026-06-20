@@ -13,12 +13,13 @@
 - `SessionCompaction` models usable context and overflow decisions from provider model limits plus config compaction settings, and can create upstream-shaped compaction parts for the current fixture processor.
 - `SessionProcessor.runAiSdk` is the first async provider/session bridge. It accepts a typed `AiLanguageModel`, consumes `AiSdkProvider.stream`, maps SDK text/tool/error/finish events into the session event shape, and reuses the same user/assistant message construction path.
 - The async path now dispatches the first model-emitted AI SDK tool call through the existing `ToolRegistry`/permission-aware tool execution path, normalizing parsed JSON or JSON-string tool input before tool schema validation.
+- The async path advertises the live `ToolRegistry` to `streamText` by translating Haxe `ToolDef` parameter records into AI SDK JSON Schema tools without `execute`; model calls can see tool schemas, while execution stays in the OpenCodeHX registry/permission path.
 - `Cli.runAsync` and `run --mock-ai-sdk` exercise that bridge from the generated CLI process while remaining credential-free.
-- `SessionProcessorSmoke` covers model stream events, a permission-approved `read` call, final assistant text, retry status/part creation, context-overflow compaction markers, abort recording, SQLite hydration, recovery through the persisted `SessionStore`, a credential-free AI SDK mock-model session run, and first AI SDK-emitted tool-call dispatch.
+- `SessionProcessorSmoke` covers model stream events, a permission-approved `read` call, final assistant text, retry status/part creation, context-overflow compaction markers, abort recording, SQLite hydration, recovery through the persisted `SessionStore`, a credential-free AI SDK mock-model session run, first AI SDK-emitted tool-call dispatch, and provider-call evidence that registry tools are advertised to the model.
 
 ## Current Boundary
 
-The default headless CLI path remains deliberately fake-provider based so transcript parity stays deterministic. The session module now also has an async AI SDK path with first tool-call dispatch, but live CLI chat still needs tool schema advertisement to providers, multi-step continuation after tool results, cancellation, retry scheduling, and upstream prompt construction before it can be called bootable as an agentic client.
+The default headless CLI path remains deliberately fake-provider based so transcript parity stays deterministic. The session module now also has an async AI SDK path with tool schema advertisement and first tool-call dispatch, but live CLI chat still needs multi-step continuation after tool results, cancellation, retry scheduling, and upstream prompt construction before it can be called bootable as an agentic client.
 
 This is not the full upstream Effect session loop yet. Live provider streaming, retry scheduling, async cancellation propagation, automatic compaction continuation, full prompt construction, and resume/import/export UX remain later session/provider slices.
 

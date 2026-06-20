@@ -63,6 +63,7 @@ This slice adds the first Haxe-owned provider registry:
 
 - Text deltas through `streamText`.
 - Tool-call and tool-result events through `ai.tool(...)` and JSON Schema input.
+- Registry-derived tool schema advertisement through AI SDK tools without `execute`, preserving model-visible schemas while keeping actual tool execution under the session registry/permission path.
 - Stream error callback handling and final error finish reason.
 - Abort propagation through `AbortController`.
 - AI SDK usage aggregation and finish reason typing.
@@ -210,7 +211,7 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 
 `opencodehx.externs.web.WebStreams` owns the current Web stream extern gap. Haxe 4.3's `js.html.Response` does not expose the standard `body` property, so the structural cast is localized in `WebResponseStreams.body`; provider code consumes a typed `ReadableStream<Uint8Array>` reader.
 
-The AI SDK boundary is intentionally named and narrow. `AiSdk.hx` uses raw `@:ts.type(...)` for SDK-owned declaration surfaces such as language models, call options, generated content, stream parts, provider metadata, OpenAI-compatible/OpenAI/xAI/Azure/Google/Vertex/Anthropic/Bedrock/Mistral/Groq/Cohere/Perplexity/OpenRouter/DeepInfra/Cerebras/Gateway/TogetherAI/Vercel/Alibaba/GitLab factory settings, `Tool`, and `JSONSchema7`. Each raw alias has a Haxe backing shape where OpenCodeHX needs to read or construct values, so production provider code can satisfy SDK contracts structurally instead of casting. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
+The AI SDK boundary is intentionally named and narrow. `AiSdk.hx` uses raw `@:ts.type(...)` for SDK-owned declaration surfaces such as language models, call options, generated content, stream parts, provider metadata, OpenAI-compatible/OpenAI/xAI/Azure/Google/Vertex/Anthropic/Bedrock/Mistral/Groq/Cohere/Perplexity/OpenRouter/DeepInfra/Cerebras/Gateway/TogetherAI/Vercel/Alibaba/GitLab factory settings, `Tool`, and `JSONSchema7`. Each raw alias has a Haxe backing shape where OpenCodeHX needs to read or construct values, so production provider code can satisfy SDK contracts structurally instead of casting. Registry tools are converted to AI SDK tools without `execute`; this intentionally prevents `streamText` from auto-running tools before OpenCodeHX permission and tool-result recording can own the call. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
 
 Google Vertex headers are typed by the SDK as `Resolvable<Record<string, string | undefined>>`, not as a plain header map. `AiSdkLanguageLoader.optionalHeadersOrAbsent(...)` performs only a narrow map-to-map widening from already validated `DynamicAccess<String>` headers into that optional-value record; it does not inspect unknown provider payloads or accept promise/function headers until a typed host-auth/request seam owns them.
 
