@@ -327,6 +327,15 @@ class ProviderTransformSmoke {
 		final nested = ProviderTransform.schema(gemini, nestedRoot);
 		eq(items(items(items(property(nested, "matrix")))).type, "string", "gemini nested array default");
 
+		final mixedRoot = objectSchema([
+			{
+				key: "spreadsheetData",
+				value: objectSchema([{key: "rows", value: arraySchema(arraySchema({}))},])
+			},
+		]);
+		final mixedRows = property(property(ProviderTransform.schema(gemini, mixedRoot), "spreadsheetData"), "rows");
+		eq(items(items(mixedRows)).type, "string", "gemini mixed object/array default");
+
 		final anyOfRoot = objectSchema([
 			{key: "edits", value: arraySchema({anyOf: [{type: "string"}, {type: "number"}]})},
 		]);
@@ -416,6 +425,17 @@ class ProviderTransformSmoke {
 		eq(partsOf(split[1])[0].type, ProviderMessagePartType.Text, "anthropic split text first");
 		eq(partsOf(split[2])[0].type, ProviderMessagePartType.ToolCall, "anthropic split tools second");
 
+		final validOrder = ProviderTransform.message([
+			message(ProviderMessageRole.Assistant, partContent([
+				textPart("I checked your home directory."),
+				toolCallPart("toolu_1", "read"),
+				toolCallPart("toolu_2", "glob"),
+			])),
+		], anthropic, optionMap());
+		eq(validOrder.length, 1, "anthropic valid tool order unchanged");
+		eq(partsOf(validOrder[0])[0].type, ProviderMessagePartType.Text, "anthropic valid order keeps leading text");
+		eq(partsOf(validOrder[0])[1].type, ProviderMessagePartType.ToolCall, "anthropic valid order keeps tool call");
+
 		final systemCached = ProviderTransform.message([
 			message(ProviderMessageRole.System, partContent([textPart("You are helpful")])),
 			message(ProviderMessageRole.User, textContent("Hello")),
@@ -450,6 +470,18 @@ class ProviderTransformSmoke {
 			model("google-vertex-anthropic", "claude-sonnet-4@20250514", "@ai-sdk/google-vertex/anthropic"), optionMap());
 		eq(get(object(get(messageOptions(vertexAnthropic[0]), "anthropic")), "cacheControl") != null, true, "vertex anthropic cache");
 		assertCacheBundle(messageOptions(vertexAnthropic[0]), "vertex anthropic cache bundle");
+
+		final vertexSplit = ProviderTransform.message([
+			message(ProviderMessageRole.Assistant, partContent([
+				toolCallPart("toolu_1", "read"),
+				toolCallPart("toolu_2", "glob"),
+				textPart("I checked your home directory."),
+			])),
+		],
+			model("google-vertex-anthropic", "claude-sonnet-4@20250514", "@ai-sdk/google-vertex/anthropic"), optionMap());
+		eq(vertexSplit.length, 2, "vertex anthropic splits assistant tool tails");
+		eq(partsOf(vertexSplit[0])[0].type, ProviderMessagePartType.Text, "vertex anthropic split text first");
+		eq(partsOf(vertexSplit[1])[0].type, ProviderMessagePartType.ToolCall, "vertex anthropic split tools second");
 
 		final itemIdPart = textPart("Hello");
 		itemIdPart.providerOptions = record1("openai", record2("itemId", "msg_456", "reasoningEncryptedContent", "encrypted"));
