@@ -211,6 +211,16 @@ typedef AiSimpleFactoryOptionsShape = {
 	final headers:Undefinable<DynamicAccess<String>>;
 }
 
+typedef AiGitLabFactoryOptionsShape = {
+	final instanceUrl:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+	final name:Undefinable<String>;
+	final featureFlags:Undefinable<DynamicAccess<Bool>>;
+	final aiGatewayUrl:Undefinable<String>;
+	final aiGatewayHeaders:Undefinable<DynamicAccess<String>>;
+}
+
 typedef AiSdkBundledProvider = {
 	function languageModel(modelID:String):AiLanguageModel;
 	@:optional final chat:String->AiLanguageModel;
@@ -235,6 +245,9 @@ typedef AiDeepInfraProviderFactory = AiDeepInfraFactoryOptions->AiSdkBundledProv
 typedef AiCerebrasProviderFactory = AiCerebrasFactoryOptions->AiSdkBundledProvider;
 typedef AiGatewayProviderFactory = AiGatewayFactoryOptions->AiSdkBundledProvider;
 typedef AiTogetherAIProviderFactory = AiTogetherAIFactoryOptions->AiSdkBundledProvider;
+typedef AiVercelProviderFactory = AiVercelFactoryOptions->AiSdkBundledProvider;
+typedef AiAlibabaProviderFactory = AiAlibabaFactoryOptions->AiSdkBundledProvider;
+typedef AiGitLabProviderFactory = AiGitLabFactoryOptions->AiSdkBundledProvider;
 
 @:ts.type("'v3'")
 enum abstract AiLanguageModelSpecificationVersion(String) from String to String {
@@ -824,6 +837,35 @@ abstract AiGatewayFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFacto
 @:forward(baseURL, apiKey, headers)
 @:ts.type("import('@ai-sdk/togetherai').TogetherAIProviderSettings")
 abstract AiTogetherAIFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Vercel provider settings.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/vercel').VercelProviderSettings")
+abstract AiVercelFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Alibaba provider settings.
+ *
+ * Alibaba has separate embedding/video endpoint settings and includeUsage.
+ * This loader slice owns only chat-language model loading; embedding/video and
+ * stream-usage knobs belong to later typed request/facade work.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/alibaba').AlibabaProviderSettings")
+abstract AiAlibabaFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for GitLab Duo provider settings.
+ *
+ * OAuth refresh fields and custom fetch stay out until the auth/request seams
+ * own those lifecycles. The registry already narrows instance URL, API token,
+ * feature flags, and AI Gateway headers before the provider is constructed.
+ */
+@:forward(instanceUrl, apiKey, headers, name, featureFlags, aiGatewayUrl, aiGatewayHeaders)
+@:ts.type("import('gitlab-ai-provider').GitLabProviderSettings")
+abstract AiGitLabFactoryOptions(AiGitLabFactoryOptionsShape) from AiGitLabFactoryOptionsShape to AiGitLabFactoryOptionsShape {}
 
 /**
  * Type-only bridge for AI SDK `Tool`.

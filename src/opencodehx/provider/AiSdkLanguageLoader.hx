@@ -9,6 +9,8 @@ import opencodehx.externs.aws.AwsCredentialProviders.AwsNodeProviderChainFactory
 import opencodehx.externs.aws.AwsCredentialProviders.AwsNodeProviderChainOptions;
 import opencodehx.externs.ai.AiSdk.AiAnthropicFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiAnthropicProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiAlibabaFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiAlibabaProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiAzureFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiAzureProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiBedrockFactoryOptions;
@@ -21,6 +23,9 @@ import opencodehx.externs.ai.AiSdk.AiDeepInfraFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiDeepInfraProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiGatewayFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiGatewayProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiGitLabFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiGitLabFactoryOptionsShape;
+import opencodehx.externs.ai.AiSdk.AiGitLabProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiGoogleFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiGoogleProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiGroqFactoryOptions;
@@ -41,6 +46,8 @@ import opencodehx.externs.ai.AiSdk.AiSdkProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiSimpleFactoryOptionsShape;
 import opencodehx.externs.ai.AiSdk.AiTogetherAIFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiTogetherAIProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiVercelFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiVercelProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiVertexAnthropicFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiVertexAnthropicProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiVertexFactoryOptions;
@@ -92,6 +99,9 @@ class AiSdkLanguageLoader {
 	static final createCerebras:AiCerebrasProviderFactory = Imports.namedImport("@ai-sdk/cerebras", "createCerebras", "createCerebras");
 	static final createGateway:AiGatewayProviderFactory = Imports.namedImport("@ai-sdk/gateway", "createGateway", "createGateway");
 	static final createTogetherAI:AiTogetherAIProviderFactory = Imports.namedImport("@ai-sdk/togetherai", "createTogetherAI", "createTogetherAI");
+	static final createVercel:AiVercelProviderFactory = Imports.namedImport("@ai-sdk/vercel", "createVercel", "createVercel");
+	static final createAlibaba:AiAlibabaProviderFactory = Imports.namedImport("@ai-sdk/alibaba", "createAlibaba", "createAlibaba");
+	static final createGitLab:AiGitLabProviderFactory = Imports.namedImport("gitlab-ai-provider", "createGitLab", "createGitLab");
 	static final fromNodeProviderChain:AwsNodeProviderChainFactory = Imports.namedImport("@aws-sdk/credential-providers", "fromNodeProviderChain",
 		"fromNodeProviderChain");
 
@@ -149,6 +159,12 @@ class AiSdkLanguageLoader {
 				createGateway(gatewayFactoryOptions(provider, model));
 			case "@ai-sdk/togetherai":
 				createTogetherAI(togetherAIFactoryOptions(provider, model));
+			case "@ai-sdk/vercel":
+				createVercel(vercelFactoryOptions(provider, model));
+			case "@ai-sdk/alibaba":
+				createAlibaba(alibabaFactoryOptions(provider, model));
+			case "gitlab-ai-provider":
+				createGitLab(gitLabFactoryOptions(provider, model));
 			case "ai-gateway-provider":
 				CloudflareAiGatewayLoader.sdk(provider, model);
 			case npm:
@@ -318,6 +334,29 @@ class AiSdkLanguageLoader {
 		return simpleFactoryOptions(provider, model);
 	}
 
+	public static function vercelFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiVercelFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function alibabaFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiAlibabaFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function gitLabFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiGitLabFactoryOptions {
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		final options:AiGitLabFactoryOptionsShape = {
+			instanceUrl: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "instanceUrl",
+				ProviderOptionAccess.baseURL(provider.options, model))),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+			name: stringOrAbsent(provider.id.toString()),
+			featureFlags: boolMapOrAbsent(ProviderOptionAccess.boolMap(provider.options, "featureFlags")),
+			aiGatewayUrl: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "aiGatewayUrl", null)),
+			aiGatewayHeaders: headersOrAbsent(ProviderOptionAccess.stringMap(provider.options, "aiGatewayHeaders")),
+		};
+		return options;
+	}
+
 	static function simpleFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiSimpleFactoryOptionsShape {
 		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
 		return {
@@ -381,6 +420,10 @@ class AiSdkLanguageLoader {
 	}
 
 	static function headersOrAbsent(value:Null<DynamicAccess<String>>):Undefinable<DynamicAccess<String>> {
+		return value == null ? Undefinable.absent() : value;
+	}
+
+	static function boolMapOrAbsent(value:Null<DynamicAccess<Bool>>):Undefinable<DynamicAccess<Bool>> {
 		return value == null ? Undefinable.absent() : value;
 	}
 

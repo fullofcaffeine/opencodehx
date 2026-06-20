@@ -50,6 +50,7 @@ class AiSdkProviderSmoke {
 		vertexFactory();
 		vertexAnthropicFactory();
 		simpleProviderFactories();
+		gitLabFactory();
 		sdkModelSelection();
 		sdkFailureSelection();
 	}
@@ -321,6 +322,8 @@ class AiSdkProviderSmoke {
 		simpleProviderFactory("cerebras", "@ai-sdk/cerebras", "llama-4", "https://cerebras.example.test/v1", "cerebras.chat");
 		simpleProviderFactory("gateway", "@ai-sdk/gateway", "anthropic/claude-sonnet-4", "https://gateway.example.test/v1", "gateway");
 		simpleProviderFactory("togetherai", "@ai-sdk/togetherai", "meta-llama/llama-4", "https://together.example.test/v1", "togetherai.chat");
+		simpleProviderFactory("vercel", "@ai-sdk/vercel", "v0-1.5-md", "https://vercel.example.test/v1", "vercel.chat");
+		simpleProviderFactory("alibaba", "@ai-sdk/alibaba", "qwen3-coder", "https://alibaba.example.test/compatible-mode/v1", "alibaba.chat");
 	}
 
 	static function simpleProviderFactory(providerID:String, npm:String, modelID:String, baseURL:String, expectedProvider:String):Void {
@@ -333,6 +336,37 @@ class AiSdkProviderSmoke {
 		eq(resolved.language.modelId, modelID, '${providerID} language model id');
 		eq(resolved.language.provider, expectedProvider, '${providerID} language provider');
 		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, '${providerID} language model spec');
+	}
+
+	static function gitLabFactory():Void {
+		final registry = new ProviderRegistry({
+			config: ConfigInfo.empty("fixture-user"),
+			env: {
+				GITLAB_TOKEN: "fixture-gitlab-token",
+				GITLAB_INSTANCE_URL: "https://gitlab.example.test",
+			},
+			auth: {},
+		});
+		final provider = requireProvider(registry.getProvider(ProviderID.make("gitlab")), "gitlab provider");
+		final model = registry.getModel(ProviderID.make("gitlab"), ModelID.make("duo-chat-haiku-4-5"));
+		final settings = AiSdkLanguageLoader.gitLabFactoryOptions(provider, model);
+		eq(settings.instanceUrl.orNull(), "https://gitlab.example.test", "gitlab instance url");
+		eq(settings.apiKey.orNull(), "fixture-gitlab-token", "gitlab api key");
+		final flags = settings.featureFlags.orNull();
+		if (flags == null)
+			throw "gitlab flags: expected forwarded feature flags";
+		eq(flags.get("duo_agent_platform_agentic_chat"), true, "gitlab feature flag forwarded");
+		final gatewayHeaders = settings.aiGatewayHeaders.orNull();
+		if (gatewayHeaders == null)
+			throw "gitlab gateway headers: expected forwarded headers";
+		eq(gatewayHeaders.exists("anthropic-beta"), true, "gitlab gateway headers forwarded");
+
+		final resolved = registry.resolveLanguage(model);
+		eq(resolved.sdkModelID, "duo-chat-haiku-4-5", "gitlab sdk model id");
+		eq(resolved.method, AiSdkModelMethod.LanguageModel, "gitlab model method");
+		eq(resolved.language.modelId, "duo-chat-haiku-4-5", "gitlab language model id");
+		eq(resolved.language.provider, "gitlab.agentic", "gitlab language provider");
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "gitlab language model spec");
 	}
 
 	static function sdkModelSelection():Void {

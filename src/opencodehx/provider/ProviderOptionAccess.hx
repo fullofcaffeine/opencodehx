@@ -46,6 +46,18 @@ class ProviderOptionAccess {
 		return empty(result) ? null : result;
 	}
 
+	public static function stringMap(options:ProviderOptions, field:String):Null<DynamicAccess<String>> {
+		final result = new DynamicAccess<String>();
+		copyStringFields(options.get(field), result);
+		return empty(result) ? null : result;
+	}
+
+	public static function boolMap(options:ProviderOptions, field:String):Null<DynamicAccess<Bool>> {
+		final result = new DynamicAccess<Bool>();
+		copyBoolFields(options.get(field), result);
+		return emptyBool(result) ? null : result;
+	}
+
 	static function copyStringFields(source:Dynamic, target:DynamicAccess<String>):Void {
 		// Provider option records are intentionally open SDK/plugin boundary data.
 		// Reflection is confined here and only string-valued header fields escape.
@@ -61,7 +73,28 @@ class ProviderOptionAccess {
 		}
 	}
 
+	static function copyBoolFields(source:Dynamic, target:DynamicAccess<Bool>):Void {
+		// Provider option records are intentionally open SDK/plugin boundary data.
+		// Reflection is confined here and only boolean feature flags escape.
+		if (source == null || !Reflect.isObject(source))
+			return;
+		if (Std.isOfType(source, Array) || Std.isOfType(source, String) || Std.isOfType(source, Bool) || Std.isOfType(source, Float)
+			|| Std.isOfType(source, Int))
+			return;
+		for (field in Reflect.fields(source)) {
+			final value:Dynamic = Reflect.field(source, field);
+			if (Std.isOfType(value, Bool))
+				target.set(field, value == true);
+		}
+	}
+
 	static function empty(value:DynamicAccess<String>):Bool {
+		for (_ in value.keys())
+			return false;
+		return true;
+	}
+
+	static function emptyBool(value:DynamicAccess<Bool>):Bool {
 		for (_ in value.keys())
 			return false;
 		return true;
