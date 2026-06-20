@@ -40,6 +40,7 @@ class ProviderSmoke {
 		registryPluginConfigHooks();
 		registryModels();
 		registryAuthAndBedrock();
+		cloudflareAiGatewayLoading();
 		modelsDevNormalization();
 		final transcript = TranscriptHarness.oneTurn();
 		eq(transcript.provider.id, "openai", "provider id");
@@ -295,6 +296,43 @@ class ProviderSmoke {
 			"bedrock small prefers global");
 		eq(requireModel(bedrockSmallRegistry("ap-south-1", [unprefixed, us]).smallModel(providerID), "bedrock fallback small").id.toString(), unprefixed,
 			"bedrock small falls back to unprefixed");
+	}
+
+	static function cloudflareAiGatewayLoading():Void {
+		final partial = registry(config({}), {
+			CLOUDFLARE_ACCOUNT_ID: "test-account",
+			CLOUDFLARE_GATEWAY_ID: "test-gateway",
+		});
+		eq(partial.getProvider(ProviderID.make("cloudflare-ai-gateway")) == null, true, "cloudflare gateway requires token");
+
+		final loaded = registry(config({}), {
+			CLOUDFLARE_ACCOUNT_ID: "test-account",
+			CLOUDFLARE_GATEWAY_ID: "test-gateway",
+			CLOUDFLARE_API_TOKEN: "test-token",
+		});
+		final provider = loaded.getProvider(ProviderID.make("cloudflare-ai-gateway"));
+		eq(provider != null, true, "cloudflare gateway env autoload");
+		eq(provider.models.exists("openai/gpt-5.2-codex"), true, "cloudflare gateway default model");
+
+		final configured = registry(config({
+			provider: {
+				"cloudflare-ai-gateway": {
+					options: {
+						metadata: {
+							invoked_by: "test",
+							project: "opencode",
+						},
+					},
+				},
+			},
+		}), {
+			CLOUDFLARE_ACCOUNT_ID: "test-account",
+			CLOUDFLARE_GATEWAY_ID: "test-gateway",
+			CLOUDFLARE_API_TOKEN: "test-token",
+		});
+		final metadata = Reflect.field(configured.getProvider(ProviderID.make("cloudflare-ai-gateway")).options, "metadata");
+		eq(Reflect.field(metadata, "invoked_by"), "test", "cloudflare metadata invoked_by");
+		eq(Reflect.field(metadata, "project"), "opencode", "cloudflare metadata project");
 	}
 
 	static function modelsDevNormalization():Void {

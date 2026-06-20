@@ -499,6 +499,19 @@ class ProviderRegistry {
 			}
 		}
 
+		final cloudflareGateway = database.get("cloudflare-ai-gateway");
+		if (cloudflareGateway != null && !disabled.exists("cloudflare-ai-gateway")) {
+			final cloudflareAlreadyLoaded = providers.exists("cloudflare-ai-gateway");
+			final cloudflareBase = cloudflareAlreadyLoaded ? providers.get("cloudflare-ai-gateway") : cloudflareGateway;
+			final cloudflareResolved = cloudflareGatewayOptions(cloudflareBase, env, auths.get("cloudflare-ai-gateway"));
+			if (cloudflareAlreadyLoaded || cloudflareResolved.autoload) {
+				providers.set("cloudflare-ai-gateway", withPatch(cloudflareBase, {
+					source: cloudflareAlreadyLoaded ? cloudflareBase.source : "env",
+					options: cloudflareBase.options,
+				}));
+			}
+		}
+
 		for (filterProviderID in database.keys()) {
 			if (!providers.exists(filterProviderID))
 				continue;
@@ -611,6 +624,12 @@ class ProviderRegistry {
 		add(result, provider("opencode", "opencode", [], [
 			model("opencode", "gpt-5-nano", "GPT-5 nano", "@ai-sdk/openai-compatible", "https://api.opencode.ai/v1", 200000, 10000, {
 				reasoning: true
+			}),
+		]));
+		add(result, provider("cloudflare-ai-gateway", "Cloudflare AI Gateway", [], [
+			model("cloudflare-ai-gateway", "openai/gpt-5.2-codex", "GPT-5.2 Codex", "ai-gateway-provider", "", 400000, 128000, {
+				reasoning: true,
+				attachment: true
 			}),
 		]));
 		return result;
@@ -806,6 +825,17 @@ class ProviderRegistry {
 		if (endpoint != "")
 			Reflect.setField(options, "baseURL", endpoint);
 		return {autoload: true, options: options};
+	}
+
+	static function cloudflareGatewayOptions(provider:ProviderInfo, env:Dynamic,
+			auth:Null<{final type:String; final key:String; final metadata:Dynamic;}>):{final autoload:Bool;} {
+		if (ProviderOptionAccess.string(provider.options, "baseURL", null) != null)
+			return {autoload: false};
+		final authMetadata = auth == null || auth.type != "api" ? null : auth.metadata;
+		final accountID = stringOr(Reflect.field(env, "CLOUDFLARE_ACCOUNT_ID"), stringOr(Reflect.field(authMetadata, "accountId"), ""));
+		final gatewayID = stringOr(Reflect.field(env, "CLOUDFLARE_GATEWAY_ID"), stringOr(Reflect.field(authMetadata, "gatewayId"), ""));
+		final apiToken = stringOr(Reflect.field(env, "CLOUDFLARE_API_TOKEN"), stringOr(Reflect.field(env, "CF_AIG_TOKEN"), auth == null ? "" : auth.key));
+		return {autoload: accountID != "" && gatewayID != "" && apiToken != ""};
 	}
 
 	static function withPatch(provider:ProviderInfo, patch:Dynamic):ProviderInfo {
