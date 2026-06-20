@@ -362,6 +362,15 @@ class ProviderSmoke {
 		final smallOverride = registry(config({small_model: "anthropic/claude-sonnet-4-20250514"}),
 			{ANTHROPIC_API_KEY: "test-api-key"}).smallModel(ProviderID.make("anthropic"));
 		eq(requireModel(smallOverride, "small model override").id.toString(), "claude-sonnet-4-20250514", "small_model config override");
+		eq(requireModel(smallPriorityRegistry("opencode", ["gpt-5.2", "gpt-5-nano"]).smallModel(ProviderID.make("opencode")),
+			"opencode small priority").id.toString(),
+			"gpt-5-nano", "opencode small prefers nano");
+		eq(requireModel(smallPriorityRegistry("github-copilot", ["claude-haiku-4.5", "gpt-5-nano", "gpt-5-mini"]).smallModel(ProviderID.make("github-copilot")),
+			"copilot small priority").id.toString(),
+			"gpt-5-mini", "copilot small prefers mini");
+		eq(requireModel(smallPriorityRegistry("github-copilot", ["claude-haiku-4.5", "gpt-5-nano"]).smallModel(ProviderID.make("github-copilot")),
+			"copilot small fallback").id.toString(),
+			"claude-haiku-4.5", "copilot small falls back to haiku");
 
 		eq(custom.getProvider(ProviderID.make("missing-provider")) == null, true, "missing provider lookup returns null");
 		eq(requireProvider(custom.getProvider(ProviderID.make("anthropic")), "anthropic provider lookup").id.toString(), "anthropic", "provider lookup info");
@@ -1097,6 +1106,77 @@ class ProviderSmoke {
 			},
 			cost: {input: 0, output: 0, cache: {read: 0, write: 0}},
 			limit: {context: 200000, output: 32000},
+			options: new DynamicAccess(),
+			headers: new DynamicAccess(),
+			release_date: "",
+			variants: new DynamicAccess(),
+		};
+	}
+
+	static function smallPriorityRegistry(providerID:String, modelIDs:Array<String>):ProviderRegistry {
+		final providerConfig = new DynamicAccess<ConfigProviderConfig>();
+		providerConfig.set(providerID, {});
+		final info = ConfigInfo.empty("fixture-user");
+		info.provider = providerConfig;
+		return new ProviderRegistry({
+			config: info,
+			env: {},
+			auth: {},
+			database: smallPriorityDatabase(providerID, modelIDs),
+		});
+	}
+
+	static function smallPriorityDatabase(providerID:String, modelIDs:Array<String>):Map<String, ProviderInfo> {
+		final providers = new Map<String, ProviderInfo>();
+		final models = new Map<String, ProviderModel>();
+		for (id in modelIDs)
+			models.set(id, smallPriorityModel(providerID, id));
+		providers.set(providerID, {
+			id: ProviderID.make(providerID),
+			name: providerID,
+			source: "custom",
+			env: [],
+			options: new DynamicAccess(),
+			models: models,
+		});
+		return providers;
+	}
+
+	static function smallPriorityModel(providerID:String, id:String):ProviderModel {
+		return {
+			id: ModelID.make(id),
+			providerID: ProviderID.make(providerID),
+			name: id,
+			family: "",
+			api: {
+				id: id,
+				url: "",
+				npm: "@ai-sdk/openai-compatible",
+			},
+			status: "active",
+			capabilities: {
+				temperature: true,
+				reasoning: true,
+				attachment: true,
+				toolcall: true,
+				input: {
+					text: true,
+					audio: false,
+					image: false,
+					video: false,
+					pdf: false
+				},
+				output: {
+					text: true,
+					audio: false,
+					image: false,
+					video: false,
+					pdf: false
+				},
+				interleaved: false,
+			},
+			cost: {input: 0, output: 0, cache: {read: 0, write: 0}},
+			limit: {context: 200000, output: 10000},
 			options: new DynamicAccess(),
 			headers: new DynamicAccess(),
 			release_date: "",

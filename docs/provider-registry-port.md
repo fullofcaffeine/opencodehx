@@ -10,7 +10,7 @@ This slice adds the first Haxe-owned provider registry:
 - `opencodehx.provider.ProviderTypes` defines `ProviderID` and `ModelID` abstracts, typed provider/model/capability/cost/limit records, and the upstream `interleaved` union as `Bool | { field }`.
 - `opencodehx.provider.ProviderRegistry` resolves providers from config, env, auth content, and Bedrock env/config/auth seams.
 - Provider filters cover `disabled_providers`, `enabled_providers`, per-provider `whitelist`, and `blacklist`.
-- Model lookup covers aliases, slash-containing model IDs, default model config, small-model priority, Bedrock small-model cross-region precedence, and missing-model errors.
+- Model lookup covers aliases, slash-containing model IDs, default model config, Anthropic/OpenCode/GitHub Copilot small-model priority, Bedrock small-model cross-region precedence, and missing-model errors.
 - `FakeProvider` now uses the same typed provider/model records as the registry instead of local duplicate DTOs.
 - `opencodehx.provider.AiSdkProvider` adds the first AI SDK `streamText` facade through narrow Haxe externs.
 - `opencodehx.smoke.AiSdkProviderSmoke` exercises credential-free AI SDK streaming via `ai/test` `MockLanguageModelV3`.
@@ -48,7 +48,7 @@ This slice adds the first Haxe-owned provider registry:
 - Provider lookup, model sort, and closest-model helpers, including missing providers, no-match queries, and ordered multi-term matching.
 - Auth file-shaped API keys.
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
-- Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
+- Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, OpenCode/GitHub Copilot small-model priority, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
 - Cloudflare AI Gateway env autoload for `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, and `CLOUDFLARE_API_TOKEN`, plus preservation of configured `options.metadata`.
 - GitLab Duo registry loading for `GITLAB_TOKEN`, config `options.apiKey`, API-auth keys, OAuth access-token auth shape, `GITLAB_INSTANCE_URL`, default/custom AI Gateway headers, feature flags, and static `duo-chat-*` models.
 - OpenCode provider public/paid model gating: no key hides paid models, while `OPENCODE_API_KEY`, auth content, or config `options.apiKey` keeps paid models visible.
