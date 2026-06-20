@@ -131,6 +131,26 @@ class SessionProcessorSmoke {
 			eq(toolResult.events[5].text, "The file says: ai sdk tool fixture.", "ai sdk continuation text event");
 			assertToolOutcome(toolResult.tool);
 			assertAssistantParts(toolResult.messages[1].parts, "ai sdk tool", "tool_1", "The file says: ai sdk tool fixture.");
+			final multiRuntime = AiSdkMockModel.inspectableTwoToolsThenText("Both reads completed.", "read", "{\"filePath\":\"src/input.txt\"}", "read",
+				"{\"filePath\":\"src/input.txt\"}");
+			final multiToolResult = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_multi_tool",
+				prompt: "Read the AI SDK fixture twice.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: multiRuntime.language,
+			});
+			eq(multiRuntime.mock.doStreamCalls.length, 3, "ai sdk multi-tool continuation call count");
+			eq(hasLanguageTool(multiRuntime.mock.doStreamCalls[0].tools, "read"), true, "ai sdk multi-tool first call advertises read");
+			eq(hasLanguageTool(multiRuntime.mock.doStreamCalls[1].tools, "read"), true, "ai sdk multi-tool second call advertises read");
+			eq(hasLanguageTool(multiRuntime.mock.doStreamCalls[2].tools, "read"), true, "ai sdk multi-tool final call advertises read");
+			eq(multiToolResult.events[5].callID, "tool_2", "ai sdk multi-tool second model call id");
+			eq(multiToolResult.events[7].type, "tool-call-start", "ai sdk multi-tool execute second start");
+			eq(multiToolResult.events[8].status, "completed", "ai sdk multi-tool execute second finish");
+			eq(multiToolResult.events[9].text, "Both reads completed.", "ai sdk multi-tool final text event");
+			assertToolOutcome(multiToolResult.tool);
+			assertAssistantTwoToolParts(multiToolResult.messages[1].parts, "Both reads completed.");
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			// Smoke cleanup must catch arbitrary Haxe/JS failures so the temp
@@ -246,6 +266,41 @@ class SessionProcessorSmoke {
 				eq(finish.reason, "stop", label + " step finish reason");
 			case _:
 				throw label + ": expected step-finish part";
+		}
+	}
+
+	static function assertAssistantTwoToolParts(parts:Array<Part>, expectedText:String):Void {
+		eq(parts.length, 5, "multi-tool assistant part count");
+		switch parts[0] {
+			case StepStartPart(_):
+			case _:
+				throw "multi-tool: expected step-start part";
+		}
+		switch parts[1] {
+			case ToolPart(tool):
+				eq(tool.callID, "tool_1", "multi-tool first call id");
+				assertCompleted(tool.state);
+			case _:
+				throw "multi-tool: expected first tool part";
+		}
+		switch parts[2] {
+			case ToolPart(tool):
+				eq(tool.callID, "tool_2", "multi-tool second call id");
+				assertCompleted(tool.state);
+			case _:
+				throw "multi-tool: expected second tool part";
+		}
+		switch parts[3] {
+			case TextPart(text):
+				eq(text.text, expectedText, "multi-tool assistant text");
+			case _:
+				throw "multi-tool: expected text part";
+		}
+		switch parts[4] {
+			case StepFinishPart(finish):
+				eq(finish.reason, "stop", "multi-tool step finish reason");
+			case _:
+				throw "multi-tool: expected step-finish part";
 		}
 	}
 

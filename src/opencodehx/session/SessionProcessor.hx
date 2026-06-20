@@ -104,6 +104,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final permission:opencodehx.permission.PermissionRuntime;
 	@:optional final toolCall:SessionToolCall;
 	@:optional final continueAfterToolResult:Bool;
+	@:optional final maxToolContinuations:Int;
 }
 
 typedef SessionProcessorResult = {
@@ -151,6 +152,7 @@ class SessionProcessor {
 	public static inline final CREATED_USER = 1000.0;
 	public static inline final CREATED_ASSISTANT = 1001.0;
 	public static inline final COMPLETED_ASSISTANT = 1002.0;
+	public static inline final DEFAULT_TOOL_CONTINUATIONS = 4;
 	static inline final TOOL_STARTED = 1001.25;
 	static inline final TOOL_ENDED = 1001.75;
 
@@ -264,23 +266,39 @@ class SessionProcessor {
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, toolCall, registry,
 			input.permission, events, null, null, aborted, tokens);
 		toolOutcome = assistantMessage.tool;
-		if (!aborted
-			&& input.continueAfterToolResult != false
-			&& input.toolCall == null
-			&& toolOutcome != null
-			&& toolOutcome.success
-			&& toolOutcome.result != null) {
+		var continuationLimit = DEFAULT_TOOL_CONTINUATIONS;
+		final configuredContinuationLimit = input.maxToolContinuations;
+		if (configuredContinuationLimit != null)
+			continuationLimit = configuredContinuationLimit;
+		var continuations = 0;
+		while (!aborted && input.continueAfterToolResult != false && input.toolCall == null && continuations < continuationLimit) {
+			final currentOutcome:SessionToolOutcome = switch toolOutcome {
+				case null:
+					break;
+				case outcome:
+					outcome;
+			}
+			if (!currentOutcome.success || currentOutcome.result == null)
+				break;
+			continuations++;
 			final continuation = @:await AiSdkProvider.stream({
 				model: input.language,
-				prompt: continuationPrompt(prompt, toolOutcome),
+				prompt: continuationPrompt(prompt, currentOutcome),
 				tools: AiSdkProvider.toolsFromRegistry(registry),
 			});
 			final continuationEvents = encodeAiSdkEvents(continuation.events);
 			for (event in continuationEvents)
 				events.push(event);
 			final continuedText = collectText(continuationEvents);
-			if (continuedText != "")
-				replaceAssistantText(assistantMessage.message, continuedText);
+			final nextToolCall = firstModelToolCall(continuation.events);
+			if (nextToolCall != null) {
+				toolOutcome = appendAssistantTool(assistantMessage.message, sessionIDText, input.directory, agent, nextToolCall, registry, input.permission,
+					events);
+			} else {
+				if (continuedText != "")
+					replaceAssistantText(assistantMessage.message, continuedText);
+				break;
+			}
 		}
 
 		if (input.store != null) {
@@ -502,7 +520,7 @@ class SessionProcessor {
 			},
 		});
 		return ToolPart({
-			id: PartID.make(scopedFromSession(TOOL_PART_ID, sessionID)),
+			id: PartID.make(scopedCallPart(TOOL_PART_ID, sessionID, call.id)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "tool",
@@ -521,7 +539,7 @@ class SessionProcessor {
 			time: {start: TOOL_STARTED, end: TOOL_ENDED},
 		});
 		return ToolPart({
-			id: PartID.make(scopedFromSession(TOOL_PART_ID, sessionID)),
+			id: PartID.make(scopedCallPart(TOOL_PART_ID, sessionID, call.id)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "tool",
@@ -647,6 +665,27 @@ class SessionProcessor {
 		return 'User request:\n${prompt}\n\nTool ${outcome.call.tool} returned:\n${output}\n\nAnswer the user using the tool result.';
 	}
 
+	static function appendAssistantTool(message:WithParts, sessionIDText:String, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,
+			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>):SessionToolOutcome {
+		final sessionID = SessionID.make(sessionIDText);
+		final messageID = MessageID.make(scoped(ASSISTANT_ID, sessionIDText));
+		final outcome = executeTool(sessionID, messageID, directory, agent, call, registry, permission, events);
+		insertBeforeAssistantText(message, outcome.part);
+		return outcome;
+	}
+
+	static function insertBeforeAssistantText(message:WithParts, part:Part):Void {
+		for (index in 0...message.parts.length) {
+			switch message.parts[index] {
+				case TextPart(_):
+					message.parts.insert(index, part);
+					return;
+				case _:
+			}
+		}
+		message.parts.push(part);
+	}
+
 	static function replaceAssistantText(message:WithParts, text:String):Void {
 		for (index in 0...message.parts.length) {
 			switch message.parts[index] {
@@ -727,6 +766,10 @@ class SessionProcessor {
 
 	static function scopedFromSession(base:String, sessionID:SessionID):String {
 		return scoped(base, sessionID.toString());
+	}
+
+	static function scopedCallPart(base:String, sessionID:SessionID, callID:String):String {
+		return scoped(base + "_" + sanitizeID(callID), sessionID.toString());
 	}
 
 	static function scoped(base:String, sessionIDText:String):String {
