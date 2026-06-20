@@ -2,6 +2,7 @@ package opencodehx.externs.ai;
 
 import genes.ts.Undefinable;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelV3;
 
 /**
  * Narrow externs for `ai-gateway-provider`.
@@ -12,7 +13,7 @@ import opencodehx.externs.ai.AiSdk.AiLanguageModel;
  * through application code.
  */
 typedef AiGateway = {
-	function chat(model:AiLanguageModel):AiLanguageModel;
+	function chat(model:AiLanguageModelV3):AiLanguageModelV3;
 }
 
 typedef AiGatewayOptionsShape = {
@@ -33,7 +34,7 @@ typedef AiGatewaySettingsShape = {
 typedef AiGatewayFactory = AiGatewaySettings->AiGateway;
 
 typedef AiUnifiedProvider = {
-	function languageModel(modelID:String):AiLanguageModel;
+	function languageModel(modelID:String):AiLanguageModelV3;
 }
 
 typedef AiUnifiedProviderFactory = Void->AiUnifiedProvider;

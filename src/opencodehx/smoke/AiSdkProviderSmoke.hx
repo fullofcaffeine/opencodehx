@@ -42,6 +42,7 @@ class AiSdkProviderSmoke {
 		await(abortStream());
 		openAICompatibleFactory();
 		cloudflareGatewayFactory();
+		anthropicFactory();
 		sdkModelSelection();
 		sdkFailureSelection();
 	}
@@ -111,7 +112,7 @@ class AiSdkProviderSmoke {
 
 	static function openAICompatibleFactory():Void {
 		final registry = new ProviderRegistry({config: sdkConfig(), env: {}, auth: {}});
-		final provider = registry.getProvider(ProviderID.make("sdk-compatible"));
+		final provider = requireProvider(registry.getProvider(ProviderID.make("sdk-compatible")), "sdk-compatible provider");
 		final model = registry.getModel(ProviderID.make("sdk-compatible"), ModelID.make("local-alias"));
 		final resolved = registry.resolveLanguage(model);
 		eq(resolved.sdkModelID, "remote-model", "ai sdk factory model id");
@@ -130,7 +131,7 @@ class AiSdkProviderSmoke {
 			},
 			auth: {},
 		});
-		final provider = registry.getProvider(ProviderID.make("cloudflare-ai-gateway"));
+		final provider = requireProvider(registry.getProvider(ProviderID.make("cloudflare-ai-gateway")), "cloudflare provider");
 		final model = registry.getModel(ProviderID.make("cloudflare-ai-gateway"), ModelID.make("openai/gpt-5.2-codex"));
 		final settings = CloudflareAiGatewayLoader.settings(provider, model);
 		eq(settings.accountId, "fixture-account", "cloudflare account id");
@@ -150,6 +151,31 @@ class AiSdkProviderSmoke {
 		eq(resolved.sdkModelID, "openai/gpt-5.2-codex", "cloudflare sdk model id");
 		eq(resolved.language.modelId, "openai/gpt-5.2-codex", "cloudflare language model id");
 		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "cloudflare language model spec");
+	}
+
+	static function anthropicFactory():Void {
+		final registry = new ProviderRegistry({
+			config: ConfigInfo.empty("fixture-user"),
+			env: {ANTHROPIC_API_KEY: "fixture-anthropic-token"},
+			auth: {},
+		});
+		final provider = requireProvider(registry.getProvider(ProviderID.make("anthropic")), "anthropic provider");
+		final model = registry.getModel(ProviderID.make("anthropic"), ModelID.make("claude-haiku-4-5"));
+		final settings = AiSdkLanguageLoader.anthropicFactoryOptions(provider, model);
+		eq(settings.name.orNull(), "anthropic", "anthropic provider name");
+		eq(settings.baseURL.orNull(), "https://api.anthropic.com/v1", "anthropic base url");
+		eq(settings.apiKey.orNull(), "fixture-anthropic-token", "anthropic api key");
+		final headers = settings.headers.orNull();
+		if (headers == null)
+			throw "anthropic headers: expected default beta headers";
+		eq(headers.get("anthropic-beta"), "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14", "anthropic beta header");
+
+		final resolved = registry.resolveLanguage(model);
+		eq(resolved.sdkModelID, "claude-haiku-4-5", "anthropic sdk model id");
+		eq(resolved.method, AiSdkModelMethod.LanguageModel, "anthropic model method");
+		eq(resolved.language.modelId, "claude-haiku-4-5", "anthropic language model id");
+		eq(resolved.language.provider, "anthropic", "anthropic language provider");
+		eq(resolved.language.specificationVersion, "v2", "anthropic language model spec");
 	}
 
 	static function sdkModelSelection():Void {
@@ -271,6 +297,12 @@ class AiSdkProviderSmoke {
 
 	static function model(providerID:String, modelID:String, npm:String, ?options:ProviderOptions):ProviderModel {
 		return modelWithApiURL(providerID, modelID, npm, "https://llm.example.test/v1", options);
+	}
+
+	static function requireProvider(provider:Null<ProviderInfo>, label:String):ProviderInfo {
+		if (provider == null)
+			throw '${label}: expected provider';
+		return provider;
 	}
 
 	static function modelWithApiURL(providerID:String, modelID:String, npm:String, apiURL:String, ?options:ProviderOptions):ProviderModel {

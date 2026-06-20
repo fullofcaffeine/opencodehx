@@ -14,7 +14,7 @@ This slice adds the first Haxe-owned provider registry:
 - `FakeProvider` now uses the same typed provider/model records as the registry instead of local duplicate DTOs.
 - `opencodehx.provider.AiSdkProvider` adds the first AI SDK `streamText` facade through narrow Haxe externs.
 - `opencodehx.smoke.AiSdkProviderSmoke` exercises credential-free AI SDK streaming via `ai/test` `MockLanguageModelV3`.
-- `opencodehx.provider.AiSdkLanguageLoader` resolves the first real bundled SDK factory paths through `@ai-sdk/openai-compatible` and `@ai-sdk/amazon-bedrock`.
+- `opencodehx.provider.AiSdkLanguageLoader` resolves the first real bundled SDK factory paths through `@ai-sdk/openai-compatible`, `@ai-sdk/anthropic`, and `@ai-sdk/amazon-bedrock`.
 - `opencodehx.provider.BedrockLanguageLoader` ports Bedrock cross-region inference-profile model ID selection before SDK `languageModel(...)` calls.
 - `opencodehx.provider.ProviderTransform` ports the first pure provider request-option transforms from upstream.
 - `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
@@ -49,6 +49,7 @@ This slice adds the first Haxe-owned provider registry:
 - Provider lookup, model sort, and closest-model helpers, including missing providers, no-match queries, and ordered multi-term matching.
 - Auth file-shaped API keys.
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
+- Anthropic env autoload, default beta headers, no-network `@ai-sdk/anthropic` `languageModel(...)` resolution, and the current SDK's `LanguageModelV2` descriptor shape.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, OpenCode/GitHub Copilot small-model priority, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
 - Cloudflare AI Gateway env autoload for `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, and `CLOUDFLARE_API_TOKEN`, preservation of configured `options.metadata`, and no-network AI SDK factory/model resolution through `ai-gateway-provider`.
 - GitLab Duo registry loading for `GITLAB_TOKEN`, config `options.apiKey`, API-auth keys, OAuth access-token auth shape, `GITLAB_INSTANCE_URL`, default/custom AI Gateway headers, feature flags, and static `duo-chat-*` models.
@@ -64,7 +65,7 @@ This slice adds the first Haxe-owned provider registry:
 - Stream error callback handling and final error finish reason.
 - Abort propagation through `AbortController`.
 - AI SDK usage aggregation and finish reason typing.
-- Credential-free provider factory paths from Haxe config through `ProviderRegistry.resolveLanguage`, including OpenAI-compatible alias-to-upstream model ID selection and Bedrock no-network factory/model selection.
+- Credential-free provider factory paths from Haxe config through `ProviderRegistry.resolveLanguage`, including OpenAI-compatible alias-to-upstream model ID selection and Anthropic/Bedrock no-network factory/model selection.
 - Cloudflare AI Gateway no-network factory/model selection, including account ID, gateway ID, API key, cache key, cache TTL, cache skipping, log collection, and opaque metadata forwarding.
 - Typed SDK loader failure paths for unsupported bundled packages, missing `api`/`baseURL`, and missing `chat(...)`/`responses(...)` methods.
 
@@ -204,7 +205,9 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 
 `opencodehx.externs.web.WebStreams` owns the current Web stream extern gap. Haxe 4.3's `js.html.Response` does not expose the standard `body` property, so the structural cast is localized in `WebResponseStreams.body`; provider code consumes a typed `ReadableStream<Uint8Array>` reader.
 
-The AI SDK boundary is intentionally named and narrow. `AiSdk.hx` uses raw `@:ts.type(...)` for SDK-owned declaration surfaces such as `LanguageModelV3`, call options, generated content, stream parts, provider metadata, OpenAI-compatible/Bedrock factory settings, `Tool`, and `JSONSchema7`. Each raw alias has a Haxe backing shape where OpenCodeHX needs to read or construct values, so production provider code can satisfy SDK contracts structurally instead of casting. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
+The AI SDK boundary is intentionally named and narrow. `AiSdk.hx` uses raw `@:ts.type(...)` for SDK-owned declaration surfaces such as language models, call options, generated content, stream parts, provider metadata, OpenAI-compatible/Anthropic/Bedrock factory settings, `Tool`, and `JSONSchema7`. Each raw alias has a Haxe backing shape where OpenCodeHX needs to read or construct values, so production provider code can satisfy SDK contracts structurally instead of casting. `genes.ts.Undefinable<T>` is used for SDK options that require JavaScript `undefined` rather than Haxe `null`.
+
+Do not assume every loaded AI SDK package returns `LanguageModelV3`. The public `ai.streamText` model input accepts both `LanguageModelV2` and `LanguageModelV3`, and the current `@ai-sdk/anthropic` factory returns a `LanguageModelV2` descriptor. OpenCodeHX therefore uses a V2/V3 union for loaded SDK models, while keeping V3-specific DTOs and a V3-only bridge for Haxe-owned adapters and SDKs such as Cloudflare AI Gateway that explicitly require V3 models.
 
 Bedrock bearer auth is passed as an explicit SDK `apiKey` instead of mutating `process.env`. When no bearer token exists, `AwsCredentialProvider` is an opaque exact-TS bridge for the SDK's `credentialProvider` field, produced by `@aws-sdk/credential-providers` and never inspected in Haxe.
 
@@ -220,7 +223,7 @@ OpenCode provider paid-model filtering intentionally mirrors upstream's listing 
 
 This is not the full provider runtime:
 
-- More bundled providers beyond OpenAI-compatible/Bedrock/Cloudflare AI Gateway, non-bundled dynamic provider installation/loading, deeper provider-specific request options, live Bedrock credential-chain/signing evidence, Cloudflare user-agent/header parity once the SDK exposes a typed seam, and real external plugin runtime/loading hooks remain `opencodehx-nrh`.
+- More bundled providers beyond OpenAI-compatible/Anthropic/Bedrock/Cloudflare AI Gateway, non-bundled dynamic provider installation/loading, deeper provider-specific request options, live Bedrock credential-chain/signing evidence, Cloudflare user-agent/header parity once the SDK exposes a typed seam, and real external plugin runtime/loading hooks remain `opencodehx-nrh`.
 - Deeper Copilot Responses parity remains provider-runtime scope: provider-executed tool argument schemas, richer annotations/logprobs, image/code/file-search payload details, and live session-loop consumption need broader upstream fixtures before they should be treated as complete.
 - GitLab live workflow model discovery, `gitlab-ai-provider` model-class routing, OAuth browser/login flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 - Completion mapping into the full async session loop remains deferred until the provider/session integration slice owns live stream consumption.

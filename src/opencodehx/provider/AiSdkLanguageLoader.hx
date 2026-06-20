@@ -7,6 +7,8 @@ import haxe.Exception;
 import opencodehx.externs.aws.AwsCredentialProviders.AwsCredentialProvider;
 import opencodehx.externs.aws.AwsCredentialProviders.AwsNodeProviderChainFactory;
 import opencodehx.externs.aws.AwsCredentialProviders.AwsNodeProviderChainOptions;
+import opencodehx.externs.ai.AiSdk.AiAnthropicFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiAnthropicProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiBedrockFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiBedrockProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
@@ -41,6 +43,7 @@ class AiSdkLanguageLoader {
 	static final createOpenAICompatible:AiSdkProviderFactory = Imports.namedImport("@ai-sdk/openai-compatible", "createOpenAICompatible",
 		"createOpenAICompatible");
 	static final createAmazonBedrock:AiBedrockProviderFactory = Imports.namedImport("@ai-sdk/amazon-bedrock", "createAmazonBedrock", "createAmazonBedrock");
+	static final createAnthropic:AiAnthropicProviderFactory = Imports.namedImport("@ai-sdk/anthropic", "createAnthropic", "createAnthropic");
 	static final fromNodeProviderChain:AwsNodeProviderChainFactory = Imports.namedImport("@aws-sdk/credential-providers", "fromNodeProviderChain",
 		"fromNodeProviderChain");
 
@@ -66,6 +69,8 @@ class AiSdkLanguageLoader {
 				createOpenAICompatible(factoryOptions(provider, model));
 			case "@ai-sdk/amazon-bedrock":
 				createAmazonBedrock(bedrockFactoryOptions(provider, model));
+			case "@ai-sdk/anthropic":
+				createAnthropic(anthropicFactoryOptions(provider, model));
 			case "ai-gateway-provider":
 				CloudflareAiGatewayLoader.sdk(provider, model);
 			case npm:
@@ -123,6 +128,16 @@ class AiSdkLanguageLoader {
 			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
 			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
 			credentialProvider: apiKey == null || apiKey == "" ? bedrockCredentialProvider(provider) : Undefinable.absent(),
+		};
+	}
+
+	public static function anthropicFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiAnthropicFactoryOptions {
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		return {
+			name: stringOrAbsent(provider.id.toString()),
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
 		};
 	}
 

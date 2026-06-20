@@ -150,6 +150,13 @@ typedef AiBedrockFactoryOptionsShape = {
 	final credentialProvider:Undefinable<AwsCredentialProvider>;
 }
 
+typedef AiAnthropicFactoryOptionsShape = {
+	final name:Undefinable<String>;
+	final baseURL:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+}
+
 typedef AiSdkBundledProvider = {
 	function languageModel(modelID:String):AiLanguageModel;
 	@:optional final chat:String->AiLanguageModel;
@@ -158,6 +165,7 @@ typedef AiSdkBundledProvider = {
 
 typedef AiSdkProviderFactory = AiSdkFactoryOptions->AiSdkBundledProvider;
 typedef AiBedrockProviderFactory = AiBedrockFactoryOptions->AiSdkBundledProvider;
+typedef AiAnthropicProviderFactory = AiAnthropicFactoryOptions->AiSdkBundledProvider;
 
 @:ts.type("'v3'")
 enum abstract AiLanguageModelSpecificationVersion(String) from String to String {
@@ -538,7 +546,7 @@ typedef AiLanguageModelStreamPartShape = {
 }
 
 typedef AiLanguageModelShape = {
-	final specificationVersion:AiLanguageModelSpecificationVersion;
+	final specificationVersion:String;
 	final provider:String;
 	final modelId:String;
 	final supportedUrls:AiSupportedUrls;
@@ -570,16 +578,40 @@ abstract AiSdkFactoryOptions(AiSdkFactoryOptionsShape) from AiSdkFactoryOptionsS
 abstract AiBedrockFactoryOptions(AiBedrockFactoryOptionsShape) from AiBedrockFactoryOptionsShape to AiBedrockFactoryOptionsShape {}
 
 /**
- * Type-only bridge for AI SDK `LanguageModelV3`.
+ * Type-only bridge for AI SDK language models accepted by `streamText`.
  *
- * The emitted TypeScript should name the SDK interface, while Haxe still needs
- * enough structure to let Haxe-owned provider classes satisfy it without a
- * production cast. Keep this bridge at the extern boundary and model only the
- * stable contract consumed by OpenCodeHX.
+ * Some bundled providers still expose `LanguageModelV2` while Haxe-owned
+ * adapters implement `LanguageModelV3`. The public `ai` package accepts both.
+ * Keep V3 call-option/result types on Haxe-owned adapters, but use the V2/V3
+ * union at the provider-loading boundary so real SDK packages do not need
+ * casts or false runtime-version assertions.
+ */
+@:forward(specificationVersion, provider, modelId, supportedUrls, doGenerate, doStream)
+@:ts.type("import('@ai-sdk/provider').LanguageModelV3 | import('@ai-sdk/provider').LanguageModelV2")
+abstract AiLanguageModel(AiLanguageModelShape) from AiLanguageModelShape to AiLanguageModelShape {}
+
+/**
+ * V3-only model bridge for SDKs that explicitly reject V2 models.
+ *
+ * Most OpenCodeHX runtime code should use `AiLanguageModel`, the V2/V3 union
+ * accepted by `ai.streamText`. Cloudflare AI Gateway is narrower: its wrapper
+ * combines only `LanguageModelV3` instances, so its extern needs this exact
+ * type to keep TypeScript assignability honest.
  */
 @:forward(specificationVersion, provider, modelId, supportedUrls, doGenerate, doStream)
 @:ts.type("import('@ai-sdk/provider').LanguageModelV3")
-abstract AiLanguageModel(AiLanguageModelShape) from AiLanguageModelShape to AiLanguageModelShape {}
+abstract AiLanguageModelV3(AiLanguageModelShape) from AiLanguageModelShape to AiLanguageModelShape to AiLanguageModel {}
+
+/**
+ * Type-only bridge for Anthropic provider settings.
+ *
+ * Anthropic has a default API base URL and currently exposes a LanguageModelV2
+ * provider surface, so it cannot reuse the OpenAI-compatible settings bridge
+ * without either forcing a fake baseURL or lying about the returned model type.
+ */
+@:forward(name, baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/anthropic').AnthropicProviderSettings")
+abstract AiAnthropicFactoryOptions(AiAnthropicFactoryOptionsShape) from AiAnthropicFactoryOptionsShape to AiAnthropicFactoryOptionsShape {}
 
 /**
  * Type-only bridge for AI SDK `Tool`.
