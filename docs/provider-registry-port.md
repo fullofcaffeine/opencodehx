@@ -64,6 +64,7 @@ This slice adds the first Haxe-owned provider registry:
 - Abort propagation through `AbortController`.
 - AI SDK usage aggregation and finish reason typing.
 - Credential-free provider factory paths from Haxe config through `ProviderRegistry.resolveLanguage`, including OpenAI-compatible alias-to-upstream model ID selection and Bedrock no-network factory/model selection.
+- Typed SDK loader failure paths for unsupported bundled packages, missing `api`/`baseURL`, and missing `chat(...)`/`responses(...)` methods.
 
 `ProviderTransformSmoke` covers the first upstream `provider/transform.test.ts` subset:
 

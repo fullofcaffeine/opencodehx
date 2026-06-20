@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import haxe.DynamicAccess;
+import haxe.Exception;
 import js.lib.Promise;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.ConfigProviderConfig;
@@ -40,6 +41,7 @@ class AiSdkProviderSmoke {
 		await(abortStream());
 		openAICompatibleFactory();
 		sdkModelSelection();
+		sdkFailureSelection();
 	}
 
 	@:async
@@ -139,6 +141,19 @@ class AiSdkProviderSmoke {
 		eq(azureFallback.language.modelId, "languageModel:gpt-4.1", "azure languageModel fallback");
 	}
 
+	static function sdkFailureSelection():Void {
+		expectFailure(() -> AiSdkLanguageLoader.resolve(provider("unsupported"), model("unsupported", "chat", "@ai-sdk/not-installed")),
+			"unsupported sdk package", "Unsupported bundled AI SDK provider: @ai-sdk/not-installed");
+		expectFailure(() -> AiSdkLanguageLoader.factoryOptions(provider("missing-url"),
+			modelWithApiURL("missing-url", "chat", "@ai-sdk/openai-compatible", "")),
+			"missing sdk base url", "Provider missing-url model chat needs api/baseURL before SDK loading");
+		expectFailure(() -> AiSdkLanguageLoader.resolveWithSdk(chatOnlySdk(), provider("openai"), model("openai", "gpt-5.2", "@ai-sdk/openai")),
+			"missing responses method", "AI SDK provider does not expose responses(modelID) for gpt-5.2");
+		expectFailure(() -> AiSdkLanguageLoader.resolveWithSdk(responsesOnlySdk(), provider("azure"),
+			model("azure", "gpt-4.1", "@ai-sdk/azure", useCompletionUrlsOptions())),
+			"missing chat method", "AI SDK provider does not expose chat(modelID) for gpt-4.1");
+	}
+
 	static function sdkConfig():ConfigInfo {
 		final info = ConfigInfo.empty("fixture-user");
 		final providers = new DynamicAccess<ConfigProviderConfig>();
@@ -198,12 +213,16 @@ class AiSdkProviderSmoke {
 	}
 
 	static function model(providerID:String, modelID:String, npm:String, ?options:ProviderOptions):ProviderModel {
+		return modelWithApiURL(providerID, modelID, npm, "https://llm.example.test/v1", options);
+	}
+
+	static function modelWithApiURL(providerID:String, modelID:String, npm:String, apiURL:String, ?options:ProviderOptions):ProviderModel {
 		return {
 			id: ModelID.make(modelID),
 			providerID: ProviderID.make(providerID),
 			name: modelID,
 			capabilities: capabilities(),
-			api: {id: modelID, url: "https://llm.example.test/v1", npm: npm},
+			api: {id: modelID, url: apiURL, npm: npm},
 			cost: cost(),
 			limit: limit(),
 			status: "active",
@@ -225,6 +244,20 @@ class AiSdkProviderSmoke {
 	static function languageModelOnlySdk():AiSdkBundledProvider {
 		return {
 			languageModel: id -> fixtureLanguage("languageModel", id),
+		};
+	}
+
+	static function chatOnlySdk():AiSdkBundledProvider {
+		return {
+			languageModel: id -> fixtureLanguage("languageModel", id),
+			chat: id -> fixtureLanguage("chat", id),
+		};
+	}
+
+	static function responsesOnlySdk():AiSdkBundledProvider {
+		return {
+			languageModel: id -> fixtureLanguage("languageModel", id),
+			responses: id -> fixtureLanguage("responses", id),
 		};
 	}
 
@@ -316,6 +349,17 @@ class AiSdkProviderSmoke {
 				total++;
 		}
 		return total;
+	}
+
+	static function expectFailure(run:() -> Void, label:String, contains:String):Void {
+		try {
+			run();
+		} catch (error:Exception) {
+			if (error.message.indexOf(contains) != -1)
+				return;
+			throw '${label}: expected failure containing ${contains}, got ${error.message}';
+		}
+		throw '${label}: expected failure';
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

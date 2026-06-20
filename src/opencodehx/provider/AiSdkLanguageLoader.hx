@@ -3,6 +3,7 @@ package opencodehx.provider;
 import genes.ts.Imports;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
+import haxe.Exception;
 import opencodehx.externs.aws.AwsCredentialProviders.AwsCredentialProvider;
 import opencodehx.externs.aws.AwsCredentialProviders.AwsNodeProviderChainFactory;
 import opencodehx.externs.aws.AwsCredentialProviders.AwsNodeProviderChainOptions;
@@ -66,7 +67,7 @@ class AiSdkLanguageLoader {
 			case "@ai-sdk/amazon-bedrock":
 				createAmazonBedrock(bedrockFactoryOptions(provider, model));
 			case npm:
-				throw 'Unsupported bundled AI SDK provider: ${npm}';
+				throw new Exception('Unsupported bundled AI SDK provider: ${npm}');
 		}
 	}
 
@@ -100,7 +101,7 @@ class AiSdkLanguageLoader {
 	public static function factoryOptions(provider:ProviderInfo, model:ProviderModel):AiSdkFactoryOptions {
 		final baseURL = ProviderOptionAccess.baseURL(provider.options, model);
 		if (baseURL == null || baseURL == "")
-			throw 'Provider ${provider.id} model ${model.id} needs api/baseURL before SDK loading';
+			throw new Exception('Provider ${provider.id} model ${model.id} needs api/baseURL before SDK loading');
 		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
 		final includeUsage = ProviderOptionAccess.bool(provider.options, "includeUsage", true);
 		return {
@@ -150,12 +151,12 @@ class AiSdkLanguageLoader {
 			case Chat:
 				final chat = sdk.chat;
 				if (chat == null)
-					throw 'AI SDK provider does not expose chat(modelID) for ${sdkModelID}';
+					throw new Exception('AI SDK provider does not expose chat(modelID) for ${sdkModelID}');
 				chat(sdkModelID);
 			case Responses:
 				final responses = sdk.responses;
 				if (responses == null)
-					throw 'AI SDK provider does not expose responses(modelID) for ${sdkModelID}';
+					throw new Exception('AI SDK provider does not expose responses(modelID) for ${sdkModelID}');
 				responses(sdkModelID);
 		}
 	}
