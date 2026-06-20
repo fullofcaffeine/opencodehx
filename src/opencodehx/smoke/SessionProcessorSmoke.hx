@@ -1,11 +1,13 @@
 package opencodehx.smoke;
 
+import genes.js.Async.await;
 import opencodehx.config.ConfigInfo;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
 import opencodehx.permission.PermissionRuntime;
 import opencodehx.permission.PermissionTypes.PermissionAskRecord;
+import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
 import opencodehx.session.MessageTypes.Info;
 import opencodehx.session.MessageTypes.Part;
@@ -15,6 +17,7 @@ import opencodehx.session.SessionID;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionRetry.SessionProviderError;
 import opencodehx.storage.SqliteSessionStore;
+import js.lib.Promise;
 
 class SessionProcessorSmoke {
 	public static function run():Void {
@@ -49,7 +52,7 @@ class SessionProcessorSmoke {
 
 			eq(result.messages.length, 2, "processor message count");
 			eq(result.events.length, 5, "processor event count");
-			eq(Reflect.field(result.events[3], "type"), "tool-call-start", "tool start event");
+			eq(result.events[3].type, "tool-call-start", "tool start event");
 			eq(prompts.length, 1, "permission prompt count");
 			eq(prompts[0].permission, "read", "permission name");
 			eq(prompts[0].tool.messageID, SessionProcessor.ASSISTANT_ID, "permission message id");
@@ -71,6 +74,46 @@ class SessionProcessorSmoke {
 			// Smoke cleanup must catch arbitrary Haxe/JS failures so the temp
 			// database is removed before rethrowing the original assertion error.
 			store.close();
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
+	@:async
+	public static function runAsync():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-session-processor-async-"));
+		try {
+			final fixture = new FakeProvider();
+			final result = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_one",
+				prompt: "Say hello through the SDK runtime.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
+			});
+			eq(result.provider.id, "openai", "ai sdk session provider");
+			eq(result.request.system[0], "You are an AI SDK provider runtime.", "ai sdk session system");
+			eq(result.events.length, 4, "ai sdk session event count");
+			eq(result.events[0].type, "start", "ai sdk session start event");
+			eq(result.events[1].text, "Hello ", "ai sdk session first delta");
+			switch result.messages[1].info {
+				case AssistantInfo(assistant):
+					eq(assistant.modelID, "gpt-5.2", "ai sdk session assistant model");
+					eq(assistant.tokens.total, 7.0, "ai sdk session total tokens");
+				case _:
+					throw "session processor async: expected assistant info";
+			}
+			switch result.messages[1].parts[0] {
+				case TextPart(text):
+					eq(text.text, "Hello from the AI SDK session.", "ai sdk session text");
+				case _:
+					throw "session processor async: expected assistant text";
+			}
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			// Smoke cleanup must catch arbitrary Haxe/JS failures so the temp
+			// directory is removed before rethrowing the original assertion error.
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
@@ -131,7 +174,7 @@ class SessionProcessorSmoke {
 			aborted: true,
 		});
 		eq(result.aborted == true, true, "abort result flag");
-		eq(Reflect.field(result.events[1], "type"), "abort", "abort event");
+		eq(result.events[1].type, "abort", "abort event");
 		switch result.messages[1].info {
 			case AssistantInfo(assistant):
 				eq(Reflect.field(assistant.error, "name"), "AbortedError", "assistant abort error");

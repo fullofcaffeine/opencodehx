@@ -122,6 +122,10 @@ class Main {
 				log("skill-smoke:ok");
 				SessionProcessorSmoke.run();
 				log("session-processor-smoke:ok");
+				return SessionProcessorSmoke.runAsync();
+			})
+			.then(_ -> {
+				log("session-processor-async-smoke:ok");
 				return PtySmoke.run();
 			})
 			.then(_ -> {

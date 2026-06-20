@@ -1,8 +1,17 @@
 package opencodehx.session;
 
+import genes.js.Async.await;
+import js.lib.Promise;
 import opencodehx.BuildInfo;
+import opencodehx.externs.ai.AiSdk.AiFinishReason;
+import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelUsage;
+import opencodehx.provider.AiSdkProvider;
+import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
 import opencodehx.provider.FakeProvider;
 import opencodehx.provider.FakeProvider.FakeProviderEvent;
+import opencodehx.provider.ProviderTypes.ProviderInfo;
+import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.session.MessageTypes.AssistantMessage;
 import opencodehx.session.MessageTypes.Info;
 import opencodehx.session.MessageTypes.Part;
@@ -38,6 +47,29 @@ typedef SessionToolOutcome = {
 	@:optional final error:String;
 }
 
+typedef SessionEvent = {
+	final type:String;
+	@:optional final attempt:Int;
+	@:optional final nextDelay:Float;
+	@:optional final message:String;
+	@:optional final text:String;
+	@:optional final reason:String;
+	@:optional final callID:String;
+	@:optional final tool:String;
+	@:optional final status:String;
+	@:optional final error:String;
+	@:optional final auto:Bool;
+	@:optional final overflow:Bool;
+	@:optional final count:Float;
+	@:optional final usable:Float;
+}
+
+typedef SessionProviderIdentity = {
+	final info:ProviderInfo;
+	final model:ProviderModel;
+	final system:Array<String>;
+}
+
 typedef SessionProcessorInput = {
 	final prompt:String;
 	final directory:String;
@@ -55,6 +87,22 @@ typedef SessionProcessorInput = {
 	@:optional final toolCall:SessionToolCall;
 }
 
+typedef SessionAiSdkProcessorInput = {
+	final prompt:String;
+	final directory:String;
+	final provider:ProviderInfo;
+	final model:ProviderModel;
+	final language:AiLanguageModel;
+	@:optional final sessionID:String;
+	@:optional final projectID:String;
+	@:optional final agent:String;
+	@:optional final aborted:Bool;
+	@:optional final store:SessionStore;
+	@:optional final registry:ToolRegistry;
+	@:optional final permission:opencodehx.permission.PermissionRuntime;
+	@:optional final toolCall:SessionToolCall;
+}
+
 typedef SessionProcessorResult = {
 	final provider:{
 		final id:String;
@@ -67,9 +115,10 @@ typedef SessionProcessorResult = {
 		final system:Array<String>;
 		final tools:Array<String>;
 	};
-	// Provider/status/server events are still an upstream-shaped JSON boundary.
-	// Durable event domains should move to typed enums as their owners land.
-	final events:Array<Dynamic>;
+	// Provider/status/server events are still an upstream-shaped JSON boundary,
+	// but the current known fields stay typed so generated TS does not fall
+	// back to `any[]` for normal session event handling.
+	final events:Array<SessionEvent>;
 	final messages:Array<WithParts>;
 	@:optional final retry:SessionRetryStatus;
 	@:optional final compaction:SessionCompactionResult;
@@ -107,14 +156,15 @@ class SessionProcessor {
 		final sessionIDText = fallback(input.sessionID, SESSION_ID);
 		final projectID = fallback(input.projectID, "proj_fixture");
 		final agent = fallback(input.agent, "fixture");
-		final provider = input.provider == null ? new FakeProvider() : input.provider;
-		final registry = input.registry == null ? new ToolRegistry() : input.registry;
+		final fixtureProvider = input.provider == null ? new FakeProvider() : input.provider;
+		final provider = providerIdentity(fixtureProvider.info, fixtureProvider.model, ["You are a deterministic fixture provider."]);
+		final registry:ToolRegistry = input.registry == null ? new ToolRegistry() : input.registry;
 		var retryAttempt = 1;
 		final configuredRetryAttempt = input.retryAttempt;
 		if (configuredRetryAttempt != null)
 			retryAttempt = configuredRetryAttempt;
 		final retry = input.providerError == null ? null : SessionRetry.status(input.providerError, retryAttempt);
-		final events:Array<Dynamic> = [];
+		final events:Array<SessionEvent> = [];
 		if (retry != null) {
 			events.push({
 				type: "retry",
@@ -128,7 +178,7 @@ class SessionProcessor {
 			events.push({type: "start"});
 			events.push({type: "abort", message: "User aborted the request"});
 		} else {
-			for (event in encodeEvents(provider.stream(prompt)))
+			for (event in encodeEvents(fixtureProvider.stream(prompt)))
 				events.push(event);
 		}
 		final assistantText = collectText(events);
@@ -146,16 +196,15 @@ class SessionProcessor {
 			});
 		}
 		final text = aborted ? "Request aborted." : assistantText;
+		final tokens = tokenUsage();
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, input.toolCall, registry,
-			input.permission, events, retry, input.providerError, aborted);
+			input.permission, events, retry, input.providerError, aborted, tokens);
 
 		if (input.store != null) {
 			persist(input.store, projectID, sessionIDText, input.directory, userMessage, assistantMessage.message);
 		}
 
-		// Dynamic is contained to constructing an output record with optional
-		// fields whose presence mirrors upstream transcript JSON.
-		final result:Dynamic = {
+		return {
 			provider: {
 				id: provider.info.id,
 				modelID: provider.model.id,
@@ -164,21 +213,72 @@ class SessionProcessor {
 			request: {
 				sessionID: sessionIDText,
 				prompt: prompt,
-				system: ["You are a deterministic fixture provider."],
+				system: provider.system,
 				tools: transcriptTools(),
 			},
 			events: events,
 			messages: [userMessage, assistantMessage.message],
+			retry: retry,
+			compaction: compaction,
+			aborted: aborted ? true : null,
+			tool: assistantMessage.tool,
 		};
-		if (retry != null)
-			Reflect.setField(result, "retry", retry);
-		if (compaction != null)
-			Reflect.setField(result, "compaction", compaction);
-		if (aborted)
-			Reflect.setField(result, "aborted", true);
-		if (assistantMessage.tool != null)
-			Reflect.setField(result, "tool", assistantMessage.tool);
-		return cast result;
+	}
+
+	@:async
+	public static function runAiSdk(input:SessionAiSdkProcessorInput):Promise<SessionProcessorResult> {
+		final prompt = normalizePrompt(input.prompt);
+		final sessionIDText = fallback(input.sessionID, SESSION_ID);
+		final projectID = fallback(input.projectID, "proj_fixture");
+		final agent = fallback(input.agent, "primary");
+		final provider = providerIdentity(input.provider, input.model, ["You are an AI SDK provider runtime."]);
+		final registry:ToolRegistry = input.registry == null ? new ToolRegistry() : input.registry;
+		final events:Array<SessionEvent> = [];
+		final aborted = input.aborted == true;
+		var tokens = tokenUsage();
+		if (aborted) {
+			events.push({type: "start"});
+			events.push({type: "abort", message: "User aborted the request"});
+		} else {
+			events.push({type: "start"});
+			final stream = @:await AiSdkProvider.stream({
+				model: input.language,
+				prompt: prompt,
+			});
+			tokens = tokenUsageFromAiSdk(stream.totalUsage);
+			for (event in encodeAiSdkEvents(stream.events))
+				events.push(event);
+		}
+
+		final assistantText = collectText(events);
+		final userMessage = userWithParts(sessionIDText, prompt, agent, provider);
+		final text = aborted ? "Request aborted." : assistantText;
+		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, input.toolCall, registry,
+			input.permission, events, null, null, aborted, tokens);
+
+		if (input.store != null) {
+			persist(input.store, projectID, sessionIDText, input.directory, userMessage, assistantMessage.message);
+		}
+
+		return {
+			provider: {
+				id: provider.info.id,
+				modelID: provider.model.id,
+				source: provider.info.source,
+			},
+			request: {
+				sessionID: sessionIDText,
+				prompt: prompt,
+				system: provider.system,
+				tools: transcriptTools(),
+			},
+			events: events,
+			messages: [userMessage, assistantMessage.message],
+			retry: null,
+			compaction: null,
+			aborted: aborted ? true : null,
+			tool: assistantMessage.tool,
+		};
 	}
 
 	public static function recover(store:SessionStore, sessionIDText:String, ?limit:Int):SessionRecovery {
@@ -207,7 +307,7 @@ class SessionProcessor {
 		};
 	}
 
-	static function userWithParts(sessionIDText:String, prompt:String, agent:String, provider:FakeProvider):WithParts {
+	static function userWithParts(sessionIDText:String, prompt:String, agent:String, provider:SessionProviderIdentity):WithParts {
 		final sessionID = SessionID.make(sessionIDText);
 		final messageID = MessageID.make(scoped(USER_ID, sessionIDText));
 		final info:UserMessage = {
@@ -236,16 +336,15 @@ class SessionProcessor {
 		return {info: UserInfo(info), parts: [TextPart(text)]};
 	}
 
-	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:FakeProvider,
-			toolCall:Null<SessionToolCall>, registry:ToolRegistry, permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<Dynamic>,
-			retry:Null<SessionRetryStatus>, providerError:Null<SessionProviderError>, aborted:Bool):{
+	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:SessionProviderIdentity,
+			toolCall:Null<SessionToolCall>, registry:ToolRegistry, permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>,
+			retry:Null<SessionRetryStatus>, providerError:Null<SessionProviderError>, aborted:Bool, tokens:TokenUsage):{
 		final message:WithParts;
 		final tool:Null<SessionToolOutcome>;
 	} {
 		final sessionID = SessionID.make(sessionIDText);
 		final messageID = MessageID.make(scoped(ASSISTANT_ID, sessionIDText));
 		final parentID = userID(parentInfo);
-		final tokens = tokenUsage();
 		final info:AssistantMessage = {
 			id: messageID,
 			sessionID: sessionID,
@@ -317,7 +416,7 @@ class SessionProcessor {
 	}
 
 	static function executeTool(sessionID:SessionID, messageID:MessageID, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,
-			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<Dynamic>):SessionToolOutcome {
+			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>):SessionToolOutcome {
 		events.push({type: "tool-call-start", callID: call.id, tool: call.tool});
 		final ctx:ToolContext = {
 			directory: directory,
@@ -437,8 +536,16 @@ class SessionProcessor {
 		};
 	}
 
-	static function encodeEvents(events:Array<FakeProviderEvent>):Array<Dynamic> {
-		final encoded:Array<Dynamic> = [];
+	static function providerIdentity(info:ProviderInfo, model:ProviderModel, system:Array<String>):SessionProviderIdentity {
+		return {
+			info: info,
+			model: model,
+			system: system,
+		};
+	}
+
+	static function encodeEvents(events:Array<FakeProviderEvent>):Array<SessionEvent> {
+		final encoded:Array<SessionEvent> = [];
 		for (event in events) {
 			switch event {
 				case StreamStart:
@@ -452,11 +559,32 @@ class SessionProcessor {
 		return encoded;
 	}
 
-	static function collectText(events:Array<Dynamic>):String {
+	static function encodeAiSdkEvents(events:Array<AiSdkStreamEvent>):Array<SessionEvent> {
+		final encoded:Array<SessionEvent> = [];
+		for (event in events) {
+			switch event {
+				case TextDelta(text):
+					encoded.push({type: "text-delta", text: text});
+				case ToolCall(toolCallID, toolName):
+					encoded.push({type: "tool-call", callID: toolCallID, tool: toolName});
+				case ToolResult(toolCallID, toolName):
+					encoded.push({type: "tool-result", callID: toolCallID, tool: toolName});
+				case StreamError(message):
+					encoded.push({type: "error", message: message});
+				case StreamAbort(reason):
+					encoded.push({type: "abort", message: reason});
+				case Finish(reason):
+					encoded.push({type: "finish", reason: finishReasonText(reason)});
+			}
+		}
+		return encoded;
+	}
+
+	static function collectText(events:Array<SessionEvent>):String {
 		final parts:Array<String> = [];
 		for (event in events) {
-			if (Reflect.field(event, "type") == "text-delta")
-				parts.push(Std.string(Reflect.field(event, "text")));
+			if (event.type == "text-delta" && event.text != null)
+				parts.push(event.text);
 		}
 		return parts.join("");
 	}
@@ -469,6 +597,26 @@ class SessionProcessor {
 			reasoning: 0,
 			cache: {read: 0, write: 0},
 		};
+	}
+
+	static function tokenUsageFromAiSdk(usage:AiLanguageModelUsage):TokenUsage {
+		final inputTokens = usage.inputTokens == null ? 0 : usage.inputTokens;
+		final outputTokens = usage.outputTokens == null ? 0 : usage.outputTokens;
+		final reasoningTokens = usage.reasoningTokens == null ? 0 : usage.reasoningTokens;
+		final cacheRead = usage.cachedInputTokens == null ? 0 : usage.cachedInputTokens;
+		final cacheWrite = usage.inputTokenDetails.cacheWriteTokens == null ? 0 : usage.inputTokenDetails.cacheWriteTokens;
+		final total = usage.totalTokens == null ? inputTokens + outputTokens : usage.totalTokens;
+		return {
+			total: total,
+			input: inputTokens,
+			output: outputTokens,
+			reasoning: reasoningTokens,
+			cache: {read: cacheRead, write: cacheWrite},
+		};
+	}
+
+	static function finishReasonText(reason:AiFinishReason):String {
+		return reason;
 	}
 
 	static function userID(info:Info):MessageID {

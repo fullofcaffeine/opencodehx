@@ -12,6 +12,7 @@ This slice adds the first executable CLI path:
 - `run --format json` emits the same normalized one-turn transcript as the fake-provider harness.
 - Default `run` output prints the assistant text for non-JSON headless use.
 - `CliSmoke` covers the pure parser/dispatcher, and `scripts/harness/cli-smoke.mjs` verifies the generated Node binary behavior.
+- The session layer now has a separate credential-free async AI SDK-backed smoke (`SessionProcessor.runAiSdk`). That proves the provider/session bridge, but the CLI still intentionally routes `run` through the deterministic fake-provider path until live model selection, auth/config loading, cancellation, tool-call dispatch, and retry scheduling are wired.
 
 Useful commands:
 
@@ -38,6 +39,6 @@ npm run transcript:parity
 
 ## Boundary
 
-This is not the full yargs/OpenCode command surface. It deliberately accepts only the fake provider model and the minimal `run` flags needed to unblock the next session processor slice. Session creation, storage-backed conversation history, commands, file attachments, permission prompts, server attach, model/provider registry lookup, and real agent selection remain deferred.
+This is not the full yargs/OpenCode command surface. It deliberately accepts only the fake provider model and the minimal `run` flags needed to keep transcript parity deterministic. Session creation, storage-backed conversation history, commands, file attachments, permission prompts, server attach, model/provider registry lookup, real agent selection, and live provider-backed CLI chat remain deferred.
 
-When `opencodehx-022` ports the one-turn session processor, keep this CLI facade stable and replace the transcript construction internals with the real session flow.
+Future live-chat work should keep this CLI facade stable while replacing only the provider/session execution path behind it.
