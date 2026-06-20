@@ -67,7 +67,7 @@ This slice adds the first Haxe-owned provider registry:
 
 `ProviderTransformSmoke` covers the first upstream `provider/transform.test.ts` subset:
 
-- Request defaults for cache keys, OpenAI/Azure `store`, Z.ai/Zhipu thinking, Google thinking config, GPT-5 text verbosity, and Gateway caching.
+- Request defaults for cache keys, OpenAI/Azure `store`, Z.ai/Zhipu thinking, Google thinking config, GPT-5 text verbosity, Gateway caching, OpenRouter/LLM Gateway usage, Baseten/OpenCode template-thinking, Anthropic Kimi thinking budgets, Alibaba reasoning enablement, OpenCode GPT-5 encrypted reasoning includes, and Venice prompt caching.
 - AI SDK `providerOptions` routing for package keys, Gateway upstream slugs, Gateway routing-option splits, and the Amazon-to-Bedrock slug override.
 - Temperature, `topP`, `topK`, max-output-token helpers now shared by session compaction, and reasoning variant generation across the main upstream provider families.
 - Gemini JSON Schema sanitization for missing array item schemas, nested arrays, combiner nodes, non-object cleanup, required filtering, enum stringification, and non-Gemini no-op behavior.

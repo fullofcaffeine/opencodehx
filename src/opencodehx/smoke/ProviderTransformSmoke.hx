@@ -31,6 +31,7 @@ class ProviderTransformSmoke {
 		googleThinkingOptions();
 		gpt5VerbosityOptions();
 		gatewayDefaults();
+		requestOptionEdgeCases();
 		providerOptionRouting();
 		parameterDefaults();
 		variantDefaults();
@@ -117,6 +118,70 @@ class ProviderTransformSmoke {
 		});
 		final gateway = object(get(result, "gateway"));
 		eq(get(gateway, "caching"), "auto", "gateway caching");
+	}
+
+	static function requestOptionEdgeCases():Void {
+		final openrouter = ProviderTransform.options({
+			model: model("openrouter", "google/gemini-3-pro", "@openrouter/ai-sdk-provider", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(get(object(get(openrouter, "usage")), "include"), true, "openrouter usage include");
+		eq(get(object(get(openrouter, "reasoning")), "effort"), "high", "openrouter gemini-3 reasoning");
+		eq(get(openrouter, "prompt_cache_key"), SESSION_ID, "openrouter prompt cache key");
+
+		final llmGateway = ProviderTransform.options({
+			model: model("llmgateway", "anthropic/claude-sonnet-4", "@llmgateway/ai-sdk-provider", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(get(object(get(llmGateway, "usage")), "include"), true, "llmgateway usage include");
+
+		final baseten = ProviderTransform.options({
+			model: model("baseten", "kimi-k2", "@ai-sdk/openai-compatible", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(get(object(get(baseten, "chat_template_args")), "enable_thinking"), true, "baseten chat template thinking");
+
+		final opencodeKimi = ProviderTransform.options({
+			model: model("opencode", "glm-4.6", "@ai-sdk/openai-compatible", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(get(object(get(opencodeKimi, "chat_template_args")), "enable_thinking"), true, "opencode glm chat template thinking");
+
+		final anthropicKimi = ProviderTransform.options({
+			model: model("anthropic", "kimi-k2p", "@ai-sdk/anthropic", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		final anthropicThinking = object(get(anthropicKimi, "thinking"));
+		eq(get(anthropicThinking, "type"), "enabled", "anthropic kimi thinking type");
+		eq(get(anthropicThinking, "budgetTokens"), 4095, "anthropic kimi thinking budget");
+
+		final alibaba = ProviderTransform.options({
+			model: model("alibaba-cn", "qwen3-plus", "@ai-sdk/openai-compatible", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(get(alibaba, "enable_thinking"), true, "alibaba-cn reasoning enable_thinking");
+
+		final opencodeGpt5 = ProviderTransform.options({
+			model: model("opencode", "gpt-5.2", "@ai-sdk/openai", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(get(opencodeGpt5, "promptCacheKey"), SESSION_ID, "opencode gpt-5 prompt cache");
+		eq(get(opencodeGpt5, "reasoningSummary"), "auto", "opencode gpt-5 reasoning summary");
+		eq(stringArray(get(opencodeGpt5, "include"))[0], "reasoning.encrypted_content", "opencode gpt-5 encrypted reasoning include");
+
+		final venice = ProviderTransform.options({
+			model: model("venice", "qwen3-coder", "venice-ai-sdk-provider", true),
+			sessionID: SESSION_ID,
+			providerOptions: optionMap(),
+		});
+		eq(get(venice, "promptCacheKey"), SESSION_ID, "venice prompt cache");
 	}
 
 	static function providerOptionRouting():Void {
@@ -618,6 +683,14 @@ class ProviderTransformSmoke {
 		// ProviderTransform emits nested SDK option records through the open
 		// ProviderOptions boundary. This cast is confined to smoke assertions for
 		// keys that this fixture just created or that ProviderTransform produced.
+		return cast value;
+	}
+
+	static function stringArray(value:Dynamic):Array<String> {
+		if (!Std.isOfType(value, Array))
+			throw "Expected string array";
+		// Request option fixtures read a known transform-produced string-array
+		// field from the open SDK passthrough boundary.
 		return cast value;
 	}
 
