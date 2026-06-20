@@ -13,8 +13,14 @@ import opencodehx.externs.ai.AiSdk.AiAzureFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiAzureProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiBedrockFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiBedrockProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiCerebrasFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiCerebrasProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiCohereFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiCohereProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiDeepInfraFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiDeepInfraProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiGatewayFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiGatewayProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiGoogleFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiGoogleProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiGroqFactoryOptions;
@@ -25,12 +31,16 @@ import opencodehx.externs.ai.AiSdk.AiMistralProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiOptionalHeaderMap;
 import opencodehx.externs.ai.AiSdk.AiOpenAIFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiOpenAIProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiOpenRouterFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiOpenRouterProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiPerplexityFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiPerplexityProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiSdkBundledProvider;
 import opencodehx.externs.ai.AiSdk.AiSdkFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiSdkProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiSimpleFactoryOptionsShape;
+import opencodehx.externs.ai.AiSdk.AiTogetherAIFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiTogetherAIProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiVertexAnthropicFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiVertexAnthropicProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiVertexFactoryOptions;
@@ -77,6 +87,11 @@ class AiSdkLanguageLoader {
 	static final createGroq:AiGroqProviderFactory = Imports.namedImport("@ai-sdk/groq", "createGroq", "createGroq");
 	static final createCohere:AiCohereProviderFactory = Imports.namedImport("@ai-sdk/cohere", "createCohere", "createCohere");
 	static final createPerplexity:AiPerplexityProviderFactory = Imports.namedImport("@ai-sdk/perplexity", "createPerplexity", "createPerplexity");
+	static final createOpenRouter:AiOpenRouterProviderFactory = Imports.namedImport("@openrouter/ai-sdk-provider", "createOpenRouter", "createOpenRouter");
+	static final createDeepInfra:AiDeepInfraProviderFactory = Imports.namedImport("@ai-sdk/deepinfra", "createDeepInfra", "createDeepInfra");
+	static final createCerebras:AiCerebrasProviderFactory = Imports.namedImport("@ai-sdk/cerebras", "createCerebras", "createCerebras");
+	static final createGateway:AiGatewayProviderFactory = Imports.namedImport("@ai-sdk/gateway", "createGateway", "createGateway");
+	static final createTogetherAI:AiTogetherAIProviderFactory = Imports.namedImport("@ai-sdk/togetherai", "createTogetherAI", "createTogetherAI");
 	static final fromNodeProviderChain:AwsNodeProviderChainFactory = Imports.namedImport("@aws-sdk/credential-providers", "fromNodeProviderChain",
 		"fromNodeProviderChain");
 
@@ -124,6 +139,16 @@ class AiSdkLanguageLoader {
 				createCohere(cohereFactoryOptions(provider, model));
 			case "@ai-sdk/perplexity":
 				createPerplexity(perplexityFactoryOptions(provider, model));
+			case "@openrouter/ai-sdk-provider":
+				createOpenRouter(openRouterFactoryOptions(provider, model));
+			case "@ai-sdk/deepinfra":
+				createDeepInfra(deepInfraFactoryOptions(provider, model));
+			case "@ai-sdk/cerebras":
+				createCerebras(cerebrasFactoryOptions(provider, model));
+			case "@ai-sdk/gateway":
+				createGateway(gatewayFactoryOptions(provider, model));
+			case "@ai-sdk/togetherai":
+				createTogetherAI(togetherAIFactoryOptions(provider, model));
 			case "ai-gateway-provider":
 				CloudflareAiGatewayLoader.sdk(provider, model);
 			case npm:
@@ -270,6 +295,26 @@ class AiSdkLanguageLoader {
 	}
 
 	public static function perplexityFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiPerplexityFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function openRouterFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiOpenRouterFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function deepInfraFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiDeepInfraFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function cerebrasFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiCerebrasFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function gatewayFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiGatewayFactoryOptions {
+		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function togetherAIFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiTogetherAIFactoryOptions {
 		return simpleFactoryOptions(provider, model);
 	}
 

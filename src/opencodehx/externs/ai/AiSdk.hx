@@ -230,6 +230,11 @@ typedef AiMistralProviderFactory = AiMistralFactoryOptions->AiSdkBundledProvider
 typedef AiGroqProviderFactory = AiGroqFactoryOptions->AiSdkBundledProvider;
 typedef AiCohereProviderFactory = AiCohereFactoryOptions->AiSdkBundledProvider;
 typedef AiPerplexityProviderFactory = AiPerplexityFactoryOptions->AiSdkBundledProvider;
+typedef AiOpenRouterProviderFactory = AiOpenRouterFactoryOptions->AiSdkBundledProvider;
+typedef AiDeepInfraProviderFactory = AiDeepInfraFactoryOptions->AiSdkBundledProvider;
+typedef AiCerebrasProviderFactory = AiCerebrasFactoryOptions->AiSdkBundledProvider;
+typedef AiGatewayProviderFactory = AiGatewayFactoryOptions->AiSdkBundledProvider;
+typedef AiTogetherAIProviderFactory = AiTogetherAIFactoryOptions->AiSdkBundledProvider;
 
 @:ts.type("'v3'")
 enum abstract AiLanguageModelSpecificationVersion(String) from String to String {
@@ -775,6 +780,50 @@ abstract AiCohereFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactor
 @:forward(baseURL, apiKey, headers)
 @:ts.type("import('@ai-sdk/perplexity').PerplexityProviderSettings")
 abstract AiPerplexityFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for OpenRouter provider settings.
+ *
+ * OpenRouter has richer package-specific settings such as compatibility mode,
+ * extraBody, BYOK maps, and app attribution. Loader construction only owns the
+ * stable request-transport subset; request-specific options belong to
+ * ProviderTransform and a future typed OpenRouter facade.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@openrouter/ai-sdk-provider').OpenRouterProviderSettings")
+abstract AiOpenRouterFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for DeepInfra provider settings.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/deepinfra').DeepInfraProviderSettings")
+abstract AiDeepInfraFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Cerebras provider settings.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/cerebras').CerebrasProviderSettings")
+abstract AiCerebrasFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Vercel AI Gateway provider settings.
+ *
+ * The package also exposes metadata-cache tuning and fetch hooks. This loader
+ * bridge keeps only stable baseURL/apiKey/header transport settings; gateway
+ * routing/caching request options stay in ProviderTransform.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/gateway').GatewayProviderSettings")
+abstract AiGatewayFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for TogetherAI provider settings.
+ */
+@:forward(baseURL, apiKey, headers)
+@:ts.type("import('@ai-sdk/togetherai').TogetherAIProviderSettings")
+abstract AiTogetherAIFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
 
 /**
  * Type-only bridge for AI SDK `Tool`.

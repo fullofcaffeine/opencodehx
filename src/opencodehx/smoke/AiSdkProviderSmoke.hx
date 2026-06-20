@@ -316,6 +316,11 @@ class AiSdkProviderSmoke {
 		simpleProviderFactory("groq", "@ai-sdk/groq", "llama-4", "https://groq.example.test/openai/v1", "groq.chat");
 		simpleProviderFactory("cohere", "@ai-sdk/cohere", "command-a-03-2025", "https://cohere.example.test/v2", "cohere.chat");
 		simpleProviderFactory("perplexity", "@ai-sdk/perplexity", "sonar-pro", "https://perplexity.example.test", "perplexity");
+		simpleProviderFactory("openrouter", "@openrouter/ai-sdk-provider", "anthropic/claude-3-opus", "https://openrouter.example.test/api/v1", "openrouter");
+		simpleProviderFactory("deepinfra", "@ai-sdk/deepinfra", "meta-llama/llama-4", "https://deepinfra.example.test/v1/openai", "deepinfra.chat");
+		simpleProviderFactory("cerebras", "@ai-sdk/cerebras", "llama-4", "https://cerebras.example.test/v1", "cerebras.chat");
+		simpleProviderFactory("gateway", "@ai-sdk/gateway", "anthropic/claude-sonnet-4", "https://gateway.example.test/v1", "gateway");
+		simpleProviderFactory("togetherai", "@ai-sdk/togetherai", "meta-llama/llama-4", "https://together.example.test/v1", "togetherai.chat");
 	}
 
 	static function simpleProviderFactory(providerID:String, npm:String, modelID:String, baseURL:String, expectedProvider:String):Void {
