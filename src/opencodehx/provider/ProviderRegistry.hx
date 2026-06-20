@@ -478,8 +478,12 @@ class ProviderRegistry {
 			final configBaseProvider = database.get(configLoadID);
 			if (configBaseProvider == null)
 				continue;
-			providers.set(configLoadID, withPatch(providers.exists(configLoadID) ? providers.get(configLoadID) : configBaseProvider, {
-				source: "config",
+			final alreadyLoaded = providers.exists(configLoadID);
+			final configExisting = alreadyLoaded ? providers.get(configLoadID) : configBaseProvider;
+			// Config augments env/auth-loaded providers, but upstream keeps the
+			// connection source from the credential path that made the provider usable.
+			providers.set(configLoadID, withPatch(configExisting, {
+				source: alreadyLoaded ? configExisting.source : "config",
 				env: strings(Reflect.field(configLoadValue, "env"), configBaseProvider.env),
 				name: stringOr(Reflect.field(configLoadValue, "name"), configBaseProvider.name),
 				options: mergeObject(configBaseProvider.options, Reflect.field(configLoadValue, "options")),

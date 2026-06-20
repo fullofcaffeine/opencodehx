@@ -77,6 +77,46 @@ class ProviderSmoke {
 		eq(anthropic.source, "env", "anthropic env source");
 		eq(Reflect.hasField(Reflect.field(anthropic.options, "headers"), "anthropic-beta"), true, "anthropic custom headers");
 
+		final envDetails = registry(config({
+			provider: {
+				"single-env": {
+					name: "Single Env",
+					npm: "@ai-sdk/openai-compatible",
+					env: ["SINGLE_ENV_KEY"],
+					models: {"chat": {name: "Chat"}},
+				},
+				"multi-env": {
+					name: "Multi Env",
+					npm: "@ai-sdk/openai-compatible",
+					env: ["MULTI_ENV_KEY_1", "MULTI_ENV_KEY_2"],
+					models: {"chat": {name: "Chat"}},
+				},
+				"fallback-env": {
+					name: "Fallback Env",
+					npm: "@ai-sdk/openai-compatible",
+					env: ["FALLBACK_ENV_KEY_1", "FALLBACK_ENV_KEY_2"],
+					models: {"chat": {name: "Chat"}},
+				},
+			},
+		}),
+			{SINGLE_ENV_KEY: "single-key", MULTI_ENV_KEY_1: "multi-key", FALLBACK_ENV_KEY_2: "fallback-key"});
+		eq(envDetails.getProvider(ProviderID.make("single-env")).key, "single-key", "single env captures key");
+		eq(envDetails.getProvider(ProviderID.make("multi-env")).key == null, true, "multi env does not capture ambiguous key");
+		eq(envDetails.getProvider(ProviderID.make("fallback-env")).source, "env", "fallback env source");
+
+		final envWithConfig = registry(config({
+			provider: {
+				anthropic: {
+					options: {
+						timeout: 60000,
+					},
+				},
+			},
+		}), {ANTHROPIC_API_KEY: "test-api-key"});
+		final envConfiguredAnthropic = envWithConfig.getProvider(ProviderID.make("anthropic"));
+		eq(envConfiguredAnthropic.source, "env", "env source survives config merge");
+		eq(Reflect.field(envConfiguredAnthropic.options, "timeout"), 60000, "env provider config option merge");
+
 		final configured = registry(config({
 			provider: {
 				anthropic: {

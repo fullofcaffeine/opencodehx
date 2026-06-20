@@ -40,7 +40,7 @@ This slice adds the first Haxe-owned provider registry:
 
 `ProviderSmoke` is the executable fixture for this slice. It covers:
 
-- Anthropic env loading and config option overlays.
+- Anthropic env loading, config option overlays, env-source precedence when config also augments the provider, fallback env variable lookup, and single-vs-multiple env key capture.
 - Custom providers and custom model aliases.
 - Provider and model filtering.
 - User-facing `ModelNotFound` suggestions for misspelled provider IDs and model IDs.
