@@ -75,6 +75,12 @@ class ProviderRegistry {
 		return result;
 	}
 
+	public static function sort<T:{final id:String;}>(models:Array<T>):Array<T> {
+		final result = models.copy();
+		result.sort((a, b) -> compareModelID(a.id, b.id));
+		return result;
+	}
+
 	public function getProvider(providerID:ProviderID):Null<ProviderInfo> {
 		return providers.get(providerID.toString());
 	}
@@ -797,18 +803,19 @@ class ProviderRegistry {
 		final result:Array<ProviderModel> = [];
 		for (id in models.keys())
 			result.push(models.get(id));
-		result.sort((a, b) -> {
-			final pa = priority(a.id.toString());
-			final pb = priority(b.id.toString());
-			if (pa != pb)
-				return pb - pa;
-			final la = a.id.toString().indexOf("latest") == -1 ? 1 : 0;
-			final lb = b.id.toString().indexOf("latest") == -1 ? 1 : 0;
-			if (la != lb)
-				return la - lb;
-			return Reflect.compare(b.id.toString(), a.id.toString());
-		});
-		return result;
+		return sort(result);
+	}
+
+	static function compareModelID(left:String, right:String):Int {
+		final leftPriority = priority(left);
+		final rightPriority = priority(right);
+		if (leftPriority != rightPriority)
+			return rightPriority - leftPriority;
+		final leftLatest = left.indexOf("latest") == -1 ? 1 : 0;
+		final rightLatest = right.indexOf("latest") == -1 ? 1 : 0;
+		if (leftLatest != rightLatest)
+			return leftLatest - rightLatest;
+		return Reflect.compare(right, left);
 	}
 
 	static function priority(id:String):Int {

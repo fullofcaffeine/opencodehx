@@ -45,7 +45,7 @@ This slice adds the first Haxe-owned provider registry:
 - Provider and model filtering, including empty enabled lists, enabled-plus-disabled precedence, and combined whitelist/blacklist behavior.
 - Reasoning model variant generation plus config customization, database-model final-pass filtering, custom reasoning model variants, per-variant disable, all-variant disable, and stripping `disabled` from kept variant options.
 - User-facing `ModelNotFound` suggestions for misspelled provider IDs and model IDs.
-- Provider lookup and closest-model helpers, including missing providers, no-match queries, and ordered multi-term matching.
+- Provider lookup, model sort, and closest-model helpers, including missing providers, no-match queries, and ordered multi-term matching.
 - Auth file-shaped API keys.
 - Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.

@@ -377,6 +377,17 @@ class ProviderSmoke {
 			throw "closest model: expected second query match";
 		eq(secondClosest.modelID.toString().indexOf("haiku") != -1, true, "closest checks query terms in order");
 
+		final sortable:Array<{final id:String; final name:String;}> = [
+			{id: "random-model", name: "Random"},
+			{id: "claude-sonnet-4-latest", name: "Claude Sonnet 4"},
+			{id: "gpt-5-turbo", name: "GPT-5 Turbo"},
+			{id: "other-model", name: "Other"},
+		];
+		final sorted = ProviderRegistry.sort(sortable);
+		eq(sorted[0].id, "claude-sonnet-4-latest", "provider sort prefers sonnet latest");
+		eq(sorted[1].id, "gpt-5-turbo", "provider sort keeps priority order");
+		eq(sorted[sorted.length - 1].id, "other-model", "provider sort leaves unprioritized last by id");
+
 		expectProviderFailure(() -> custom.getModel(ProviderID.make("anthropic"), ModelID.make("missing-model")), "missing model", function(failure) {
 			return switch failure {
 				case ModelNotFound(providerID, modelID, _): providerID.toString() == "anthropic" && modelID.toString() == "missing-model";
