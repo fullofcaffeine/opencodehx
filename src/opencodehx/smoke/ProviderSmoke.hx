@@ -43,6 +43,7 @@ class ProviderSmoke {
 		registryVertexProviders();
 		registryAuthAndBedrock();
 		cloudflareAiGatewayLoading();
+		gitlabDuoLoading();
 		opencodePaidModelLoading();
 		modelsDevNormalization();
 		final transcript = TranscriptHarness.oneTurn();
@@ -544,6 +545,63 @@ class ProviderSmoke {
 		final metadata = Reflect.field(configured.getProvider(ProviderID.make("cloudflare-ai-gateway")).options, "metadata");
 		eq(Reflect.field(metadata, "invoked_by"), "test", "cloudflare metadata invoked_by");
 		eq(Reflect.field(metadata, "project"), "opencode", "cloudflare metadata project");
+	}
+
+	static function gitlabDuoLoading():Void {
+		eq(registry(config({})).getProvider(ProviderID.make("gitlab")) == null, true, "gitlab requires token");
+
+		final envLoaded = registry(config({}), {GITLAB_TOKEN: "test-gitlab-token"});
+		final gitlab = requireProvider(envLoaded.getProvider(ProviderID.make("gitlab")), "gitlab env");
+		eq(gitlab.source, "env", "gitlab env source");
+		eq(gitlab.key, "test-gitlab-token", "gitlab env key");
+		eq(Reflect.field(gitlab.options, "instanceUrl"), "https://gitlab.com", "gitlab default instanceUrl");
+		final headers = Reflect.field(gitlab.options, "aiGatewayHeaders");
+		eq(Std.string(Reflect.field(headers, "anthropic-beta")).indexOf("context-1m-2025-08-07") != -1, true, "gitlab context header");
+		final featureFlags = Reflect.field(gitlab.options, "featureFlags");
+		eq(Reflect.field(featureFlags, "duo_agent_platform_agentic_chat"), true, "gitlab agentic chat feature flag");
+		eq(gitlab.models.exists("duo-chat-haiku-4-5"), true, "gitlab haiku static model");
+		eq(gitlab.models.exists("duo-chat-sonnet-4-5"), true, "gitlab sonnet static model");
+		eq(gitlab.models.exists("duo-chat-opus-4-5"), true, "gitlab opus static model");
+
+		final envInstance = registry(config({}), {GITLAB_TOKEN: "env-token", GITLAB_INSTANCE_URL: "https://gitlab.example.com"});
+		eq(Reflect.field(envInstance.getProvider(ProviderID.make("gitlab")).options, "instanceUrl"), "https://gitlab.example.com", "gitlab env instanceUrl");
+
+		final configured = registry(config({
+			provider: {
+				gitlab: {
+					options: {
+						instanceUrl: "https://gitlab.company.internal",
+						apiKey: "config-token",
+						aiGatewayHeaders: {
+							"X-GitLab-Fixture": "configured",
+						},
+						featureFlags: {
+							duo_agent_platform: false,
+							custom_flag: true,
+						},
+					},
+				},
+			},
+		}), {GITLAB_TOKEN: "env-token"});
+		final configuredGitlab = configured.getProvider(ProviderID.make("gitlab"));
+		eq(configuredGitlab.source, "config", "gitlab config apiKey source");
+		eq(configuredGitlab.key, "config-token", "gitlab config apiKey precedence");
+		eq(Reflect.field(configuredGitlab.options, "instanceUrl"), "https://gitlab.company.internal", "gitlab config instanceUrl");
+		final configuredHeaders = Reflect.field(configuredGitlab.options, "aiGatewayHeaders");
+		eq(Reflect.field(configuredHeaders, "X-GitLab-Fixture"), "configured", "gitlab custom gateway header");
+		eq(Std.string(Reflect.field(configuredHeaders, "anthropic-beta")).indexOf("context-1m-2025-08-07") != -1, true,
+			"gitlab default gateway header survives config");
+		final configuredFlags = Reflect.field(configuredGitlab.options, "featureFlags");
+		eq(Reflect.field(configuredFlags, "duo_agent_platform"), false, "gitlab feature flag override");
+		eq(Reflect.field(configuredFlags, "custom_flag"), true, "gitlab custom feature flag");
+
+		final apiAuth = registry(config({}), {}, {gitlab: {type: "api", key: "glpat-test-pat-token"}});
+		eq(apiAuth.getProvider(ProviderID.make("gitlab")).key, "glpat-test-pat-token", "gitlab api auth key");
+
+		final oauth = registry(config({}), {}, {gitlab: {type: "oauth", access: "oauth-access-token"}});
+		final oauthGitlab = oauth.getProvider(ProviderID.make("gitlab"));
+		eq(oauthGitlab.source, "oauth", "gitlab oauth source");
+		eq(oauthGitlab.key, "oauth-access-token", "gitlab oauth access key");
 	}
 
 	static function opencodePaidModelLoading():Void {

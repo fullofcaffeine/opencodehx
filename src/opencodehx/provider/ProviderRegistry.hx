@@ -540,6 +540,20 @@ class ProviderRegistry {
 			}
 		}
 
+		final gitlab = database.get("gitlab");
+		if (gitlab != null && !disabled.exists("gitlab")) {
+			final gitlabAlreadyLoaded = providers.exists("gitlab");
+			final gitlabBase = gitlabAlreadyLoaded ? providers.get("gitlab") : gitlab;
+			final gitlabResolved = gitlabOptions(gitlabBase, env, auths.get("gitlab"));
+			if (gitlabAlreadyLoaded || gitlabResolved.autoload) {
+				providers.set("gitlab", withPatch(gitlabBase, {
+					source: gitlabResolved.source,
+					key: gitlabResolved.key,
+					options: gitlabResolved.options,
+				}));
+			}
+		}
+
 		for (filterProviderID in database.keys()) {
 			if (!providers.exists(filterProviderID))
 				continue;
@@ -704,6 +718,20 @@ class ProviderRegistry {
 		]));
 		add(result, provider("cloudflare-ai-gateway", "Cloudflare AI Gateway", [], [
 			model("cloudflare-ai-gateway", "openai/gpt-5.2-codex", "GPT-5.2 Codex", "ai-gateway-provider", "", 400000, 128000, {
+				reasoning: true,
+				attachment: true
+			}),
+		]));
+		add(result, provider("gitlab", "GitLab Duo", ["GITLAB_TOKEN"], [
+			model("gitlab", "duo-chat-haiku-4-5", "GitLab Duo Chat Haiku 4.5", "gitlab-ai-provider", "https://gitlab.com", 200000, 32000, {
+				reasoning: true,
+				attachment: true
+			}),
+			model("gitlab", "duo-chat-sonnet-4-5", "GitLab Duo Chat Sonnet 4.5", "gitlab-ai-provider", "https://gitlab.com", 200000, 64000, {
+				reasoning: true,
+				attachment: true
+			}),
+			model("gitlab", "duo-chat-opus-4-5", "GitLab Duo Chat Opus 4.5", "gitlab-ai-provider", "https://gitlab.com", 200000, 64000, {
 				reasoning: true,
 				attachment: true
 			}),
@@ -886,7 +914,7 @@ class ProviderRegistry {
 			if (!isRecord(item))
 				continue;
 			final type = stringOr(Reflect.field(item, "type"), "");
-			final key = stringOr(Reflect.field(item, "key"), "");
+			final key = stringOr(Reflect.field(item, "key"), stringOr(Reflect.field(item, "access"), ""));
 			if (type != "" && key != "")
 				result.set(trimRightSlashes(id), {type: type, key: key, metadata: Reflect.field(item, "metadata")});
 		}
@@ -948,6 +976,41 @@ class ProviderRegistry {
 		final gatewayID = stringOr(Reflect.field(env, "CLOUDFLARE_GATEWAY_ID"), stringOr(Reflect.field(authMetadata, "gatewayId"), ""));
 		final apiToken = stringOr(Reflect.field(env, "CLOUDFLARE_API_TOKEN"), stringOr(Reflect.field(env, "CF_AIG_TOKEN"), auth == null ? "" : auth.key));
 		return {autoload: accountID != "" && gatewayID != "" && apiToken != ""};
+	}
+
+	static function gitlabOptions(provider:ProviderInfo, env:Dynamic, auth:Null<{final type:String; final key:String; final metadata:Dynamic;}>):{
+		final autoload:Bool;
+		final source:String;
+		final key:String;
+		final options:ProviderOptions;
+	} {
+		final configuredKey = ProviderOptionAccess.string(provider.options, "apiKey", null);
+		final authKey = auth == null || (auth.type != "api" && auth.type != "oauth") ? null : auth.key;
+		final envKey = stringOr(Reflect.field(env, "GITLAB_TOKEN"), "");
+		final key = configuredKey != null && configuredKey != "" ? configuredKey : authKey != null && authKey != "" ? authKey : envKey;
+		final source = configuredKey != null && configuredKey != "" ? "config" : authKey != null && authKey != "" ? auth.type : "env";
+		final instanceUrl = ProviderOptionAccess.string(provider.options, "instanceUrl",
+			stringOr(Reflect.field(env, "GITLAB_INSTANCE_URL"), "https://gitlab.com"));
+		// GitLab SDK options are an open provider-owned boundary. Merge typed
+		// OpenCode defaults first, then let user config override stable leaves
+		// such as feature flags and gateway headers without losing defaults.
+		final options:ProviderOptions = cast mergeObject({
+			instanceUrl: instanceUrl,
+			apiKey: key,
+			aiGatewayHeaders: {
+				"anthropic-beta": "context-1m-2025-08-07",
+			},
+			featureFlags: {
+				duo_agent_platform_agentic_chat: true,
+				duo_agent_platform: true,
+			},
+		}, provider.options);
+		return {
+			autoload: key != "",
+			source: source,
+			key: key,
+			options: options
+		};
 	}
 
 	static function withPatch(provider:ProviderInfo, patch:Dynamic):ProviderInfo {
