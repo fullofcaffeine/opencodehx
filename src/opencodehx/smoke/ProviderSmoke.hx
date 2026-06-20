@@ -217,8 +217,18 @@ class ProviderSmoke {
 								Authorization: "Bearer special-token",
 							},
 						},
+						"no-limit": {
+							name: "No Limit",
+						},
 					},
-					options: {apiKey: "custom-key"},
+					options: {apiKey: "custom-key", baseURL: "https://custom.override.com/v1"},
+				},
+				"anonymous-provider": {
+					npm: "@ai-sdk/openai-compatible",
+					models: {
+						model: {name: "Model"},
+					},
+					options: {apiKey: "anonymous-key"},
 				},
 				anthropic: {
 					models: {
@@ -231,11 +241,23 @@ class ProviderSmoke {
 						},
 					},
 				},
+				openai: {
+					models: {
+						"my-custom-model": {
+							name: "My Custom Model",
+							limit: {context: 8000, output: 2000},
+						},
+					},
+				},
 			},
-		}), {ANTHROPIC_API_KEY: "test-api-key"});
+		}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
 		eq(custom.getProvider(ProviderID.make("custom-provider")).name, "Custom Provider", "custom provider name");
+		eq(custom.getProvider(ProviderID.make("anonymous-provider")).name, "anonymous-provider", "provider name defaults to id");
+		eq(Reflect.field(custom.getProvider(ProviderID.make("custom-provider")).options, "baseURL"), "https://custom.override.com/v1",
+			"provider baseURL option");
 		eq(custom.getModel(ProviderID.make("custom-provider"), ModelID.make("custom-model")).name, "Custom Model", "custom model name");
 		final customModel = custom.getModel(ProviderID.make("custom-provider"), ModelID.make("custom-model"));
+		eq(customModel.api.url, "https://api.custom.com/v1", "provider api field sets model api url");
 		eq(customModel.cost.input, 0, "model default input cost");
 		eq(customModel.cost.output, 0, "model default output cost");
 		eq(customModel.cost.cache.read, 0, "model default cache read cost");
@@ -252,6 +274,12 @@ class ProviderSmoke {
 		final headers = custom.getModel(ProviderID.make("custom-provider"), ModelID.make("headers-model")).headers;
 		eq(headers.get("X-Custom-Header"), "custom-value", "model custom header");
 		eq(headers.get("Authorization"), "Bearer special-token", "model authorization header");
+		final noLimit = custom.getModel(ProviderID.make("custom-provider"), ModelID.make("no-limit"));
+		eq(noLimit.limit.context, 0, "model default context limit");
+		eq(noLimit.limit.output, 0, "model default output limit");
+		final openaiCustom = custom.getModel(ProviderID.make("openai"), ModelID.make("my-custom-model"));
+		eq(openaiCustom.api.npm, "@ai-sdk/openai", "custom model inherits provider npm package");
+		eq(openaiCustom.api.url, "https://api.openai.com/v1", "custom model inherits provider api url");
 		eq(custom.getModel(ProviderID.make("anthropic"), ModelID.make("my-alias")).name, "My Custom Alias", "alias model name");
 		eq(Reflect.field(custom.getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonnet-4-20250514")).options, "customOption"), "custom-value",
 			"model option merge");

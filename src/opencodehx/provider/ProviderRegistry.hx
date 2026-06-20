@@ -21,6 +21,7 @@ import opencodehx.provider.ProviderTypes.ModelsDevModel;
 import opencodehx.provider.ProviderTypes.ModelsDevMode;
 import opencodehx.provider.ProviderTypes.ModelsDevProvider;
 import opencodehx.provider.ProviderTypes.ParsedModelRef;
+import opencodehx.provider.ProviderTypes.ProviderApiInfo;
 import opencodehx.provider.ProviderTypes.ProviderCost;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
 import opencodehx.provider.ProviderTypes.ProviderID;
@@ -582,9 +583,12 @@ class ProviderRegistry {
 		final upstreamID = stringOr(data.id, existing == null ? modelID : existing.api.id);
 		final modelName = stringOr(data.name, existing == null ? modelID : existing.name);
 		final apiConfig = data.provider;
+		final inheritedApi = providerDefaultApi(existingProvider);
 		final npm = stringOr(apiConfig == null ? null : apiConfig.npm,
-			stringOr(providerConfig.npm, existing == null ? "@ai-sdk/openai-compatible" : existing.api.npm));
-		final apiUrl = stringOr(apiConfig == null ? null : apiConfig.api, stringOr(providerConfig.api, existing == null ? "" : existing.api.url));
+			existing == null ? stringOr(providerConfig.npm,
+				stringOr(inheritedApi.npm, "@ai-sdk/openai-compatible")) : stringOr(providerConfig.npm, existing.api.npm));
+		final apiUrl = stringOr(apiConfig == null ? null : apiConfig.api,
+			existing == null ? stringOr(providerConfig.api, inheritedApi.url) : stringOr(providerConfig.api, existing.api.url));
 		final interleaved = interleavedOr(data.interleaved, existing == null ? false : existing.capabilities.interleaved);
 		return {
 			id: ModelID.make(modelID),
@@ -613,6 +617,15 @@ class ProviderRegistry {
 			release_date: stringOr(data.release_date, existing == null ? "" : existing.release_date),
 			variants: cast mergeObject(existing == null ? {} : existing.variants, data.variants),
 		};
+	}
+
+	static function providerDefaultApi(provider:Null<ProviderInfo>):ProviderApiInfo {
+		// New config-only models under a known provider inherit that provider's
+		// SDK package and API URL, matching upstream models.dev-backed providers.
+		if (provider == null)
+			return {id: "", url: "", npm: ""};
+		final model = sortedModels(provider.models)[0];
+		return model == null ? {id: "", url: "", npm: ""} : model.api;
 	}
 
 	static function defaultDatabase():Map<String, ProviderInfo> {
