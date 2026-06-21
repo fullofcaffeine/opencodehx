@@ -3,7 +3,7 @@ package opencodehx.installation;
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import haxe.Json;
-import js.Syntax;
+import opencodehx.interop.UnknownAccess;
 
 using StringTools;
 
@@ -350,25 +350,23 @@ class InstallationRuntime {
 	}
 
 	static function field(data:Unknown, name:String, source:String):Unknown {
-		final valid:Bool = Syntax.code("(typeof {0} === 'object' && {0} !== null && ({0} as Record<string, unknown>)[{1}] != null)", data, name);
-		if (!valid)
+		final value = UnknownAccess.nonNullField(data, name);
+		if (value == null)
 			throw 'missing ${name} in ${source}';
-		return Unknown.fromBoundary(Syntax.code("({0} as Record<string, unknown>)[{1}]", data, name));
+		return value;
 	}
 
 	static function stringField(data:Unknown, name:String, source:String):String {
 		final value = field(data, name, source);
-		final valid:Bool = Syntax.code("(typeof {0} === 'string')", value);
-		if (!valid)
+		if (!UnknownAccess.isString(value))
 			throw 'expected ${name} in ${source} to be a string';
-		return Syntax.code("({0} as string)", value);
+		return UnknownAccess.asString(value);
 	}
 
 	static function arrayField(data:Unknown, name:String, source:String):Array<Unknown> {
 		final value = field(data, name, source);
-		final valid:Bool = Syntax.code("Array.isArray({0})", value);
-		if (!valid)
+		if (!UnknownAccess.isArray(value))
 			throw 'expected ${name} in ${source} to be an array';
-		return Syntax.code("({0} as Array<unknown>)", value);
+		return UnknownAccess.asArray(value);
 	}
 }

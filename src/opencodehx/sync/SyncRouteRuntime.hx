@@ -2,7 +2,7 @@ package opencodehx.sync;
 
 import genes.ts.Unknown;
 import haxe.ds.StringMap;
-import js.Syntax;
+import opencodehx.interop.UnknownAccess;
 
 typedef SyncRouteEvent = {
 	final id:String;
@@ -185,50 +185,42 @@ class SyncRouteRuntime {
 	}
 
 	static function arrayField(data:Unknown, name:String):Null<Array<Unknown>> {
-		final value = field(data, name);
-		if (value == null || !isArray(value))
-			return null;
-		return Syntax.code("({0} as Array<unknown>)", value);
+		return UnknownAccess.arrayField(data, name);
 	}
 
 	static function stringField(data:Unknown, name:String):Null<String> {
-		final value = field(data, name);
-		if (value == null || !isString(value))
-			return null;
-		return Syntax.code("({0} as string)", value);
+		return UnknownAccess.stringField(data, name);
 	}
 
 	static function field(data:Unknown, name:String):Null<Unknown> {
-		if (!hasField(data, name))
-			return null;
-		return Unknown.fromBoundary(Syntax.code("({0} as Record<string, unknown>)[{1}]", data, name));
+		return UnknownAccess.field(data, name);
 	}
 
 	static function hasField(data:Unknown, name:String):Bool {
-		return Syntax.code("typeof {0} === 'object' && {0} !== null && !Array.isArray({0}) && Object.prototype.hasOwnProperty.call({0}, {1})", data, name);
+		return UnknownAccess.hasOwnField(data, name);
 	}
 
 	static function objectKeys(data:Unknown):Array<String> {
-		return Syntax.code("Object.keys({0} as Record<string, unknown>)", data);
+		return UnknownAccess.objectKeys(data);
 	}
 
 	static function isPlainObject(value:Null<Unknown>):Bool {
-		return Syntax.code("typeof {0} === 'object' && {0} !== null && !Array.isArray({0})", value);
+		return UnknownAccess.isPlainObject(value);
 	}
 
 	static function isArray(value:Null<Unknown>):Bool {
-		return Syntax.code("Array.isArray({0})", value);
+		return UnknownAccess.isArray(value);
 	}
 
 	static function isString(value:Null<Unknown>):Bool {
-		return Syntax.code("typeof {0} === 'string'", value);
+		return UnknownAccess.isString(value);
 	}
 
 	static function isNonNegativeInteger(value:Null<Unknown>):Bool {
-		return Syntax.code("typeof {0} === 'number' && Number.isInteger({0}) && {0} >= 0", value);
+		return UnknownAccess.isNonNegativeInteger(value);
 	}
 
-	static function intValue(value:Null<Unknown>):Int {
-		return Syntax.code("({0} as number)", value);
+	static function intValue(value:Unknown):Int {
+		return UnknownAccess.asInt(value);
 	}
 }

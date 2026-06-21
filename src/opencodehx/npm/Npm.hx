@@ -2,10 +2,10 @@ package opencodehx.npm;
 
 import genes.ts.Unknown;
 import haxe.Json;
-import js.Syntax;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.interop.UnknownAccess;
 
 using StringTools;
 
@@ -289,30 +289,23 @@ class Npm {
 	}
 
 	static function field(data:Unknown, name:String):Null<Unknown> {
-		if (!hasField(data, name))
-			return null;
-		return Unknown.fromBoundary(Syntax.code("({0} as Record<string, unknown>)[{1}]", data, name));
+		return UnknownAccess.field(data, name);
 	}
 
 	static function hasField(data:Unknown, name:String):Bool {
-		return Syntax.code("typeof {0} === 'object' && {0} !== null && !Array.isArray({0}) && Object.prototype.hasOwnProperty.call({0}, {1})", data, name);
+		return UnknownAccess.hasOwnField(data, name);
 	}
 
 	static function stringField(data:Unknown, name:String):Null<String> {
-		final value = field(data, name);
-		if (value == null || !isString(value))
-			return null;
-		return Syntax.code("{0} as string", value);
+		return UnknownAccess.stringField(data, name);
 	}
 
 	static function isString(value:Unknown):Bool {
-		return Syntax.code("typeof {0} === 'string'", value);
+		return UnknownAccess.isString(value);
 	}
 
 	static function objectKeys(data:Unknown):Array<String> {
-		if (Syntax.code("typeof {0} === 'object' && {0} !== null && !Array.isArray({0})", data))
-			return Syntax.code("Object.keys({0} as Record<string, unknown>)", data);
-		return [];
+		return UnknownAccess.objectKeys(data);
 	}
 
 	static function isRange(version:String):Bool {
