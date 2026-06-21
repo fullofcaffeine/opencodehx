@@ -2,7 +2,6 @@ package opencodehx;
 
 import genes.Genes;
 import genes.ts.Imports;
-import js.Syntax;
 import opencodehx.externs.node.Console;
 import opencodehx.externs.node.Process;
 import opencodehx.cli.Cli;
@@ -63,7 +62,7 @@ class Main {
 		final smokePath = NodePath.normalize(NodePath.join("opencodehx", "smoke"));
 		final smokeTask = Task.succeed(smokePath);
 		final resource:SmokeResource = Imports.defaultImportWith("#opencodehx/smoke-resource", "json", "SmokeResourceJson");
-		Syntax.code("void {0}", smokeTask.toEffect());
+		smokeTask.toEffect();
 		log('${BuildInfo.label()} ${smokePath}');
 		log('${resource.name}:${resource.mode}');
 		UtilSmoke.run();
