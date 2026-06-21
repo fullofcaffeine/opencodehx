@@ -291,6 +291,8 @@ class ProviderTransformSmoke {
 	static function variantDefaults():Void {
 		eq(countVariants(ProviderTransform.variants(model("openai", "gpt-4o", "@ai-sdk/openai", false))), 0, "no reasoning variants");
 		eq(countVariants(ProviderTransform.variants(model("deepseek", "deepseek-r1", "@ai-sdk/openai-compatible", true))), 0, "deepseek variants");
+		eq(countVariants(ProviderTransform.variants(model("minimax", "minimax-model", "@ai-sdk/openai-compatible", true))), 0, "minimax variants");
+		eq(countVariants(ProviderTransform.variants(model("glm", "glm-4", "@ai-sdk/openai-compatible", true))), 0, "glm variants");
 
 		final openrouter = ProviderTransform.variants(model("openrouter", "gpt-4", "@openrouter/ai-sdk-provider", true));
 		hasVariants(openrouter, ["none", "minimal", "low", "medium", "high", "xhigh"], "openrouter gpt efforts");
@@ -304,6 +306,9 @@ class ProviderTransformSmoke {
 		final gatewayAdaptive = ProviderTransform.variants(model("gateway", "anthropic/claude-opus-4-7", "@ai-sdk/gateway", true));
 		hasVariants(gatewayAdaptive, ["low", "medium", "high", "xhigh", "max"], "gateway adaptive efforts");
 		eq(get(object(get(variant(gatewayAdaptive, "xhigh"), "thinking")), "type"), "adaptive", "gateway adaptive thinking");
+		final gatewayDotAnthropic = ProviderTransform.variants(modelWithApiID("gateway", "anthropic/claude-sonnet-4-6", "anthropic/claude-sonnet-4.6",
+			"@ai-sdk/gateway"));
+		hasVariants(gatewayDotAnthropic, ["low", "medium", "high", "max"], "gateway dot-format anthropic efforts");
 
 		final gatewayGoogle25 = ProviderTransform.variants(model("gateway", "google/gemini-2.5-pro", "@ai-sdk/gateway", true));
 		hasVariants(gatewayGoogle25, ["high", "max"], "gateway google 2.5 budgets");
@@ -332,6 +337,12 @@ class ProviderTransformSmoke {
 		final copilot = ProviderTransform.variants(modelWithRelease("github-copilot", "gpt-5.2", "@ai-sdk/github-copilot", "2025-12-01", true));
 		hasVariants(copilot, ["low", "medium", "high", "xhigh"], "copilot gpt-5.2 variants");
 		eq(get(variant(copilot, "xhigh"), "reasoningSummary"), "auto", "copilot reasoning summary");
+		hasVariants(ProviderTransform.variants(model("github-copilot", "gpt-5.1-codex-max", "@ai-sdk/github-copilot", true)),
+			["low", "medium", "high", "xhigh"], "copilot codex max variants");
+		hasVariants(ProviderTransform.variants(model("github-copilot", "gpt-5.1-codex-mini", "@ai-sdk/github-copilot", true)), ["low", "medium", "high"],
+			"copilot codex mini variants");
+		hasVariants(ProviderTransform.variants(model("github-copilot", "gpt-5.1-codex", "@ai-sdk/github-copilot", true)), ["low", "medium", "high"],
+			"copilot codex base variants");
 
 		final copilot54 = ProviderTransform.variants(modelWithRelease("github-copilot", "gpt-5.4", "@ai-sdk/github-copilot", "2026-03-05", true));
 		hasVariants(copilot54, ["low", "medium", "high", "xhigh"], "copilot dated gpt-5.4 variants");
@@ -343,6 +354,8 @@ class ProviderTransformSmoke {
 
 		final openai = ProviderTransform.variants(modelWithRelease("openai", "gpt-5-nano", "@ai-sdk/openai", "2025-12-05", true));
 		hasVariants(openai, ["none", "minimal", "low", "medium", "high", "xhigh"], "openai dated variants");
+		hasVariants(ProviderTransform.variants(modelWithRelease("openai", "gpt-5", "@ai-sdk/openai", "2024-06-01", true)),
+			["minimal", "low", "medium", "high"], "openai standard gpt-5 variants");
 		eq(countVariants(ProviderTransform.variants(model("openai", "gpt-5-pro", "@ai-sdk/openai", true))), 0, "openai gpt-5-pro variants");
 
 		final anthropic = ProviderTransform.variants(model("anthropic", "claude-opus-4-7", "@ai-sdk/anthropic", true));
