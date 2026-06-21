@@ -360,18 +360,38 @@ class ProviderTransformSmoke {
 
 		final anthropic = ProviderTransform.variants(model("anthropic", "claude-opus-4-7", "@ai-sdk/anthropic", true));
 		eq(get(object(get(variant(anthropic, "xhigh"), "thinking")), "display"), "summarized", "anthropic opus display");
+		final anthropicBudget = ProviderTransform.variants(modelWithRelease("anthropic", "claude-4", "@ai-sdk/anthropic", "2024-01-01", true, null, true,
+			true, 64000));
+		hasVariants(anthropicBudget, ["high", "max"], "anthropic budget variants");
+		eq(get(object(get(variant(anthropicBudget, "high"), "thinking")), "budgetTokens"), 16000, "anthropic high budget");
+		eq(get(object(get(variant(anthropicBudget, "max"), "thinking")), "budgetTokens"), 31999, "anthropic max budget");
 
 		final bedrock = ProviderTransform.variants(model("bedrock", "anthropic.claude-opus-4-7", "@ai-sdk/amazon-bedrock", true));
 		eq(get(object(get(variant(bedrock, "xhigh"), "reasoningConfig")), "maxReasoningEffort"), "xhigh", "bedrock adaptive effort");
+		final bedrockSonnet = ProviderTransform.variants(model("bedrock", "anthropic.claude-sonnet-4-6", "@ai-sdk/amazon-bedrock", true));
+		hasVariants(bedrockSonnet, ["low", "medium", "high", "max"], "bedrock sonnet adaptive variants");
+		eq(get(object(get(variant(bedrockSonnet, "max"), "reasoningConfig")), "maxReasoningEffort"), "max", "bedrock sonnet max effort");
+		final bedrockGeneric = ProviderTransform.variants(model("bedrock", "llama-4-sc", "@ai-sdk/amazon-bedrock", true));
+		hasVariants(bedrockGeneric, ["low", "medium", "high"], "bedrock generic reasoning variants");
+		eq(get(object(get(variant(bedrockGeneric, "low"), "reasoningConfig")), "type"), "enabled", "bedrock generic reasoning enabled");
 
 		final google25 = ProviderTransform.variants(model("google", "gemini-2.5-pro", "@ai-sdk/google", true));
 		eq(get(object(get(variant(google25, "max"), "thinkingConfig")), "thinkingBudget"), 24576, "google 2.5 budget");
+		final google20 = ProviderTransform.variants(model("google", "gemini-2.0-pro", "@ai-sdk/google", true));
+		hasVariants(google20, ["low", "high"], "google 2.0 thinking levels");
+		eq(get(object(get(variant(google20, "low"), "thinkingConfig")), "thinkingLevel"), "low", "google 2.0 low thinking level");
 
 		final google31 = ProviderTransform.variants(model("google", "gemini-3.1-pro", "@ai-sdk/google", true));
 		hasVariants(google31, ["low", "medium", "high"], "google 3.1 levels");
+		hasVariants(ProviderTransform.variants(model("google-vertex", "gemini-2.5-pro", "@ai-sdk/google-vertex", true)), ["high", "max"],
+			"vertex 2.5 budget variants");
+		hasVariants(ProviderTransform.variants(model("google-vertex", "gemini-2.0-pro", "@ai-sdk/google-vertex", true)), ["low", "high"],
+			"vertex 2.0 thinking levels");
 
 		final groq = ProviderTransform.variants(model("groq", "llama-4", "@ai-sdk/groq", true));
 		hasVariants(groq, ["none", "low", "medium", "high"], "groq efforts");
+		eq(countVariants(ProviderTransform.variants(model("cohere", "command-r", "@ai-sdk/cohere", true))), 0, "cohere variants");
+		eq(countVariants(ProviderTransform.variants(model("perplexity", "sonar-plus", "@ai-sdk/perplexity", true))), 0, "perplexity variants");
 
 		final xaiGrokMini = ProviderTransform.variants(model("xai", "grok-3-mini", "@ai-sdk/xai", true));
 		hasVariants(xaiGrokMini, ["low", "high"], "xai grok mini efforts");
@@ -387,6 +407,16 @@ class ProviderTransformSmoke {
 		final sapOseries = ProviderTransform.variants(model("sap-ai-core", "azure-openai--o3-mini", "@jerome-benoit/sap-ai-provider-v2", true));
 		hasVariants(sapOseries, ["low", "medium", "high"], "sap o-series variants");
 		eq(get(variant(sapOseries, "high"), "reasoningEffort"), "high", "sap o-series high effort");
+		final sapAnthropic = ProviderTransform.variants(model("sap-ai-core", "anthropic--claude-sonnet-4", "@jerome-benoit/sap-ai-provider-v2", true));
+		hasVariants(sapAnthropic, ["high", "max"], "sap anthropic budget variants");
+		eq(get(object(get(variant(sapAnthropic, "high"), "thinking")), "budgetTokens"), 16000, "sap anthropic high budget");
+		final sapAnthropicAdaptive = ProviderTransform.variants(model("sap-ai-core", "anthropic--claude-sonnet-4-6", "@jerome-benoit/sap-ai-provider-v2",
+			true));
+		hasVariants(sapAnthropicAdaptive, ["low", "medium", "high", "max"], "sap anthropic adaptive variants");
+		eq(get(object(get(variant(sapAnthropicAdaptive, "low"), "thinking")), "type"), "adaptive", "sap anthropic adaptive type");
+		final sapGemini = ProviderTransform.variants(model("sap-ai-core", "gcp--gemini-2.5-pro", "@jerome-benoit/sap-ai-provider-v2", true));
+		hasVariants(sapGemini, ["high", "max"], "sap gemini 2.5 variants");
+		eq(get(object(get(variant(sapGemini, "max"), "thinkingConfig")), "thinkingBudget"), 24576, "sap gemini max budget");
 		eq(countVariants(ProviderTransform.variants(model("sap-ai-core", "perplexity--sonar-pro", "@jerome-benoit/sap-ai-provider-v2", true))), 0,
 			"sap sonar variants");
 		eq(countVariants(ProviderTransform.variants(model("sap-ai-core", "mistral--mistral-large", "@jerome-benoit/sap-ai-provider-v2", true))), 0,
