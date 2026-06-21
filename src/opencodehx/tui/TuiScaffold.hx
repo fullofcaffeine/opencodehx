@@ -2,8 +2,8 @@ package opencodehx.tui;
 
 import genes.js.Async.await;
 import genes.react.Element;
-import js.Syntax;
 import js.lib.Promise;
+import opencodehx.externs.node.Console;
 import opencodehx.externs.opentui.OpenTuiSolid;
 import opencodehx.tui.TuiDialogReplay.TuiDialogAction;
 import opencodehx.tui.TuiFoundation.TuiDispatchResult;
@@ -16,7 +16,7 @@ class TuiScaffold {
 
 	static function main():Void {
 		run().then(_ -> {
-			Syntax.code("console.log({0})", "tui-scaffold:ok");
+			Console.log("tui-scaffold:ok");
 			return null;
 		});
 	}
