@@ -1,8 +1,8 @@
 package opencodehx.project;
 
-import js.Syntax;
 import opencodehx.externs.node.Fs;
 import opencodehx.git.Git;
+import opencodehx.host.Clock;
 import opencodehx.host.node.NodePath;
 import opencodehx.storage.SessionStore;
 
@@ -488,7 +488,7 @@ class ProjectRuntime {
 	}
 
 	static function timestamp():Float {
-		return Syntax.code("Date.now()");
+		return Clock.nowMillis();
 	}
 
 	static function publish(event:ProjectEvent):Void {

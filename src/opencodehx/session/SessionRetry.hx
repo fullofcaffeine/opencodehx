@@ -2,7 +2,7 @@ package opencodehx.session;
 
 import haxe.DynamicAccess;
 import haxe.Json;
-import js.Syntax;
+import opencodehx.host.Clock;
 
 using StringTools;
 
@@ -198,10 +198,10 @@ class SessionRetry {
 	}
 
 	static function currentTimeMillis():Float {
-		return Syntax.code("Date.now()");
+		return Clock.nowMillis();
 	}
 
 	static function parseHttpDateMillis(value:String):Float {
-		return Syntax.code("Date.parse({0})", value);
+		return Clock.parseHttpDateMillis(value);
 	}
 }
