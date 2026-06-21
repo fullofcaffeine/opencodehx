@@ -591,6 +591,33 @@ class ProviderTransformSmoke {
 		eq(get(preservedPartOpenAI, "itemId"), "msg_456", "store=false preserves part itemId");
 		eq(get(preservedPartOpenAI, "reasoningEncryptedContent"), "encrypted", "store=false preserves encrypted reasoning metadata");
 
+		final providerKeyPart = textPart("Hello");
+		providerKeyPart.providerOptions = record2("openai", record1("itemId", "msg_openai_part"), "opencode",
+			record2("itemId", "msg_opencode_part", "otherOption", "value"));
+		final providerKeyMessage = message(ProviderMessageRole.Assistant, partContent([providerKeyPart]));
+		providerKeyMessage.providerOptions = record2("openai", record1("itemId", "msg_openai_root"), "opencode", record1("itemId", "msg_opencode_root"));
+		final providerKeyResult = ProviderTransform.message([providerKeyMessage], model("opencode", "gpt-5", "@ai-sdk/openai-compatible", true),
+			record1("store", false));
+		eq(get(object(get(messageOptions(providerKeyResult[0]), "openai")), "itemId"), "msg_openai_root",
+			"store=false preserves root openai metadata for compatible provider");
+		eq(get(object(get(messageOptions(providerKeyResult[0]), "opencode")), "itemId"), "msg_opencode_root", "store=false preserves provider id metadata");
+		final providerKeyPartOptions = partOptionsOf(partsOf(providerKeyResult[0])[0]);
+		eq(get(object(get(providerKeyPartOptions, "openai")), "itemId"), "msg_openai_part", "store=false preserves part openai metadata");
+		eq(get(object(get(providerKeyPartOptions, "opencode")), "otherOption"), "value", "store=false preserves provider id extra metadata");
+
+		final storeTruePart = textPart("Hello");
+		storeTruePart.providerOptions = record1("openai", record1("itemId", "msg_store_true"));
+		final storeTrueResult = ProviderTransform.message([message(ProviderMessageRole.Assistant, partContent([storeTruePart]))],
+			model("openai", "gpt-5", "@ai-sdk/openai", true), record1("store", true));
+		eq(get(object(get(partOptionsOf(partsOf(storeTrueResult[0])[0]), "openai")), "itemId"), "msg_store_true", "store=true preserves openai metadata");
+
+		final nonOpenAIPart = textPart("Hello");
+		nonOpenAIPart.providerOptions = record1("openai", record1("itemId", "msg_anthropic"));
+		final nonOpenAIResult = ProviderTransform.message([message(ProviderMessageRole.Assistant, partContent([nonOpenAIPart]))],
+			model("anthropic", "claude-3", "@ai-sdk/anthropic", true), record1("store", false));
+		eq(get(object(get(partOptionsOf(partsOf(nonOpenAIResult[0])[0]), "openai")), "itemId"), "msg_anthropic",
+			"store=false preserves metadata for non-openai package");
+
 		final claudeScrub = ProviderTransform.message([
 			message(ProviderMessageRole.Assistant, partContent([toolCallPart("bad/id!", "bash")])),
 		], model("anthropic", "claude-sonnet-4", "@ai-sdk/anthropic"), optionMap());
