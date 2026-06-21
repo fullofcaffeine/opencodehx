@@ -18,7 +18,7 @@ OpenCode uses three resource patterns that matter for early ports:
 
 - `Resources.text(path)` returns UTF-8 text.
 - `Resources.file(path)` returns a filesystem path string, matching the useful runtime shape of Bun's `type: "file"` imports.
-- `Resources.wasm(path)` returns the resolved path plus a small byte summary. The build now copies `web-tree-sitter/tree-sitter.wasm`, `tree-sitter-bash.wasm`, and `tree-sitter-powershell.wasm` from npm packages so the bash permission scanner can load real parser assets under NodeNext.
+- `Resources.wasm(path)` returns the resolved path plus a small byte summary through the typed `NodeBuffer` facade. The build now copies `web-tree-sitter/tree-sitter.wasm`, `tree-sitter-bash.wasm`, and `tree-sitter-powershell.wasm` from npm packages so the bash permission scanner can load real parser assets under NodeNext.
 
 Paths are normalized and cannot be absolute or parent-directory escapes. The adapter is intentionally explicit because NodeNext does not natively load arbitrary `.txt`, `.wav`, or `.wasm` imports without a loader or bundler contract.
 

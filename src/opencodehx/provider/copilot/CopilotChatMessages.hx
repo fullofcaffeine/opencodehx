@@ -6,7 +6,7 @@ import haxe.Json;
 import haxe.extern.EitherType;
 import js.html.URL;
 import js.lib.Uint8Array;
-import opencodehx.externs.node.Buffer;
+import opencodehx.host.node.NodeBuffer;
 
 using StringTools;
 
@@ -232,7 +232,7 @@ class CopilotChatMessages {
 			case Base64(value):
 				'data:${normalizedImageMediaType(mediaType)};base64,${value}';
 			case Bytes(value):
-				'data:${normalizedImageMediaType(mediaType)};base64,${Buffer.from(value).toString("base64")}';
+				'data:${normalizedImageMediaType(mediaType)};base64,${NodeBuffer.fromBytesBase64(value)}';
 			case RemoteUrl(value):
 				value.href;
 		}

@@ -22,6 +22,7 @@ import opencodehx.provider.copilot.CopilotChatMessages.CopilotPromptPart;
 import opencodehx.provider.copilot.CopilotChatMessages.CopilotToolOutput;
 import opencodehx.provider.copilot.CopilotChatTools.CopilotChatWarning;
 import opencodehx.provider.copilot.CopilotChatTools.CopilotChatWarningType;
+import opencodehx.host.node.NodeBuffer;
 
 using StringTools;
 
@@ -509,7 +510,7 @@ class CopilotResponsesRequest {
 			case Bytes(value):
 				{
 					type: "input_image",
-					image_url: 'data:${normalizedImageMediaType(mediaType)};base64,${opencodehx.externs.node.Buffer.from(value).toString("base64")}'
+					image_url: 'data:${normalizedImageMediaType(mediaType)};base64,${NodeBuffer.fromBytesBase64(value)}'
 				};
 		}
 	}
@@ -524,7 +525,7 @@ class CopilotResponsesRequest {
 				{
 					type: "input_file",
 					filename: "part.pdf",
-					file_data: 'data:application/pdf;base64,${opencodehx.externs.node.Buffer.from(value).toString("base64")}'
+					file_data: 'data:application/pdf;base64,${NodeBuffer.fromBytesBase64(value)}'
 				};
 		}
 	}

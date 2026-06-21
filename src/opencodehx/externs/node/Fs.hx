@@ -1,7 +1,6 @@
 package opencodehx.externs.node;
 
-@:ts.type("import('node:buffer').Buffer")
-abstract NodeBufferData(Dynamic) from Dynamic to Dynamic {}
+import opencodehx.externs.node.Buffer.NodeBufferData;
 
 extern typedef FsStats = {
 	function isDirectory():Bool;
