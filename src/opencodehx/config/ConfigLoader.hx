@@ -5,7 +5,6 @@ import haxe.DynamicAccess;
 import haxe.Json;
 import genes.js.Async.await;
 import genes.ts.Unknown;
-import js.Syntax;
 import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigInfo.AutoUpdate;
@@ -24,6 +23,7 @@ import opencodehx.externs.web.Fetch;
 import opencodehx.externs.web.Fetch.RemoteConfigObject;
 import opencodehx.externs.web.Fetch.WellKnownPayload;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
 
 typedef LoadOptions = {
 	@:optional final env:ConfigEnv;
@@ -750,7 +750,7 @@ class ConfigLoader {
 			final value = Reflect.field(options.env, key);
 			return value == null ? null : Std.string(value);
 		}
-		return Syntax.code("process.env[{0}] ?? null", key);
+		return NodeProcess.envValue(key);
 	}
 
 	static function envFlag(options:LoadOptions, key:String):Bool {
@@ -761,7 +761,7 @@ class ConfigLoader {
 	static function ensureEnv(options:LoadOptions):ConfigEnv {
 		if (options.env != null)
 			return options.env;
-		return Syntax.code("process.env");
+		return NodeProcess.env();
 	}
 
 	static function setEnvValue(env:ConfigEnv, key:String, value:String):Void {

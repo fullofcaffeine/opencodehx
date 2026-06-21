@@ -38,6 +38,7 @@ Implemented:
 - Typed permission config as the upstream-shaped `permission -> action | pattern map` record, with runtime narrowing isolated in `PermissionRules.fromConfig`.
 - Typed top-level legacy `tools` config as `tool -> enabled` and normalize it into `permission`, with write/edit/patch collapsing to `edit` and explicit permission config taking precedence.
 - Final config normalization for `OPENCODE_PERMISSION`, deprecated `autoshare: true` to `share: "auto"`, and `OPENCODE_DISABLE_AUTOCOMPACT` / `OPENCODE_DISABLE_PRUNE` compaction overrides.
+- Environment reads for config loading and `{env:...}` substitution now go through the `NodeProcess` host seam. That keeps platform-specific `process.env` behavior and raw Node access centralized instead of embedding `js.Syntax.code` in config logic.
 - Typed `skills` config for local extra skill paths and remote skill index URLs. Local path consumption and remote URL discovery/cache behavior are covered by `docs/skill-registry-port.md`.
 - Narrow Node fs/os/url externs used only by the config smoke and host boundary.
 

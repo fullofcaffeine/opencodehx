@@ -1,9 +1,9 @@
 package opencodehx.config;
 
-import js.Syntax;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
 
 typedef VariableContext = {
 	final dir:String;
@@ -44,7 +44,8 @@ class ConfigVariable {
 			final value = Reflect.field(ctx.env, key);
 			return value == null ? "" : Std.string(value);
 		}
-		return Syntax.code("process.env[{0}] ?? ''", key);
+		final value = NodeProcess.envValue(key);
+		return value == null ? "" : value;
 	}
 
 	static function readIncludedFile(dir:String, file:String):String {
