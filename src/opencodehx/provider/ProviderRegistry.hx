@@ -1,6 +1,5 @@
 package opencodehx.provider;
 
-import js.Syntax;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.ConfigProviderConfig;
 import opencodehx.config.ConfigInfo.ConfigProviderMap;
@@ -30,6 +29,7 @@ import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.ProviderTypes.ProviderOver200KCost;
 import opencodehx.provider.ProviderTypes.ProviderVariants;
+import opencodehx.host.node.NodeProcess;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.plugin.PluginConfigHooks;
 import opencodehx.plugin.PluginServerHooks;
@@ -451,7 +451,7 @@ class ProviderRegistry {
 			database.set(configDatabaseID, configuredProvider);
 		}
 
-		final env = input.env == null ? Syntax.code("({ ...process.env })") : input.env;
+		final env = input.env == null ? NodeProcess.env() : input.env;
 		for (envProviderID in database.keys()) {
 			if (disabled.exists(envProviderID))
 				continue;
