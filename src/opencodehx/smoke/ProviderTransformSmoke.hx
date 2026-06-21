@@ -641,6 +641,15 @@ class ProviderTransformSmoke {
 		eq(exists(messageOptions(remapped[0]), "azure-cognitive-services"), false, "message provider id removed");
 		eq(exists(partOptionsOf(partsOf(remapped[0])[0]), "azure"), true, "part provider options remapped");
 
+		final azurePart = textPart("Hello");
+		azurePart.providerOptions = record1("azure", record1("part", true));
+		final azureMessage = message(ProviderMessageRole.User, partContent([azurePart]));
+		azureMessage.providerOptions = record1("azure", record1("someOption", "value"));
+		final azureKept = ProviderTransform.message([azureMessage], model("azure", "gpt-4", "@ai-sdk/azure"), optionMap());
+		eq(get(object(get(messageOptions(azureKept[0]), "azure")), "someOption"), "value", "azure provider options stay under azure");
+		eq(exists(messageOptions(azureKept[0]), "openai"), false, "azure provider options are not remapped to openai");
+		eq(get(object(get(partOptionsOf(partsOf(azureKept[0])[0]), "azure")), "part"), true, "azure part provider options stay under azure");
+
 		final copilotMessage = message(ProviderMessageRole.User, textContent("Hello"));
 		copilotMessage.providerOptions = record1("github-copilot", record1("someOption", "value"));
 		final copilotRemapped = ProviderTransform.message([copilotMessage], model("github-copilot", "gpt-5-mini", "@ai-sdk/github-copilot"), optionMap());
