@@ -190,6 +190,21 @@ class AiSdkProviderSmoke {
 		eq(options.collectLog.orNull(), false, "cloudflare collect log");
 		final hasMetadata:Bool = options.metadata.orNull() != null;
 		eq(hasMetadata, true, "cloudflare metadata forwarded");
+		final requestHeaders = CloudflareAiGatewayLoader.optionHeaders(options);
+		eq(requestHeaders.get("cf-aig-cache-key"), "cache-key", "cloudflare request cache key header");
+		eq(requestHeaders.get("cf-cache-ttl"), "120", "cloudflare request cache ttl header");
+		eq(requestHeaders.get("cf-skip-cache"), "true", "cloudflare request skip cache header");
+		eq(requestHeaders.get("cf-aig-collect-log"), "false", "cloudflare request collect log header");
+
+		final headerProvider = providerWithOptions("cloudflare-ai-gateway", "fixture-token", cloudflareHeaderMetadataOptions());
+		final headerModel = modelWithApiURL("cloudflare-ai-gateway", "openai/gpt-5.2-codex", "ai-gateway-provider", "");
+		final headerOptions = CloudflareAiGatewayLoader.settings(headerProvider, headerModel).options.orNull();
+		if (headerOptions == null)
+			throw "cloudflare header metadata: expected options";
+		final headerMetadata:Null<String> = CloudflareAiGatewayLoader.optionHeaders(headerOptions).get("cf-aig-metadata");
+		if (headerMetadata == null)
+			throw "cloudflare header metadata: expected generated metadata header";
+		eq(headerMetadata.indexOf("from_header") != -1, true, "cloudflare metadata header fallback");
 
 		final resolved = registry.resolveLanguage(model);
 		eq(resolved.sdkModelID, "openai/gpt-5.2-codex", "cloudflare sdk model id");
@@ -484,6 +499,20 @@ class AiSdkProviderSmoke {
 		});
 		info.provider = providers;
 		return info;
+	}
+
+	static function cloudflareHeaderMetadataOptions():ProviderOptions {
+		// Fixture boundary: upstream accepts Cloudflare metadata either as an
+		// explicit provider option or as a JSON string in the SDK header option.
+		// The loader parses only this known header and keeps the parsed object
+		// inside the opaque AiGatewayMetadata bridge.
+		final options = new DynamicAccess<Dynamic>();
+		final headers = new DynamicAccess<String>();
+		headers.set("cf-aig-metadata", '{"source":"from_header"}');
+		options.set("headers", headers);
+		options.set("accountId", "fixture-account");
+		options.set("gatewayId", "fixture-gateway");
+		return options;
 	}
 
 	static function sdkOptions():ProviderOptions {

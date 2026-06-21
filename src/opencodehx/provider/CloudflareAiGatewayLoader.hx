@@ -3,8 +3,10 @@ package opencodehx.provider;
 import genes.ts.Imports;
 import genes.ts.Undefinable;
 import haxe.Exception;
+import haxe.Json;
 import opencodehx.externs.ai.AiGatewayProvider.AiGatewayFactory;
 import opencodehx.externs.ai.AiGatewayProvider.AiGatewayMetadata;
+import opencodehx.externs.ai.AiGatewayProvider.AiGatewayOptionParser;
 import opencodehx.externs.ai.AiGatewayProvider.AiGatewayOptions;
 import opencodehx.externs.ai.AiGatewayProvider.AiGatewaySettings;
 import opencodehx.externs.ai.AiGatewayProvider.AiUnifiedProviderFactory;
@@ -17,6 +19,7 @@ import opencodehx.provider.ProviderTypes.ProviderOptions;
 class CloudflareAiGatewayLoader {
 	static final createAiGateway:AiGatewayFactory = Imports.namedImport("ai-gateway-provider", "createAiGateway", "createAiGateway");
 	static final createUnified:AiUnifiedProviderFactory = Imports.namedImport("ai-gateway-provider/providers/unified", "createUnified", "createUnified");
+	static final parseAiGatewayOptions:AiGatewayOptionParser = Imports.namedImport("ai-gateway-provider", "parseAiGatewayOptions", "parseAiGatewayOptions");
 
 	public static function sdk(provider:ProviderInfo, model:ProviderModel):AiSdkBundledProvider {
 		return {
@@ -57,22 +60,32 @@ class CloudflareAiGatewayLoader {
 		return hasGatewayOptions(options) ? out : Undefinable.absent();
 	}
 
-	static function hasGatewayOptions(options:ProviderOptions):Bool {
-		return ProviderOptionAccess.string(options, "cacheKey", null) != null
-			|| ProviderOptionAccess.numberValue(options, "cacheTtl", null) != null
-			|| ProviderOptionAccess.bool(options, "skipCache", null) != null
-			|| ProviderOptionAccess.bool(options, "collectLog", null) != null
-			|| options.exists("metadata");
+	static function metadataOrAbsent(options:ProviderOptions):Undefinable<AiGatewayMetadata> {
+		if (options.exists("metadata")) {
+			// Cloudflare metadata is provider-owned passthrough data. The registry
+			// preserves the config object, this loader forwards it, and Haxe never
+			// reads fields from the opaque record.
+			final value = options.get("metadata");
+			return value == null ? Undefinable.absent() : AiGatewayMetadata.fromBoundary(value);
+		}
+		final headers = ProviderOptionAccess.stringMap(options, "headers");
+		final encoded = headers == null ? null : headers.get("cf-aig-metadata");
+		return encoded == null || encoded == "" ? Undefinable.absent() : parseMetadataHeader(encoded);
 	}
 
-	static function metadataOrAbsent(options:ProviderOptions):Undefinable<AiGatewayMetadata> {
-		if (!options.exists("metadata"))
+	static function parseMetadataHeader(encoded:String):Undefinable<AiGatewayMetadata> {
+		try {
+			// This mirrors upstream's JSON.parse fallback for `cf-aig-metadata`.
+			// The parsed object remains opaque provider-owned metadata and is
+			// immediately contained in AiGatewayMetadata instead of escaping as
+			// Dynamic through application code.
+			final parsed = Json.parse(encoded);
+			return parsed == null ? Undefinable.absent() : AiGatewayMetadata.fromBoundary(parsed);
+		} catch (_:Dynamic) {
+			// JSON.parse may throw any JS value. Invalid header metadata is ignored,
+			// matching upstream's catch-and-undefined behavior.
 			return Undefinable.absent();
-		// Cloudflare metadata is provider-owned passthrough data. The registry
-		// preserves the config object, this loader forwards it, and Haxe never
-		// reads fields from the opaque record.
-		final value = options.get("metadata");
-		return value == null ? Undefinable.absent() : AiGatewayMetadata.fromBoundary(value);
+		}
 	}
 
 	static function stringOrAbsent(value:Null<String>):Undefinable<String> {
@@ -85,5 +98,19 @@ class CloudflareAiGatewayLoader {
 
 	static function boolOrAbsent(value:Null<Bool>):Undefinable<Bool> {
 		return value == null ? Undefinable.absent() : value;
+	}
+
+	static function hasGatewayOptions(options:ProviderOptions):Bool {
+		final headers = ProviderOptionAccess.stringMap(options, "headers");
+		return ProviderOptionAccess.string(options, "cacheKey", null) != null
+			|| ProviderOptionAccess.numberValue(options, "cacheTtl", null) != null
+			|| ProviderOptionAccess.bool(options, "skipCache", null) != null
+			|| ProviderOptionAccess.bool(options, "collectLog", null) != null
+			|| options.exists("metadata")
+			|| (headers != null && headers.exists("cf-aig-metadata"));
+	}
+
+	public static function optionHeaders(options:AiGatewayOptions):js.html.Headers {
+		return parseAiGatewayOptions(options);
 	}
 }

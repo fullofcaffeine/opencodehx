@@ -1,6 +1,7 @@
 package opencodehx.externs.ai;
 
 import genes.ts.Undefinable;
+import js.html.Headers;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelV3;
 
@@ -32,6 +33,7 @@ typedef AiGatewaySettingsShape = {
 }
 
 typedef AiGatewayFactory = AiGatewaySettings->AiGateway;
+typedef AiGatewayOptionParser = AiGatewayOptions->Headers;
 
 typedef AiUnifiedProvider = {
 	function languageModel(modelID:String):AiLanguageModelV3;
