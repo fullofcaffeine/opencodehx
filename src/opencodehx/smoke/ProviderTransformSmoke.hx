@@ -371,8 +371,13 @@ class ProviderTransformSmoke {
 
 		final sapGpt = ProviderTransform.variants(model("sap-ai-core", "azure-openai--gpt-4o", "@jerome-benoit/sap-ai-provider-v2", true));
 		hasVariants(sapGpt, ["low", "medium", "high"], "sap gpt variants");
+		final sapOseries = ProviderTransform.variants(model("sap-ai-core", "azure-openai--o3-mini", "@jerome-benoit/sap-ai-provider-v2", true));
+		hasVariants(sapOseries, ["low", "medium", "high"], "sap o-series variants");
+		eq(get(variant(sapOseries, "high"), "reasoningEffort"), "high", "sap o-series high effort");
 		eq(countVariants(ProviderTransform.variants(model("sap-ai-core", "perplexity--sonar-pro", "@jerome-benoit/sap-ai-provider-v2", true))), 0,
 			"sap sonar variants");
+		eq(countVariants(ProviderTransform.variants(model("sap-ai-core", "mistral--mistral-large", "@jerome-benoit/sap-ai-provider-v2", true))), 0,
+			"sap mistral variants");
 	}
 
 	static function schemaSanitizer():Void {
