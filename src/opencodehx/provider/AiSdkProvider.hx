@@ -5,7 +5,6 @@ import genes.ts.Unknown;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
 import js.Syntax;
-import js.html.AbortController;
 import js.lib.Promise;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
@@ -20,6 +19,7 @@ import opencodehx.externs.ai.AiSdk.AiSdkTest;
 import opencodehx.externs.ai.AiSdk.AiStreamTextOptions;
 import opencodehx.externs.ai.AiSdk.AiTool;
 import opencodehx.externs.ai.AiSdk.MockLanguageModelV3;
+import opencodehx.externs.web.AbortControllerWithReason;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolParameter;
@@ -65,7 +65,7 @@ class AiSdkProvider {
 	public static function stream(input:AiSdkStreamInput):Promise<AiSdkStreamResult> {
 		final events:Array<AiSdkStreamEvent> = [];
 		final errors:Array<String> = [];
-		final controller = input.abortImmediately == true ? new AbortController() : null;
+		final controller = input.abortImmediately == true ? new AbortControllerWithReason() : null;
 		final options:AiStreamTextOptions = {
 			model: input.model,
 			prompt: input.prompt,
@@ -96,7 +96,7 @@ class AiSdkProvider {
 
 		final result = AiSdk.streamText(options);
 		if (controller != null)
-			Syntax.code("{0}.abort({1})", controller, ABORT_REASON);
+			controller.abort(ABORT_REASON);
 
 		var text = "";
 		var finishReason:AiFinishReason = AiFinishReason.Error;
