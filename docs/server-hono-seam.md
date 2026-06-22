@@ -32,7 +32,7 @@ OpenCodeHX now has a first Node/Hono server seam:
 
 Upstream TypeScript uses `any` in some server areas, especially open payload queues and proxy/schema forwarding, but the Node adapter does not require `any` for the WebSocket runtime or listener. OpenCodeHX should recover stronger Haxe types wherever current usage makes the shape knowable. If `genes-ts` emits noisy TypeScript from a good Haxe model, fix or track the compiler issue instead of weakening the port source.
 
-`js.Syntax.code` is treated like `untyped`: it is allowed only as a small, justified boundary. The large raw `NodeHonoAdapter.listen` Promise block was replaced with Haxe over narrow externs. Remaining server raw snippets are the SSE `ReadableStream` constructor and PTY binary-frame shape check; both are localized and should become typed extern/facade work under `opencodehx-1le`.
+`js.Syntax.code` is treated like `untyped`: it is allowed only as a small, justified boundary. The large raw `NodeHonoAdapter.listen` Promise block was replaced with Haxe over narrow externs, and the later `opencodehx-1le` audit retired the server-side SSE and PTY binary-frame raw snippets into typed Web facades. The current repo-wide classification lives in `syntax-code-audit.md`.
 
 Remaining `Dynamic` values in this slice are boundary debt:
 

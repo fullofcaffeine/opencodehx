@@ -231,13 +231,15 @@ bd show <id> --json
 bd update <id> --claim --json
 # work, test, document evidence
 bd close <id> --reason "accepted: ..." --json
-bd sync
+bd export -o .beads/issues.jsonl
+bd dolt push
 ```
 
 - Import or manually create seed issues from `opencodehx-beads-backlog.seed.jsonl` in dependency order.
 - Keep `external_key` values such as `opencodehx-021` visible in issue descriptions or labels until the import path is scripted.
 - Avoid markdown TODO piles. Create Beads for discovered work.
 - If compiler work blocks port work, create paired OpenCodeHX and `genes-ts` tasks with a clear discovered-from relationship.
+- For bd `1.0.4`, there is no top-level `bd sync` command even though some generic help text may still mention it. Use `bd dolt pull` to pull Beads changes, `bd dolt push` to publish Beads changes, and `bd export -o .beads/issues.jsonl` to refresh this repo's git-tracked Beads snapshot.
 
 ## Documentation and Lessons
 
@@ -303,7 +305,7 @@ Use the narrowest relevant gate for the slice, then broaden when touching shared
 - Upstream parity fixtures or differential harnesses.
 - `genes-ts` compiler tests for every compiler fix.
 
-Before ending a substantial work session, file follow-up Beads for remaining work, run applicable gates, update issue status, sync Beads, and leave the repo in a handoff-ready state.
+Before ending a substantial work session, file follow-up Beads for remaining work, run applicable gates, update issue status, refresh `.beads/issues.jsonl` with `bd export -o .beads/issues.jsonl`, push Beads with `bd dolt push` when a Dolt remote is configured, and leave the repo in a handoff-ready state.
 
 ## Landing the Plane (Session Completion)
 
@@ -319,7 +321,9 @@ Before ending a substantial work session, file follow-up Beads for remaining wor
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
+   bd dolt pull
+   bd export -o .beads/issues.jsonl
+   bd dolt push
    git push
    git status  # MUST show "up to date with origin"
    ```
