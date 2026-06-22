@@ -4,6 +4,7 @@ import genes.js.Async.await;
 import haxe.DynamicAccess;
 import haxe.Json;
 import js.lib.Promise;
+import genes.ts.Unknown;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.AgentInfo;
 import opencodehx.config.ConfigInfo.PermissionConfigValue;
@@ -12,7 +13,6 @@ import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
 import opencodehx.skill.SkillRemoteDiscovery.SkillFetchFunction;
 import opencodehx.skill.SkillRemoteDiscovery.SkillFetchResponse;
-import opencodehx.skill.SkillRemoteDiscovery.SkillIndexPayload;
 import opencodehx.skill.SkillRegistry;
 import opencodehx.skill.SkillRegistry.SkillInfo;
 
@@ -265,11 +265,10 @@ description: Gamma skill.
 			text: function():Promise<String> {
 				return Promise.resolve(body);
 			},
-			json: function():Promise<SkillIndexPayload> {
-				// Test fetch boundary: the production puller validates the index shape
-				// before using it, while this fake response mirrors Response.json().
-				final parsed:SkillIndexPayload = cast Json.parse(body);
-				return Promise.resolve(parsed);
+			json: function():Promise<Unknown> {
+				// Test fetch boundary: mirror Response.json() as untrusted data so
+				// SkillRemoteDiscovery's Unknown decoder owns the shape validation.
+				return Promise.resolve(Unknown.fromBoundary(Json.parse(body)));
 			},
 		};
 	}

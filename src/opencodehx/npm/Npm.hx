@@ -289,11 +289,13 @@ class Npm {
 	}
 
 	static function field(data:Unknown, name:String):Null<Unknown> {
-		return UnknownAccess.field(data, name);
+		final record = UnknownAccess.record(data);
+		return record == null || !record.hasOwn(name) ? null : record.get(name);
 	}
 
 	static function hasField(data:Unknown, name:String):Bool {
-		return UnknownAccess.hasOwnField(data, name);
+		final record = UnknownAccess.record(data);
+		return record != null && record.hasOwn(name);
 	}
 
 	static function stringField(data:Unknown, name:String):Null<String> {
@@ -301,11 +303,12 @@ class Npm {
 	}
 
 	static function isString(value:Unknown):Bool {
-		return UnknownAccess.isString(value);
+		return UnknownAccess.string(value) != null;
 	}
 
 	static function objectKeys(data:Unknown):Array<String> {
-		return UnknownAccess.objectKeys(data);
+		final record = UnknownAccess.record(data);
+		return record == null ? [] : record.keys();
 	}
 
 	static function isRange(version:String):Bool {

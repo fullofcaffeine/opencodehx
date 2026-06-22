@@ -350,23 +350,28 @@ class InstallationRuntime {
 	}
 
 	static function field(data:Unknown, name:String, source:String):Unknown {
-		final value = UnknownAccess.nonNullField(data, name);
-		if (value == null)
+		final record = UnknownAccess.record(data);
+		if (record == null || !record.hasOwn(name))
+			throw 'missing ${name} in ${source}';
+		final value = record.get(name);
+		if (UnknownAccess.isNull(value) || UnknownAccess.isUndefined(value))
 			throw 'missing ${name} in ${source}';
 		return value;
 	}
 
 	static function stringField(data:Unknown, name:String, source:String):String {
 		final value = field(data, name, source);
-		if (!UnknownAccess.isString(value))
+		final string = UnknownAccess.string(value);
+		if (string == null)
 			throw 'expected ${name} in ${source} to be a string';
-		return UnknownAccess.asString(value);
+		return string;
 	}
 
 	static function arrayField(data:Unknown, name:String, source:String):Array<Unknown> {
 		final value = field(data, name, source);
-		if (!UnknownAccess.isArray(value))
+		final array = UnknownAccess.array(value);
+		if (array == null)
 			throw 'expected ${name} in ${source} to be an array';
-		return UnknownAccess.asArray(value);
+		return array;
 	}
 }

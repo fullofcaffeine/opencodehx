@@ -1,8 +1,11 @@
 package opencodehx.skill;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
 import js.Syntax;
+import js.html.URL;
 import js.lib.Promise;
+import opencodehx.interop.UnknownAccess;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 
@@ -19,7 +22,7 @@ extern typedef SkillFetchResponse = {
 	final ok:Bool;
 	final status:Int;
 	function text():Promise<String>;
-	function json():Promise<SkillIndexPayload>;
+	function json():Promise<Unknown>;
 }
 
 typedef SkillFetchFunction = String->Promise<SkillFetchResponse>;
@@ -32,12 +35,12 @@ class SkillRemoteDiscovery {
 		final indexUrl = resolveUrl("index.json", base);
 		final host = base.substr(0, base.length - 1);
 		final index = @:await fetchIndex(fetch, indexUrl);
-		if (index == null || !isSkillIndex(index))
+		if (index == null)
 			return [];
 
 		final result:Array<String> = [];
 		for (skill in index.skills) {
-			if (!isValidSkill(skill) || skill.files.indexOf("SKILL.md") == -1)
+			if (skill.files.indexOf("SKILL.md") == -1)
 				continue;
 			final root = NodePath.join(cacheDir, skill.name);
 			var downloadedSkillFile = false;
@@ -63,7 +66,7 @@ class SkillRemoteDiscovery {
 			final response = @:await fetch(url);
 			if (!response.ok)
 				return null;
-			return @:await response.json();
+			return decodeIndex(@:await response.json());
 		} catch (_:Dynamic) {
 			// Fetch/json failures come from the JS runtime boundary; returning no
 			// remote skills matches upstream's best-effort discovery behavior.
@@ -91,6 +94,9 @@ class SkillRemoteDiscovery {
 	}
 
 	static function defaultFetch(url:String):Promise<SkillFetchResponse> {
+		// Global fetch is a Node/web runtime boundary. Keep the raw call here so
+		// callers can inject a typed fetcher and all JSON results still pass through
+		// the Unknown decoder before becoming SkillIndexPayload.
 		return Syntax.code("fetch({0})", url);
 	}
 
@@ -107,15 +113,41 @@ class SkillRemoteDiscovery {
 		return target;
 	}
 
-	static function isSkillIndex(index:SkillIndexPayload):Bool {
-		return Syntax.code("Array.isArray({0}.skills)", index);
-	}
-
-	static function isValidSkill(skill:SkillIndexEntry):Bool {
-		return Syntax.code("typeof {0}.name === 'string' && Array.isArray({0}.files) && {0}.files.every((file) => typeof file === 'string')", skill);
+	static function decodeIndex(raw:Unknown):Null<SkillIndexPayload> {
+		final record = UnknownAccess.record(raw);
+		if (record == null)
+			return null;
+		final rawSkills = UnknownAccess.array(record.get("skills"));
+		if (rawSkills == null)
+			return null;
+		final skills:Array<SkillIndexEntry> = [];
+		for (item in rawSkills) {
+			final skill = decodeSkill(item);
+			if (skill != null)
+				skills.push(skill);
+		}
+		return {skills: skills};
 	}
 
 	static function resolveUrl(path:String, base:String):String {
-		return Syntax.code("new URL({0}, {1}).href", path, base);
+		return new URL(path, base).href;
+	}
+
+	static function decodeSkill(raw:Unknown):Null<SkillIndexEntry> {
+		final record = UnknownAccess.record(raw);
+		if (record == null)
+			return null;
+		final name = UnknownAccess.string(record.get("name"));
+		final rawFiles = UnknownAccess.array(record.get("files"));
+		if (name == null || rawFiles == null)
+			return null;
+		final files:Array<String> = [];
+		for (file in rawFiles) {
+			final fileName = UnknownAccess.string(file);
+			if (fileName == null)
+				return null;
+			files.push(fileName);
+		}
+		return {name: name, files: files};
 	}
 }

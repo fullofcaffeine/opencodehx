@@ -4,92 +4,114 @@ import genes.ts.Unknown;
 import js.Syntax;
 
 /**
- * Guarded runtime accessors for values that crossed a JSON/JS boundary as
- * `unknown`.
+ * Transitional guarded conversions for values that crossed a JSON/JS boundary
+ * as TypeScript `unknown`.
  *
- * Haxe cannot express TypeScript's runtime `typeof`, `Array.isArray`, or
- * `Object.keys` checks directly, so this class is the deliberately small
- * raw-interop island for probing untrusted values. Every cast-like operation
- * is paired with a guard and returns a typed Haxe value or keeps the result as
- * `Unknown`, so application code does not spread `Syntax.code` or unchecked
- * object indexing through product logic.
+ * OpenCodeHX owns domain decoding, while the reusable narrowing primitives
+ * should move into `genes.ts.UnknownNarrow`/`UnknownRecord`. Until then, keep
+ * JavaScript's exact `typeof`, `Array.isArray`, own-property, and `Object.keys`
+ * semantics in this small raw-interop island. Public methods combine guard and
+ * conversion; unchecked target casts remain private.
  */
+@:noCompletion
 class UnknownAccess {
-	public static function field(data:Unknown, name:String):Null<Unknown> {
-		if (!hasOwnField(data, name))
-			return null;
-		return readField(data, name);
+	public static function string(value:Unknown):Null<String> {
+		return isString(value) ? stringUnsafe(value) : null;
 	}
 
-	public static function nonNullField(data:Unknown, name:String):Null<Unknown> {
-		if (!hasNonNullField(data, name))
-			return null;
-		return readField(data, name);
+	public static function bool(value:Unknown):Null<Bool> {
+		return Syntax.code("typeof {0} === 'boolean'", value) ? boolUnsafe(value) : null;
+	}
+
+	public static function number(value:Unknown):Null<Float> {
+		return Syntax.code("typeof {0} === 'number'", value) ? floatUnsafe(value) : null;
+	}
+
+	public static function finiteNumber(value:Unknown):Null<Float> {
+		return Syntax.code("typeof {0} === 'number' && Number.isFinite({0})", value) ? floatUnsafe(value) : null;
+	}
+
+	public static function safeInteger(value:Unknown):Null<Float> {
+		return Syntax.code("typeof {0} === 'number' && Number.isSafeInteger({0})", value) ? floatUnsafe(value) : null;
+	}
+
+	public static function int32(value:Unknown):Null<Int> {
+		return Syntax.code("typeof {0} === 'number' && Number.isInteger({0}) && {0} >= -2147483648 && {0} <= 2147483647", value) ? intUnsafe(value) : null;
+	}
+
+	public static function array(value:Unknown):Null<Array<Unknown>> {
+		return Syntax.code("Array.isArray({0})", value) ? arrayUnsafe(value) : null;
+	}
+
+	public static function record(value:Unknown):Null<UnknownRecord> {
+		return isRecordLike(value) ? recordUnsafe(value) : null;
 	}
 
 	public static function stringField(data:Unknown, name:String):Null<String> {
-		final value = field(data, name);
-		if (value == null || !isString(value))
-			return null;
-		return asString(value);
+		final record = record(data);
+		return record == null ? null : string(record.get(name));
 	}
 
 	public static function arrayField(data:Unknown, name:String):Null<Array<Unknown>> {
-		final value = field(data, name);
-		if (value == null || !isArray(value))
-			return null;
-		return asArray(value);
+		final record = record(data);
+		return record == null ? null : array(record.get(name));
 	}
 
-	public static function objectKeys(data:Unknown):Array<String> {
-		if (!isPlainObject(data))
-			return [];
-		// Object.keys is the native JS operation for unknown object boundaries.
-		return Syntax.code("Object.keys({0} as Record<string, unknown>)", data);
+	public static function isNull(value:Unknown):Bool {
+		return Syntax.code("{0} === null", value);
 	}
 
-	public static function hasOwnField(data:Unknown, name:String):Bool {
-		return Syntax.code("typeof {0} === 'object' && {0} !== null && !Array.isArray({0}) && Object.prototype.hasOwnProperty.call({0}, {1})", data, name);
+	public static function isUndefined(value:Unknown):Bool {
+		return Syntax.code("typeof {0} === 'undefined'", value);
 	}
 
-	public static function hasNonNullField(data:Unknown, name:String):Bool {
-		return Syntax.code("typeof {0} === 'object' && {0} !== null && !Array.isArray({0}) && ({0} as Record<string, unknown>)[{1}] != null", data, name);
+	@:allow(opencodehx.interop.UnknownRecord)
+	static function recordGet(record:UnknownRecord, name:String):Unknown {
+		// Only own properties are exposed. Missing or inherited fields become
+		// runtime undefined, still wrapped as Unknown for the caller to narrow.
+		return Unknown.fromBoundary(Syntax.code("Object.prototype.hasOwnProperty.call({0}, {1}) ? ({0} as Record<string, unknown>)[{1}] : undefined", record,
+			name));
 	}
 
-	public static function isPlainObject(value:Null<Unknown>):Bool {
+	@:allow(opencodehx.interop.UnknownRecord)
+	static function recordHasOwn(record:UnknownRecord, name:String):Bool {
+		return Syntax.code("Object.prototype.hasOwnProperty.call({0}, {1})", record, name);
+	}
+
+	@:allow(opencodehx.interop.UnknownRecord)
+	static function recordKeys(record:UnknownRecord):Array<String> {
+		return Syntax.code("Object.keys({0})", record);
+	}
+
+	static function isRecordLike(value:Unknown):Bool {
 		return Syntax.code("typeof {0} === 'object' && {0} !== null && !Array.isArray({0})", value);
 	}
 
-	public static function isArray(value:Null<Unknown>):Bool {
-		return Syntax.code("Array.isArray({0})", value);
-	}
-
-	public static function isString(value:Null<Unknown>):Bool {
+	static function isString(value:Unknown):Bool {
 		return Syntax.code("typeof {0} === 'string'", value);
 	}
 
-	public static function isNonNegativeInteger(value:Null<Unknown>):Bool {
-		return Syntax.code("typeof {0} === 'number' && Number.isInteger({0}) && {0} >= 0", value);
-	}
-
-	public static function asString(value:Unknown):String {
-		// Safe only after isString(value); keep all unknown narrowing in this helper.
+	static function stringUnsafe(value:Unknown):String {
 		return Syntax.code("{0} as string", value);
 	}
 
-	public static function asArray(value:Unknown):Array<Unknown> {
-		// Safe only after isArray(value); array contents intentionally remain Unknown.
-		return Syntax.code("{0} as Array<unknown>", value);
+	static function boolUnsafe(value:Unknown):Bool {
+		return Syntax.code("{0} as boolean", value);
 	}
 
-	public static function asInt(value:Unknown):Int {
-		// Safe only after isNonNegativeInteger(value); Haxe Int maps to TS number.
+	static function floatUnsafe(value:Unknown):Float {
 		return Syntax.code("{0} as number", value);
 	}
 
-	static function readField(data:Unknown, name:String):Unknown {
-		// Safe only after hasOwnField/hasNonNullField proves object shape and field
-		// ownership. The result remains Unknown until a caller performs another guard.
-		return Unknown.fromBoundary(Syntax.code("({0} as Record<string, unknown>)[{1}]", data, name));
+	static function intUnsafe(value:Unknown):Int {
+		return Syntax.code("{0} as number", value);
+	}
+
+	static function arrayUnsafe(value:Unknown):Array<Unknown> {
+		return Syntax.code("{0} as Array<unknown>", value);
+	}
+
+	static function recordUnsafe(value:Unknown):UnknownRecord {
+		return Syntax.code("{0} as Readonly<Record<string, unknown>>", value);
 	}
 }

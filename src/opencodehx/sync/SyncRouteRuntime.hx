@@ -193,34 +193,41 @@ class SyncRouteRuntime {
 	}
 
 	static function field(data:Unknown, name:String):Null<Unknown> {
-		return UnknownAccess.field(data, name);
+		final record = UnknownAccess.record(data);
+		return record == null || !record.hasOwn(name) ? null : record.get(name);
 	}
 
 	static function hasField(data:Unknown, name:String):Bool {
-		return UnknownAccess.hasOwnField(data, name);
+		final record = UnknownAccess.record(data);
+		return record != null && record.hasOwn(name);
 	}
 
 	static function objectKeys(data:Unknown):Array<String> {
-		return UnknownAccess.objectKeys(data);
+		final record = UnknownAccess.record(data);
+		return record == null ? [] : record.keys();
 	}
 
 	static function isPlainObject(value:Null<Unknown>):Bool {
-		return UnknownAccess.isPlainObject(value);
+		return value != null && UnknownAccess.record(value) != null;
 	}
 
 	static function isArray(value:Null<Unknown>):Bool {
-		return UnknownAccess.isArray(value);
+		return value != null && UnknownAccess.array(value) != null;
 	}
 
 	static function isString(value:Null<Unknown>):Bool {
-		return UnknownAccess.isString(value);
+		return value != null && UnknownAccess.string(value) != null;
 	}
 
 	static function isNonNegativeInteger(value:Null<Unknown>):Bool {
-		return UnknownAccess.isNonNegativeInteger(value);
+		if (value == null)
+			return false;
+		final int = UnknownAccess.int32(value);
+		return int != null && int >= 0;
 	}
 
 	static function intValue(value:Unknown):Int {
-		return UnknownAccess.asInt(value);
+		final int = UnknownAccess.int32(value);
+		return int == null ? 0 : int;
 	}
 }
