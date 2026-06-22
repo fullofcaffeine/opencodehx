@@ -1,9 +1,15 @@
 package opencodehx.sync;
 
+import genes.js.Async.await;
 import haxe.ds.StringMap;
+import js.html.AbortSignal;
+import js.lib.Promise;
+import js.lib.Uint8Array;
+import opencodehx.externs.web.WebStreams.WebReadableStream;
 import opencodehx.sync.SyncRouteRuntime.SyncHistoryEvent;
 import opencodehx.sync.SyncRouteRuntime.SyncRouteEvent;
 import opencodehx.sync.SyncRouteRuntime.SyncRouteKnownSeq;
+import opencodehx.sync.WorkspaceSyncSse.WorkspaceSyncSseEvent;
 import opencodehx.sync.WorkspaceSyncSse.WorkspaceSyncGlobalEvent;
 
 typedef WorkspaceSyncRemote = {
@@ -98,8 +104,23 @@ class WorkspaceSyncRuntime {
 		final workspace = workspaceFor(workspaceID);
 		if (workspace == null)
 			throw 'Workspace not found: ${workspaceID}';
+		return applyRemoteEvents(workspace, WorkspaceSyncSse.parse(text));
+	}
+
+	@:async
+	public function applyRemoteSseStream(workspaceID:String, body:WebReadableStream<Uint8Array>, ?signal:AbortSignal):Promise<Int> {
+		final workspace = workspaceFor(workspaceID);
+		if (workspace == null)
+			throw 'Workspace not found: ${workspaceID}';
+		setStatus(workspaceID, "connected");
+		final applied = applyRemoteEvents(workspace, @:await WorkspaceSyncSse.parseStream(body, signal));
+		setStatus(workspaceID, "disconnected");
+		return applied;
+	}
+
+	function applyRemoteEvents(workspace:WorkspaceSyncWorkspace, events:Array<WorkspaceSyncSseEvent>):Int {
 		var applied = 0;
-		for (event in WorkspaceSyncSse.parse(text)) {
+		for (event in events) {
 			final global = event.global;
 			if (global == null)
 				continue;
@@ -119,7 +140,7 @@ class WorkspaceSyncRuntime {
 			}
 		}
 		if (applied > 0)
-			setStatus(workspaceID, "connected");
+			setStatus(workspace.id, "connected");
 		return applied;
 	}
 

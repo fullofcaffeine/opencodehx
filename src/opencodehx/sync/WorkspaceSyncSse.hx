@@ -1,8 +1,15 @@
 package opencodehx.sync;
 
+import genes.js.Async.await;
 import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
 import haxe.Json;
+import js.html.AbortSignal;
+import js.lib.Promise;
+import js.lib.Uint8Array;
+import opencodehx.externs.web.WebStreams.WebReadableStreamReadResult;
+import opencodehx.externs.web.WebStreams.WebReadableStream;
+import opencodehx.externs.web.WebStreams.WebTextDecoder;
 import opencodehx.sync.SyncRouteRuntime.SyncRouteEvent;
 
 using StringTools;
@@ -54,6 +61,45 @@ class WorkspaceSyncSse {
 			});
 		}
 		return events;
+	}
+
+	@:async
+	public static function parseStream(body:WebReadableStream<Uint8Array>, ?signal:AbortSignal):Promise<Array<WorkspaceSyncSseEvent>> {
+		final reader = body.getReader();
+		final decoder = new WebTextDecoder();
+		final events:Array<WorkspaceSyncSseEvent> = [];
+		var buffer = "";
+		while (!aborted(signal)) {
+			final result:WebReadableStreamReadResult<Uint8Array> = try {
+				@:await reader.read();
+			} catch (_:Dynamic) {
+				emptyRead();
+			}
+			if (result.done)
+				break;
+			final value = result.value;
+			if (value == null)
+				continue;
+			buffer += decoder.decode(value, {stream: true});
+			buffer = buffer.replace("\r\n", "\n").replace("\r", "\n");
+			final chunks = buffer.split("\n\n");
+			final completeCount = chunks.length - 1;
+			buffer = chunks[completeCount];
+			for (index in 0...completeCount) {
+				for (event in parse(chunks[index] + "\n\n"))
+					events.push(event);
+			}
+		}
+		@:await reader.cancel();
+		return events;
+	}
+
+	static function aborted(signal:Null<AbortSignal>):Bool {
+		return signal != null && signal.aborted;
+	}
+
+	static function emptyRead():WebReadableStreamReadResult<Uint8Array> {
+		return {done: true, value: null};
 	}
 
 	static function parseJson(raw:String):Null<Unknown> {

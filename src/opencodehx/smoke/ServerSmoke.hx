@@ -15,9 +15,12 @@ import opencodehx.externs.web.AbortControllerWithReason;
 import opencodehx.externs.web.GlobalFetch;
 import opencodehx.externs.web.WebStreams.WebArrayBuffer;
 import opencodehx.externs.web.WebStreams.WebBinary;
+import opencodehx.externs.web.WebStreams.WebReadableStream;
+import opencodehx.externs.web.WebStreams.WebReadableStreamDefaultController;
 import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.externs.web.WebStreams.WebResponseStreams;
 import opencodehx.externs.web.WebStreams.WebTextDecoder;
+import opencodehx.externs.web.WebStreams.WebTextEncoder;
 import opencodehx.externs.ws.WebSocket;
 import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
@@ -272,6 +275,14 @@ class ServerSmoke {
 		eq(sseFailure, 0, "workspace sync sse failed replay count");
 		eq(workspaceSync.failures.length, 1, "workspace sync sse failure recorded");
 		eq(workspaceSync.failures[0].message.indexOf("Sequence mismatch") != -1, true, "workspace sync sse failure message");
+		final streamApplied = await(workspaceSync.applyRemoteSseStream("wrk_server_1", sseStream([
+			'data: {"directory":"/remote/workspace","project":"proj_server","workspace":"remote_workspace","payload":{"type":"sync","syncEvent":{"id":"evt_workspace_remote_3",',
+			'"type":"item.created.1","seq":2,"aggregateID":"workspace_session_1","data":{"id":"remote_item","name":"remote-three"}}}}\n\n',
+			'data: {"directory":"/remote/workspace","project":"proj_server","workspace":"remote_workspace","payload":{"type":"sync","syncEvent":{"id":"evt_workspace_remote_incomplete","type":"item.created.1","seq":3,"aggregateID":"workspace_session_1","data":{"id":"remote_item","name":"incomplete"}}}}',
+		]), new AbortControllerWithReason().signal));
+		eq(streamApplied, 1, "workspace sync stream replay count");
+		eq(syncRuntime.events("workspace_session_1").length, 3, "workspace sync stream complete frames only");
+		eq(workspaceSync.statuses[workspaceSync.statuses.length - 1].status, "disconnected", "workspace sync stream disconnected after end");
 
 		final created = await(jsonResponse(await(server.app.request("/session", {
 			method: "POST",
@@ -631,6 +642,17 @@ class ServerSmoke {
 		final headers = new DynamicAccess<String>();
 		headers.set("content-type", "application/json");
 		return headers;
+	}
+
+	static function sseStream(chunks:Array<String>):WebReadableStream<Uint8Array> {
+		final encoder = new WebTextEncoder();
+		return new WebReadableStream<Uint8Array>({
+			start: (controller:WebReadableStreamDefaultController<Uint8Array>) -> {
+				for (chunk in chunks)
+					controller.enqueue(encoder.encode(chunk));
+				controller.close();
+			},
+		});
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {
