@@ -4,8 +4,8 @@ import genes.js.Async.await;
 import genes.ts.Unknown;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
-import js.Syntax;
 import js.lib.Promise;
+import js.lib.Error as JsError;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
@@ -203,11 +203,22 @@ class AiSdkProvider {
 	}
 
 	static function messageFromUnknown(error:Unknown):String {
-		return Syntax.code("{0} instanceof Error ? {0}.message : String({0})", error);
+		return messageFromBoundary(error);
 	}
 
 	static function messageFromCaught(error:Dynamic):String {
-		return Syntax.code("{0} instanceof Error ? {0}.message : String({0})", error);
+		// JavaScript can throw any value. Wrap the catch payload as Unknown so
+		// normalization stays in one typed boundary instead of using raw syntax.
+		return messageFromBoundary(Unknown.fromBoundary(error));
+	}
+
+	static function messageFromBoundary(error:Unknown):String {
+		if (Std.isOfType(error, JsError)) {
+			// The runtime check above proves this boundary value is a JS Error.
+			final jsError:JsError = cast error;
+			return jsError.message;
+		}
+		return Std.string(error);
 	}
 
 	static function emptyUsage():AiLanguageModelUsage {
