@@ -40,6 +40,8 @@ import opencodehx.session.SessionID;
 import opencodehx.session.SessionInfo.SessionInfo;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.sync.SyncEventStore;
+import opencodehx.sync.SyncEventStore.SyncDefinition;
+import opencodehx.sync.SyncEventStore.SyncEventSystem;
 import opencodehx.sync.SyncEventStore.SyncPersistence;
 import opencodehx.sync.SyncEventStore.SyncStoredEvent;
 import opencodehx.worktree.WorktreeRuntime.WorktreeEvent;
@@ -87,6 +89,7 @@ class ProjectRuntimeSmoke {
 			npmRuntime(root);
 			installationRuntime();
 			syncEvents();
+			syncEventSystem();
 			Fs.rmSync(root, {recursive: true, force: true});
 			// Dynamic is required at this JS runtime cleanup boundary because Haxe code,
 			// Node externs, and Git helpers may throw strings, Haxe exceptions, or JS errors.
@@ -779,6 +782,77 @@ class ProjectRuntimeSmoke {
 			aggregateID: "item_2",
 			data: {id: "item_2", name: "gap"}
 		}), "Sequence mismatch", "sync sequence mismatch");
+	}
+
+	static function syncEventSystem():Void {
+		final system = new SyncEventSystem<SmokeSyncItem>();
+		final createdV1:SyncDefinition<SmokeSyncItem> = system.define({
+			type: "item.created",
+			version: 1,
+			aggregateName: "id",
+			aggregate: item -> item.id,
+		});
+		final createdV2:SyncDefinition<SmokeSyncItem> = system.define({
+			type: "item.created",
+			version: 2,
+			aggregateName: "id",
+			aggregate: item -> item.id,
+		});
+		final projected:Array<String> = [];
+		system.init({
+			projectors: [
+				{
+					definition: createdV2,
+					project: event -> {
+						projected.push(event.data.name);
+					},
+				}
+			],
+			convertEvent: item -> {
+				return {id: item.id, name: item.name.toUpperCase()};
+			},
+			directory: "/workspace/project",
+			project: "project_1",
+			workspace: "workspace_1",
+		});
+		expectFailure(() -> system.define({
+			type: "item.deleted",
+			version: 1,
+			aggregateName: "id",
+			aggregate: item -> item.id,
+		}), "sync system has been frozen", "sync define after init");
+		expectFailure(() -> system.run(createdV1, {id: "item_1", name: "old"}), "running old versions", "sync old version run");
+
+		final event = system.run(createdV2, {id: "item_1", name: "first"});
+		eq(event.type, "item.created.2", "sync system versioned type");
+		eq(projected[0], "first", "sync system projector");
+		eq(system.busEvents.length, 1, "sync system bus event count");
+		eq(system.busEvents[0].type, "item.created", "sync system bus type");
+		eq(system.busEvents[0].properties.name, "FIRST", "sync system converted bus data");
+		eq(system.globalEvents.length, 1, "sync system global event count");
+		eq(system.globalEvents[0].directory, "/workspace/project", "sync system global directory");
+		eq(system.globalEvents[0].project, "project_1", "sync system global project");
+		eq(system.globalEvents[0].workspace, "workspace_1", "sync system global workspace");
+		eq(system.globalEvents[0].payload.type, "sync", "sync system global payload type");
+		eq(system.globalEvents[0].payload.syncEvent.id, event.id, "sync system global event id");
+		final payloads = system.payloads();
+		eq(payloads.length, 2, "sync system payload count");
+		eq(payloads[0].type, "sync", "sync system payload descriptor type");
+		eq(payloads[0].aggregate, "id", "sync system payload aggregate");
+
+		final missing = new SyncEventSystem<SmokeSyncItem>();
+		final missingDefinition = missing.define({
+			type: "item.missing",
+			version: 1,
+			aggregateName: "id",
+			aggregate: item -> item.id,
+		});
+		expectFailure(() -> missing.run(missingDefinition, {id: "item_1", name: "missing"}), "No projectors available", "sync system missing init");
+		missing.init({projectors: []});
+		expectFailure(() -> missing.run(missingDefinition, {id: "item_1", name: "missing"}), "Projector not found", "sync system missing projector");
+
+		system.reset();
+		eq(system.payloads().length, 0, "sync system reset payloads");
 	}
 
 	static function initCommittedRepo(dir:String, ?readme:String):Void {

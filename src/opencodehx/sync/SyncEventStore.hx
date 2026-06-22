@@ -6,6 +6,7 @@ typedef SyncDefinition<T> = {
 	final type:String;
 	final version:Int;
 	final aggregate:T->String;
+	@:optional final aggregateName:String;
 }
 
 typedef SyncStoredEvent<T> = {
@@ -30,6 +31,42 @@ typedef SyncPersistence<T> = {
 typedef SyncEventStoreOptions<T> = {
 	@:optional final persistence:SyncPersistence<T>;
 	@:optional final publisher:SyncStoredEvent<T>->Void;
+}
+
+typedef SyncProjection<T> = {
+	final definition:SyncDefinition<T>;
+	final project:SyncStoredEvent<T>->Void;
+}
+
+typedef SyncBusEvent<T> = {
+	final type:String;
+	final properties:T;
+}
+
+typedef SyncGlobalPayload<T> = {
+	final type:String;
+	final syncEvent:SyncStoredEvent<T>;
+}
+
+typedef SyncGlobalEvent<T> = {
+	final directory:String;
+	final project:String;
+	final workspace:String;
+	final payload:SyncGlobalPayload<T>;
+}
+
+typedef SyncPayloadDescriptor = {
+	final type:String;
+	final name:String;
+	final aggregate:String;
+}
+
+typedef SyncEventSystemInit<T> = {
+	final projectors:Array<SyncProjection<T>>;
+	@:optional final convertEvent:T->T;
+	@:optional final directory:String;
+	@:optional final project:String;
+	@:optional final workspace:String;
 }
 
 class SyncEventStore<T> {
@@ -160,5 +197,151 @@ class SyncEventStore<T> {
 
 	public static function versionedType<T>(definition:SyncDefinition<T>):String {
 		return '${definition.type}.${definition.version}';
+	}
+}
+
+class SyncEventSystem<T> {
+	final registry:Map<String, SyncDefinition<T>> = new Map();
+	final latestVersions:Map<String, Int> = new Map();
+	final stores:Map<String, SyncEventStore<T>> = new Map();
+	var projectors:Null<Map<String, SyncStoredEvent<T>->Void>> = null;
+	var convertEvent:T->T = data -> data;
+	var directory:String = "";
+	var project:String = "";
+	var workspace:String = "";
+	var frozen = false;
+
+	public final busEvents:Array<SyncBusEvent<T>> = [];
+	public final globalEvents:Array<SyncGlobalEvent<T>> = [];
+
+	public function new() {}
+
+	public function reset():Void {
+		registry.clear();
+		latestVersions.clear();
+		stores.clear();
+		projectors = null;
+		convertEvent = data -> data;
+		directory = "";
+		project = "";
+		workspace = "";
+		frozen = false;
+		busEvents.resize(0);
+		globalEvents.resize(0);
+	}
+
+	public function define(definition:SyncDefinition<T>):SyncDefinition<T> {
+		if (frozen)
+			throw "Error defining sync event: sync system has been frozen";
+		final versioned = SyncEventStore.versionedType(definition);
+		registry.set(versioned, definition);
+		final current = latestVersions.exists(definition.type) ? latestVersions.get(definition.type) : 0;
+		if (definition.version > current)
+			latestVersions.set(definition.type, definition.version);
+		return definition;
+	}
+
+	public function init(input:SyncEventSystemInit<T>):Void {
+		final installed = new Map<String, SyncStoredEvent<T>->Void>();
+		for (projection in input.projectors) {
+			installed.set(SyncEventStore.versionedType(projection.definition), projection.project);
+		}
+		projectors = installed;
+		convertEvent = input.convertEvent == null ? data->data : input.convertEvent;
+		directory = input.directory == null ? "" : input.directory;
+		project = input.project == null ? "" : input.project;
+		workspace = input.workspace == null ? "" : input.workspace;
+		frozen = true;
+	}
+
+	public function run(definition:SyncDefinition<T>, data:T, ?publish:Bool):SyncStoredEvent<T> {
+		final latest = latestVersions.exists(definition.type) ? latestVersions.get(definition.type) : definition.version;
+		if (definition.version != latest)
+			throw 'SyncEvent.run: running old versions of events is not allowed: ${definition.type}';
+		final projector = projectorFor(definition);
+		final event = store(definition).run(data, false);
+		process(definition, event, publish != false, projector);
+		return event;
+	}
+
+	public function replay(event:SyncStoredEvent<T>, ?publish:Bool):Void {
+		final definition = registry.get(event.type);
+		if (definition == null)
+			throw 'Unknown event type: ${event.type}';
+		final projector = projectorFor(definition);
+		store(definition).replay(event, false);
+		process(definition, event, publish == true, projector);
+	}
+
+	public function replayAll(events:Array<SyncStoredEvent<T>>, ?publish:Bool):Null<String> {
+		if (events.length == 0)
+			return null;
+		final source = events[0].aggregateID;
+		final start = events[0].seq;
+		for (index in 0...events.length) {
+			final event = events[index];
+			if (event.aggregateID != source)
+				throw "Replay events must belong to the same session";
+			final expected = start + index;
+			if (event.seq != expected)
+				throw 'Replay sequence mismatch at index ${index}: expected ${expected}, got ${event.seq}';
+		}
+		for (event in events)
+			replay(event, publish == true);
+		return source;
+	}
+
+	public function payloads():Array<SyncPayloadDescriptor> {
+		final result:Array<SyncPayloadDescriptor> = [];
+		for (type in registry.keys()) {
+			final definition = registry.get(type);
+			if (definition != null) {
+				result.push({
+					type: "sync",
+					name: type,
+					aggregate: definition.aggregateName == null ? "aggregateID" : definition.aggregateName,
+				});
+			}
+		}
+		result.sort((left, right) -> Reflect.compare(left.name, right.name));
+		return result;
+	}
+
+	public function history(definition:SyncDefinition<T>, ?aggregateID:String):Array<SyncStoredEvent<T>> {
+		return store(definition).history(aggregateID);
+	}
+
+	function process(definition:SyncDefinition<T>, event:SyncStoredEvent<T>, publish:Bool, projector:SyncStoredEvent<T>->Void):Void {
+		projector(event);
+		if (publish) {
+			final converted = convertEvent(event.data);
+			busEvents.push({type: definition.type, properties: converted});
+			globalEvents.push({
+				directory: directory,
+				project: project,
+				workspace: workspace,
+				payload: {
+					type: "sync",
+					syncEvent: event,
+				},
+			});
+		}
+	}
+
+	function projectorFor(definition:SyncDefinition<T>):SyncStoredEvent<T>->Void {
+		if (projectors == null)
+			throw "No projectors available. Call `SyncEvent.init` to install projectors";
+		final projector = projectors.get(SyncEventStore.versionedType(definition));
+		if (projector == null)
+			throw 'Projector not found for event: ${definition.type}';
+		return projector;
+	}
+
+	function store(definition:SyncDefinition<T>):SyncEventStore<T> {
+		final versioned = SyncEventStore.versionedType(definition);
+		if (!stores.exists(versioned)) {
+			stores.set(versioned, new SyncEventStore<T>(definition));
+		}
+		return stores.get(versioned);
 	}
 }
