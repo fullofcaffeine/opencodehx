@@ -28,6 +28,7 @@ import opencodehx.smoke.LspSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.McpAcpSmoke;
 import opencodehx.smoke.PermissionSmoke;
+import opencodehx.smoke.PluginSmoke;
 import opencodehx.smoke.ProjectRuntimeSmoke;
 import opencodehx.smoke.ProviderSmoke;
 import opencodehx.smoke.ProviderTransformSmoke;
@@ -170,6 +171,8 @@ class Main {
 				log("mcp-acp-smoke:ok");
 				LspSmoke.run();
 				log("lsp-smoke:ok");
+				PluginSmoke.run();
+				log("plugin-smoke:ok");
 				return ServerSmoke.run();
 			})
 			.then(_ -> {

@@ -1,6 +1,8 @@
 package opencodehx.plugin;
 
 import opencodehx.config.ConfigInfo;
+import opencodehx.plugin.PluginRuntime.PluginSystemOutput;
+import genes.ts.Unknown;
 
 /**
  * Typed subset of @opencode-ai/plugin server hooks owned by the current port.
@@ -13,6 +15,9 @@ import opencodehx.config.ConfigInfo;
  */
 typedef PluginConfigHook = ConfigInfo->Void;
 
+typedef PluginSystemTransformHook = (Unknown, PluginSystemOutput) -> Void;
+
 typedef PluginServerHooks = {
 	@:optional final config:PluginConfigHook;
+	@:optional final systemTransform:PluginSystemTransformHook;
 }
