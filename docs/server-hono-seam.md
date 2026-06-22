@@ -25,6 +25,7 @@ OpenCodeHX now has a first Node/Hono server seam:
 - `opencodehx.externs.hono.NodeServer` models `createAdaptorServer()` as Hono's exported `ServerType` with a narrow Haxe structural method surface, so the adapter keeps TypeScript package assignability without hiding server lifecycle logic in `Syntax.code`.
 - `opencodehx.server.NodeHonoAdapter` starts and stops the Node server in Haxe, injects WebSocket support, preserves upstream's port-0 behavior of trying `4096` before a random port, guards the TCP address shape, and structurally narrows optional Node close helpers.
 - `opencodehx.server.OpenCodeServer` exposes a first route set: `/health`, `/event`, `/session` GET/POST, `/session/:sessionID/message`, `/session/:sessionID/abort`, `/sync/start`, `/sync/replay`, `/sync/history`, `/tui/select-session`, `/pty`, `/pty/:ptyID`, and `/pty/:ptyID/connect`.
+- `opencodehx.server.WorkspaceProxy` covers the upstream workspace proxy's deterministic HTTP behavior: local session-route classification, target URL/query rewriting, WebSocket URL scheme rewriting, forwarded header cleanup, target header injection, response content-header cleanup, disconnected sync guard, and `x-opencode-sync` fence waiting through `WorkspaceSyncRuntime`.
 - `opencodehx.smoke.ServerSmoke` covers in-memory `app.request()` routes, SSE text emission, cursor headers, bad/missing session cases, select-session validation, abort success, PTY HTTP routes, listener start/stop, and a real PTY WebSocket write/replay/tail flow.
 - `opencodehx.sync.SyncRouteRuntime` decodes sync replay/history request bodies from `genes.ts.Unknown` into typed route records before route logic sees them. Raw sync event `data` remains `unknown` until the full SyncEvent schema/projector registry lands.
 
@@ -47,4 +48,4 @@ Upstream currently uses `@hono/node-server@1.19.11` and deprecated `@hono/node-w
 
 ## Deferred Scope
 
-This is not full server parity yet. Remaining work includes Bus/AsyncQueue-backed events, OpenAPI middleware, request validation/error taxonomy, generated SDK compatibility, real session prompt/action routes, provider streams, auth/CORS/compression, workspace routing, workspace proxy integration, and Bun adapter parity.
+This is not full server parity yet. Remaining work includes Bus/AsyncQueue-backed events, OpenAPI middleware, request validation/error taxonomy, generated SDK compatibility, real session prompt/action routes, provider streams, auth/CORS/compression, full workspace routing/control-plane service integration, and Bun adapter parity.

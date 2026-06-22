@@ -2,6 +2,8 @@ package opencodehx.externs.web;
 
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
+import js.html.AbortSignal;
+import js.html.Headers;
 import js.html.Response;
 import js.lib.Promise;
 import opencodehx.externs.web.Fetch.AccountConfigResponse;
@@ -19,6 +21,17 @@ extern typedef GlobalFetchInit = {
 	@:optional final method:String;
 	@:optional final headers:DynamicAccess<String>;
 	@:optional final body:String;
+}
+
+@:ts.type("RequestRedirect")
+extern abstract GlobalRequestRedirect(String) from String to String {}
+
+extern typedef GlobalForwardFetchInit = {
+	final method:String;
+	final headers:Headers;
+	@:optional final body:String;
+	final redirect:GlobalRequestRedirect;
+	final signal:AbortSignal;
 }
 
 /**
@@ -42,4 +55,7 @@ extern class GlobalFetch {
 
 	@:native("fetch")
 	static function response(url:String, ?init:GlobalFetchInit):Promise<Response>;
+
+	@:native("fetch")
+	static function forwardResponse(url:String, init:GlobalForwardFetchInit):Promise<Response>;
 }

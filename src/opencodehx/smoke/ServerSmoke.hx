@@ -5,6 +5,7 @@ import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.Json;
+import js.html.Request;
 import js.html.Response;
 import js.lib.Error;
 import js.lib.Promise;
@@ -13,6 +14,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.web.AbortControllerWithReason;
 import opencodehx.externs.web.GlobalFetch;
+import opencodehx.externs.web.GlobalFetch.GlobalForwardFetchInit;
 import opencodehx.externs.web.WebStreams.WebArrayBuffer;
 import opencodehx.externs.web.WebStreams.WebBinary;
 import opencodehx.externs.web.WebStreams.WebReadableStream;
@@ -27,6 +29,7 @@ import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
+import opencodehx.server.WorkspaceProxy;
 import opencodehx.sync.SyncRouteRuntime;
 import opencodehx.sync.WorkspaceSyncBackgroundTask;
 import opencodehx.sync.WorkspaceSyncBackgroundTask.WorkspaceSyncTaskTimer;
@@ -56,6 +59,11 @@ typedef WorkspaceScheduledTick = {
 	final delayMs:Int;
 	final callback:Void->Void;
 	var canceled:Bool;
+}
+
+typedef WorkspaceProxyCapture = {
+	final url:String;
+	final init:GlobalForwardFetchInit;
 }
 
 class ServerSmoke {
@@ -359,6 +367,7 @@ class ServerSmoke {
 		eq(task.state().running, false, "workspace sync task stopped");
 		eq(task.state().aborted, true, "workspace sync task aborted");
 		eq(scheduled[1].canceled, true, "workspace sync task clears pending timer");
+		await(workspaceProxy(workspaceSync));
 
 		final created = await(jsonResponse(await(server.app.request("/session", {
 			method: "POST",
@@ -566,6 +575,84 @@ class ServerSmoke {
 			eq(error.message, "Workspace replay HTTP failure: 502 bad replay", "workspace sync remote replay failure message");
 		}
 		eq(replayFailed, true, "workspace sync remote replay failure thrown");
+	}
+
+	@:async
+	static function workspaceProxy(workspaceSync:WorkspaceSyncRuntime):Promise<Void> {
+		eq(WorkspaceProxy.shouldServeLocal("GET", "/session"), true, "workspace proxy local session list");
+		eq(WorkspaceProxy.shouldServeLocal("GET", "/session/abc/message"), true, "workspace proxy local session subtree");
+		eq(WorkspaceProxy.shouldServeLocal("GET", "/session/status"), false, "workspace proxy forwards session status");
+		eq(WorkspaceProxy.shouldServeLocal("POST", "/session"), false, "workspace proxy forwards session writes");
+		eq(WorkspaceProxy.proxyUrl("https://workspace.test/base/", "https://local.test/session/abc/message?workspace=wrk_server_1&limit=1#tail"),
+			"https://workspace.test/base/session/abc/message?limit=1#tail", "workspace proxy url strips workspace query");
+		eq(WorkspaceProxy.websocketUrl("https://workspace.test/base"), "wss://workspace.test/base", "workspace proxy websocket https rewrite");
+		eq(WorkspaceProxy.websocketUrl("http://workspace.test/base"), "ws://workspace.test/base", "workspace proxy websocket http rewrite");
+
+		final targetHeaders = new DynamicAccess<String>();
+		targetHeaders.set("authorization", "Bearer workspace-target");
+		final captures:Array<WorkspaceProxyCapture> = [];
+		final request = new Request("https://local.test/session/abc/message?workspace=wrk_server_1&limit=1", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"connection": "keep-alive",
+				"accept-encoding": "gzip",
+				"x-opencode-directory": "/local/project",
+				"x-opencode-workspace": "wrk_server_1",
+			},
+			body: '{"ok":true}',
+		});
+		final response = await(WorkspaceProxy.http(request, "wrk_server_1", {url: "https://workspace.test/base", headers: targetHeaders}, workspaceSync,
+			(url, init) -> {
+				captures.push({url: url, init: init});
+				return Promise.resolve(new Response("proxied", {
+					status: 201,
+					statusText: "Created",
+					headers: {
+						"x-opencode-sync": '{"workspace_session_1":4}',
+						"content-length": "7",
+						"content-encoding": "gzip",
+						"x-proxy-result": "ok",
+					},
+				}));
+			}));
+		eq(captures[0].url, "https://workspace.test/base/session/abc/message?limit=1", "workspace proxy forwarded url");
+		eq(captures[0].init.method, "POST", "workspace proxy forwarded method");
+		eq(captures[0].init.body, '{"ok":true}', "workspace proxy forwarded body");
+		eq(captures[0].init.headers.get("authorization"), "Bearer workspace-target", "workspace proxy target headers");
+		eq(captures[0].init.headers.get("connection"), null, "workspace proxy strips hop header");
+		eq(captures[0].init.headers.get("accept-encoding"), null, "workspace proxy strips accept encoding");
+		eq(captures[0].init.headers.get("x-opencode-directory"), null, "workspace proxy strips directory header");
+		eq(captures[0].init.headers.get("x-opencode-workspace"), null, "workspace proxy strips workspace header");
+		eq(Reflect.field(response, "status"), 201, "workspace proxy response status");
+		eq(response.headers.get("content-length"), null, "workspace proxy strips response content length");
+		eq(response.headers.get("content-encoding"), null, "workspace proxy strips response content encoding");
+		eq(response.headers.get("x-proxy-result"), "ok", "workspace proxy preserves response header");
+		eq(await(response.text()), "proxied", "workspace proxy response body");
+
+		final timeout = await(WorkspaceProxy.http(new Request("https://local.test/session/abc/action?workspace=wrk_server_1", {method: "POST"}),
+			"wrk_server_1", {url: "https://workspace.test/base", headers: null}, workspaceSync, (_, _) -> {
+				return Promise.resolve(new Response("late", {
+					status: 200,
+					headers: {"x-opencode-sync": '{"workspace_session_1":99}'},
+				}));
+			}));
+		eq(Reflect.field(timeout, "status"), 504, "workspace proxy fence timeout status");
+		eq(await(timeout.text()), 'Timed out waiting for sync fence: {"workspace_session_1":99}', "workspace proxy fence timeout body");
+
+		final disconnected = new WorkspaceSyncRuntime(new SyncRouteRuntime(["item.created.1"]));
+		disconnected.register({
+			id: "wrk_disconnected",
+			projectID: "proj_server",
+			directory: "/remote/workspace",
+			activeSessionIDs: ["workspace_session_1"],
+		});
+		final broken = await(WorkspaceProxy.http(new Request("https://local.test/session/abc/action?workspace=wrk_disconnected", {method: "POST"}),
+			"wrk_disconnected", {url: "https://workspace.test/base", headers: null}, disconnected, (_, _) -> {
+				return Promise.resolve(new Response("should not fetch", {status: 200}));
+			}));
+		eq(Reflect.field(broken, "status"), 503, "workspace proxy disconnected status");
+		eq(await(broken.text()), "broken sync connection for workspace: wrk_disconnected", "workspace proxy disconnected body");
 	}
 
 	@:async
