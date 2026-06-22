@@ -1,15 +1,23 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import haxe.Json;
-import js.Syntax;
 import js.html.Response;
+import js.lib.Error;
 import js.lib.Promise;
+import js.lib.Uint8Array;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.web.GlobalFetch;
+import opencodehx.externs.web.WebStreams.WebArrayBuffer;
+import opencodehx.externs.web.WebStreams.WebBinary;
+import opencodehx.externs.web.WebStreams.WebTimers;
+import opencodehx.externs.web.WebStreams.WebResponseStreams;
+import opencodehx.externs.web.WebStreams.WebTextDecoder;
 import opencodehx.externs.ws.WebSocket;
+import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
@@ -334,75 +342,107 @@ class ServerSmoke {
 		return await(response.json());
 	}
 
+	@:async
 	static function readSseEvents(response:Response, eventCount:Int):Promise<String> {
-		// Smoke-only stream reader: Haxe std externs do not model the async
-		// ReadableStream reader loop ergonomically yet, so this raw block stays
-		// localized to asserting SSE wire output.
-		return Syntax.code("(async () => {
-			const reader = {0}.body?.getReader();
-			if (!reader) return '';
-			const decoder = new TextDecoder();
-			let text = '';
-			try {
-				while ((text.match(/\\n\\n/g)?.length ?? 0) < {1}) {
-					const result = await reader.read();
-					if (result.done) break;
-					text += decoder.decode(result.value, { stream: true });
-				}
-				return text;
-			} finally {
-				await reader.cancel();
+		final body = WebResponseStreams.body(response);
+		if (body == null)
+			return "";
+
+		final reader = body.getReader();
+		final decoder = new WebTextDecoder();
+		var text = "";
+		try {
+			while (sseEventCount(text) < eventCount) {
+				final result = await(reader.read());
+				if (result.done)
+					break;
+				if (result.value != null)
+					text += decoder.decode(result.value, {stream: true});
 			}
-		})()", response, eventCount);
+			await(reader.cancel());
+			return text;
+		} catch (error:Dynamic) {
+			// Host stream readers may reject or throw arbitrary JS values.
+			// Keep the Dynamic catch inside the smoke SSE boundary, cancel the
+			// reader like the old raw finally block, and rethrow the original.
+			await(reader.cancel());
+			throw error;
+		}
+	}
+
+	static function sseEventCount(text:String):Int {
+		var count = 0;
+		var offset = 0;
+		while (true) {
+			final next = text.indexOf("\n\n", offset);
+			if (next == -1)
+				break;
+			count += 1;
+			offset = next + 2;
+		}
+		return count;
 	}
 
 	static function ptyWebsocket(url:String, ?message:String, ?expected:String):Promise<PtyWebSocketResult> {
-		// Smoke-only WebSocket orchestration over the ws package. Keep the raw
-		// event lifecycle here until the test harness has a typed async ws facade.
-		return Syntax.code("new Promise((resolve: (value: PtyWebSocketResult) => void, reject: (reason?: unknown) => void) => {
-			const socket = new {0}({1});
-			let text = '';
-			let cursor = -1;
-			let done = false;
-			const timeout = setTimeout(() => {
+		return new Promise<PtyWebSocketResult>((resolve, reject) -> {
+			final socket = new WebSocket(url);
+			var text = "";
+			var cursor = -1;
+			var done = false;
+			final timeout = WebTimers.setTimeout(() -> {
 				done = true;
 				socket.close();
-				reject(new Error('pty websocket timed out'));
+				reject(new Error("pty websocket timed out"));
 			}, 1000);
-			const finish = () => {
-				if (done) return;
+
+			function finish():Void {
+				if (done)
+					return;
 				done = true;
-				clearTimeout(timeout);
+				WebTimers.clearTimeout(timeout);
 				socket.close();
-				resolve({ text, cursor });
-			};
-			socket.on('open', () => {
-				if ({2} !== null) socket.send({2});
+				resolve({text: text, cursor: cursor});
+			}
+
+			socket.onOpen("open", () -> {
+				if (message != null)
+					socket.send(message);
 			});
-			socket.on('message', (data: unknown) => {
-				let payload: string;
-				if (typeof data === 'string') {
-					payload = data;
-				} else if (data instanceof ArrayBuffer) {
-					payload = Buffer.from(data).toString('utf8');
-				} else if (ArrayBuffer.isView(data)) {
-					payload = Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString('utf8');
-				} else {
-					payload = String(data);
-				}
-				if (payload.charCodeAt(0) === 0) {
-					cursor = JSON.parse(payload.slice(1)).cursor;
-				} else {
+			socket.onMessage("message", (data, _) -> {
+				final payload = websocketPayloadText(data);
+				if (payload.length > 0 && payload.charCodeAt(0) == 0)
+					cursor = websocketCursor(payload);
+				else
 					text += payload;
-				}
-				if (cursor >= 0 && ({3} === null || text.includes({3}))) finish();
+				if (cursor >= 0 && (expected == null || text.indexOf(expected) != -1))
+					finish();
 			});
-			socket.on('error', (error: Error) => {
+			socket.onError("error", error -> {
 				done = true;
-				clearTimeout(timeout);
+				WebTimers.clearTimeout(timeout);
 				reject(error);
 			});
-		})", WebSocket, url, message, expected);
+		});
+	}
+
+	static function websocketPayloadText(data:Unknown):String {
+		if (WebBinary.isString(data))
+			return WebBinary.string(data);
+		if (WebBinary.isArrayBuffer(data))
+			return NodeBuffer.fromBytesUtf8(new Uint8Array(cast WebBinary.arrayBuffer(data)));
+		if (WebArrayBuffer.isView(data)) {
+			final view = WebBinary.arrayBufferView(data);
+			final bytes = new Uint8Array(cast view.buffer).subarray(view.byteOffset, view.byteOffset + view.byteLength);
+			return NodeBuffer.fromBytesUtf8(bytes);
+		}
+		return Std.string(data);
+	}
+
+	static function websocketCursor(payload:String):Int {
+		final parsed:Dynamic = Json.parse(payload.substr(1));
+		// The control frame shape is produced by PtyService as `{cursor:Int}`.
+		// Keep Dynamic local to this smoke assertion boundary.
+		return Std.int(Reflect.field(parsed, "cursor"));
 	}
 
 	static function methodInit(method:String):SmokeFetchInit {
