@@ -33,6 +33,7 @@ import opencodehx.smoke.PtySmoke;
 import opencodehx.smoke.ResourceSmoke;
 import opencodehx.smoke.SdkCompatSmoke;
 import opencodehx.smoke.ServerSmoke;
+import opencodehx.smoke.SessionPersistenceSmoke;
 import opencodehx.smoke.SessionProcessorSmoke;
 import opencodehx.smoke.SkillSmoke;
 import opencodehx.smoke.StorageSmoke;
@@ -135,6 +136,8 @@ class Main {
 				log("project-runtime-smoke:ok");
 				SkillSmoke.run();
 				log("skill-smoke:ok");
+				SessionPersistenceSmoke.run();
+				log("session-persistence-smoke:ok");
 				SessionProcessorSmoke.run();
 				log("session-processor-smoke:ok");
 				return SessionProcessorSmoke.runAsync();

@@ -6,6 +6,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
 import opencodehx.sdk.OpenCodeCompatClient;
+import opencodehx.session.MessageTypes.Info;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
 
@@ -29,6 +30,22 @@ class SdkCompatSmoke {
 			final listed = @:await client.listSessions(10);
 			eq(listed.length, 1, "sdk list session count");
 			eq(listed[0].id, created.id, "sdk list session id");
+			eq(@:await client.selectSession(created.id), true, "sdk select session");
+			final full = @:await client.messages(created.id);
+			eq(full.items.length, 2, "sdk resume full message count");
+			eq(messageID(full.items[0].info), "msg_user_one_ses_server_1", "sdk resume full first message");
+			eq(messageID(full.items[1].info), "msg_assistant_one_ses_server_1", "sdk resume full second message");
+			final firstPage = @:await client.messages(created.id, 1);
+			eq(firstPage.items.length, 1, "sdk resume first page count");
+			eq(messageID(firstPage.items[0].info), "msg_assistant_one_ses_server_1", "sdk resume first page newest message");
+			eq(firstPage.cursor != null, true, "sdk resume cursor");
+			eq(firstPage.link != null && firstPage.link.indexOf('rel="next"') != -1, true, "sdk resume link header");
+			final cursor = firstPage.cursor;
+			if (cursor == null)
+				throw "sdk resume cursor missing";
+			final secondPage = @:await client.messages(created.id, 1, cursor);
+			eq(secondPage.items.length, 1, "sdk resume second page count");
+			eq(messageID(secondPage.items[0].info), "msg_user_one_ses_server_1", "sdk resume second page older message");
 			final received = @:await events;
 			eq(received[0].type, "server.connected", "sdk event connected");
 			eq(hasSessionCreated(received, created.id), true, "sdk event session created");
@@ -50,6 +67,15 @@ class SdkCompatSmoke {
 				return true;
 		}
 		return false;
+	}
+
+	static function messageID(info:Info):String {
+		return switch info {
+			case UserInfo(data):
+				data.id.toString();
+			case AssistantInfo(data):
+				data.id.toString();
+		}
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

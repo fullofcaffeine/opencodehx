@@ -397,6 +397,8 @@ class ServerSmoke {
 
 		final badCursor = await(server.app.request('/session/${sessionID}/message?limit=1&before=bad'));
 		eq(Reflect.field(badCursor, "status"), 400, "bad cursor status");
+		final cursorWithoutLimit = await(server.app.request('/session/${sessionID}/message?before=${StringTools.urlEncode(cursor)}'));
+		eq(Reflect.field(cursorWithoutLimit, "status"), 400, "message cursor without limit status");
 		final missing = await(server.app.request("/session/ses_missing/message?limit=1"));
 		eq(Reflect.field(missing, "status"), 404, "missing session status");
 

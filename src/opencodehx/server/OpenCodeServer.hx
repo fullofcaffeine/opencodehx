@@ -165,8 +165,10 @@ class OpenCodeServer {
 		if (!hasSession(sessionID))
 			return json(c, ServerProtocol.error("Session not found"), 404);
 		final rawLimit = query(c, "limit");
-		final limit = ServerProtocol.decodeSessionListQuery(name -> name == "limit" ? rawLimit : null).limit;
 		final before = query(c, "before");
+		if (rawLimit == null && before != null && before != "")
+			return json(c, ServerProtocol.error("before requires limit"), 400);
+		final limit = ServerProtocol.decodeSessionListQuery(name -> name == "limit" ? rawLimit : null).limit;
 		try {
 			final page = before == null
 				|| before == "" ? store.pageMessages(SessionID.make(sessionID), limit) : store.pageMessages(SessionID.make(sessionID), limit, before);

@@ -11,6 +11,8 @@ import opencodehx.externs.web.GlobalFetch;
 import opencodehx.externs.web.WebStreams.WebReadableStream;
 import opencodehx.externs.web.WebStreams.WebResponseStreams;
 import opencodehx.externs.web.WebStreams.WebTextDecoder;
+import opencodehx.session.MessageCodec;
+import opencodehx.session.MessageTypes.WithParts;
 import opencodehx.server.ServerProtocol.SessionResponse;
 import opencodehx.server.ServerProtocol.ServerEvent;
 
@@ -23,6 +25,12 @@ typedef CompatClientConfig = {
 typedef CompatCreateSession = {
 	final prompt:String;
 	@:optional final title:String;
+}
+
+typedef CompatMessagePage = {
+	final items:Array<WithParts>;
+	@:optional final cursor:String;
+	@:optional final link:String;
 }
 
 class OpenCodeCompatClient {
@@ -76,6 +84,48 @@ class OpenCodeCompatClient {
 		if (body == null)
 			throw "event stream missing body";
 		return @:await readEvents(body, count);
+	}
+
+	@:async
+	public function selectSession(sessionID:String):Promise<Bool> {
+		final body = new DynamicAccess<String>();
+		body.set("sessionID", sessionID);
+		final response = @:await GlobalFetch.response(url("/tui/select-session"), {
+			method: "POST",
+			headers: jsonHeaders(),
+			body: Json.stringify(body),
+		});
+		return @:await response.json() == true;
+	}
+
+	@:async
+	public function messages(sessionID:String, ?limit:Int, ?before:String):Promise<CompatMessagePage> {
+		final params:Array<String> = [];
+		if (limit != null)
+			params.push("limit=" + Std.string(limit));
+		if (before != null && before != "")
+			params.push("before=" + StringTools.urlEncode(before));
+		final suffix = params.length == 0 ? "" : "?" + params.join("&");
+		final response = @:await GlobalFetch.response(url("/session/" + StringTools.urlEncode(sessionID) + "/message") + suffix, {
+			method: "GET",
+			headers: jsonHeaders(),
+		});
+		final raw = Unknown.fromBoundary(@:await response.json());
+		final items = UnknownNarrow.array(raw);
+		if (items == null)
+			throw "session messages: expected array";
+		final out:Array<WithParts> = [];
+		for (index in 0...items.length) {
+			out.push(MessageCodec.decodeWithParts(cast items.get(index), 'session messages[${index}]'));
+		}
+		final result:Dynamic = {items: out};
+		final cursor:Null<String> = response.headers.get("x-next-cursor");
+		if (cursor != null && cursor != "")
+			Reflect.setField(result, "cursor", cursor);
+		final link:Null<String> = response.headers.get("link");
+		if (link != null && link != "")
+			Reflect.setField(result, "link", link);
+		return cast result;
 	}
 
 	function getUrl(path:String, ?limit:Int):String {
