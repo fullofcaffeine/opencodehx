@@ -81,7 +81,9 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - guarded `/sync/replay` and `/sync/history` server routes,
   - `/sync/start` delegation into a deterministic workspace sync runtime,
   - in-process remote history pull for active workspace sessions, and
-  - local session history replay into a workspace peer.
+  - local session history replay into a workspace peer,
+  - upstream-shaped SSE frame parsing with CRLF normalization, multiline JSON `data:` joins, and `id`/`retry` non-JSON fallback messages, and
+  - deterministic workspace SSE sync payload replay into local sync state.
 
 ## Deferred
 
@@ -89,7 +91,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching bindings beyond typed HEAD-event bus refresh.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
-- Live cross-process workspace sync over real remote SSE streams, workspace fence/proxy behavior, and broader failure/retry diagnostics. Tracked by `opencodehx-kcp`.
+- Live cross-process workspace sync over real remote HTTP/ReadableStream connections, reconnect scheduling, workspace fence/proxy behavior, and broader failure/retry diagnostics. Tracked by `opencodehx-kcp`.
 
 ## Boundary Notes
 

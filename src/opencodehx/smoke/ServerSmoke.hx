@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.Json;
 import js.html.Response;
@@ -23,6 +24,7 @@ import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.sync.SyncRouteRuntime;
 import opencodehx.sync.WorkspaceSyncRuntime;
+import opencodehx.sync.WorkspaceSyncSse;
 
 typedef PtyWebSocketResult = {
 	final text:String;
@@ -224,6 +226,29 @@ class ServerSmoke {
 		eq(syncRuntime.events("workspace_session_1").length, 1, "workspace sync pulled remote history");
 		eq(workspaceSync.sendLocalHistory("wrk_server_1", "sync_session_1"), "sync_session_1", "workspace sync replay local history");
 		eq(remoteSync.events("sync_session_1").length, 3, "workspace sync remote replay count");
+		final sseJson = WorkspaceSyncSse.parse('data: {"type":"one","properties":{"ok":true}}\r\n\r\n'
+			+ 'data: {"type":"two",\r\ndata: "properties":{"n":2}}\r\n\r\n');
+		eq(sseJson.length, 2, "workspace sse json count");
+		final sseOne = UnknownNarrow.record(sseJson[0].json);
+		final sseOneProperties = sseOne == null ? null : UnknownNarrow.record(sseOne.get("properties"));
+		eq(sseOne != null && UnknownNarrow.string(sseOne.get("type")) == "one", true, "workspace sse first json type");
+		eq(sseOneProperties != null && UnknownNarrow.bool(sseOneProperties.get("ok")) == true, true, "workspace sse first json property");
+		final sseTwo = UnknownNarrow.record(sseJson[1].json);
+		final sseTwoProperties = sseTwo == null ? null : UnknownNarrow.record(sseTwo.get("properties"));
+		eq(sseTwo != null && UnknownNarrow.string(sseTwo.get("type")) == "two", true, "workspace sse multiline json type");
+		eq(sseTwoProperties != null && UnknownNarrow.int32(sseTwoProperties.get("n")) == 2, true, "workspace sse multiline json property");
+		final sseFallback = WorkspaceSyncSse.parse("id: abc\nretry: 1500\ndata: hello world\n\n");
+		eq(sseFallback.length, 1, "workspace sse fallback count");
+		eq(sseFallback[0].fallback != null && sseFallback[0].fallback.data == "hello world", true, "workspace sse fallback data");
+		eq(sseFallback[0].fallback != null && sseFallback[0].fallback.id == "abc", true, "workspace sse fallback id");
+		eq(sseFallback[0].fallback != null && sseFallback[0].fallback.retry == 1500, true, "workspace sse fallback retry");
+		final sseApplied = workspaceSync.applyRemoteSse("wrk_server_1",
+			'data: {"directory":"/remote/workspace","project":"proj_server","workspace":"remote_workspace","payload":{"type":"server.heartbeat","properties":{}}}\n\n' +
+			'data: {"directory":"/remote/workspace","project":"proj_server","workspace":"remote_workspace","payload":{"type":"sync","syncEvent":{"id":"evt_workspace_remote_2","type":"item.created.1","seq":1,"aggregateID":"workspace_session_1","data":{"id":"remote_item","name":"remote-two"}}}}\n\n');
+		eq(sseApplied, 1, "workspace sync sse replay count");
+		eq(syncRuntime.events("workspace_session_1").length, 2, "workspace sync sse pulled event");
+		eq(workspaceSync.forwardedEvents.length, 2, "workspace sync sse forwarded events");
+		eq(workspaceSync.forwardedEvents[0].workspace, "wrk_server_1", "workspace sync sse local workspace id");
 
 		final created = await(jsonResponse(await(server.app.request("/session", {
 			method: "POST",

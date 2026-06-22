@@ -4,6 +4,7 @@ import haxe.ds.StringMap;
 import opencodehx.sync.SyncRouteRuntime.SyncHistoryEvent;
 import opencodehx.sync.SyncRouteRuntime.SyncRouteEvent;
 import opencodehx.sync.SyncRouteRuntime.SyncRouteKnownSeq;
+import opencodehx.sync.WorkspaceSyncSse.WorkspaceSyncGlobalEvent;
 
 typedef WorkspaceSyncRemote = {
 	final history:Array<SyncRouteKnownSeq>->Array<SyncHistoryEvent>;
@@ -35,6 +36,7 @@ class WorkspaceSyncRuntime {
 
 	public final statuses:Array<WorkspaceSyncStatusEvent> = [];
 	public final failures:Array<WorkspaceSyncFailure> = [];
+	public final forwardedEvents:Array<WorkspaceSyncGlobalEvent> = [];
 
 	public function new(local:SyncRouteRuntime) {
 		this.local = local;
@@ -82,6 +84,31 @@ class WorkspaceSyncRuntime {
 		if (events.length == 0)
 			return null;
 		return workspace.remote.replay(events);
+	}
+
+	public function applyRemoteSse(workspaceID:String, text:String):Int {
+		final workspace = workspaceFor(workspaceID);
+		if (workspace == null)
+			throw 'Workspace not found: ${workspaceID}';
+		var applied = 0;
+		for (event in WorkspaceSyncSse.parse(text)) {
+			final global = event.global;
+			if (global == null)
+				continue;
+			forwardedEvents.push({
+				directory: global.directory == null ? workspace.directory : global.directory,
+				project: global.project == null ? workspace.projectID : global.project,
+				workspace: workspace.id,
+				payload: global.payload,
+			});
+			if (global.payload.type != "sync" || global.payload.syncEvent == null)
+				continue;
+			local.replayOne(global.payload.syncEvent);
+			applied += 1;
+		}
+		if (applied > 0)
+			setStatus(workspaceID, "connected");
+		return applied;
 	}
 
 	function startWorkspace(workspace:WorkspaceSyncWorkspace):Void {
