@@ -31,6 +31,7 @@ import opencodehx.smoke.ProviderSmoke;
 import opencodehx.smoke.ProviderTransformSmoke;
 import opencodehx.smoke.PtySmoke;
 import opencodehx.smoke.ResourceSmoke;
+import opencodehx.smoke.SdkCompatSmoke;
 import opencodehx.smoke.ServerSmoke;
 import opencodehx.smoke.SessionProcessorSmoke;
 import opencodehx.smoke.SkillSmoke;
@@ -156,6 +157,10 @@ class Main {
 			})
 			.then(_ -> {
 				log("formatter-smoke:ok");
+				return SdkCompatSmoke.run();
+			})
+			.then(_ -> {
+				log("sdk-compat-smoke:ok");
 				return ServerSmoke.run();
 			})
 			.then(_ -> {
