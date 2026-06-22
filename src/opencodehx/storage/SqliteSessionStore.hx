@@ -1,7 +1,6 @@
 package opencodehx.storage;
 
 import haxe.Json;
-import js.Syntax;
 import opencodehx.host.node.BetterSqlite;
 import opencodehx.session.MessageCodec;
 import opencodehx.session.MessageID;
@@ -380,6 +379,6 @@ class SqliteSessionStore implements SessionStore {
 	}
 
 	static function mapGetParts(map:Map<String, Array<Part>>, key:String):Null<Array<Part>> {
-		return Syntax.code("{0}.inst.get({1}) ?? null", map, key);
+		return map.exists(key) ? map.get(key) : null;
 	}
 }
