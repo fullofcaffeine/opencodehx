@@ -2,6 +2,7 @@ package opencodehx.externs.web;
 
 import haxe.DynamicAccess;
 import genes.ts.Unknown;
+import js.Syntax;
 import js.html.Headers;
 import js.html.Response;
 import js.lib.Promise;
@@ -31,6 +32,22 @@ extern typedef WebResponseWithBody = {
 
 extern typedef WebHeadersForEachFacade = {
 	function forEach(callback:(value:String, key:String, headers:Headers) -> Void):Void;
+}
+
+@:ts.type("ArrayBuffer")
+extern class WebArrayBufferData {
+	function slice(begin:Int, ?end:Int):WebArrayBufferData;
+}
+
+extern typedef WebArrayBufferView = {
+	final buffer:WebArrayBufferData;
+	final byteOffset:Int;
+	final byteLength:Int;
+}
+
+@:native("ArrayBuffer")
+extern class WebArrayBuffer {
+	static function isView(value:Unknown):Bool;
 }
 
 @:native("ReadableStream")
@@ -94,5 +111,37 @@ class WebHeadersAccess {
 		final typed:WebHeadersForEachFacade = cast headers;
 		typed.forEach((value, key, _) -> out.set(key, value));
 		return out;
+	}
+}
+
+class WebBinary {
+	public static inline function isString(value:Unknown):Bool {
+		return Syntax.code("typeof {0} === 'string'", value);
+	}
+
+	public static inline function string(value:Unknown):String {
+		// Caller must first prove isString(value). Haxe cannot express that JS
+		// predicate relationship directly, so the cast is localized here.
+		return cast value;
+	}
+
+	public static inline function isArrayBuffer(value:Unknown):Bool {
+		// JS ArrayBuffer identity is a Web runtime predicate; keep the raw
+		// instanceof check in this facade so product code can stay typed.
+		return Syntax.code("{0} instanceof ArrayBuffer", value);
+	}
+
+	public static inline function arrayBuffer(value:Unknown):WebArrayBufferData {
+		// Caller must first prove isArrayBuffer(value). Haxe cannot express that
+		// JS predicate relationship directly, so the proof cast stays in this
+		// Web-platform facade instead of leaking into product route code.
+		return cast value;
+	}
+
+	public static inline function arrayBufferView(value:Unknown):WebArrayBufferView {
+		// ArrayBuffer.isView proves this structural shape at runtime. Haxe cannot
+		// carry that JS predicate through the type system, so keep the proof cast
+		// in the Web-platform facade.
+		return cast value;
 	}
 }

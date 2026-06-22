@@ -2,7 +2,6 @@ package opencodehx.server;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
-import js.Syntax;
 import js.html.Response;
 import js.lib.Promise;
 import opencodehx.externs.hono.Hono;
@@ -11,6 +10,8 @@ import opencodehx.externs.hono.NodeWs;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketHandlerCallbacks;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketMessage;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketRuntime;
+import opencodehx.externs.web.WebStreams.WebArrayBuffer;
+import opencodehx.externs.web.WebStreams.WebBinary;
 import opencodehx.pty.PtyService;
 import opencodehx.pty.PtyTypes.PtyConnectHandler;
 import opencodehx.pty.PtyTypes.PtyID;
@@ -306,12 +307,14 @@ class OpenCodeServer {
 				final message = ptyMessage(event.data);
 				if (message == null)
 					return;
+				final decoded:PtySocketMessage = message;
 				if (!ready) {
-					pending.push(message);
+					pending.push(decoded);
 					return;
 				}
-				if (handler != null)
-					handler.onMessage(message);
+				final active = handler;
+				if (active != null)
+					active.onMessage(decoded);
 			},
 			onClose: () -> {
 				if (handler != null)
@@ -356,17 +359,18 @@ class OpenCodeServer {
 	}
 
 	static function ptyMessage(value:Unknown):Null<PtySocketMessage> {
-		// PTY websocket messages can arrive as text, ArrayBuffer, or typed array
-		// views depending on the host websocket implementation. Keep this runtime
-		// shape check localized until the websocket extern models binary payload
-		// views directly.
-		return Syntax.code("typeof {0} === 'string'
-			? {0}
-			: {0} instanceof ArrayBuffer
-				? {0}
-				: ArrayBuffer.isView({0})
-					? {0}.buffer.slice({0}.byteOffset, {0}.byteOffset + {0}.byteLength)
-					: null", value);
+		// PTY websocket messages can arrive as text, ArrayBuffer, or typed-array
+		// views depending on the host websocket implementation. This is a runtime
+		// boundary from Unknown; each conversion is guarded before use.
+		if (WebBinary.isString(value))
+			return WebBinary.string(value);
+		if (WebBinary.isArrayBuffer(value))
+			return WebBinary.arrayBuffer(value);
+		if (WebArrayBuffer.isView(value)) {
+			final view = WebBinary.arrayBufferView(value);
+			return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+		}
+		return null;
 	}
 
 	@:async

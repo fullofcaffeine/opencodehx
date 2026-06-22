@@ -2,18 +2,18 @@ package opencodehx.externs.hono;
 
 import genes.ts.Unknown;
 import haxe.extern.EitherType;
-import js.lib.ArrayBuffer;
 import js.lib.Uint8Array;
 import opencodehx.externs.hono.Hono.HonoHandler;
 import opencodehx.externs.hono.Hono.HonoContext;
 import opencodehx.externs.hono.NodeServer.NodeServerType;
+import opencodehx.externs.web.WebStreams.WebArrayBufferData;
 
 typedef NodeWebSocketOptions = {
 	final app:Hono;
 }
 
 typedef NodeWebSocketPayload = EitherType<String, Uint8Array>;
-typedef NodeWebSocketMessage = EitherType<String, ArrayBuffer>;
+typedef NodeWebSocketMessage = EitherType<String, WebArrayBufferData>;
 
 typedef NodeWebSocketRaw = {
 	var readyState:Int;

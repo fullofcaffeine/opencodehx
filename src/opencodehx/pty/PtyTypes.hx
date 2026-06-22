@@ -3,8 +3,8 @@ package opencodehx.pty;
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import haxe.extern.EitherType;
-import js.lib.ArrayBuffer;
 import js.lib.Uint8Array;
+import opencodehx.externs.web.WebStreams.WebArrayBufferData;
 
 abstract PtyID(String) from String to String {
 	public inline function new(value:String) {
@@ -68,7 +68,7 @@ typedef PtyEvent = {
 }
 
 typedef PtySocketPayload = EitherType<String, Uint8Array>;
-typedef PtySocketMessage = EitherType<String, ArrayBuffer>;
+typedef PtySocketMessage = EitherType<String, WebArrayBufferData>;
 
 typedef PtySocket = {
 	var readyState:Int;
