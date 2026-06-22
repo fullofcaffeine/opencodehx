@@ -21,6 +21,8 @@ import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
+import opencodehx.sync.SyncRouteRuntime;
+import opencodehx.sync.WorkspaceSyncRuntime;
 
 typedef PtyWebSocketResult = {
 	final text:String;
@@ -37,14 +39,37 @@ class ServerSmoke {
 	@:async
 	public static function run():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-server-"));
+		final syncRuntime = new SyncRouteRuntime(["item.created.1"]);
+		final remoteSync = new SyncRouteRuntime(["item.created.1"]);
+		remoteSync.replayAll([
+			{
+				id: "evt_workspace_remote_1",
+				type: "item.created.1",
+				seq: 0,
+				aggregateID: "workspace_session_1",
+				data: Unknown.fromBoundary({id: "remote_item", name: "remote"})
+			}
+		]);
+		final workspaceSync = new WorkspaceSyncRuntime(syncRuntime);
+		workspaceSync.register({
+			id: "wrk_server_1",
+			projectID: "proj_server",
+			directory: "/remote/workspace",
+			activeSessionIDs: ["workspace_session_1"],
+			remote: {
+				history: known -> remoteSync.history(known),
+				replay: events -> remoteSync.replayAll(events),
+			},
+		});
+		syncRuntime.setStartHandler(() -> workspaceSync.start("proj_server"));
 		final server = new OpenCodeServer({
 			directory: root,
 			dbPath: NodePath.join(root, "opencodehx.db"),
-			syncTypes: ["item.created.1"],
+			syncRuntime: syncRuntime,
 		});
 		var listener:Null<ServerListener> = null;
 		try {
-			await(appRequestRoutes(server, root));
+			await(appRequestRoutes(server, root, workspaceSync, syncRuntime, remoteSync));
 			listener = await(server.listen(0, "127.0.0.1"));
 			final health = await(fetchJson(listener.url + "/health"));
 			eq(Reflect.field(health, "ok"), true, "listener health");
@@ -64,7 +89,8 @@ class ServerSmoke {
 	}
 
 	@:async
-	static function appRequestRoutes(server:OpenCodeServer, root:String):Promise<Void> {
+	static function appRequestRoutes(server:OpenCodeServer, root:String, workspaceSync:WorkspaceSyncRuntime, syncRuntime:SyncRouteRuntime,
+			remoteSync:SyncRouteRuntime):Promise<Void> {
 		final health = await(jsonResponse(await(server.app.request("/health"))));
 		eq(Reflect.field(health, "service"), "opencodehx", "health service");
 
@@ -91,9 +117,6 @@ class ServerSmoke {
 		eq(ptyDeleted, true, "pty delete route");
 		final ptyMissing = await(server.app.request('/pty/${ptyID}'));
 		eq(Reflect.field(ptyMissing, "status"), 404, "pty missing route");
-
-		final syncStart = await(jsonResponse(await(server.app.request("/sync/start", {method: "POST"}))));
-		eq(syncStart, true, "sync start route");
 
 		final syncReplay = await(jsonResponse(await(server.app.request("/sync/replay", {
 			method: "POST",
@@ -192,6 +215,15 @@ class ServerSmoke {
 			}),
 		}));
 		eq(Reflect.field(syncGap, "status"), 400, "sync gap status");
+
+		final syncStart = await(jsonResponse(await(server.app.request("/sync/start", {method: "POST"}))));
+		eq(syncStart, true, "sync start route");
+		eq(workspaceSync.isSyncing("wrk_server_1"), true, "workspace sync route started");
+		eq(workspaceSync.statuses.length >= 3, true, "workspace sync status transitions");
+		eq(workspaceSync.statuses[workspaceSync.statuses.length - 1].status, "connected", "workspace sync connected");
+		eq(syncRuntime.events("workspace_session_1").length, 1, "workspace sync pulled remote history");
+		eq(workspaceSync.sendLocalHistory("wrk_server_1", "sync_session_1"), "sync_session_1", "workspace sync replay local history");
+		eq(remoteSync.events("sync_session_1").length, 3, "workspace sync remote replay count");
 
 		final created = await(jsonResponse(await(server.app.request("/session", {
 			method: "POST",

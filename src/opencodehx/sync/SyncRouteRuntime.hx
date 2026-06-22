@@ -40,17 +40,23 @@ class SyncRouteRuntime {
 	final rows:Array<SyncRouteEvent> = [];
 	final knownTypes:StringMap<Bool> = new StringMap();
 	final validatesTypes:Bool;
+	var startHandler:Null<Void->Bool> = null;
 
-	public function new(?types:Array<String>) {
+	public function new(?types:Array<String>, ?startHandler:Void->Bool) {
 		validatesTypes = types != null && types.length > 0;
+		this.startHandler = startHandler;
 		if (types != null) {
 			for (type in types)
 				knownTypes.set(type, true);
 		}
 	}
 
+	public function setStartHandler(handler:Void->Bool):Void {
+		startHandler = handler;
+	}
+
 	public function start():Bool {
-		return true;
+		return startHandler == null ? true : startHandler();
 	}
 
 	public function replayAll(events:Array<SyncRouteEvent>):Null<String> {
@@ -67,8 +73,12 @@ class SyncRouteRuntime {
 				throw 'Replay sequence mismatch at index ${index}: expected ${expected}, got ${event.seq}';
 		}
 		for (event in events)
-			replay(event);
+			replayOne(event);
 		return source;
+	}
+
+	public function replayOne(event:SyncRouteEvent):Void {
+		replay(event);
 	}
 
 	public function history(knownSeqs:Array<SyncRouteKnownSeq>):Array<SyncHistoryEvent> {
@@ -79,6 +89,21 @@ class SyncRouteRuntime {
 				out.push(toHistory(event));
 		}
 		out.sort((left, right) -> left.seq - right.seq);
+		return out;
+	}
+
+	public function events(?aggregateID:String):Array<SyncRouteEvent> {
+		return aggregateID == null ? rows.copy() : rows.filter(event -> event.aggregateID == aggregateID);
+	}
+
+	public function knownSeqs(aggregateIDs:Array<String>):Array<SyncRouteKnownSeq> {
+		final out:Array<SyncRouteKnownSeq> = [];
+		for (aggregateID in aggregateIDs) {
+			out.push({
+				aggregateID: aggregateID,
+				seq: latest(aggregateID),
+			});
+		}
 		return out;
 	}
 

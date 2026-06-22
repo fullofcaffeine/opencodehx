@@ -50,7 +50,7 @@ class OpenCodeServer {
 	public function new(options:ServerOptions) {
 		directory = options.directory;
 		store = new SqliteSessionStore(options.dbPath);
-		syncRuntime = new SyncRouteRuntime(options.syncTypes);
+		syncRuntime = options.syncRuntime == null ? new SyncRouteRuntime(options.syncTypes) : options.syncRuntime;
 		ptyService = new PtyService(directory);
 		app = new Hono();
 		ws = NodeWs.createNodeWebSocket({app: app});
