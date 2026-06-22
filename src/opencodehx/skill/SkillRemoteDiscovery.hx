@@ -2,13 +2,13 @@ package opencodehx.skill;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import js.html.URL;
 import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.web.GlobalFetch;
 import opencodehx.externs.web.GlobalFetch.UnknownJsonFetchResponse;
 import opencodehx.host.node.NodePath;
-import opencodehx.interop.UnknownAccess;
 
 typedef SkillIndexEntry = {
 	final name:String;
@@ -106,15 +106,15 @@ class SkillRemoteDiscovery {
 	}
 
 	static function decodeIndex(raw:Unknown):Null<SkillIndexPayload> {
-		final record = UnknownAccess.record(raw);
+		final record = UnknownNarrow.record(raw);
 		if (record == null)
 			return null;
-		final rawSkills = UnknownAccess.array(record.get("skills"));
+		final rawSkills = UnknownNarrow.array(record.get("skills"));
 		if (rawSkills == null)
 			return null;
 		final skills:Array<SkillIndexEntry> = [];
-		for (item in rawSkills) {
-			final skill = decodeSkill(item);
+		for (index in 0...rawSkills.length) {
+			final skill = decodeSkill(rawSkills.get(index));
 			if (skill != null)
 				skills.push(skill);
 		}
@@ -126,16 +126,16 @@ class SkillRemoteDiscovery {
 	}
 
 	static function decodeSkill(raw:Unknown):Null<SkillIndexEntry> {
-		final record = UnknownAccess.record(raw);
+		final record = UnknownNarrow.record(raw);
 		if (record == null)
 			return null;
-		final name = UnknownAccess.string(record.get("name"));
-		final rawFiles = UnknownAccess.array(record.get("files"));
+		final name = UnknownNarrow.string(record.get("name"));
+		final rawFiles = UnknownNarrow.array(record.get("files"));
 		if (name == null || rawFiles == null)
 			return null;
 		final files:Array<String> = [];
-		for (file in rawFiles) {
-			final fileName = UnknownAccess.string(file);
+		for (index in 0...rawFiles.length) {
+			final fileName = UnknownNarrow.string(rawFiles.get(index));
 			if (fileName == null)
 				return null;
 			files.push(fileName);

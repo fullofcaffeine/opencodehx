@@ -1,8 +1,9 @@
 package opencodehx.sync;
 
 import genes.ts.Unknown;
+import genes.ts.UnknownArray;
+import genes.ts.UnknownNarrow;
 import haxe.ds.StringMap;
-import opencodehx.interop.UnknownAccess;
 
 typedef SyncRouteEvent = {
 	final id:String;
@@ -131,7 +132,7 @@ class SyncRouteRuntime {
 			return SyncRejected("events: expected non-empty array");
 		final events:Array<SyncRouteEvent> = [];
 		for (index in 0...eventValues.length) {
-			switch decodeEvent(eventValues[index], 'events[${index}]') {
+			switch decodeEvent(eventValues.get(index), 'events[${index}]') {
 				case SyncRejected(message):
 					return SyncRejected(message);
 				case SyncDecoded(event):
@@ -184,50 +185,54 @@ class SyncRouteRuntime {
 		});
 	}
 
-	static function arrayField(data:Unknown, name:String):Null<Array<Unknown>> {
-		return UnknownAccess.arrayField(data, name);
+	static function arrayField(data:Unknown, name:String):Null<UnknownArray> {
+		final value = field(data, name);
+		return value == null ? null : UnknownNarrow.array(value);
 	}
 
 	static function stringField(data:Unknown, name:String):Null<String> {
-		return UnknownAccess.stringField(data, name);
+		final value = field(data, name);
+		return value == null ? null : UnknownNarrow.string(value);
 	}
 
 	static function field(data:Unknown, name:String):Null<Unknown> {
-		final record = UnknownAccess.record(data);
+		final record = UnknownNarrow.record(data);
 		return record == null || !record.hasOwn(name) ? null : record.get(name);
 	}
 
 	static function hasField(data:Unknown, name:String):Bool {
-		final record = UnknownAccess.record(data);
+		final record = UnknownNarrow.record(data);
 		return record != null && record.hasOwn(name);
 	}
 
 	static function objectKeys(data:Unknown):Array<String> {
-		final record = UnknownAccess.record(data);
+		final record = UnknownNarrow.record(data);
 		return record == null ? [] : record.keys();
 	}
 
 	static function isPlainObject(value:Null<Unknown>):Bool {
-		return value != null && UnknownAccess.record(value) != null;
+		return value != null && UnknownNarrow.record(value) != null;
 	}
 
 	static function isArray(value:Null<Unknown>):Bool {
-		return value != null && UnknownAccess.array(value) != null;
+		return value != null && UnknownNarrow.array(value) != null;
 	}
 
 	static function isString(value:Null<Unknown>):Bool {
-		return value != null && UnknownAccess.string(value) != null;
+		return value != null && UnknownNarrow.string(value) != null;
 	}
 
 	static function isNonNegativeInteger(value:Null<Unknown>):Bool {
 		if (value == null)
 			return false;
-		final int = UnknownAccess.int32(value);
+		final int = UnknownNarrow.int32(value);
 		return int != null && int >= 0;
 	}
 
-	static function intValue(value:Unknown):Int {
-		final int = UnknownAccess.int32(value);
+	static function intValue(value:Null<Unknown>):Int {
+		if (value == null)
+			return 0;
+		final int = UnknownNarrow.int32(value);
 		return int == null ? 0 : int;
 	}
 }

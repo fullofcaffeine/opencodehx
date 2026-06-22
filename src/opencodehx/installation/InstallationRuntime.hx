@@ -1,9 +1,10 @@
 package opencodehx.installation;
 
 import genes.ts.Unknown;
+import genes.ts.UnknownArray;
+import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.Json;
-import opencodehx.interop.UnknownAccess;
 
 using StringTools;
 
@@ -326,14 +327,14 @@ class InstallationRuntime {
 		final formulae = arrayField(data, "formulae", "brew info");
 		if (formulae.length == 0)
 			throw "brew info response did not include formulae";
-		return stringField(field(formulae[0], "versions", "brew info formula"), "stable", "brew info versions");
+		return stringField(field(formulae.get(0), "versions", "brew info formula"), "stable", "brew info versions");
 	}
 
 	static function chocoVersion(data:Unknown):String {
 		final results = arrayField(field(data, "d", "chocolatey response"), "results", "chocolatey response");
 		if (results.length == 0)
 			throw "chocolatey response did not include results";
-		return stringField(results[0], "Version", "chocolatey package");
+		return stringField(results.get(0), "Version", "chocolatey package");
 	}
 
 	/**
@@ -350,26 +351,26 @@ class InstallationRuntime {
 	}
 
 	static function field(data:Unknown, name:String, source:String):Unknown {
-		final record = UnknownAccess.record(data);
+		final record = UnknownNarrow.record(data);
 		if (record == null || !record.hasOwn(name))
 			throw 'missing ${name} in ${source}';
 		final value = record.get(name);
-		if (UnknownAccess.isNull(value) || UnknownAccess.isUndefined(value))
+		if (UnknownNarrow.isNull(value) || UnknownNarrow.isUndefined(value))
 			throw 'missing ${name} in ${source}';
 		return value;
 	}
 
 	static function stringField(data:Unknown, name:String, source:String):String {
 		final value = field(data, name, source);
-		final string = UnknownAccess.string(value);
+		final string = UnknownNarrow.string(value);
 		if (string == null)
 			throw 'expected ${name} in ${source} to be a string';
 		return string;
 	}
 
-	static function arrayField(data:Unknown, name:String, source:String):Array<Unknown> {
+	static function arrayField(data:Unknown, name:String, source:String):UnknownArray {
 		final value = field(data, name, source);
-		final array = UnknownAccess.array(value);
+		final array = UnknownNarrow.array(value);
 		if (array == null)
 			throw 'expected ${name} in ${source} to be an array';
 		return array;

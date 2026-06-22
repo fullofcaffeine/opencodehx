@@ -1,11 +1,11 @@
 package opencodehx.npm;
 
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.Json;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
-import opencodehx.interop.UnknownAccess;
 
 using StringTools;
 
@@ -289,25 +289,28 @@ class Npm {
 	}
 
 	static function field(data:Unknown, name:String):Null<Unknown> {
-		final record = UnknownAccess.record(data);
+		final record = UnknownNarrow.record(data);
 		return record == null || !record.hasOwn(name) ? null : record.get(name);
 	}
 
 	static function hasField(data:Unknown, name:String):Bool {
-		final record = UnknownAccess.record(data);
+		final record = UnknownNarrow.record(data);
 		return record != null && record.hasOwn(name);
 	}
 
 	static function stringField(data:Unknown, name:String):Null<String> {
-		return UnknownAccess.stringField(data, name);
+		final value = field(data, name);
+		return value == null ? null : UnknownNarrow.string(value);
 	}
 
 	static function isString(value:Unknown):Bool {
-		return UnknownAccess.string(value) != null;
+		return UnknownNarrow.string(value) != null;
 	}
 
-	static function objectKeys(data:Unknown):Array<String> {
-		final record = UnknownAccess.record(data);
+	static function objectKeys(data:Null<Unknown>):Array<String> {
+		if (data == null)
+			return [];
+		final record = UnknownNarrow.record(data);
 		return record == null ? [] : record.keys();
 	}
 
