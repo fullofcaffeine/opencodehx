@@ -1,6 +1,7 @@
 package opencodehx.resource;
 
-import js.Syntax;
+import js.html.URL;
+import opencodehx.externs.js.EsmModule;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodeBuffer;
@@ -10,9 +11,6 @@ typedef WasmResource = {
 	final byteLength:Int;
 	final prefix:Array<Int>;
 }
-
-@:ts.type("URL")
-abstract ResourceUrl(Dynamic) from Dynamic to Dynamic {}
 
 class Resources {
 	public static function text(relative:String):String {
@@ -33,10 +31,10 @@ class Resources {
 		};
 	}
 
-	static function url(relative:String):ResourceUrl {
-		// import.meta.url is an ESM module boundary; keep it localized here until
-		// genes-ts grows generic text/file/WASM resource import helpers.
-		return Syntax.code("new URL({0}, import.meta.url)", "../../resources/" + clean(relative));
+	static function url(relative:String):URL {
+		// import.meta.url is an ESM module boundary; EsmModule keeps the raw
+		// access localized until genes-ts grows generic resource import helpers.
+		return new URL("../../resources/" + clean(relative), EsmModule.url());
 	}
 
 	static function clean(relative:String):String {
