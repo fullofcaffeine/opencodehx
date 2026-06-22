@@ -11,6 +11,7 @@ import js.lib.Promise;
 import js.lib.Uint8Array;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.web.AbortControllerWithReason;
 import opencodehx.externs.web.GlobalFetch;
 import opencodehx.externs.web.WebStreams.WebArrayBuffer;
 import opencodehx.externs.web.WebStreams.WebBinary;
@@ -23,6 +24,9 @@ import opencodehx.host.node.NodePath;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.sync.SyncRouteRuntime;
+import opencodehx.sync.WorkspaceSyncRemoteHttp;
+import opencodehx.sync.WorkspaceSyncRemoteHttp.WorkspaceSyncFetchInit;
+import opencodehx.sync.WorkspaceSyncRemoteHttp.WorkspaceSyncHttpError;
 import opencodehx.sync.WorkspaceSyncRuntime;
 import opencodehx.sync.WorkspaceSyncSse;
 
@@ -35,6 +39,11 @@ typedef SmokeFetchInit = {
 	final method:String;
 	final headers:DynamicAccess<String>;
 	final body:String;
+}
+
+typedef WorkspaceHttpCapture = {
+	final url:String;
+	final init:WorkspaceSyncFetchInit;
 }
 
 class ServerSmoke {
@@ -95,6 +104,7 @@ class ServerSmoke {
 			remoteSync:SyncRouteRuntime):Promise<Void> {
 		final health = await(jsonResponse(await(server.app.request("/health"))));
 		eq(Reflect.field(health, "service"), "opencodehx", "health service");
+		await(workspaceRemoteHttp());
 
 		// Parsed PTY route JSON is inspected as a smoke boundary payload here;
 		// production PTY request bodies decode through PtyRouteProtocol first.
@@ -375,6 +385,100 @@ class ServerSmoke {
 		eq(Reflect.field(fourth, "id"), "ses_server_4", "live event session id");
 		final liveEventText = await(readSseEvents(liveEventResponse, 8));
 		eq(liveEventText.indexOf('"sessionID":"ses_server_4"') != -1, true, "sse live session event");
+	}
+
+	@:async
+	static function workspaceRemoteHttp():Promise<Void> {
+		eq(WorkspaceSyncRemoteHttp.route("https://workspace.test/base/?query=1#hash", "/sync/history"), "https://workspace.test/base/sync/history",
+			"workspace sync route clears query hash");
+		final captures:Array<WorkspaceHttpCapture> = [];
+		final remote = new WorkspaceSyncRemoteHttp((url, init) -> {
+			captures.push({url: url, init: init});
+			if (url.indexOf("/global/event") != -1)
+				return Promise.resolve(new Response("data: {}\n\n", {status: 200}));
+			if (url.indexOf("/sync/history") != -1) {
+				if (init.headers.get("x-fail") == "history")
+					return Promise.resolve(new Response("bad history", {status: 503}));
+				return Promise.resolve(new Response(Json.stringify([
+					{
+						id: "evt_http_remote_1",
+						type: "item.created.1",
+						seq: 2,
+						aggregate_id: "workspace_session_1",
+						data: {id: "remote-http", name: "http"}
+					}
+				]), {status: 200}));
+			}
+			if (url.indexOf("/sync/replay") != -1) {
+				if (init.headers.get("x-fail") == "replay")
+					return Promise.resolve(new Response("bad replay", {status: 502}));
+				return Promise.resolve(new Response(Json.stringify({sessionID: "workspace_session_1"}), {status: 200}));
+			}
+			return Promise.resolve(new Response("missing", {status: 404}));
+		});
+		final headers = jsonHeaders();
+		headers.set("authorization", "Bearer remote-token");
+		final controller = new AbortControllerWithReason();
+		final stream = await(remote.connectSse("https://workspace.test/base/?stale=1", headers, controller.signal));
+		eq(stream != null, true, "workspace sync remote sse body");
+		eq(captures[0].url, "https://workspace.test/base/global/event", "workspace sync remote sse url");
+		eq(captures[0].init.method, "GET", "workspace sync remote sse method");
+		eq(captures[0].init.headers.get("authorization"), "Bearer remote-token", "workspace sync remote sse headers");
+		eq(captures[0].init.signal == controller.signal, true, "workspace sync remote sse signal");
+		final history = await(remote.syncHistory("https://workspace.test/base/?stale=1", headers, [{aggregateID: "workspace_session_1", seq: 1}],
+			controller.signal));
+		eq(history.url, "https://workspace.test/base/sync/history", "workspace sync remote history url");
+		eq(captures[1].init.method, "POST", "workspace sync remote history method");
+		eq(captures[1].init.headers.get("authorization"), "Bearer remote-token", "workspace sync remote history preserves auth");
+		eq(captures[1].init.headers.get("content-type"), "application/json", "workspace sync remote history content type");
+		eq(captures[1].init.body, '{"workspace_session_1":1}', "workspace sync remote history body");
+		eq(captures[1].init.signal == controller.signal, true, "workspace sync remote history signal");
+		eq(history.events.length, 1, "workspace sync remote history event count");
+		eq(history.events[0].aggregate_id, "workspace_session_1", "workspace sync remote history aggregate");
+		final replay = await(remote.replay("https://workspace.test/base/?stale=1", headers, {
+			directory: "/remote/workspace",
+			events: [
+				{
+					id: "evt_http_local_1",
+					type: "item.created.1",
+					seq: 0,
+					aggregateID: "workspace_session_1",
+					data: Unknown.fromBoundary({id: "local-http", name: "local"})
+				}
+			],
+		}, controller.signal));
+		eq(replay.url, "https://workspace.test/base/sync/replay", "workspace sync remote replay url");
+		eq(replay.sessionID, "workspace_session_1", "workspace sync remote replay session id");
+		eq(captures[2].init.method, "POST", "workspace sync remote replay method");
+		eq(captures[2].init.headers.get("authorization"), "Bearer remote-token", "workspace sync remote replay preserves auth");
+		eq(captures[2].init.headers.get("content-type"), "application/json", "workspace sync remote replay content type");
+		eq(captures[2].init.body.indexOf('"directory":"/remote/workspace"') != -1, true, "workspace sync remote replay directory body");
+		eq(captures[2].init.body.indexOf('"aggregateID":"workspace_session_1"') != -1, true, "workspace sync remote replay event body");
+		eq(captures[2].init.signal == controller.signal, true, "workspace sync remote replay signal");
+		final failingHeaders = jsonHeaders();
+		failingHeaders.set("x-fail", "history");
+		var failed = false;
+		try {
+			await(remote.syncHistory("https://workspace.test/base", failingHeaders, []));
+		} catch (error:WorkspaceSyncHttpError) {
+			failed = true;
+			eq(error.status, 503, "workspace sync remote history failure status");
+			eq(error.body, "bad history", "workspace sync remote history failure body");
+			eq(error.message, "Workspace history HTTP failure: 503 bad history", "workspace sync remote history failure message");
+		}
+		eq(failed, true, "workspace sync remote history failure thrown");
+		final failingReplayHeaders = jsonHeaders();
+		failingReplayHeaders.set("x-fail", "replay");
+		var replayFailed = false;
+		try {
+			await(remote.replay("https://workspace.test/base", failingReplayHeaders, {directory: "/remote/workspace", events: []}));
+		} catch (error:WorkspaceSyncHttpError) {
+			replayFailed = true;
+			eq(error.status, 502, "workspace sync remote replay failure status");
+			eq(error.body, "bad replay", "workspace sync remote replay failure body");
+			eq(error.message, "Workspace replay HTTP failure: 502 bad replay", "workspace sync remote replay failure message");
+		}
+		eq(replayFailed, true, "workspace sync remote replay failure thrown");
 	}
 
 	@:async

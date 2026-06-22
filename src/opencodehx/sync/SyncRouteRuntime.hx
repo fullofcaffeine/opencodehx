@@ -183,6 +183,22 @@ class SyncRouteRuntime {
 		return SyncDecoded(known);
 	}
 
+	public static function decodeHistoryEvents(raw:Unknown):SyncRouteDecode<Array<SyncHistoryEvent>> {
+		final values = UnknownNarrow.array(raw);
+		if (values == null)
+			return SyncRejected("sync history response must be an array");
+		final events:Array<SyncHistoryEvent> = [];
+		for (index in 0...values.length) {
+			switch decodeHistoryEvent(values.get(index), 'events[${index}]') {
+				case SyncRejected(message):
+					return SyncRejected(message);
+				case SyncDecoded(event):
+					events.push(event);
+			}
+		}
+		return SyncDecoded(events);
+	}
+
 	static function decodeEvent(raw:Unknown, path:String):SyncRouteDecode<SyncRouteEvent> {
 		if (!isPlainObject(raw))
 			return SyncRejected('${path}: expected object');
@@ -206,6 +222,33 @@ class SyncRouteRuntime {
 			type: type,
 			seq: intValue(seqValue),
 			aggregateID: aggregateID,
+			data: data,
+		});
+	}
+
+	static function decodeHistoryEvent(raw:Unknown, path:String):SyncRouteDecode<SyncHistoryEvent> {
+		if (!isPlainObject(raw))
+			return SyncRejected('${path}: expected object');
+		final id = stringField(raw, "id");
+		if (id == null)
+			return SyncRejected('${path}.id: expected string');
+		final type = stringField(raw, "type");
+		if (type == null)
+			return SyncRejected('${path}.type: expected string');
+		final seqValue = field(raw, "seq");
+		if (seqValue == null || !isNonNegativeInteger(seqValue))
+			return SyncRejected('${path}.seq: expected non-negative integer');
+		final aggregateID = stringField(raw, "aggregate_id");
+		if (aggregateID == null)
+			return SyncRejected('${path}.aggregate_id: expected string');
+		final data = field(raw, "data");
+		if (data == null || !isPlainObject(data))
+			return SyncRejected('${path}.data: expected object');
+		return SyncDecoded({
+			id: id,
+			type: type,
+			seq: intValue(seqValue),
+			aggregate_id: aggregateID,
 			data: data,
 		});
 	}
