@@ -90,6 +90,12 @@ extern class WebTimers {
 
 	@:native("clearInterval")
 	static function clearInterval(handle:WebTimerHandle):Void;
+
+	@:native("setTimeout")
+	static function setTimeout(callback:Void->Void, delayMs:Int):WebTimerHandle;
+
+	@:native("clearTimeout")
+	static function clearTimeout(handle:WebTimerHandle):Void;
 }
 
 class WebResponseStreams {

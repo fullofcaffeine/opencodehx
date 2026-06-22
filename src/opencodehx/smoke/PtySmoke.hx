@@ -3,11 +3,13 @@ package opencodehx.smoke;
 import genes.js.Async.await;
 import genes.ts.Unknown;
 import haxe.Json;
-import js.Syntax;
+import js.lib.Error;
 import js.lib.Uint8Array;
 import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.web.WebStreams.WebTimers;
+import opencodehx.host.Clock;
 import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
@@ -155,33 +157,43 @@ class PtySmoke {
 		var timeout = 5000;
 		if (timeoutMs != null)
 			timeout = timeoutMs;
-		// Smoke-only polling promise. The production PTY service is typed Haxe;
-		// this helper only adapts setTimeout-style test waiting.
-		return Syntax.code("new Promise((resolve: (value: void) => void, reject: (reason?: Error) => void) => {
-			const end = Date.now() + {2};
-			const tick = () => {
-				try {
-					if ({0}()) {
-						resolve(undefined);
-						return;
-					}
-					if (Date.now() > end) {
-						reject(new Error('timeout waiting for ' + {1}));
-						return;
-					}
-					setTimeout(tick, 25);
-				} catch (error) {
-					reject(error instanceof Error ? error : new Error(String(error)));
-				}
-			};
-			tick();
-		})", check, label, timeout);
+
+		return new Promise<Void>((resolve, reject) -> {
+			// Haxe cannot call a `Promise<Void>` resolver directly because
+			// `Void` has no value. Keep the resolver cast local to this smoke
+			// harness; the timer and PTY lifecycle stay typed through externs.
+			final resolveVoid:Void->Void = cast resolve;
+			waitUntilTick(check, label, Clock.nowMillis() + timeout, resolveVoid, reject);
+		});
+	}
+
+	static function waitUntilTick(check:Void->Bool, label:String, end:Float, resolve:Void->Void, reject:Dynamic->Void):Void {
+		try {
+			if (check()) {
+				resolve();
+				return;
+			}
+			if (Clock.nowMillis() > end) {
+				reject(new Error('timeout waiting for $label'));
+				return;
+			}
+			WebTimers.setTimeout(() -> waitUntilTick(check, label, end, resolve, reject), 25);
+		} catch (error:Dynamic) {
+			// Timer callbacks throw outside the Promise constructor's
+			// synchronous executor. JS can throw arbitrary values here, so keep
+			// the Dynamic catch at the smoke boundary and reject without letting
+			// untyped values escape into product code.
+			reject(error);
+		}
 	}
 
 	static function sleep(ms:Int):Promise<Void> {
-		// Smoke-only timer promise; keep it localized until a typed test timer
-		// facade exists.
-		return Syntax.code("new Promise((resolve: (value: void) => void) => setTimeout(() => resolve(undefined), {0}))", ms);
+		return new Promise<Void>((resolve, _) -> {
+			// See waitUntil: Promise<Void> needs a zero-arg resolver shape in
+			// Haxe, while JS promises resolve with `undefined`.
+			final resolveVoid:Void->Void = cast resolve;
+			WebTimers.setTimeout(resolveVoid, ms);
+		});
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {
