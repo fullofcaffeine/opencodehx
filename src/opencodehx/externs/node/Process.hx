@@ -1,5 +1,7 @@
 package opencodehx.externs.node;
 
+import haxe.DynamicAccess;
+
 /**
  * Small global `process` extern for the entrypoint's CLI/smoke plumbing.
  * Broader process behavior belongs in `host.node.NodeProcess`; this type only
@@ -11,6 +13,10 @@ extern class Process {
 	static final stdout:NodeWritableStream;
 	static final stderr:NodeWritableStream;
 	static var exitCode:Int;
+	static final env:DynamicAccess<String>;
+	static final platform:String;
+	static function cwd():String;
+	static function chdir(path:String):Void;
 }
 
 extern class NodeWritableStream {

@@ -1,11 +1,12 @@
 package opencodehx.host.node;
 
-import js.Syntax;
+import haxe.DynamicAccess;
 import js.lib.Error;
 import opencodehx.externs.node.ChildProcess;
 import opencodehx.externs.node.ChildProcess.SpawnSyncOptions;
 import opencodehx.externs.node.ChildProcess.SpawnSyncResult;
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Process;
 import opencodehx.host.node.NodePath;
 
 using StringTools;
@@ -13,7 +14,7 @@ using StringTools;
 typedef ShellRun = {
 	final command:String;
 	final cwd:String;
-	final env:haxe.DynamicAccess<String>;
+	final env:DynamicAccess<String>;
 	final timeout:Int;
 	final maxBuffer:Int;
 }
@@ -33,46 +34,55 @@ class NodeProcess {
 	static final LOGIN = ["bash", "dash", "fish", "ksh", "sh", "zsh"];
 	static final POSIX = ["bash", "dash", "ksh", "sh", "zsh"];
 
-	public static function env():haxe.DynamicAccess<String> {
+	public static function env():DynamicAccess<String> {
 		// process.env is a Node host boundary. We copy it only to pass back into
 		// spawnSync; application code should normalize specific variables before use.
-		return Syntax.code("({ ...process.env })");
+		final out = new DynamicAccess<String>();
+		for (key in Process.env.keys()) {
+			final value = Process.env.get(key);
+			if (value != null)
+				out.set(key, value);
+		}
+		return out;
 	}
 
 	public static function envValue(key:String):Null<String> {
-		return Syntax.code("(() => {
-			if (process.platform !== 'win32') return process.env[{0}] ?? null;
-			const name = Object.keys(process.env).find((item) => item.toLowerCase() === {0}.toLowerCase());
-			return name ? process.env[name] ?? null : null;
-		})()", key);
+		if (Process.platform != "win32")
+			return Process.env.get(key);
+		final lower = key.toLowerCase();
+		for (name in Process.env.keys()) {
+			if (name.toLowerCase() == lower)
+				return Process.env.get(name);
+		}
+		return null;
 	}
 
 	public static function setEnv(key:String, value:String):Void {
 		// Mutating process.env is a Node host boundary used by CLI smokes and
 		// config bootstrap. Keep it centralized so app logic receives typed env maps.
-		Syntax.code("process.env[{0}] = {1}", key, value);
+		Process.env.set(key, value);
 	}
 
 	public static function unsetEnv(key:String):Void {
 		// See setEnv: deleting a process env key is host mutation and should stay
 		// behind this helper rather than scattered across application modules.
-		Syntax.code("delete process.env[{0}]", key);
+		Process.env.remove(key);
 	}
 
 	public static function cwd():String {
 		// process.cwd() is the Node host boundary for CLI directory defaults.
-		// Keep the raw process read here so callers do not embed js.Syntax.code.
-		return Syntax.code("process.cwd()");
+		// Keep the process read here so callers do not depend on Node directly.
+		return Process.cwd();
 	}
 
 	public static function chdir(path:String):Void {
 		// process.chdir() is a CLI host effect; app code should pass resolved
 		// directories explicitly once it crosses this boundary.
-		Syntax.code("process.chdir({0})", path);
+		Process.chdir(path);
 	}
 
 	public static function platform():String {
-		return Syntax.code("process.platform");
+		return Process.platform;
 	}
 
 	public static function shell():String {
@@ -155,16 +165,27 @@ class NodeProcess {
 	public static function runShell(input:ShellRun):SpawnSyncResult {
 		final shellPath = acceptableShell();
 		if (platform() == "win32" && isPowerShell(shellPath)) {
-			final options:SpawnSyncOptions = Syntax.code("({ cwd: {0}, encoding: 'utf8', env: {1}, timeout: {2}, killSignal: 'SIGTERM', windowsHide: true, maxBuffer: {3} })",
-				input.cwd, input.env,
-				input.timeout, input.maxBuffer);
+			final options:SpawnSyncOptions = {
+				cwd: input.cwd,
+				encoding: "utf8",
+				env: input.env,
+				timeout: input.timeout,
+				killSignal: "SIGTERM",
+				windowsHide: true,
+				maxBuffer: input.maxBuffer,
+			};
 			return ChildProcess.spawnSync(shellPath, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", input.command], options);
 		}
-		// Build the exact Node options object so TypeScript sees the native
-		// SpawnSyncOptionsWithStringEncoding shape instead of Haxe optional-null fields.
-		final options:SpawnSyncOptions = Syntax.code("({ cwd: {0}, encoding: 'utf8', env: {1}, shell: {2}, timeout: {3}, killSignal: 'SIGTERM', windowsHide: true, maxBuffer: {4} })",
-			input.cwd,
-			input.env, shellPath, input.timeout, input.maxBuffer);
+		final options:SpawnSyncOptions = {
+			cwd: input.cwd,
+			encoding: "utf8",
+			env: input.env,
+			shell: shellPath,
+			timeout: input.timeout,
+			killSignal: "SIGTERM",
+			windowsHide: true,
+			maxBuffer: input.maxBuffer,
+		};
 		return ChildProcess.spawnSync(input.command, [], options);
 	}
 
@@ -311,6 +332,42 @@ class NodeProcess {
 	}
 
 	static function convertDrivePath(file:String, pattern:String):String {
-		return Syntax.code("{0}.replace(new RegExp({1}), (_match: string, drive: string) => `${drive.toUpperCase()}:/`)", file, pattern);
+		return switch pattern {
+			case "^/([A-Za-z]):(?:[\\\\/]|$)":
+				convertDrivePrefix(file, "/", true);
+			case "^/([A-Za-z])(?:/|$)":
+				convertDrivePrefix(file, "/", false);
+			case "^/cygdrive/([A-Za-z])(?:/|$)":
+				convertDrivePrefix(file, "/cygdrive/", false);
+			case "^/mnt/([A-Za-z])(?:/|$)":
+				convertDrivePrefix(file, "/mnt/", false);
+			case _:
+				file;
+		}
+	}
+
+	static function convertDrivePrefix(file:String, prefix:String, expectsColon:Bool):String {
+		if (!file.startsWith(prefix))
+			return file;
+		final driveIndex = prefix.length;
+		if (driveIndex >= file.length)
+			return file;
+		final drive = file.charAt(driveIndex);
+		final upperDrive = drive.toUpperCase();
+		if (upperDrive < "A" || upperDrive > "Z")
+			return file;
+		var restIndex = driveIndex + 1;
+		if (expectsColon) {
+			if (restIndex >= file.length || file.charAt(restIndex) != ":")
+				return file;
+			restIndex += 1;
+		}
+		if (restIndex < file.length) {
+			final separator = file.charAt(restIndex);
+			if (separator != "/" && separator != "\\")
+				return file;
+			restIndex += 1;
+		}
+		return upperDrive + ":/" + file.substr(restIndex);
 	}
 }
