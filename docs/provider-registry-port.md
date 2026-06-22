@@ -204,7 +204,7 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 
 `PluginConfigHooks` intentionally mutates `ConfigInfo` instead of returning an overlay. That matches upstream's `server().config(cfg)` contract: plugin config hooks run before provider loading and may add provider definitions or alter provider filters in place. The current Haxe hook type is narrow on purpose; real external plugin module loading, install compatibility, auth hooks, tool hooks, and event hooks belong to the plugin runtime slice.
 
-`ProviderModelsDev.parse` keeps `Dynamic` and a single cast inside the JSON decoder boundary because Haxe's `Json.parse` and `Reflect.field` cannot refine runtime objects into structural typedefs. The boundary validates the consumed models.dev shape first, then returns a typed `ModelsDevCatalog` to the registry.
+`ProviderModelsDev.parse` treats `Json.parse` output as `genes.ts.Unknown`, narrows with `UnknownNarrow`/`UnknownRecord`, and copies validated fields into typed models.dev records before returning a `ModelsDevCatalog` to the registry. Open provider mode bodies remain `DynamicAccess<Unknown>` until `ProviderRegistry` normalizes them into provider options.
 
 `ProviderOptionAccess` owns the registry's provider-option weak reads. Provider options intentionally remain open because SDKs/plugins own arbitrary keys; loaders must ask `ProviderOptionAccess` for typed strings, booleans, URLs, and headers rather than reading option fields directly.
 

@@ -745,6 +745,10 @@ class ProviderSmoke {
 		eq(defaults.capabilities.attachment, false, "models.dev default attachment");
 		eq(defaults.capabilities.toolcall, true, "models.dev default tool calls");
 		eq(defaults.release_date, "", "models.dev default release date");
+
+		final parsed = ProviderModelsDev.parse('{"bad":{"id":"bad","name":"Bad","env":[],"models":{"broken":{"id":"broken","name":"Broken","limit":{"context":"invalid","output":1}}}},"good":{"id":"good","name":"Good","env":[],"models":{"good-model":{"id":"good-model","name":"Good Model","limit":{"context":1000,"output":200}}}}}');
+		eq(catalogCount(parsed), 1, "models.dev parser skips invalid provider");
+		eq(ProviderRegistry.fromModelsDevCatalog(parsed).get("good").models.get("good-model").name, "Good Model", "models.dev parser keeps valid provider");
 	}
 
 	@:async
