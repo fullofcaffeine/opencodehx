@@ -3,7 +3,6 @@ package opencodehx.pty;
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import haxe.Json;
-import js.Syntax;
 import js.lib.Error;
 import js.lib.Uint8Array;
 import opencodehx.bus.EventBus;
@@ -12,6 +11,7 @@ import opencodehx.externs.node.NodePty.PtyProcess;
 import opencodehx.externs.web.WebStreams.WebTextDecoder;
 import opencodehx.externs.web.WebStreams.WebTextEncoder;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.interop.JsIdentityKey;
 import opencodehx.pty.PtyTypes.PtyConnectHandler;
 import opencodehx.pty.PtyTypes.PtyCreateInput;
 import opencodehx.pty.PtyTypes.PtyEvent;
@@ -24,7 +24,7 @@ import opencodehx.pty.PtyTypes.PtyStatus;
 import opencodehx.pty.PtyTypes.PtyUpdateInput;
 
 private typedef PtySubscriber = {
-	final key:Unknown;
+	final key:JsIdentityKey;
 	final socket:PtySocket;
 }
 
@@ -231,7 +231,7 @@ class PtyService {
 		return env;
 	}
 
-	static function sendReplay(session:ActivePty, socket:PtySocket, key:Unknown, ?cursor:Int):Bool {
+	static function sendReplay(session:ActivePty, socket:PtySocket, key:JsIdentityKey, ?cursor:Int):Bool {
 		final start = session.bufferCursor;
 		final end = session.cursor;
 		var from = 0;
@@ -259,7 +259,7 @@ class PtyService {
 		}
 	}
 
-	static function removeSubscriber(session:ActivePty, key:Unknown):Void {
+	static function removeSubscriber(session:ActivePty, key:JsIdentityKey):Void {
 		var index = session.subscribers.length - 1;
 		while (index >= 0) {
 			if (sameSocketKey(session.subscribers[index].key, key))
@@ -282,16 +282,15 @@ class PtyService {
 		} catch (_:Error) {}
 	}
 
-	static function socketKey(socket:PtySocket):Unknown {
-		// Upstream keys PTY subscribers by `ws.data` when it is an object,
-		// otherwise by the socket wrapper itself. Haxe has no object-identity
-		// type for arbitrary JS host objects, so this boundary stays as
-		// `unknown` and is only compared with strict JS identity below.
-		return Syntax.code("({0}.data && typeof {0}.data === 'object' ? {0}.data : {0})", socket);
+	static function socketKey(socket:PtySocket):JsIdentityKey {
+		// Upstream keys PTY subscribers by `ws.data` when it is a truthy object,
+		// otherwise by the socket wrapper. The chosen value is opaque and is only
+		// compared by JS reference identity; it is never decoded as data.
+		return JsIdentityKey.truthyObjectOrFallback(socket.data, socket);
 	}
 
-	static function sameSocketKey(left:Unknown, right:Unknown):Bool {
-		return Syntax.code("{0} === {1}", left, right);
+	static function sameSocketKey(left:JsIdentityKey, right:JsIdentityKey):Bool {
+		return left.same(right);
 	}
 
 	static function cursorFrame(cursor:Int):Uint8Array {
