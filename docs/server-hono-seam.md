@@ -47,4 +47,4 @@ Upstream currently uses `@hono/node-server@1.19.11` and deprecated `@hono/node-w
 
 ## Deferred Scope
 
-This is not full server parity yet. Remaining work includes Bus/AsyncQueue-backed events, OpenAPI middleware, request validation/error taxonomy, generated SDK compatibility, real session prompt/action routes, provider streams, auth/CORS/compression, workspace routing, real remote workspace HTTP/SSE connection and reconnect behavior, fence/proxy sync behavior, and Bun adapter parity.
+This is not full server parity yet. Remaining work includes Bus/AsyncQueue-backed events, OpenAPI middleware, request validation/error taxonomy, generated SDK compatibility, real session prompt/action routes, provider streams, auth/CORS/compression, workspace routing, real remote workspace HTTP/SSE connection side effects, workspace proxy integration, and Bun adapter parity.

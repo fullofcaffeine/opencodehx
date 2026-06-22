@@ -29,7 +29,15 @@ typedef WorkspaceSyncFailure = {
 	final message:String;
 }
 
+typedef WorkspaceSyncFenceResult = {
+	final synced:Bool;
+	final message:Null<String>;
+}
+
 class WorkspaceSyncRuntime {
+	static inline final RECONNECT_DELAY_CAP_MS = 120000;
+	static inline final RECONNECT_DELAY_BASE_MS = 1000;
+
 	final local:SyncRouteRuntime;
 	final workspaces:Array<WorkspaceSyncWorkspace> = [];
 	final syncing:StringMap<Bool> = new StringMap();
@@ -103,12 +111,48 @@ class WorkspaceSyncRuntime {
 			});
 			if (global.payload.type != "sync" || global.payload.syncEvent == null)
 				continue;
-			local.replayOne(global.payload.syncEvent);
-			applied += 1;
+			try {
+				local.replayOne(global.payload.syncEvent);
+				applied += 1;
+			} catch (error:haxe.Exception) {
+				failures.push({workspaceID: workspace.id, message: 'failed to replay global event: ${error.message}'});
+			}
 		}
 		if (applied > 0)
 			setStatus(workspaceID, "connected");
 		return applied;
+	}
+
+	public function waitForSyncFence(workspaceID:String, state:Array<SyncRouteKnownSeq>):WorkspaceSyncFenceResult {
+		if (isFenceSynced(state))
+			return {synced: true, message: null};
+		return {
+			synced: false,
+			message: 'Timed out waiting for sync fence: ${fenceStateJson(state)}',
+		};
+	}
+
+	public function isFenceSynced(state:Array<SyncRouteKnownSeq>):Bool {
+		if (state.length == 0)
+			return true;
+		for (item in state) {
+			final current = local.knownSeqs([item.aggregateID])[0].seq;
+			if (current < item.seq)
+				return false;
+		}
+		return true;
+	}
+
+	public static function reconnectDelayMs(attempt:Int):Int {
+		if (attempt <= 0)
+			return RECONNECT_DELAY_BASE_MS;
+		var delay = RECONNECT_DELAY_BASE_MS;
+		for (_ in 0...attempt) {
+			if (delay >= Std.int(RECONNECT_DELAY_CAP_MS / 2))
+				return RECONNECT_DELAY_CAP_MS;
+			delay *= 2;
+		}
+		return delay > RECONNECT_DELAY_CAP_MS ? RECONNECT_DELAY_CAP_MS : delay;
 	}
 
 	function startWorkspace(workspace:WorkspaceSyncWorkspace):Void {
@@ -154,5 +198,12 @@ class WorkspaceSyncRuntime {
 				return;
 		}
 		statuses.push({workspaceID: workspaceID, status: status});
+	}
+
+	static function fenceStateJson(state:Array<SyncRouteKnownSeq>):String {
+		final fields = [];
+		for (item in state)
+			fields.push('"${item.aggregateID}":${item.seq}');
+		return "{" + fields.join(",") + "}";
 	}
 }

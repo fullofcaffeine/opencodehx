@@ -242,6 +242,12 @@ class ServerSmoke {
 		eq(sseFallback[0].fallback != null && sseFallback[0].fallback.data == "hello world", true, "workspace sse fallback data");
 		eq(sseFallback[0].fallback != null && sseFallback[0].fallback.id == "abc", true, "workspace sse fallback id");
 		eq(sseFallback[0].fallback != null && sseFallback[0].fallback.retry == 1500, true, "workspace sse fallback retry");
+		eq(WorkspaceSyncRuntime.reconnectDelayMs(0), 1000, "workspace sync reconnect first delay");
+		eq(WorkspaceSyncRuntime.reconnectDelayMs(3), 8000, "workspace sync reconnect exponential delay");
+		eq(WorkspaceSyncRuntime.reconnectDelayMs(9), 120000, "workspace sync reconnect capped delay");
+		final fenceBefore = workspaceSync.waitForSyncFence("wrk_server_1", [{aggregateID: "workspace_session_1", seq: 1}]);
+		eq(fenceBefore.synced, false, "workspace sync fence initially pending");
+		eq(fenceBefore.message, 'Timed out waiting for sync fence: {"workspace_session_1":1}', "workspace sync fence timeout message");
 		final sseApplied = workspaceSync.applyRemoteSse("wrk_server_1",
 			'data: {"directory":"/remote/workspace","project":"proj_server","workspace":"remote_workspace","payload":{"type":"server.heartbeat","properties":{}}}\n\n' +
 			'data: {"directory":"/remote/workspace","project":"proj_server","workspace":"remote_workspace","payload":{"type":"sync","syncEvent":{"id":"evt_workspace_remote_2","type":"item.created.1","seq":1,"aggregateID":"workspace_session_1","data":{"id":"remote_item","name":"remote-two"}}}}\n\n');
@@ -249,6 +255,13 @@ class ServerSmoke {
 		eq(syncRuntime.events("workspace_session_1").length, 2, "workspace sync sse pulled event");
 		eq(workspaceSync.forwardedEvents.length, 2, "workspace sync sse forwarded events");
 		eq(workspaceSync.forwardedEvents[0].workspace, "wrk_server_1", "workspace sync sse local workspace id");
+		final fenceAfter = workspaceSync.waitForSyncFence("wrk_server_1", [{aggregateID: "workspace_session_1", seq: 1}]);
+		eq(fenceAfter.synced, true, "workspace sync fence satisfied after sse replay");
+		final sseFailure = workspaceSync.applyRemoteSse("wrk_server_1",
+			'data: {"directory":"/remote/workspace","project":"proj_server","workspace":"remote_workspace","payload":{"type":"sync","syncEvent":{"id":"evt_workspace_remote_gap","type":"item.created.1","seq":3,"aggregateID":"workspace_session_1","data":{"id":"remote_item","name":"gap"}}}}\n\n');
+		eq(sseFailure, 0, "workspace sync sse failed replay count");
+		eq(workspaceSync.failures.length, 1, "workspace sync sse failure recorded");
+		eq(workspaceSync.failures[0].message.indexOf("Sequence mismatch") != -1, true, "workspace sync sse failure message");
 
 		final created = await(jsonResponse(await(server.app.request("/session", {
 			method: "POST",
