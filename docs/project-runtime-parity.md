@@ -73,6 +73,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - definition reset/init/freeze behavior,
   - projector registration and missing-projector diagnostics,
   - old-version run rejection,
+  - shared aggregate sequence tracking across multiple SyncEvent definitions,
+  - SQLite `event_sequence`/`event` table writes, restart reload, and cascade removal,
   - typed ProjectBus-style payload conversion,
   - GlobalBus-style sync payload metadata, and
   - payload descriptor registry output,
@@ -84,7 +86,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching bindings beyond typed HEAD-event bus refresh.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
-- Full SyncEvent service graph: SQLite EventSequence/EventTable-backed persistence and live cross-process workspace sync.
+- Full SyncEvent service graph: live cross-process workspace sync.
 
 ## Boundary Notes
 

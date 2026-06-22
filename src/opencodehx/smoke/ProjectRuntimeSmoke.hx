@@ -1,5 +1,8 @@
 package opencodehx.smoke;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import haxe.Json;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.bus.EventBus;
@@ -44,6 +47,7 @@ import opencodehx.sync.SyncEventStore.SyncDefinition;
 import opencodehx.sync.SyncEventStore.SyncEventSystem;
 import opencodehx.sync.SyncEventStore.SyncPersistence;
 import opencodehx.sync.SyncEventStore.SyncStoredEvent;
+import opencodehx.sync.SyncSqliteEventPersistence;
 import opencodehx.worktree.WorktreeRuntime.WorktreeEvent;
 import opencodehx.worktree.WorktreeRuntime.WorktreeEventType;
 import opencodehx.worktree.WorktreeRuntime;
@@ -90,6 +94,7 @@ class ProjectRuntimeSmoke {
 			installationRuntime();
 			syncEvents();
 			syncEventSystem();
+			syncSqliteEvents(root);
 			Fs.rmSync(root, {recursive: true, force: true});
 			// Dynamic is required at this JS runtime cleanup boundary because Haxe code,
 			// Node externs, and Git helpers may throw strings, Haxe exceptions, or JS errors.
@@ -853,6 +858,95 @@ class ProjectRuntimeSmoke {
 
 		system.reset();
 		eq(system.payloads().length, 0, "sync system reset payloads");
+	}
+
+	static function syncSqliteEvents(root:String):Void {
+		final dbPath = NodePath.join(root, "sync-events.db");
+		final firstPersistence = new SyncSqliteEventPersistence<SmokeSyncItem>(dbPath, {
+			encode: encodeSyncItem,
+			decode: decodeSyncItem,
+		});
+		final created = syncDefinition("item.created", 1);
+		final renamed = syncDefinition("item.renamed", 1);
+		final projected:Array<String> = [];
+		final first = new SyncEventSystem<SmokeSyncItem>();
+		first.define(created);
+		first.define(renamed);
+		first.init({
+			projectors: [
+				{
+					definition: created,
+					project: event -> projected.push('created:${event.seq}:${event.data.name}'),
+				},
+				{
+					definition: renamed,
+					project: event -> projected.push('renamed:${event.seq}:${event.data.name}'),
+				}
+			],
+			persistence: firstPersistence.persistence(),
+		});
+		final createdEvent = first.run(created, {id: "item_sqlite", name: "first"});
+		final renamedEvent = first.run(renamed, {id: "item_sqlite", name: "second"});
+		eq(createdEvent.seq, 0, "sync sqlite created seq");
+		eq(renamedEvent.seq, 1, "sync sqlite renamed seq");
+		eq(projected.join(","), "created:0:first,renamed:1:second", "sync sqlite projectors");
+		eq(firstPersistence.persistedSeq("item_sqlite"), 1, "sync sqlite sequence table");
+		eq(firstPersistence.persistedEventCount("item_sqlite"), 2, "sync sqlite event table count");
+		firstPersistence.close();
+
+		final restartedPersistence = new SyncSqliteEventPersistence<SmokeSyncItem>(dbPath, {
+			encode: encodeSyncItem,
+			decode: decodeSyncItem,
+		});
+		final restarted = new SyncEventSystem<SmokeSyncItem>();
+		restarted.define(created);
+		restarted.define(renamed);
+		restarted.init({
+			projectors: [
+				{
+					definition: created,
+					project: _ -> {},
+				},
+				{
+					definition: renamed,
+					project: _ -> {},
+				}
+			],
+			persistence: restartedPersistence.persistence(),
+		});
+		eq(restarted.history(created, "item_sqlite").length, 1, "sync sqlite restart created history");
+		eq(restarted.history(renamed, "item_sqlite").length, 1, "sync sqlite restart renamed history");
+		eq(restarted.run(renamed, {id: "item_sqlite", name: "third"}).seq, 2, "sync sqlite restart sequence");
+		eq(restartedPersistence.persistedSeq("item_sqlite"), 2, "sync sqlite restart sequence table");
+		eq(restartedPersistence.persistedEventCount("item_sqlite"), 3, "sync sqlite restart event table count");
+		restarted.remove("item_sqlite");
+		eq(restartedPersistence.persistedSeq("item_sqlite"), null, "sync sqlite remove sequence");
+		eq(restartedPersistence.persistedEventCount("item_sqlite"), 0, "sync sqlite remove cascades events");
+		restartedPersistence.close();
+	}
+
+	static function syncDefinition(type:String, version:Int):SyncDefinition<SmokeSyncItem> {
+		return {
+			type: type,
+			version: version,
+			aggregateName: "id",
+			aggregate: item -> item.id,
+		};
+	}
+
+	static function encodeSyncItem(item:SmokeSyncItem):String {
+		return Json.stringify({id: item.id, name: item.name});
+	}
+
+	static function decodeSyncItem(text:String):SmokeSyncItem {
+		final record = UnknownNarrow.record(Unknown.fromBoundary(Json.parse(text)));
+		if (record == null)
+			throw "sync sqlite item: expected object";
+		final id = UnknownNarrow.string(record.get("id"));
+		final name = UnknownNarrow.string(record.get("name"));
+		if (id == null || name == null)
+			throw "sync sqlite item: expected id/name";
+		return {id: id, name: name};
 	}
 
 	static function initCommittedRepo(dir:String, ?readme:String):Void {

@@ -64,6 +64,7 @@ typedef SyncPayloadDescriptor = {
 typedef SyncEventSystemInit<T> = {
 	final projectors:Array<SyncProjection<T>>;
 	@:optional final convertEvent:T->T;
+	@:optional final persistence:SyncPersistence<T>;
 	@:optional final directory:String;
 	@:optional final project:String;
 	@:optional final workspace:String;
@@ -203,13 +204,15 @@ class SyncEventStore<T> {
 class SyncEventSystem<T> {
 	final registry:Map<String, SyncDefinition<T>> = new Map();
 	final latestVersions:Map<String, Int> = new Map();
-	final stores:Map<String, SyncEventStore<T>> = new Map();
+	final rows:Array<SyncStoredEvent<T>> = [];
 	var projectors:Null<Map<String, SyncStoredEvent<T>->Void>> = null;
 	var convertEvent:T->T = data -> data;
+	var persistence:Null<SyncPersistence<T>> = null;
 	var directory:String = "";
 	var project:String = "";
 	var workspace:String = "";
 	var frozen = false;
+	var nextID:Int = 1;
 
 	public final busEvents:Array<SyncBusEvent<T>> = [];
 	public final globalEvents:Array<SyncGlobalEvent<T>> = [];
@@ -219,13 +222,15 @@ class SyncEventSystem<T> {
 	public function reset():Void {
 		registry.clear();
 		latestVersions.clear();
-		stores.clear();
+		rows.resize(0);
 		projectors = null;
 		convertEvent = data -> data;
+		persistence = null;
 		directory = "";
 		project = "";
 		workspace = "";
 		frozen = false;
+		nextID = 1;
 		busEvents.resize(0);
 		globalEvents.resize(0);
 	}
@@ -248,6 +253,14 @@ class SyncEventSystem<T> {
 		}
 		projectors = installed;
 		convertEvent = input.convertEvent == null ? data->data : input.convertEvent;
+		persistence = input.persistence;
+		if (persistence != null) {
+			rows.resize(0);
+			for (event in persistence.load()) {
+				rows.push(event);
+				advanceNextID(event.id);
+			}
+		}
 		directory = input.directory == null ? "" : input.directory;
 		project = input.project == null ? "" : input.project;
 		workspace = input.workspace == null ? "" : input.workspace;
@@ -259,8 +272,19 @@ class SyncEventSystem<T> {
 		if (definition.version != latest)
 			throw 'SyncEvent.run: running old versions of events is not allowed: ${definition.type}';
 		final projector = projectorFor(definition);
-		final event = store(definition).run(data, false);
-		process(definition, event, publish != false, projector);
+		final aggregateID = definition.aggregate(data);
+		if (aggregateID == "")
+			throw 'SyncEvent.run: aggregate required for ${definition.type}';
+		final event:SyncStoredEvent<T> = {
+			id: 'evt_${nextID++}',
+			type: SyncEventStore.versionedType(definition),
+			seq: latestSeq(aggregateID) + 1,
+			aggregateID: aggregateID,
+			data: data,
+		};
+		process(event, projector);
+		append(event);
+		publishEvent(definition, event, publish != false);
 		return event;
 	}
 
@@ -269,8 +293,15 @@ class SyncEventSystem<T> {
 		if (definition == null)
 			throw 'Unknown event type: ${event.type}';
 		final projector = projectorFor(definition);
-		store(definition).replay(event, false);
-		process(definition, event, publish == true, projector);
+		final current = latestSeq(event.aggregateID);
+		if (event.seq <= current)
+			return;
+		final expected = current + 1;
+		if (event.seq != expected)
+			throw 'Sequence mismatch for aggregate "${event.aggregateID}": expected ${expected}, got ${event.seq}';
+		process(event, projector);
+		append(event);
+		publishEvent(definition, event, publish == true);
 	}
 
 	public function replayAll(events:Array<SyncStoredEvent<T>>, ?publish:Bool):Null<String> {
@@ -308,11 +339,33 @@ class SyncEventSystem<T> {
 	}
 
 	public function history(definition:SyncDefinition<T>, ?aggregateID:String):Array<SyncStoredEvent<T>> {
-		return store(definition).history(aggregateID);
+		final type = SyncEventStore.versionedType(definition);
+		return rows.filter(event -> event.type == type && (aggregateID == null || event.aggregateID == aggregateID));
 	}
 
-	function process(definition:SyncDefinition<T>, event:SyncStoredEvent<T>, publish:Bool, projector:SyncStoredEvent<T>->Void):Void {
+	public function remove(aggregateID:String):Void {
+		var index = rows.length - 1;
+		while (index >= 0) {
+			if (rows[index].aggregateID == aggregateID)
+				rows.splice(index, 1);
+			index -= 1;
+		}
+		if (persistence != null)
+			persistence.remove(aggregateID);
+	}
+
+	function process(event:SyncStoredEvent<T>, projector:SyncStoredEvent<T>->Void):Void {
 		projector(event);
+	}
+
+	function append(event:SyncStoredEvent<T>):Void {
+		rows.push(event);
+		advanceNextID(event.id);
+		if (persistence != null)
+			persistence.save(event);
+	}
+
+	function publishEvent(definition:SyncDefinition<T>, event:SyncStoredEvent<T>, publish:Bool):Void {
 		if (publish) {
 			final converted = convertEvent(event.data);
 			busEvents.push({type: definition.type, properties: converted});
@@ -328,6 +381,23 @@ class SyncEventSystem<T> {
 		}
 	}
 
+	function latestSeq(aggregateID:String):Int {
+		var out = -1;
+		for (event in rows) {
+			if (event.aggregateID == aggregateID && event.seq > out)
+				out = event.seq;
+		}
+		return out;
+	}
+
+	function advanceNextID(id:String):Void {
+		if (!id.startsWith("evt_"))
+			return;
+		final parsed = Std.parseInt(id.substr(4));
+		if (parsed != null && parsed >= nextID)
+			nextID = parsed + 1;
+	}
+
 	function projectorFor(definition:SyncDefinition<T>):SyncStoredEvent<T>->Void {
 		if (projectors == null)
 			throw "No projectors available. Call `SyncEvent.init` to install projectors";
@@ -335,13 +405,5 @@ class SyncEventSystem<T> {
 		if (projector == null)
 			throw 'Projector not found for event: ${definition.type}';
 		return projector;
-	}
-
-	function store(definition:SyncDefinition<T>):SyncEventStore<T> {
-		final versioned = SyncEventStore.versionedType(definition);
-		if (!stores.exists(versioned)) {
-			stores.set(versioned, new SyncEventStore<T>(definition));
-		}
-		return stores.get(versioned);
 	}
 }

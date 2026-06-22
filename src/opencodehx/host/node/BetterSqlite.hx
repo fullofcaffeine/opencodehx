@@ -43,4 +43,18 @@ class BetterSqlite {
 		final statement = db.prepare(sql);
 		return params == null ? statement.all() : statement.all(params);
 	}
+
+	public function transaction<T>(work:Void->T):T {
+		exec("begin immediate transaction");
+		try {
+			final result = work();
+			exec("commit");
+			return result;
+			// Dynamic is required at this host boundary because better-sqlite3
+			// can throw native JS errors while caller code may throw Haxe values.
+		} catch (error:Dynamic) {
+			exec("rollback");
+			throw error;
+		}
+	}
 }
