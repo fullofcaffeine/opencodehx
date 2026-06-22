@@ -39,14 +39,10 @@ extern typedef AccountConfigResponse = {
 
 class Fetch {
 	public static inline function fetch(url:String):Promise<FetchResponse> {
-		// Centralized host call: Haxe's DOM fetch externs do not match the
-		// narrow NodeNext Response.json payloads this config boundary decodes.
-		return js.Syntax.code("fetch({0})", url);
+		return GlobalFetch.config(url);
 	}
 
 	public static inline function fetchAccountConfig(url:String, init:FetchInit):Promise<AccountConfigResponse> {
-		// Keep the raw fetch invocation inside this typed boundary so callers
-		// cannot spread Syntax.code or untyped header objects through app code.
-		return js.Syntax.code("fetch({0}, {1})", url, init);
+		return GlobalFetch.accountConfig(url, init);
 	}
 }

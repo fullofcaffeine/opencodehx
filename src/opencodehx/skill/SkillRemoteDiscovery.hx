@@ -2,12 +2,13 @@ package opencodehx.skill;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
-import js.Syntax;
 import js.html.URL;
 import js.lib.Promise;
-import opencodehx.interop.UnknownAccess;
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.web.GlobalFetch;
+import opencodehx.externs.web.GlobalFetch.UnknownJsonFetchResponse;
 import opencodehx.host.node.NodePath;
+import opencodehx.interop.UnknownAccess;
 
 typedef SkillIndexEntry = {
 	final name:String;
@@ -18,14 +19,8 @@ typedef SkillIndexPayload = {
 	final skills:Array<SkillIndexEntry>;
 }
 
-extern typedef SkillFetchResponse = {
-	final ok:Bool;
-	final status:Int;
-	function text():Promise<String>;
-	function json():Promise<Unknown>;
-}
-
-typedef SkillFetchFunction = String->Promise<SkillFetchResponse>;
+typedef SkillFetchResponse = UnknownJsonFetchResponse;
+typedef SkillFetchFunction = String->Promise<UnknownJsonFetchResponse>;
 
 class SkillRemoteDiscovery {
 	@:async
@@ -94,10 +89,7 @@ class SkillRemoteDiscovery {
 	}
 
 	static function defaultFetch(url:String):Promise<SkillFetchResponse> {
-		// Global fetch is a Node/web runtime boundary. Keep the raw call here so
-		// callers can inject a typed fetcher and all JSON results still pass through
-		// the Unknown decoder before becoming SkillIndexPayload.
-		return Syntax.code("fetch({0})", url);
+		return GlobalFetch.unknownJson(url);
 	}
 
 	static function safeCachePath(root:String, file:String):Null<String> {
