@@ -22,11 +22,14 @@ import opencodehx.externs.web.WebStreams.WebResponseStreams;
 import opencodehx.externs.web.WebStreams.WebTextDecoder;
 import opencodehx.externs.web.WebStreams.WebTextEncoder;
 import opencodehx.externs.ws.WebSocket;
+import opencodehx.host.Clock;
 import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.sync.SyncRouteRuntime;
+import opencodehx.sync.WorkspaceSyncBackgroundTask;
+import opencodehx.sync.WorkspaceSyncBackgroundTask.WorkspaceSyncTaskTimer;
 import opencodehx.sync.WorkspaceSyncRemoteHttp;
 import opencodehx.sync.WorkspaceSyncRemoteHttp.WorkspaceSyncFetchInit;
 import opencodehx.sync.WorkspaceSyncRemoteHttp.WorkspaceSyncHttpError;
@@ -47,6 +50,12 @@ typedef SmokeFetchInit = {
 typedef WorkspaceHttpCapture = {
 	final url:String;
 	final init:WorkspaceSyncFetchInit;
+}
+
+typedef WorkspaceScheduledTick = {
+	final delayMs:Int;
+	final callback:Void->Void;
+	var canceled:Bool;
 }
 
 class ServerSmoke {
@@ -317,6 +326,39 @@ class ServerSmoke {
 		eq(loopCaptures[1].init.body, '{"workspace_session_1":2}', "workspace sync loop known seq body");
 		eq(syncRuntime.events("workspace_session_1").length, 5, "workspace sync loop history and stream events");
 		eq(workspaceSync.statuses[workspaceSync.statuses.length - 1].status, "disconnected", "workspace sync loop disconnected after stream");
+		final taskCaptures:Array<WorkspaceHttpCapture> = [];
+		final taskRemote = new WorkspaceSyncRemoteHttp((url, init) -> {
+			taskCaptures.push({url: url, init: init});
+			if (url.indexOf("/global/event") != -1)
+				return Promise.resolve(new Response(sseStream([]), {status: 200}));
+			if (url.indexOf("/sync/history") != -1)
+				return Promise.resolve(new Response(Json.stringify([]), {status: 200}));
+			return Promise.resolve(new Response("missing", {status: 404}));
+		});
+		final scheduled:Array<WorkspaceScheduledTick> = [];
+		final task = new WorkspaceSyncBackgroundTask(workspaceSync, "wrk_server_1", taskRemote, {url: "https://workspace.test/base", headers: loopHeaders}, {
+			schedule: (delayMs, callback) -> {
+				final entry:WorkspaceScheduledTick = {delayMs: delayMs, callback: callback, canceled: false};
+				scheduled.push(entry);
+				final timer:WorkspaceSyncTaskTimer = {
+					delayMs: delayMs,
+					cancel: () -> entry.canceled = true,
+				};
+				return timer;
+			},
+		});
+		eq(task.start(), true, "workspace sync task starts");
+		eq(task.start(), false, "workspace sync task dedupes start");
+		eq(scheduled[0].delayMs, 0, "workspace sync task immediate first tick");
+		scheduled[0].callback();
+		await(waitUntil(() -> scheduled.length == 2, "workspace sync task reconnect scheduled"));
+		eq(taskCaptures[0].init.signal == task.signal(), true, "workspace sync task owns fetch signal");
+		eq(scheduled.length, 2, "workspace sync task schedules reconnect");
+		eq(scheduled[1].delayMs, 1000, "workspace sync task reconnect delay");
+		task.stop("fixture stop");
+		eq(task.state().running, false, "workspace sync task stopped");
+		eq(task.state().aborted, true, "workspace sync task aborted");
+		eq(scheduled[1].canceled, true, "workspace sync task clears pending timer");
 
 		final created = await(jsonResponse(await(server.app.request("/session", {
 			method: "POST",
@@ -600,6 +642,35 @@ class ServerSmoke {
 			offset = next + 2;
 		}
 		return count;
+	}
+
+	static function waitUntil(check:Void->Bool, label:String, ?timeoutMs:Int):Promise<Void> {
+		var timeout = 1000;
+		if (timeoutMs != null)
+			timeout = timeoutMs;
+		return new Promise<Void>((resolve, reject) -> {
+			// Promise<Void> needs a zero-arg resolver shape in Haxe, while the
+			// JS promise resolves with undefined. Keep the cast in this smoke
+			// polling helper.
+			final resolveVoid:Void->Void = cast resolve;
+			waitUntilTick(check, label, Clock.nowMillis() + timeout, resolveVoid, reject);
+		});
+	}
+
+	static function waitUntilTick(check:Void->Bool, label:String, end:Float, resolve:Void->Void, reject:Dynamic->Void):Void {
+		try {
+			if (check()) {
+				resolve();
+				return;
+			}
+			if (Clock.nowMillis() > end) {
+				reject(new Error('timeout waiting for $label'));
+				return;
+			}
+			WebTimers.setTimeout(() -> waitUntilTick(check, label, end, resolve, reject), 10);
+		} catch (error:Dynamic) {
+			reject(error);
+		}
 	}
 
 	static function ptyWebsocket(url:String, ?message:String, ?expected:String):Promise<PtyWebSocketResult> {
