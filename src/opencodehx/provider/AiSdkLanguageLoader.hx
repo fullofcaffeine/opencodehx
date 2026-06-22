@@ -48,6 +48,8 @@ import opencodehx.externs.ai.AiSdk.AiSdkProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiSimpleFactoryOptionsShape;
 import opencodehx.externs.ai.AiSdk.AiTogetherAIFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiTogetherAIProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiVeniceFactoryOptions;
+import opencodehx.externs.ai.AiSdk.AiVeniceProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiVercelFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiVercelProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiVertexAnthropicFactoryOptions;
@@ -103,6 +105,7 @@ class AiSdkLanguageLoader {
 	static final createTogetherAI:AiTogetherAIProviderFactory = Imports.namedImport("@ai-sdk/togetherai", "createTogetherAI", "createTogetherAI");
 	static final createVercel:AiVercelProviderFactory = Imports.namedImport("@ai-sdk/vercel", "createVercel", "createVercel");
 	static final createAlibaba:AiAlibabaProviderFactory = Imports.namedImport("@ai-sdk/alibaba", "createAlibaba", "createAlibaba");
+	static final createVenice:AiVeniceProviderFactory = Imports.namedImport("venice-ai-sdk-provider", "createVenice", "createVenice");
 	static final createGitLab:AiGitLabProviderFactory = Imports.namedImport("gitlab-ai-provider", "createGitLab", "createGitLab");
 	static final fromNodeProviderChain:AwsNodeProviderChainFactory = Imports.namedImport("@aws-sdk/credential-providers", "fromNodeProviderChain",
 		"fromNodeProviderChain");
@@ -165,6 +168,8 @@ class AiSdkLanguageLoader {
 				createVercel(vercelFactoryOptions(provider, model));
 			case "@ai-sdk/alibaba":
 				createAlibaba(alibabaFactoryOptions(provider, model));
+			case "venice-ai-sdk-provider":
+				createVenice(veniceFactoryOptions(provider, model));
 			case "gitlab-ai-provider":
 				createGitLab(gitLabFactoryOptions(provider, model));
 			case "ai-gateway-provider":
@@ -352,6 +357,18 @@ class AiSdkLanguageLoader {
 
 	public static function alibabaFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiAlibabaFactoryOptions {
 		return simpleFactoryOptions(provider, model);
+	}
+
+	public static function veniceFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiVeniceFactoryOptions {
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		return {
+			name: stringOrAbsent(provider.id.toString()),
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+			includeUsage: boolOrAbsent(ProviderOptionAccess.bool(provider.options, "includeUsage", null)),
+			supportsStructuredOutputs: boolOrAbsent(ProviderOptionAccess.bool(provider.options, "supportsStructuredOutputs", null)),
+		};
 	}
 
 	public static function gitLabFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiGitLabFactoryOptions {

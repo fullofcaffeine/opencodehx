@@ -215,6 +215,15 @@ typedef AiSimpleFactoryOptionsShape = {
 	final headers:Undefinable<DynamicAccess<String>>;
 }
 
+typedef AiVeniceFactoryOptionsShape = {
+	final name:Undefinable<String>;
+	final baseURL:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+	final includeUsage:Undefinable<Bool>;
+	final supportsStructuredOutputs:Undefinable<Bool>;
+}
+
 @:ts.type("NonNullable<import('@openrouter/ai-sdk-provider').OpenRouterProviderSettings['compatibility']>")
 enum abstract AiOpenRouterCompatibility(String) to String {
 	final Strict = "strict";
@@ -268,6 +277,7 @@ typedef AiGatewayProviderFactory = AiGatewayFactoryOptions->AiSdkBundledProvider
 typedef AiTogetherAIProviderFactory = AiTogetherAIFactoryOptions->AiSdkBundledProvider;
 typedef AiVercelProviderFactory = AiVercelFactoryOptions->AiSdkBundledProvider;
 typedef AiAlibabaProviderFactory = AiAlibabaFactoryOptions->AiSdkBundledProvider;
+typedef AiVeniceProviderFactory = AiVeniceFactoryOptions->AiSdkBundledProvider;
 typedef AiGitLabProviderFactory = AiGitLabFactoryOptions->AiSdkBundledProvider;
 
 @:ts.type("'v3'")
@@ -876,6 +886,16 @@ abstract AiVercelFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactor
 @:forward(baseURL, apiKey, headers)
 @:ts.type("import('@ai-sdk/alibaba').AlibabaProviderSettings")
 abstract AiAlibabaFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+
+/**
+ * Type-only bridge for Venice provider settings.
+ *
+ * Venice has its own SDK-owned options type. The loader narrows only the
+ * stable OpenCode settings before constructing the provider.
+ */
+@:forward(name, baseURL, apiKey, headers, includeUsage, supportsStructuredOutputs)
+@:ts.type("import('venice-ai-sdk-provider').VeniceProviderSettings")
+abstract AiVeniceFactoryOptions(AiVeniceFactoryOptionsShape) from AiVeniceFactoryOptionsShape to AiVeniceFactoryOptionsShape {}
 
 /**
  * Type-only bridge for GitLab Duo provider settings.

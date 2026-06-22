@@ -377,6 +377,7 @@ class AiSdkProviderSmoke {
 		simpleProviderFactory("togetherai", "@ai-sdk/togetherai", "meta-llama/llama-4", "https://together.example.test/v1", "togetherai.chat");
 		simpleProviderFactory("vercel", "@ai-sdk/vercel", "v0-1.5-md", "https://vercel.example.test/v1", "vercel.chat");
 		simpleProviderFactory("alibaba", "@ai-sdk/alibaba", "qwen3-coder", "https://alibaba.example.test/compatible-mode/v1", "alibaba.chat");
+		veniceProviderFactory();
 	}
 
 	static function openRouterFactory():Void {
@@ -428,6 +429,30 @@ class AiSdkProviderSmoke {
 		eq(resolved.language.modelId, modelID, '${providerID} language model id');
 		eq(resolved.language.provider, expectedProvider, '${providerID} language provider');
 		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, '${providerID} language model spec');
+	}
+
+	static function veniceProviderFactory():Void {
+		final provider = providerWithOptions("venice", "fixture-venice-key", veniceOptions());
+		final model = modelWithApiURL("venice", "qwen3-coder", "venice-ai-sdk-provider", "https://venice.example.test/api/v1");
+		model.headers.set("x-model-header", "venice-model");
+		final settings = AiSdkLanguageLoader.veniceFactoryOptions(provider, model);
+		eq(settings.name.orNull(), "venice", "venice provider name");
+		eq(settings.baseURL.orNull(), "https://venice.example.test/api/v1", "venice base url");
+		eq(settings.apiKey.orNull(), "fixture-venice-key", "venice api key");
+		eq(settings.includeUsage.orNull(), true, "venice include usage");
+		eq(settings.supportsStructuredOutputs.orNull(), true, "venice structured outputs");
+		final headers = settings.headers.orNull();
+		if (headers == null)
+			throw "venice headers: expected merged headers";
+		eq(headers.get("x-provider-header"), "venice-provider", "venice provider header");
+		eq(headers.get("x-model-header"), "venice-model", "venice model header");
+
+		final resolved = AiSdkLanguageLoader.resolve(provider, model);
+		eq(resolved.sdkModelID, "qwen3-coder", "venice sdk model id");
+		eq(resolved.method, AiSdkModelMethod.LanguageModel, "venice model method");
+		eq(resolved.language.modelId, "qwen3-coder", "venice language model id");
+		eq(resolved.language.provider, "venice.chat", "venice language provider");
+		eq(resolved.language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "venice language model spec");
 	}
 
 	static function gitLabFactory():Void {
@@ -649,6 +674,16 @@ class AiSdkProviderSmoke {
 		final headers = new DynamicAccess<String>();
 		headers.set("x-provider-header", '${providerID}-provider');
 		options.set("headers", headers);
+		return options;
+	}
+
+	static function veniceOptions():ProviderOptions {
+		// Fixture boundary: Venice owns additional provider-specific options
+		// such as queryParams and fetch. This smoke covers the stable settings
+		// the current loader narrows before calling createVenice.
+		final options = simpleProviderOptions("venice");
+		options.set("includeUsage", true);
+		options.set("supportsStructuredOutputs", true);
 		return options;
 	}
 
