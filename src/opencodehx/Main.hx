@@ -25,6 +25,7 @@ import opencodehx.smoke.CopilotResponsesLanguageModelSmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.FormatterSmoke;
 import opencodehx.smoke.MessageSmoke;
+import opencodehx.smoke.McpAcpSmoke;
 import opencodehx.smoke.PermissionSmoke;
 import opencodehx.smoke.ProjectRuntimeSmoke;
 import opencodehx.smoke.ProviderSmoke;
@@ -164,6 +165,8 @@ class Main {
 			})
 			.then(_ -> {
 				log("sdk-compat-smoke:ok");
+				McpAcpSmoke.run();
+				log("mcp-acp-smoke:ok");
 				return ServerSmoke.run();
 			})
 			.then(_ -> {

@@ -2,8 +2,8 @@ test_path,kind,area,priority,port_status,opencodehx_evidence,skip_or_defer_reaso
 AGENTS.md,doc,root,P2,reference-only,upstream fixture/helper retained as oracle input,not an executable upstream test file,not needed until owning test slice is ported,opencodehx-000
 account/repo.test.ts,test,account,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-024/opencodehx-025
 account/service.test.ts,test,account,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-024/opencodehx-025
-acp/agent-interface.test.ts,test,acp,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-028
-acp/event-subscription.test.ts,test,acp,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-028
+acp/agent-interface.test.ts,test,acp,P2,partial,src/opencodehx/acp/AcpAgent.hx; src/opencodehx/smoke/McpAcpSmoke.hx; docs/mcp-acp-minimum.md,ACP agent method set is present and callable; real SDK router/package integration remains deferred,McpAcpSmoke acpAgentInterface,opencodehx-028
+acp/event-subscription.test.ts,test,acp,P2,partial,src/opencodehx/acp/AcpAgent.hx; src/opencodehx/smoke/McpAcpSmoke.hx; docs/mcp-acp-minimum.md,session-scoped deltas ignored live user text loadSession dedupe and permission replies are covered; broader event payloads and SDK routing remain deferred,McpAcpSmoke acpEventRouting,opencodehx-028
 agent/agent.test.ts,test,agent,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-023/opencodehx-024
 auth/auth.test.ts,test,auth,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-024/opencodehx-025
 bus/bus-effect.test.ts,test,bus,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-026
@@ -82,9 +82,9 @@ lsp/client.test.ts,test,lsp,P1,deferred,none yet,owning runtime/product slice ha
 lsp/index.test.ts,test,lsp,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-029
 lsp/launch.test.ts,test,lsp,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-029
 lsp/lifecycle.test.ts,test,lsp,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-029
-mcp/headers.test.ts,test,mcp,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-028
-mcp/lifecycle.test.ts,test,mcp,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-028
-mcp/oauth-auto-connect.test.ts,test,mcp,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-028
+mcp/headers.test.ts,test,mcp,P1,partial,src/opencodehx/mcp/McpRuntime.hx; src/opencodehx/smoke/McpAcpSmoke.hx; docs/mcp-acp-minimum.md,headers requestInit default OAuth and oauth=false omission are covered; real SDK transport constructor integration remains deferred,McpAcpSmoke mcpTransportOptions,opencodehx-028
+mcp/lifecycle.test.ts,test,mcp,P1,partial,src/opencodehx/mcp/McpRuntime.hx; src/opencodehx/smoke/McpAcpSmoke.hx; docs/mcp-acp-minimum.md,connect disconnect status cache refresh tool prefix sanitizing replacement cleanup disabled failed prompts and resources are covered; real transports timeouts callbacks and CLI integration remain deferred,McpAcpSmoke mcpLifecycle,opencodehx-028
+mcp/oauth-auto-connect.test.ts,test,mcp,P1,partial,src/opencodehx/mcp/McpRuntime.hx; src/opencodehx/smoke/McpAcpSmoke.hx; docs/mcp-acp-minimum.md,needs_auth status is covered; OAuth auto-connect persistence browser callback and retry behavior remain deferred,McpAcpSmoke mcpLifecycle,opencodehx-028
 mcp/oauth-browser.test.ts,test,mcp,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-028
 mcp/oauth-callback.test.ts,test,mcp,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-028
 memory/abort-leak-webfetch.ts,fixture,memory,P2,reference-only,upstream fixture/helper retained as oracle input,not an executable upstream test file,not needed until owning test slice is ported,opencodehx-049
