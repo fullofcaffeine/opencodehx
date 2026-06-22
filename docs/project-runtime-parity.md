@@ -86,7 +86,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching bindings beyond typed HEAD-event bus refresh.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
-- Full SyncEvent service graph: live cross-process workspace sync.
+- Live cross-process workspace sync loop, including `/sync/start`, remote history/replay polling, workspace status/fence/proxy behavior, and failure diagnostics. Tracked by `opencodehx-kcp`.
 
 ## Boundary Notes
 
