@@ -3,12 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 
-if [ ! -d "$ROOT_DIR/.beads-hooks" ]; then
-  echo "[hooks] ERROR: .beads-hooks is missing."
-  echo "[hooks] Run: bd hooks install --shared --chain"
-  exit 1
-fi
-
 chmod +x "$ROOT_DIR/.beads-hooks"/*
 git config core.hooksPath .beads-hooks
 

@@ -33,7 +33,7 @@ See [AGENTS.md](AGENTS.md) for project rules, Haxe design direction, and the `ge
 
 ## Local Hooks
 
-Install the repo-managed pre-commit hook:
+Install the repo-managed shared hooks:
 
 ```sh
 haxelib install formatter
@@ -41,7 +41,11 @@ brew install gitleaks # or use another gitleaks install method
 npm run hooks:install
 ```
 
-The hook runs staged `gitleaks` and formats staged `.hx` files with haxe-formatter. CI runs a dedicated gitleaks workflow, and local public-readiness checks run with:
+The shared hook directory is `.beads-hooks/`: it chains Beads' `pre-commit`,
+`pre-push`, `post-merge`, `post-checkout`, and `prepare-commit-msg` hooks with
+the existing staged gitleaks and Haxe formatter checks.
+
+CI runs a dedicated gitleaks workflow, and local public-readiness checks run with:
 
 ```sh
 npm run public:precommit

@@ -32,6 +32,7 @@ const dependabot = readFileSync(".github/dependabot.yml", "utf8");
 const readme = readFileSync("README.md", "utf8");
 const hooksInstall = readFileSync("scripts/hooks/install.sh", "utf8");
 const preCommit = readFileSync("scripts/hooks/pre-commit", "utf8");
+const beadsPreCommit = readFileSync(".beads-hooks/pre-commit", "utf8");
 const gitleaks = readFileSync("scripts/security/run-gitleaks.sh", "utf8");
 const genesHxml = readFileSync("haxe_libraries/genes-ts.hxml", "utf8");
 const syncVersions = readFileSync("scripts/release/sync-versions.mjs", "utf8");
@@ -141,9 +142,13 @@ expectExcludes(releaseWorkflow, "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24", "Release w
 expectIncludes(securityWorkflow, "gitleaks/gitleaks-action@v3", "Gitleaks workflow");
 expectIncludes(dependabot, "package-ecosystem: github-actions", "Dependabot");
 expectIncludes(dependabot, "package-ecosystem: npm", "Dependabot");
-expectIncludes(hooksInstall, "core.hooksPath scripts/hooks", "hook installer");
+expectIncludes(hooksInstall, "core.hooksPath .beads-hooks", "hook installer");
+expectIncludes(hooksInstall, "bd hooks install --shared --chain", "hook installer");
 expectIncludes(preCommit, "run-gitleaks.sh", "pre-commit hook");
 expectIncludes(preCommit, "haxelib run formatter", "pre-commit hook");
+expectIncludes(beadsPreCommit, "bd hooks run pre-commit", "shared Beads pre-commit hook");
+expectIncludes(beadsPreCommit, "run-gitleaks.sh", "shared Beads pre-commit hook");
+expectIncludes(beadsPreCommit, "haxelib run formatter", "shared Beads pre-commit hook");
 expectIncludes(gitleaks, "--staged", "gitleaks wrapper");
 
 if (process.exitCode) {
