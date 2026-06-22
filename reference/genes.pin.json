@@ -1,12 +1,12 @@
 {
   "schema": "opencodehx.reference.genes-pin.v1",
-  "recorded_at": "2026-06-20T22:35:27Z",
-  "bead": "opencodehx-nrh",
+  "recorded_at": "2026-06-22T21:09:36Z",
+  "bead": "opencodehx-8dq",
   "canonical_checkout": {
     "path": "../genes",
     "role": "canonical Genes checkout for genes-ts compiler work",
     "branch": "main",
-    "commit": "63d3a42575b222981cc6d1b028e597501d53ff17",
+    "commit": "e0a30ce6dbc519babf5236931b7e20faad86e6a0",
     "remotes": {
       "origin": "git@github.com:fullofcaffeine/genes-ts.git",
       "upstream": "git@github.com:benmerckx/genes.git"
@@ -37,8 +37,8 @@
       "../fullofcaffeine/tools/cafetera/vendor/genes-ts/src"
     ],
     "source_file_count": 35,
-    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, target-polymorphic helper docs, optional-field boolean branch narrowing, enum switch case scoping, optional enum constructor declaration arity, block-scoped switch-case locals without js-es, Undefinable assignment output fixes, null-guarded local cast elision, @:native anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, inline local-name collision handling, nullish null-comparison parenthesization, and nullable branch local cast elision landed",
-    "relative_path_sha256_manifest_hash": "e4e8520d97506107fae74bf609ded0bed889a6f848a693c5f7fb87471d5dbc9a"
+    "recursive_diff": "canonical checkout differs from the Cafetera vendored reference after import-attribute, dynamicImport typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline markup, enum abstract literal-union follow-up work, Undefinable object-field codegen, target-polymorphic helper docs, optional-field boolean branch narrowing, enum switch case scoping, optional enum constructor declaration arity, block-scoped switch-case locals without js-es, Undefinable assignment output fixes, null-guarded local cast elision, @:native anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, inline local-name collision handling, nullish null-comparison parenthesization, nullable branch local cast elision, and typed catch temp lowering fixes landed",
+    "relative_path_sha256_manifest_hash": "542d2a7501ff0fe6cacc55065fb2854cd893292af1b705255ec46598a469f178"
   },
   "decision": {
     "canonical_dependency": "../genes",
