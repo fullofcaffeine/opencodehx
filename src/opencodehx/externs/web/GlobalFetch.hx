@@ -1,6 +1,8 @@
 package opencodehx.externs.web;
 
 import genes.ts.Unknown;
+import haxe.DynamicAccess;
+import js.html.Response;
 import js.lib.Promise;
 import opencodehx.externs.web.Fetch.AccountConfigResponse;
 import opencodehx.externs.web.Fetch.FetchInit;
@@ -11,6 +13,12 @@ extern typedef UnknownJsonFetchResponse = {
 	final status:Int;
 	function text():Promise<String>;
 	function json():Promise<Unknown>;
+}
+
+extern typedef GlobalFetchInit = {
+	@:optional final method:String;
+	@:optional final headers:DynamicAccess<String>;
+	@:optional final body:String;
 }
 
 /**
@@ -31,4 +39,7 @@ extern class GlobalFetch {
 
 	@:native("fetch")
 	static function unknownJson(url:String):Promise<UnknownJsonFetchResponse>;
+
+	@:native("fetch")
+	static function response(url:String, ?init:GlobalFetchInit):Promise<Response>;
 }

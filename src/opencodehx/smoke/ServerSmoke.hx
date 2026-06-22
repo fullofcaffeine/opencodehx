@@ -8,6 +8,7 @@ import js.html.Response;
 import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.web.GlobalFetch;
 import opencodehx.externs.ws.WebSocket;
 import opencodehx.host.node.NodePath;
 import opencodehx.server.OpenCodeServer;
@@ -205,7 +206,7 @@ class ServerSmoke {
 
 		final messagesResponse = await(server.app.request('/session/${sessionID}/message?limit=1'));
 		eq(Reflect.field(messagesResponse, "status"), 200, "messages status");
-		final cursor = Syntax.code("{0}.headers.get('x-next-cursor')", messagesResponse);
+		final cursor:Null<String> = messagesResponse.headers.get("x-next-cursor");
 		eq(cursor != null, true, "messages cursor");
 		final messages = await(jsonResponse(messagesResponse));
 		eq(messages.length, 1, "message page length");
@@ -263,7 +264,7 @@ class ServerSmoke {
 		eq(future.length, 0, "future start filter");
 
 		final globalLimitedResponse = await(server.app.request("/experimental/session?limit=2"));
-		final globalCursor = Syntax.code("{0}.headers.get('x-next-cursor')", globalLimitedResponse);
+		final globalCursor:Null<String> = globalLimitedResponse.headers.get("x-next-cursor");
 		eq(globalCursor != null, true, "global session cursor");
 		final globalLimited:Dynamic = await(jsonResponse(globalLimitedResponse));
 		eq(globalLimited.length, 2, "global session list limit");
@@ -322,7 +323,7 @@ class ServerSmoke {
 
 	@:async
 	static function fetchJson(url:String, ?init:SmokeFetchInit):Promise<Dynamic> {
-		final response:Response = init == null ? await(Syntax.code("fetch({0})", url)) : await(Syntax.code("fetch({0}, {1})", url, init));
+		final response:Response = init == null ? await(GlobalFetch.response(url)) : await(GlobalFetch.response(url, init));
 		return jsonResponse(response);
 	}
 
@@ -330,10 +331,13 @@ class ServerSmoke {
 	static function jsonResponse(response:Response):Promise<Dynamic> {
 		// Parsed JSON in this smoke is intentionally inspected as an untrusted
 		// boundary payload; keep Dynamic local to assertions over response shape.
-		return await(Syntax.code("{0}.json()", response));
+		return await(response.json());
 	}
 
 	static function readSseEvents(response:Response, eventCount:Int):Promise<String> {
+		// Smoke-only stream reader: Haxe std externs do not model the async
+		// ReadableStream reader loop ergonomically yet, so this raw block stays
+		// localized to asserting SSE wire output.
 		return Syntax.code("(async () => {
 			const reader = {0}.body?.getReader();
 			if (!reader) return '';
@@ -353,6 +357,8 @@ class ServerSmoke {
 	}
 
 	static function ptyWebsocket(url:String, ?message:String, ?expected:String):Promise<PtyWebSocketResult> {
+		// Smoke-only WebSocket orchestration over the ws package. Keep the raw
+		// event lifecycle here until the test harness has a typed async ws facade.
 		return Syntax.code("new Promise((resolve: (value: PtyWebSocketResult) => void, reject: (reason?: unknown) => void) => {
 			const socket = new {0}({1});
 			let text = '';
