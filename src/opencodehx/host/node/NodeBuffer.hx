@@ -25,6 +25,11 @@ class NodeBuffer {
 		return buffer.toString("base64");
 	}
 
+	public static function fromBytesUtf8(value:Uint8Array):String {
+		final buffer = Buffer.from(value);
+		return buffer.toString("utf8");
+	}
+
 	public static function byteLength(value:NodeBufferData):Int {
 		return value.byteLength;
 	}

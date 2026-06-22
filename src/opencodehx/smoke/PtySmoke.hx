@@ -2,10 +2,13 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import haxe.Json;
 import js.Syntax;
+import js.lib.Uint8Array;
 import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.pty.PtyService;
@@ -152,6 +155,8 @@ class PtySmoke {
 		var timeout = 5000;
 		if (timeoutMs != null)
 			timeout = timeoutMs;
+		// Smoke-only polling promise. The production PTY service is typed Haxe;
+		// this helper only adapts setTimeout-style test waiting.
 		return Syntax.code("new Promise((resolve: (value: void) => void, reject: (reason?: Error) => void) => {
 			const end = Date.now() + {2};
 			const tick = () => {
@@ -174,6 +179,8 @@ class PtySmoke {
 	}
 
 	static function sleep(ms:Int):Promise<Void> {
+		// Smoke-only timer promise; keep it localized until a typed test timer
+		// facade exists.
 		return Syntax.code("new Promise((resolve: (value: void) => void) => setTimeout(() => resolve(undefined), {0}))", ms);
 	}
 
@@ -213,13 +220,20 @@ private class FakePtySocket {
 	public function cursor():Int {
 		for (index in 0...sink.length) {
 			final item = sink[sink.length - index - 1];
-			if (item.length > 0 && item.charCodeAt(0) == 0)
-				return Syntax.code("JSON.parse({0}.slice(1)).cursor", item);
+			if (item.length > 0 && item.charCodeAt(0) == 0) {
+				final parsed:Dynamic = Json.parse(item.substr(1));
+				return Std.int(Reflect.field(parsed, "cursor"));
+			}
 		}
 		return -1;
 	}
 
 	static function payloadText(payload:PtySocketPayload):String {
-		return Syntax.code("typeof {0} === 'string' ? {0} : Buffer.from({0}).toString('utf8')", payload);
+		if (Std.isOfType(payload, String))
+			return cast payload;
+		// PtySocketPayload is an EitherType<String, Uint8Array>; after the String
+		// branch is excluded, the cast is the typed-array branch used by the host
+		// facade to decode bytes without raw Buffer syntax here.
+		return NodeBuffer.fromBytesUtf8(cast(payload, Uint8Array));
 	}
 }
