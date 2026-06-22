@@ -3,11 +3,19 @@ package opencodehx.externs.node;
 import js.lib.Uint8Array;
 
 /**
- * Opaque Node Buffer value. Haxe has no native Node Buffer model, so the
- * concrete byte operations stay in `host.node.NodeBuffer`.
+ * Narrow Node Buffer instance surface used by host facades.
+ *
+ * The runtime value still comes from Node's `Buffer`, but modeling the
+ * inspected fields/methods here lets app-facing host code avoid raw
+ * `js.Syntax.code` for ordinary buffer operations.
  */
 @:ts.type("import('node:buffer').Buffer")
-abstract NodeBufferData(Dynamic) from Dynamic to Dynamic {}
+extern class NodeBufferData {
+	public final byteLength:Int;
+
+	function toString(?encoding:String):String;
+	function subarray(start:Int, ?end:Int):Uint8Array;
+}
 
 @:jsRequire("node:buffer", "Buffer")
 extern class Buffer {
