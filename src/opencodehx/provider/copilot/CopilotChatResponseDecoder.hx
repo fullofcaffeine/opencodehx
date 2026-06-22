@@ -1,5 +1,8 @@
 package opencodehx.provider.copilot;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.Json;
 import opencodehx.provider.copilot.CopilotChatCompletion.CopilotChatResponseBody;
 import opencodehx.provider.copilot.CopilotChatCompletion.CopilotChatResponseChoice;
@@ -25,185 +28,173 @@ class CopilotInvalidChatResponseError {
 class CopilotChatResponseDecoder {
 	public static function decodeResponse(rawValue:String):CopilotChatResponseBody {
 		final value = parseJson(rawValue);
-		requireRecord(value, "chat response");
+		final record = requireRecord(value, "chat response");
 		return {
-			id: optionalString(field(value, "id"), "id"),
-			created: optionalNumber(field(value, "created"), "created"),
-			model: optionalString(field(value, "model"), "model"),
-			choices: decodeChoices(field(value, "choices")),
-			usage: decodeUsage(field(value, "usage")),
+			id: optionalString(record.get("id"), "id"),
+			created: optionalNumber(record.get("created"), "created"),
+			model: optionalString(record.get("model"), "model"),
+			choices: decodeChoices(record.get("choices")),
+			usage: decodeUsage(record.get("usage")),
 		};
 	}
 
 	public static function decodeErrorMessage(rawValue:String, fallback:String):String {
 		final parsed = parseJsonOrNull(rawValue);
-		if (isRecord(parsed)) {
-			final error = field(parsed, "error");
-			if (isRecord(error)) {
-				final message = field(error, "message");
-				if (Std.isOfType(message, String))
-					return message;
+		if (parsed != null) {
+			final record = UnknownNarrow.record(parsed);
+			if (record != null) {
+				final error = UnknownNarrow.record(record.get("error"));
+				if (error != null) {
+					final message = UnknownNarrow.string(error.get("message"));
+					if (message != null)
+						return message;
+				}
 			}
 		}
 		return fallback;
 	}
 
-	// Runtime JSON decoder boundary: provider responses arrive as untrusted text
-	// and Haxe's Json/Reflect APIs expose parsed values as Dynamic. The weak
-	// reads below are private, shape-checked, and only typed response records or
-	// explicit decoder errors escape.
-	static function parseJson(rawValue:String):Dynamic {
+	// Runtime JSON decoder boundary: provider responses arrive as untrusted
+	// text. Keep parsed values as Unknown, narrow every consumed field, then
+	// copy into typed response records.
+	static function parseJson(rawValue:String):Unknown {
 		try {
-			return Json.parse(rawValue);
+			return Unknown.fromBoundary(Json.parse(rawValue));
 		} catch (error:haxe.Exception) {
 			throw new CopilotInvalidChatResponseError('Invalid Copilot chat JSON response: ${Std.string(error)}');
 		}
 	}
 
-	static function parseJsonOrNull(rawValue:String):Dynamic {
+	static function parseJsonOrNull(rawValue:String):Null<Unknown> {
 		try {
-			return Json.parse(rawValue);
+			return Unknown.fromBoundary(Json.parse(rawValue));
 		} catch (_:haxe.Exception) {
 			return null;
 		}
 	}
 
-	static function decodeChoices(value:Dynamic):Array<CopilotChatResponseChoice> {
-		if (!Std.isOfType(value, Array))
+	static function decodeChoices(value:Unknown):Array<CopilotChatResponseChoice> {
+		final items = UnknownNarrow.array(value);
+		if (items == null)
 			throw new CopilotInvalidChatResponseError("Expected 'choices' to be an array.");
-		// Json.parse returns erased arrays. The guard above proves the container
-		// shape; each element is checked before becoming a typed choice.
-		final items:Array<Dynamic> = cast value;
 		final out:Array<CopilotChatResponseChoice> = [];
-		for (item in items)
-			out.push(decodeChoice(item));
+		for (index in 0...items.length)
+			out.push(decodeChoice(items.get(index)));
 		return out;
 	}
 
-	static function decodeChoice(value:Dynamic):CopilotChatResponseChoice {
-		requireRecord(value, "choice");
+	static function decodeChoice(value:Unknown):CopilotChatResponseChoice {
+		final record = requireRecord(value, "choice");
 		return {
-			message: decodeMessage(field(value, "message")),
-			finish_reason: optionalString(field(value, "finish_reason"), "finish_reason"),
+			message: decodeMessage(record.get("message")),
+			finish_reason: optionalString(record.get("finish_reason"), "finish_reason"),
 		};
 	}
 
-	static function decodeMessage(value:Dynamic):CopilotChatResponseMessage {
-		requireRecord(value, "message");
+	static function decodeMessage(value:Unknown):CopilotChatResponseMessage {
+		final record = requireRecord(value, "message");
 		return {
-			content: optionalString(field(value, "content"), "message.content"),
-			reasoning_text: optionalString(field(value, "reasoning_text"), "message.reasoning_text"),
-			reasoning_opaque: optionalString(field(value, "reasoning_opaque"), "message.reasoning_opaque"),
-			tool_calls: decodeToolCalls(field(value, "tool_calls")),
+			content: optionalString(record.get("content"), "message.content"),
+			reasoning_text: optionalString(record.get("reasoning_text"), "message.reasoning_text"),
+			reasoning_opaque: optionalString(record.get("reasoning_opaque"), "message.reasoning_opaque"),
+			tool_calls: decodeToolCalls(record.get("tool_calls")),
 		};
 	}
 
-	static function decodeToolCalls(value:Dynamic):Null<Array<CopilotChatResponseToolCall>> {
-		if (value == null)
+	static function decodeToolCalls(value:Unknown):Null<Array<CopilotChatResponseToolCall>> {
+		if (isAbsent(value))
 			return null;
-		if (!Std.isOfType(value, Array))
+		final items = UnknownNarrow.array(value);
+		if (items == null)
 			throw new CopilotInvalidChatResponseError("Expected 'message.tool_calls' to be an array.");
-		// Json.parse returns erased arrays. The guard above proves the container
-		// shape; each tool call is checked before becoming a typed record.
-		final items:Array<Dynamic> = cast value;
 		final out:Array<CopilotChatResponseToolCall> = [];
-		for (item in items)
-			out.push(decodeToolCall(item));
+		for (index in 0...items.length)
+			out.push(decodeToolCall(items.get(index)));
 		return out;
 	}
 
-	static function decodeToolCall(value:Dynamic):CopilotChatResponseToolCall {
-		requireRecord(value, "tool call");
+	static function decodeToolCall(value:Unknown):CopilotChatResponseToolCall {
+		final record = requireRecord(value, "tool call");
 		return {
-			id: optionalString(field(value, "id"), "tool_call.id"),
-			fn: decodeFunction(field(value, "function")),
+			id: optionalString(record.get("id"), "tool_call.id"),
+			fn: decodeFunction(record.get("function")),
 		};
 	}
 
-	static function decodeFunction(value:Dynamic):CopilotChatResponseFunctionCall {
-		requireRecord(value, "tool call function");
+	static function decodeFunction(value:Unknown):CopilotChatResponseFunctionCall {
+		final record = requireRecord(value, "tool call function");
 		return {
-			name: requiredString(field(value, "name"), "tool_call.function.name"),
-			arguments: requiredString(field(value, "arguments"), "tool_call.function.arguments"),
+			name: requiredString(record.get("name"), "tool_call.function.name"),
+			arguments: requiredString(record.get("arguments"), "tool_call.function.arguments"),
 		};
 	}
 
-	static function decodeUsage(value:Dynamic):Null<CopilotTokenUsage> {
-		if (value == null)
+	static function decodeUsage(value:Unknown):Null<CopilotTokenUsage> {
+		if (isAbsent(value))
 			return null;
-		requireRecord(value, "usage");
+		final record = requireRecord(value, "usage");
 		return {
-			prompt_tokens: optionalNumber(field(value, "prompt_tokens"), "usage.prompt_tokens"),
-			completion_tokens: optionalNumber(field(value, "completion_tokens"), "usage.completion_tokens"),
-			total_tokens: optionalNumber(field(value, "total_tokens"), "usage.total_tokens"),
-			prompt_tokens_details: decodePromptTokensDetails(field(value, "prompt_tokens_details")),
-			completion_tokens_details: decodeCompletionTokensDetails(field(value, "completion_tokens_details")),
+			prompt_tokens: optionalNumber(record.get("prompt_tokens"), "usage.prompt_tokens"),
+			completion_tokens: optionalNumber(record.get("completion_tokens"), "usage.completion_tokens"),
+			total_tokens: optionalNumber(record.get("total_tokens"), "usage.total_tokens"),
+			prompt_tokens_details: decodePromptTokensDetails(record.get("prompt_tokens_details")),
+			completion_tokens_details: decodeCompletionTokensDetails(record.get("completion_tokens_details")),
 		};
 	}
 
-	static function decodePromptTokensDetails(value:Dynamic):Null<CopilotPromptTokensDetails> {
-		if (value == null)
+	static function decodePromptTokensDetails(value:Unknown):Null<CopilotPromptTokensDetails> {
+		if (isAbsent(value))
 			return null;
-		requireRecord(value, "prompt_tokens_details");
+		final record = requireRecord(value, "prompt_tokens_details");
 		return {
-			cached_tokens: optionalNumber(field(value, "cached_tokens"), "prompt_tokens_details.cached_tokens"),
+			cached_tokens: optionalNumber(record.get("cached_tokens"), "prompt_tokens_details.cached_tokens"),
 		};
 	}
 
-	static function decodeCompletionTokensDetails(value:Dynamic):Null<CopilotCompletionTokensDetails> {
-		if (value == null)
+	static function decodeCompletionTokensDetails(value:Unknown):Null<CopilotCompletionTokensDetails> {
+		if (isAbsent(value))
 			return null;
-		requireRecord(value, "completion_tokens_details");
+		final record = requireRecord(value, "completion_tokens_details");
 		return {
-			reasoning_tokens: optionalNumber(field(value, "reasoning_tokens"), "completion_tokens_details.reasoning_tokens"),
-			accepted_prediction_tokens: optionalNumber(field(value, "accepted_prediction_tokens"), "completion_tokens_details.accepted_prediction_tokens"),
-			rejected_prediction_tokens: optionalNumber(field(value, "rejected_prediction_tokens"), "completion_tokens_details.rejected_prediction_tokens"),
+			reasoning_tokens: optionalNumber(record.get("reasoning_tokens"), "completion_tokens_details.reasoning_tokens"),
+			accepted_prediction_tokens: optionalNumber(record.get("accepted_prediction_tokens"), "completion_tokens_details.accepted_prediction_tokens"),
+			rejected_prediction_tokens: optionalNumber(record.get("rejected_prediction_tokens"), "completion_tokens_details.rejected_prediction_tokens"),
 		};
 	}
 
-	static function optionalString(value:Dynamic, path:String):Null<String> {
-		if (value == null)
+	static function optionalString(value:Unknown, path:String):Null<String> {
+		if (isAbsent(value))
 			return null;
-		if (!Std.isOfType(value, String))
+		final text = UnknownNarrow.string(value);
+		if (text == null)
 			throw new CopilotInvalidChatResponseError('Expected ${path} to be a string.');
-		return value;
+		return text;
 	}
 
-	static function requiredString(value:Dynamic, path:String):String {
+	static function requiredString(value:Unknown, path:String):String {
 		final result = optionalString(value, path);
 		if (result == null)
 			throw new CopilotInvalidChatResponseError('Expected ${path} to be a string.');
 		return result;
 	}
 
-	static function optionalNumber(value:Dynamic, path:String):Null<Float> {
-		if (value == null)
+	static function optionalNumber(value:Unknown, path:String):Null<Float> {
+		if (isAbsent(value))
 			return null;
-		if (!isNumber(value))
+		final number = UnknownNarrow.number(value);
+		if (number == null)
 			throw new CopilotInvalidChatResponseError('Expected ${path} to be a number.');
-		return value;
+		return number;
 	}
 
-	static function requireRecord(value:Dynamic, path:String):Void {
-		if (!isRecord(value))
+	static function requireRecord(value:Unknown, path:String):UnknownRecord {
+		final record = UnknownNarrow.record(value);
+		if (record == null)
 			throw new CopilotInvalidChatResponseError('Expected ${path} to be an object.');
+		return record;
 	}
 
-	static function field(value:Dynamic, name:String):Dynamic {
-		return Reflect.field(value, name);
-	}
-
-	static function isRecord(value:Dynamic):Bool {
-		if (value == null
-			|| Std.isOfType(value, Array)
-			|| Std.isOfType(value, String)
-			|| Std.isOfType(value, Bool)
-			|| isNumber(value))
-			return false;
-		return Reflect.isObject(value);
-	}
-
-	static function isNumber(value:Dynamic):Bool {
-		return Std.isOfType(value, Int) || Std.isOfType(value, Float);
+	static function isAbsent(value:Unknown):Bool {
+		return UnknownNarrow.isUndefined(value) || UnknownNarrow.isNull(value);
 	}
 }

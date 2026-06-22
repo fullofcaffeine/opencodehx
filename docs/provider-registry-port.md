@@ -206,11 +206,13 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 
 `ProviderModelsDev.parse` treats `Json.parse` output as `genes.ts.Unknown`, narrows with `UnknownNarrow`/`UnknownRecord`, and copies validated fields into typed models.dev records before returning a `ModelsDevCatalog` to the registry. Open provider mode bodies remain `DynamicAccess<Unknown>` until `ProviderRegistry` normalizes them into provider options.
 
+`CopilotChatResponseDecoder` follows the same Unknown-backed pattern for non-stream `/chat/completions` HTTP bodies: `Json.parse` output is immediately marked as `genes.ts.Unknown`, object and array fields are narrowed through `UnknownNarrow`, and validated values are copied into typed Copilot response DTOs. `CopilotChatHttpClientSmoke` covers happy-path decoding, API error-body message extraction, and malformed 200 response-body rejection.
+
 `ProviderOptionAccess` owns the registry's provider-option weak reads. Provider options intentionally remain open because SDKs/plugins own arbitrary keys; loaders must ask `ProviderOptionAccess` for typed strings, booleans, URLs, and headers rather than reading option fields directly.
 
 When callers do not inject an env map, `ProviderRegistry` reads `process.env` through `host.node.NodeProcess.env()`. That keeps the Node host boundary in the host layer instead of embedding raw `js.Syntax.code` in provider registry logic.
 
-`CopilotChatSseDecoder`, `CopilotResponsesResponseDecoder`, and `CopilotResponsesStream` have the same kind of contained boundary: `Json.parse` and `Reflect.field` are private to the decoder/stream mapper, every consumed field is shape-checked, and callers receive only typed chat chunks, typed Responses DTOs, or AI SDK stream parts. Generated `any` is expected only in those private decoder surfaces until a reusable typed JSON decoder exists.
+`CopilotChatSseDecoder`, `CopilotResponsesResponseDecoder`, and `CopilotResponsesStream` still have contained decoder boundaries: `Json.parse` and `Reflect.field` are private to the decoder/stream mapper, every consumed field is shape-checked, and callers receive only typed chat chunks, typed Responses DTOs, or AI SDK stream parts. Generated `any` is expected only in those private decoder surfaces until they also move to reusable Unknown-backed decoder helpers.
 
 `opencodehx.externs.web.WebStreams` owns the current Web stream extern gap. Haxe 4.3's `js.html.Response` does not expose the standard `body` property, so the structural cast is localized in `WebResponseStreams.body`; provider code consumes a typed `ReadableStream<Uint8Array>` reader.
 

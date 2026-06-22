@@ -15,6 +15,7 @@ import opencodehx.provider.copilot.CopilotChatHttpClient.CopilotChatFetchInit;
 import opencodehx.provider.copilot.CopilotChatMessages.CopilotPromptMessage;
 import opencodehx.provider.copilot.CopilotChatMessages.CopilotPromptPart;
 import opencodehx.provider.copilot.CopilotChatRequest;
+import opencodehx.provider.copilot.CopilotChatResponseDecoder.CopilotInvalidChatResponseError;
 import opencodehx.provider.copilot.CopilotChatStream.CopilotChatStreamEventType;
 import opencodehx.provider.copilot.CopilotOpenAICompatibleProvider;
 
@@ -35,6 +36,7 @@ class CopilotChatHttpClientSmoke {
 				"data: [DONE]\n\n",
 			]),
 			jsonResponse('{"error":{"message":"bad token","type":"invalid_request_error"}}', 401, "Unauthorized", headerMap("x-request-id", "error-req")),
+			jsonResponse('{"choices":{}}', 200, "OK", headerMap("x-request-id", "invalid-req")),
 		];
 		final fetcher = fakeFetcher(calls, responses);
 
@@ -87,6 +89,17 @@ class CopilotChatHttpClientSmoke {
 		} catch (error:CopilotChatApiError) {
 			eq(error.status, 401, "error status");
 			eq(error.message, "bad token", "error message");
+		}
+
+		try {
+			@:await CopilotChatHttpClient.generate({
+				modelConfig: modelConfig(),
+				request: requestOptions(),
+				fetcher: fetcher,
+			});
+			throw "expected invalid Copilot response";
+		} catch (error:CopilotInvalidChatResponseError) {
+			eq(error.message, "Expected 'choices' to be an array.", "invalid response message");
 		}
 
 		return null;
