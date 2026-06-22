@@ -2,12 +2,15 @@ package opencodehx.pty;
 
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
+import haxe.Json;
 import js.Syntax;
 import js.lib.Error;
 import js.lib.Uint8Array;
 import opencodehx.bus.EventBus;
 import opencodehx.externs.node.NodePty;
 import opencodehx.externs.node.NodePty.PtyProcess;
+import opencodehx.externs.web.WebStreams.WebTextDecoder;
+import opencodehx.externs.web.WebStreams.WebTextEncoder;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.pty.PtyTypes.PtyConnectHandler;
 import opencodehx.pty.PtyTypes.PtyCreateInput;
@@ -292,17 +295,18 @@ class PtyService {
 	}
 
 	static function cursorFrame(cursor:Int):Uint8Array {
-		return Syntax.code("(() => {
-			const json = JSON.stringify({ cursor: {0} });
-			const bytes = new TextEncoder().encode(json);
-			const out = new Uint8Array(bytes.length + 1);
-			out[0] = 0;
-			out.set(bytes, 1);
-			return out;
-		})()", cursor);
+		final bytes = new WebTextEncoder().encode(Json.stringify({cursor: cursor}));
+		final out = new Uint8Array(bytes.length + 1);
+		out[0] = 0;
+		out.set(bytes, 1);
+		return out;
 	}
 
 	static function socketMessageText(message:PtySocketMessage):String {
-		return Syntax.code("typeof {0} === 'string' ? {0} : new TextDecoder().decode({0})", message);
+		if (Std.isOfType(message, String))
+			return cast message;
+		// PtySocketMessage is EitherType<String, ArrayBuffer>; after the String
+		// branch is excluded, create a Uint8Array view for TextDecoder.
+		return new WebTextDecoder().decode(new Uint8Array(cast message));
 	}
 }
