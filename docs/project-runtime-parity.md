@@ -91,7 +91,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - remote history/replay request header preservation, JSON body construction, and abort-signal forwarding, and
   - remote history/replay HTTP failure diagnostics that include response status and body text,
   - chunked `ReadableStream<Uint8Array>` SSE parsing with incomplete trailing-frame suppression, and
-  - deterministic workspace stream application with connected/disconnected status transitions.
+  - deterministic workspace stream application with connected/disconnected status transitions, and
+  - bounded remote loop sequencing across SSE connect, history sync, stream application, disconnect, and planned reconnect delay recording.
 
 ## Deferred
 
@@ -99,7 +100,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching bindings beyond typed HEAD-event bus refresh.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
-- Live cross-process workspace sync over the real long-running remote connection loop, abort/reconnect scheduling side effects, and workspace proxy integration. Tracked by `opencodehx-qcd`.
+- Live cross-process workspace sync as a daemon-style background task with real timer/abort side effects and workspace proxy integration. Tracked by `opencodehx-qcd`.
 
 ## Boundary Notes
 

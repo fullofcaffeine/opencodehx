@@ -283,6 +283,40 @@ class ServerSmoke {
 		eq(streamApplied, 1, "workspace sync stream replay count");
 		eq(syncRuntime.events("workspace_session_1").length, 3, "workspace sync stream complete frames only");
 		eq(workspaceSync.statuses[workspaceSync.statuses.length - 1].status, "disconnected", "workspace sync stream disconnected after end");
+		final loopCaptures:Array<WorkspaceHttpCapture> = [];
+		final loopRemote = new WorkspaceSyncRemoteHttp((url, init) -> {
+			loopCaptures.push({url: url, init: init});
+			if (url.indexOf("/global/event") != -1)
+				return Promise.resolve(new Response(sseStream([
+					'data: {"directory":"/remote/workspace","project":"proj_server","workspace":"remote_workspace","payload":{"type":"sync","syncEvent":{"id":"evt_workspace_loop_stream_1","type":"item.created.1","seq":4,"aggregateID":"workspace_session_1","data":{"id":"remote_item","name":"loop-stream"}}}}\n\n',
+				]), {
+					status: 200
+				}));
+			if (url.indexOf("/sync/history") != -1)
+				return Promise.resolve(new Response(Json.stringify([
+					{
+						id: "evt_workspace_loop_history_1",
+						type: "item.created.1",
+						seq: 3,
+						aggregate_id: "workspace_session_1",
+						data: {id: "remote_item", name: "loop-history"}
+					}
+				]), {status: 200}));
+			return Promise.resolve(new Response("missing", {status: 404}));
+		});
+		final loopHeaders = jsonHeaders();
+		loopHeaders.set("authorization", "Bearer loop-token");
+		final loop = await(workspaceSync.runRemoteLoop("wrk_server_1", loopRemote, {url: "https://workspace.test/base", headers: loopHeaders}, 1,
+			new AbortControllerWithReason().signal));
+		eq(loop.attempts, 1, "workspace sync loop attempts");
+		eq(loop.applied, 1, "workspace sync loop stream applied");
+		eq(loop.plannedDelays.length, 1, "workspace sync loop planned delay count");
+		eq(loop.plannedDelays[0], 1000, "workspace sync loop first reconnect delay");
+		eq(loopCaptures[0].url, "https://workspace.test/base/global/event", "workspace sync loop connects sse first");
+		eq(loopCaptures[1].url, "https://workspace.test/base/sync/history", "workspace sync loop syncs history");
+		eq(loopCaptures[1].init.body, '{"workspace_session_1":2}', "workspace sync loop known seq body");
+		eq(syncRuntime.events("workspace_session_1").length, 5, "workspace sync loop history and stream events");
+		eq(workspaceSync.statuses[workspaceSync.statuses.length - 1].status, "disconnected", "workspace sync loop disconnected after stream");
 
 		final created = await(jsonResponse(await(server.app.request("/session", {
 			method: "POST",
