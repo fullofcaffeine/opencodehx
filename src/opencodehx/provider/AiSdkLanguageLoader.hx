@@ -1,6 +1,7 @@
 package opencodehx.provider;
 
 import genes.ts.Imports;
+import genes.ts.Unknown;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
 import haxe.Exception;
@@ -36,6 +37,7 @@ import opencodehx.externs.ai.AiSdk.AiMistralProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiOptionalHeaderMap;
 import opencodehx.externs.ai.AiSdk.AiOpenAIFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiOpenAIProviderFactory;
+import opencodehx.externs.ai.AiSdk.AiOpenRouterCompatibility;
 import opencodehx.externs.ai.AiSdk.AiOpenRouterFactoryOptions;
 import opencodehx.externs.ai.AiSdk.AiOpenRouterProviderFactory;
 import opencodehx.externs.ai.AiSdk.AiPerplexityFactoryOptions;
@@ -315,7 +317,17 @@ class AiSdkLanguageLoader {
 	}
 
 	public static function openRouterFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiOpenRouterFactoryOptions {
-		return simpleFactoryOptions(provider, model);
+		final apiKey = ProviderOptionAccess.string(provider.options, "apiKey", provider.key);
+		return {
+			baseURL: nonEmptyStringOrAbsent(ProviderOptionAccess.baseURL(provider.options, model)),
+			apiKey: nonEmptyStringOrAbsent(apiKey),
+			headers: headersOrAbsent(ProviderOptionAccess.headers(provider.options, model.headers)),
+			compatibility: openRouterCompatibilityOrAbsent(ProviderOptionAccess.string(provider.options, "compatibility", null)),
+			extraBody: unknownRecordOrAbsent(ProviderOptionAccess.unknownRecord(provider.options, "extraBody")),
+			api_keys: stringMapOrAbsent(ProviderOptionAccess.stringMap(provider.options, "api_keys")),
+			appName: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "appName", null)),
+			appUrl: nonEmptyStringOrAbsent(ProviderOptionAccess.string(provider.options, "appUrl", null)),
+		};
 	}
 
 	public static function deepInfraFactoryOptions(provider:ProviderInfo, model:ProviderModel):AiDeepInfraFactoryOptions {
@@ -425,6 +437,25 @@ class AiSdkLanguageLoader {
 
 	static function boolMapOrAbsent(value:Null<DynamicAccess<Bool>>):Undefinable<DynamicAccess<Bool>> {
 		return value == null ? Undefinable.absent() : value;
+	}
+
+	static function stringMapOrAbsent(value:Null<DynamicAccess<String>>):Undefinable<DynamicAccess<String>> {
+		return value == null ? Undefinable.absent() : value;
+	}
+
+	static function unknownRecordOrAbsent(value:Null<DynamicAccess<Unknown>>):Undefinable<DynamicAccess<Unknown>> {
+		return value == null ? Undefinable.absent() : value;
+	}
+
+	static function openRouterCompatibilityOrAbsent(value:Null<String>):Undefinable<AiOpenRouterCompatibility> {
+		return switch value {
+			case "strict":
+				AiOpenRouterCompatibility.Strict;
+			case "compatible":
+				AiOpenRouterCompatibility.Compatible;
+			case _:
+				Undefinable.absent();
+		}
 	}
 
 	static function optionalHeadersOrAbsent(value:Null<DynamicAccess<String>>):Undefinable<AiOptionalHeaderMap> {

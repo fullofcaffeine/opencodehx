@@ -215,6 +215,23 @@ typedef AiSimpleFactoryOptionsShape = {
 	final headers:Undefinable<DynamicAccess<String>>;
 }
 
+@:ts.type("NonNullable<import('@openrouter/ai-sdk-provider').OpenRouterProviderSettings['compatibility']>")
+enum abstract AiOpenRouterCompatibility(String) to String {
+	final Strict = "strict";
+	final Compatible = "compatible";
+}
+
+typedef AiOpenRouterFactoryOptionsShape = {
+	final baseURL:Undefinable<String>;
+	final apiKey:Undefinable<String>;
+	final headers:Undefinable<DynamicAccess<String>>;
+	final compatibility:Undefinable<AiOpenRouterCompatibility>;
+	final extraBody:Undefinable<DynamicAccess<Unknown>>;
+	final api_keys:Undefinable<DynamicAccess<String>>;
+	final appName:Undefinable<String>;
+	final appUrl:Undefinable<String>;
+}
+
 typedef AiGitLabFactoryOptionsShape = {
 	final instanceUrl:Undefinable<String>;
 	final apiKey:Undefinable<String>;
@@ -802,13 +819,13 @@ abstract AiPerplexityFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFa
  * Type-only bridge for OpenRouter provider settings.
  *
  * OpenRouter has richer package-specific settings such as compatibility mode,
- * extraBody, BYOK maps, and app attribution. Loader construction only owns the
- * stable request-transport subset; request-specific options belong to
- * ProviderTransform and a future typed OpenRouter facade.
+ * extraBody, BYOK maps, and app attribution. Loader construction owns those
+ * stable provider-level settings while fetch hooks and model/request-specific
+ * options stay out until a typed host-request or OpenRouter facade owns them.
  */
-@:forward(baseURL, apiKey, headers)
+@:forward(baseURL, apiKey, headers, compatibility, extraBody, api_keys, appName, appUrl)
 @:ts.type("import('@openrouter/ai-sdk-provider').OpenRouterProviderSettings")
-abstract AiOpenRouterFactoryOptions(AiSimpleFactoryOptionsShape) from AiSimpleFactoryOptionsShape to AiSimpleFactoryOptionsShape {}
+abstract AiOpenRouterFactoryOptions(AiOpenRouterFactoryOptionsShape) from AiOpenRouterFactoryOptionsShape to AiOpenRouterFactoryOptionsShape {}
 
 /**
  * Type-only bridge for DeepInfra provider settings.

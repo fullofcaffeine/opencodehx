@@ -1,6 +1,7 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
+import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.Exception;
 import js.lib.Promise;
@@ -54,6 +55,7 @@ class AiSdkProviderSmoke {
 		vertexFactory();
 		vertexAnthropicFactory();
 		simpleProviderFactories();
+		openRouterFactory();
 		gitLabFactory();
 		sdkModelSelection();
 		sdkFailureSelection();
@@ -377,6 +379,45 @@ class AiSdkProviderSmoke {
 		simpleProviderFactory("alibaba", "@ai-sdk/alibaba", "qwen3-coder", "https://alibaba.example.test/compatible-mode/v1", "alibaba.chat");
 	}
 
+	static function openRouterFactory():Void {
+		final provider = providerWithOptions("openrouter", "fixture-openrouter-key", openRouterOptions());
+		final model = modelWithApiURL("openrouter", "anthropic/claude-sonnet-4", "@openrouter/ai-sdk-provider", "https://openrouter.example.test/api/v1");
+		model.headers.set("x-model-header", "openrouter-model");
+		final settings = AiSdkLanguageLoader.openRouterFactoryOptions(provider, model);
+		eq(settings.baseURL.orNull(), "https://openrouter.example.test/api/v1", "openrouter base url");
+		eq(settings.apiKey.orNull(), "fixture-openrouter-key", "openrouter api key");
+		final headers = settings.headers.orNull();
+		if (headers == null)
+			throw "openrouter headers: expected merged headers";
+		eq(headers.get("x-provider-header"), "openrouter-provider", "openrouter provider header");
+		eq(headers.get("x-model-header"), "openrouter-model", "openrouter model header");
+		final compatibility = settings.compatibility.orNull();
+		if (compatibility == null)
+			throw "openrouter compatibility: expected strict mode";
+		final compatibilityText:String = compatibility;
+		eq(compatibilityText, "strict", "openrouter compatibility");
+		final extraBody = settings.extraBody.orNull();
+		if (extraBody == null)
+			throw "openrouter extraBody: expected forwarded record";
+		eq(UnknownNarrow.string(extraBody.get("reasoning")), "enabled", "openrouter extraBody string");
+		eq(UnknownNarrow.bool(extraBody.get("include_reasoning")), true, "openrouter extraBody bool");
+		final apiKeys = settings.api_keys.orNull();
+		if (apiKeys == null)
+			throw "openrouter api_keys: expected BYOK map";
+		eq(apiKeys.get("anthropic"), "fixture-anthropic-byok", "openrouter BYOK map");
+		eq(settings.appName.orNull(), "OpenCodeHX Smoke", "openrouter app name");
+		eq(settings.appUrl.orNull(), "https://opencodehx.example.test", "openrouter app url");
+
+		final resolved = AiSdkLanguageLoader.resolve(provider, model);
+		eq(resolved.sdkModelID, "anthropic/claude-sonnet-4", "openrouter sdk model id");
+		eq(resolved.method, AiSdkModelMethod.LanguageModel, "openrouter real model method");
+		eq(resolved.language.modelId, "anthropic/claude-sonnet-4", "openrouter language model id");
+		eq(resolved.language.provider, "openrouter", "openrouter language provider");
+
+		final invalid = providerWithOptions("openrouter", "fixture-openrouter-key", invalidOpenRouterOptions());
+		eq(AiSdkLanguageLoader.openRouterFactoryOptions(invalid, model).compatibility.orNull() == null, true, "openrouter invalid compatibility absent");
+	}
+
 	static function simpleProviderFactory(providerID:String, npm:String, modelID:String, baseURL:String, expectedProvider:String):Void {
 		final provider = providerWithOptions(providerID, 'fixture-${providerID}-key', simpleProviderOptions(providerID));
 		final model = modelWithApiURL(providerID, modelID, npm, baseURL);
@@ -608,6 +649,33 @@ class AiSdkProviderSmoke {
 		final headers = new DynamicAccess<String>();
 		headers.set("x-provider-header", '${providerID}-provider');
 		options.set("headers", headers);
+		return options;
+	}
+
+	static function openRouterOptions():ProviderOptions {
+		// Fixture boundary: these are OpenRouter-owned provider settings from
+		// its published SDK type. The loader narrows each stable key before the
+		// package-specific createOpenRouter bridge sees the object.
+		final options = new DynamicAccess<Dynamic>();
+		final headers = new DynamicAccess<String>();
+		headers.set("x-provider-header", "openrouter-provider");
+		options.set("headers", headers);
+		options.set("compatibility", "strict");
+		final extraBody = new DynamicAccess<Dynamic>();
+		extraBody.set("reasoning", "enabled");
+		extraBody.set("include_reasoning", true);
+		options.set("extraBody", extraBody);
+		final apiKeys = new DynamicAccess<String>();
+		apiKeys.set("anthropic", "fixture-anthropic-byok");
+		options.set("api_keys", apiKeys);
+		options.set("appName", "OpenCodeHX Smoke");
+		options.set("appUrl", "https://opencodehx.example.test");
+		return options;
+	}
+
+	static function invalidOpenRouterOptions():ProviderOptions {
+		final options = openRouterOptions();
+		options.set("compatibility", "not-a-mode");
 		return options;
 	}
 
