@@ -1,6 +1,10 @@
 package opencodehx.externs.web;
 
-import js.Syntax;
+@:native("globalThis")
+extern class UriGlobals {
+	@:native("decodeURIComponent")
+	static function decodeComponent(value:String):String;
+}
 
 /**
  * Narrow facade for JavaScript's global URI component decoder.
@@ -11,8 +15,6 @@ import js.Syntax;
  */
 class UriCodec {
 	public static inline function decodeComponent(value:String):String {
-		// This is a tiny target-global boundary. Keep the raw call here so
-		// application code can depend on a typed helper with upstream JS semantics.
-		return Syntax.code("decodeURIComponent({0})", value);
+		return UriGlobals.decodeComponent(value);
 	}
 }

@@ -1,6 +1,7 @@
 package opencodehx.externs.web;
 
 import haxe.DynamicAccess;
+import genes.ts.Unknown;
 import js.html.Headers;
 import js.html.Response;
 import js.lib.Promise;
@@ -17,6 +18,7 @@ typedef WebReadableStreamReadResult<T> = {
 
 typedef WebReadableStreamSource<T> = {
 	function start(controller:WebReadableStreamDefaultController<T>):Void;
+	@:optional function cancel(reason:Unknown):Void;
 }
 
 typedef WebResponseInit = {
@@ -59,6 +61,18 @@ extern class WebTextDecoder {
 extern class WebTextEncoder {
 	function new();
 	function encode(input:String):Uint8Array;
+}
+
+@:ts.type("ReturnType<typeof setInterval>")
+extern class WebTimerHandle {}
+
+@:native("globalThis")
+extern class WebTimers {
+	@:native("setInterval")
+	static function setInterval(callback:Void->Void, delayMs:Int):WebTimerHandle;
+
+	@:native("clearInterval")
+	static function clearInterval(handle:WebTimerHandle):Void;
 }
 
 class WebResponseStreams {
