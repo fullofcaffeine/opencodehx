@@ -162,8 +162,10 @@ class ConfigInfo {
 	public var mode:Null<AgentMap>;
 	public var agent:Null<AgentMap>;
 	public var provider:Null<ConfigProviderMap>;
-	// Boundary debt: MCP/formatter/LSP/layout/enterprise/experimental owners are not ported yet.
+	// Boundary debt: MCP/LSP/layout/enterprise/experimental owners are not ported yet.
 	public var mcp:Dynamic;
+	// Formatter config is merged as raw config data here; FormatRuntime owns
+	// formatter-specific narrowing at the service boundary.
 	public var formatter:Dynamic;
 	public var lsp:Dynamic;
 	public var instructions:Null<Array<String>>;

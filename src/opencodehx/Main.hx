@@ -23,6 +23,7 @@ import opencodehx.smoke.CopilotChatToolsSmoke;
 import opencodehx.smoke.CopilotProviderFactorySmoke;
 import opencodehx.smoke.CopilotResponsesLanguageModelSmoke;
 import opencodehx.smoke.FileSmoke;
+import opencodehx.smoke.FormatterSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.PermissionSmoke;
 import opencodehx.smoke.ProjectRuntimeSmoke;
@@ -151,6 +152,10 @@ class Main {
 			})
 			.then(_ -> {
 				log("config-remote-smoke:ok");
+				return FormatterSmoke.run();
+			})
+			.then(_ -> {
+				log("formatter-smoke:ok");
 				return ServerSmoke.run();
 			})
 			.then(_ -> {

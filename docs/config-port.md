@@ -48,7 +48,7 @@ Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing con
 
 Provider and permission config are now typed at the Haxe boundary because their owner slices exist. Provider `options`, model `options`, headers, and variants remain open maps only where upstream treats them as provider-SDK passthrough data.
 
-MCP, formatter, LSP, watcher, enterprise, layout, and experimental nested shapes are still accepted as documented boundary debt because their authoritative schemas belong to later port slices. Compaction is typed for the upstream-owned scalar fields used by config finalization. Other nested shapes should be tightened as those modules are ported.
+MCP, LSP, watcher, enterprise, layout, and experimental nested shapes are still accepted as documented boundary debt because their authoritative schemas belong to later port slices. Formatter config is still stored raw in `ConfigInfo` after merge, but `FormatRuntime` now narrows the formatter-specific shape at the service boundary. Compaction is typed for the upstream-owned scalar fields used by config finalization. Other nested shapes should be tightened as those modules are ported.
 
 Markdown frontmatter is intentionally typed as an `unknown` boundary at parse time. Command and agent loaders immediately narrow the fields they own into typed Haxe records; unknown agent frontmatter keys survive only through the documented `options` passthrough.
 
