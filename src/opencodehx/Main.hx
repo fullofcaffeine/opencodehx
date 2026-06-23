@@ -9,6 +9,7 @@ import opencodehx.fixtures.DynamicFixture;
 import opencodehx.fx.Task;
 import opencodehx.host.node.NodePath;
 import opencodehx.smoke.AiSdkProviderSmoke;
+import opencodehx.smoke.BusSmoke;
 import opencodehx.smoke.CliSmoke;
 import opencodehx.smoke.ConfigSmoke;
 import opencodehx.smoke.CopilotChatCompletionSmoke;
@@ -74,6 +75,8 @@ class Main {
 		log('${resource.name}:${resource.mode}');
 		UtilSmoke.run();
 		log("util-smoke:ok");
+		BusSmoke.run();
+		log("bus-smoke:ok");
 		CliSmoke.run();
 		log("cli-smoke:ok");
 		ConfigSmoke.run();

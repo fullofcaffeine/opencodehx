@@ -1,0 +1,102 @@
+package opencodehx.smoke;
+
+import opencodehx.bus.BusRuntime;
+import opencodehx.bus.BusRuntime.BusEventDefinition;
+
+typedef PingPayload = {
+	final value:Int;
+}
+
+typedef PongPayload = {
+	final message:String;
+}
+
+class BusSmoke {
+	public static function run():Void {
+		publishSubscribe();
+		typeFilter();
+		noSubscribers();
+		unsubscribeStopsDelivery();
+		subscribeAllReceivesEveryType();
+		multipleSubscribers();
+		snapshotCopiesHistory();
+	}
+
+	static function publishSubscribe():Void {
+		final bus = new BusRuntime();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.ping");
+		final received:Array<Int> = [];
+		bus.subscribe(ping, event -> received.push(event.properties.value));
+		bus.publish(ping, {value: 42});
+		bus.publish(ping, {value: 99});
+		eq(received.join(","), "42,99", "bus subscribe matching events");
+	}
+
+	static function typeFilter():Void {
+		final bus = new BusRuntime();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.ping");
+		final pong:BusEventDefinition<PongPayload> = BusRuntime.define("test.pong");
+		final received:Array<Int> = [];
+		bus.subscribe(ping, event -> received.push(event.properties.value));
+		bus.publish(pong, {message: "ignored"});
+		bus.publish(ping, {value: 1});
+		eq(received.join(","), "1", "bus subscribe filters type");
+	}
+
+	static function noSubscribers():Void {
+		final bus = new BusRuntime();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.no-subscribers");
+		bus.publish(ping, {value: 1});
+		eq(bus.snapshot().length, 1, "bus publish without subscribers");
+	}
+
+	static function unsubscribeStopsDelivery():Void {
+		final bus = new BusRuntime();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.unsubscribe");
+		final received:Array<Int> = [];
+		final unsubscribe = bus.subscribe(ping, event -> received.push(event.properties.value));
+		bus.publish(ping, {value: 1});
+		unsubscribe();
+		unsubscribe();
+		bus.publish(ping, {value: 2});
+		eq(received.join(","), "1", "bus unsubscribe stops delivery");
+	}
+
+	static function subscribeAllReceivesEveryType():Void {
+		final bus = new BusRuntime();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.all.ping");
+		final pong:BusEventDefinition<PongPayload> = BusRuntime.define("test.all.pong");
+		final received:Array<String> = [];
+		bus.subscribeAll(event -> received.push(event.type));
+		bus.publish(ping, {value: 1});
+		bus.publish(pong, {message: "hi"});
+		eq(received.join(","), "test.all.ping,test.all.pong", "bus subscribeAll types");
+	}
+
+	static function multipleSubscribers():Void {
+		final bus = new BusRuntime();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.multiple");
+		final a:Array<Int> = [];
+		final b:Array<Int> = [];
+		bus.subscribe(ping, event -> a.push(event.properties.value));
+		bus.subscribe(ping, event -> b.push(event.properties.value));
+		bus.publish(ping, {value: 7});
+		eq(a.join(","), "7", "bus first subscriber");
+		eq(b.join(","), "7", "bus second subscriber");
+	}
+
+	static function snapshotCopiesHistory():Void {
+		final bus = new BusRuntime();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.snapshot");
+		bus.publish(ping, {value: 3});
+		final first = bus.snapshot();
+		first.resize(0);
+		eq(bus.snapshot().length, 1, "bus snapshot is copy");
+	}
+
+	static function eq<T>(actual:T, expected:T, label:String):Void {
+		if (actual != expected) {
+			throw '$label: expected ${expected}, got ${actual}';
+		}
+	}
+}

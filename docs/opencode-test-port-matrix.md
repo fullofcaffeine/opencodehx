@@ -10,9 +10,9 @@
 
 | Port status | Kind | Count |
 | --- | --- | ---: |
-| deferred | test | 59 |
+| deferred | test | 57 |
 | direct | test | 12 |
-| partial | test | 86 |
+| partial | test | 88 |
 | ported | fixture | 1 |
 | ported | test | 3 |
 | reference-only | doc | 9 |
