@@ -5,6 +5,14 @@
   "version": "0.1.0-beta.0",
   "description": "Haxe-authored OpenCode port emitting TypeScript through genes-ts.",
   "license": "MIT",
+  "bin": {
+    "opencodehx": "./bin/opencodehx.mjs"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "src-gen/"
+  ],
   "scripts": {
     "clean": "node scripts/build/clean.mjs",
     "build:haxe": "haxe hxml/opencodehx.node.genes-ts.hxml",
@@ -15,6 +23,7 @@
     "smoke": "node --enable-source-maps dist/index.js",
     "transcript:parity": "npm run build && node scripts/harness/transcript-parity.mjs",
     "cli:smoke": "npm run build && node scripts/harness/cli-smoke.mjs",
+    "package:smoke": "npm run build && node scripts/harness/package-smoke.mjs",
     "test:haxe:unit": "node scripts/harness/haxe-unit-specs.mjs",
     "tui:scaffold": "node scripts/harness/tui-scaffold.mjs",
     "format:haxe": "bash scripts/lint/hx_format_guard.sh --write",
@@ -25,7 +34,7 @@
     "public:precommit": "npm run format:haxe:check && npm run security:gitleaks",
     "ci:version-sync": "node scripts/ci/version-sync-check.mjs",
     "ci:release-contracts": "node scripts/ci/release-contracts-check.mjs",
-    "ci:full": "npm run ci:version-sync && npm run ci:release-contracts && npm run format:haxe:check && npm run build && npm run test:haxe:unit && npm run smoke && npm run tui:scaffold",
+    "ci:full": "npm run ci:version-sync && npm run ci:release-contracts && npm run format:haxe:check && npm run build && npm run test:haxe:unit && npm run smoke && npm run package:smoke && npm run tui:scaffold",
     "test": "npm run ci:version-sync && npm run ci:release-contracts && npm run format:haxe:check",
     "release:sync-versions": "node scripts/release/sync-versions.mjs",
     "release": "semantic-release",

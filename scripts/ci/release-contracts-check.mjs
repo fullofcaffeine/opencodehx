@@ -57,11 +57,23 @@ for (const script of ["ci:version-sync", "ci:release-contracts", "ci:full", "pub
     fail(`package.json scripts missing ${script}`);
   }
 }
+if (packageJson.bin?.opencodehx !== "./bin/opencodehx.mjs") {
+  fail("package.json bin must expose opencodehx through ./bin/opencodehx.mjs");
+}
+for (const entry of ["bin/", "dist/", "src-gen/"]) {
+  if (!packageJson.files?.includes(entry)) {
+    fail(`package.json files missing ${entry}`);
+  }
+}
+if (!packageJson.scripts?.["package:smoke"]?.includes("package-smoke.mjs")) {
+  fail("package.json scripts missing package:smoke harness");
+}
 expectIncludes(packageJson.scripts.test, "ci:version-sync", "npm test");
 expectIncludes(packageJson.scripts.test, "ci:release-contracts", "npm test");
 expectIncludes(packageJson.scripts["public:precommit"], "format:haxe:check", "public:precommit");
 expectIncludes(packageJson.scripts["public:precommit"], "security:gitleaks", "public:precommit");
 expectIncludes(packageJson.scripts["ci:full"], "npm run build", "ci:full");
+expectIncludes(packageJson.scripts["ci:full"], "npm run package:smoke", "ci:full");
 expectIncludes(packageJson.scripts["ci:full"], "npm run tui:scaffold", "ci:full");
 
 for (const dependency of [
@@ -130,6 +142,7 @@ expectIncludes(ciWorkflow, "npm run format:haxe:check", "CI workflow");
 expectIncludes(ciWorkflow, "npm run build", "CI workflow");
 expectIncludes(ciWorkflow, "npm run test:haxe:unit", "CI workflow");
 expectIncludes(ciWorkflow, "npm run smoke", "CI workflow");
+expectIncludes(ciWorkflow, "npm run package:smoke", "CI workflow");
 expectIncludes(ciWorkflow, "npm run tui:scaffold", "CI workflow");
 expectExcludes(ciWorkflow, "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24", "CI workflow");
 

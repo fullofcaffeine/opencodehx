@@ -124,6 +124,7 @@ jobs:
           npm run build
           npm run test:haxe:unit
           npm run smoke
+          npm run package:smoke
 
   tui-scaffold:
     name: OpenTUI TSX scaffold
