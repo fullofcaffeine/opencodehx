@@ -12,6 +12,7 @@ import opencodehx.externs.hono.NodeWs.NodeWebSocketMessage;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketRuntime;
 import opencodehx.externs.web.WebStreams.WebArrayBuffer;
 import opencodehx.externs.web.WebStreams.WebBinary;
+import opencodehx.project.InstanceBootstrapRuntime;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.project.ProjectRuntime.ProjectInfo;
@@ -204,6 +205,7 @@ class OpenCodeServer {
 				directory: dir,
 				worktree: dir,
 				project: next,
+				services: InstanceBootstrapRuntime.upstreamOrder(),
 			});
 		}
 		return json(c, projectResponse(next));

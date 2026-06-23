@@ -28,6 +28,7 @@ import opencodehx.git.Git;
 import opencodehx.host.Clock;
 import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
+import opencodehx.project.InstanceRuntime.InstanceContext;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.server.OpenCodeServer;
@@ -41,6 +42,7 @@ import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.PartID;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionInfo.SessionInfo;
+import opencodehx.snapshot.SnapshotRuntime;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.sync.SyncRouteRuntime;
 import opencodehx.sync.WorkspaceSyncBackgroundTask;
@@ -996,6 +998,10 @@ class ServerSmoke {
 		return null;
 	}
 
+	static function instanceServiceIDs(context:InstanceContext):String {
+		return [for (service in context.services) service.id].join(",");
+	}
+
 	static function initCommittedRepo(dir:String, readme:String):Void {
 		Fs.mkdirSync(dir, {recursive: true});
 		git(dir, ["init"]);
@@ -1054,6 +1060,11 @@ class ServerSmoke {
 			}))));
 			eq(Reflect.field(current, "vcs"), "git", "project current vcs");
 			eq(Reflect.field(current, "worktree"), plainReal, "project current worktree");
+			final reloaded = InstanceRuntime.get(plain);
+			if (reloaded == null)
+				throw "project init reloaded instance: expected instance context";
+			eq(instanceServiceIDs(reloaded).indexOf("snapshot") != -1, true, "project init attaches snapshot service");
+			eq(StringTools.startsWith(SnapshotRuntime.track(reloaded), "snap_"), true, "project init snapshot track");
 
 			final alreadyGit = await(jsonResponse(await(server.app.request("/project/git/init", {
 				method: "POST",
