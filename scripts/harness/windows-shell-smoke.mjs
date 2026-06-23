@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,8 +15,8 @@ if (process.platform !== "win32") {
 	process.exit(0);
 }
 
-const { NodeProcess } = await import(path.join(root, "dist/opencodehx/host/node/NodeProcess.js"));
-const { PtyService } = await import(path.join(root, "dist/opencodehx/pty/PtyService.js"));
+const { NodeProcess } = await import(pathToFileURL(path.join(root, "dist/opencodehx/host/node/NodeProcess.js")).href);
+const { PtyService } = await import(pathToFileURL(path.join(root, "dist/opencodehx/pty/PtyService.js")).href);
 
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "opencodehx-windows-shell-"));
 try {

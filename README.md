@@ -11,7 +11,7 @@ The project intentionally uses 0.x beta versioning until upstream OpenCode parit
 Current Beads-based completion snapshot:
 
 ```text
-[#################################-------] 82% (81/98 non-epic port beads closed)
+[#################################-------] 82% (82/99 non-epic port beads closed)
 ```
 
 This is an unweighted planning indicator, not a parity claim. The working port already has the core scaffold, config, tools, parser-backed bash permissions with shell-selection parity fixtures, real Node PTY lifecycle and WebSocket replay controls, permissions, provider registry, first AI SDK streamText smoke, OpenAI-compatible/OpenAI/xAI/Azure/Google/Vertex/Anthropic/Bedrock/Mistral/Groq/Cohere/Perplexity/OpenRouter/DeepInfra/Cerebras/Gateway/TogetherAI/Vercel/Alibaba/GitLab SDK factory smokes, Bedrock small-model selection, Cloudflare AI Gateway env/config/auth loading plus no-network SDK factory and request-option header coverage, OpenCode public/paid model gating, first provider request-option/variant/schema transform smoke, models.dev normalization plus cache/fetch smoke, headless fake-provider flow, async `run --mock-ai-sdk` and opt-in `run --live-ai-sdk` CLI paths with global/project config, auth storage, well-known remote config discovery, read-only active-account remote config loading, registry tool schema advertisement to AI SDK model calls, and bounded repeated AI SDK calls after successful tool results, a typed upstream CLI command-surface catalog with alias/help smokes, a first local npm global-install package smoke, session retry/compaction/abort fixtures, store-backed session export, server seam, SDK-compatible create/list/resume/event smoke, first MCP/ACP protocol-surface smoke, first LSP runtime/client/tool smoke, first plugin metadata/loader/trigger smoke, and first TUI scaffold/transcript/dialog slices. The CLI `run` command still defaults to the deterministic fake provider; full live agentic chat wiring and side-effecting CLI subcommands remain later CLI/session integration slices. Remaining major work includes broader provider SDK loading/transforms, full published SDK/MCP/ACP/LSP/plugin surfaces, real MCP/ACP transports and OAuth flows, live plugin imports/installs/auth/adaptors, real LSP process transports/downloads, live TUI behavior, installed long-running server/TUI packaging behavior, and upstream drift/rebase discipline.
@@ -28,6 +28,8 @@ Primary local references:
 - `../genes`: sibling Genes checkout containing the `genes-ts` compiler mode
 
 Builds currently require the sibling `../genes` checkout pinned in [reference/genes.pin.json](reference/genes.pin.json). GitHub CI checks out `fullofcaffeine/genes-ts` next to this repository to preserve that layout.
+
+CI installs npm packages with lifecycle scripts disabled, then explicitly runs the local `bun` package installer for Bun-backed harnesses. Keep that bootstrap step with `npm run test:haxe:unit` and `npm run tui:scaffold`; both use the repo-pinned Bun binary rather than a runner-global install.
 
 See [AGENTS.md](AGENTS.md) for project rules, Haxe design direction, and the `genes-ts` improvement loop.
 

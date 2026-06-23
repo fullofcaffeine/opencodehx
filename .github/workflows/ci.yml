@@ -54,6 +54,13 @@ jobs:
         with:
           path: opencodehx
 
+      - name: Checkout genes-ts sibling
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.GENES_REPOSITORY }}
+          path: genes
+          token: ${{ secrets.GENES_TS_CHECKOUT_TOKEN || github.token }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -107,6 +114,10 @@ jobs:
         working-directory: opencodehx
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Install local Bun binary
+        working-directory: opencodehx
+        run: node node_modules/bun/install.js
+
       - name: Install Haxe via lix
         working-directory: opencodehx
         run: |
@@ -151,6 +162,10 @@ jobs:
       - name: Install npm dependencies
         working-directory: opencodehx
         run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install local Bun binary
+        working-directory: opencodehx
+        run: node node_modules/bun/install.js
 
       - name: Install Haxe via lix
         working-directory: opencodehx

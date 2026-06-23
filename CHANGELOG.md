@@ -7,3 +7,5 @@ Release notes are generated here during release preparation.
 Current beta packaging expectations include a local `npm pack` plus temporary global-install smoke for the generated `opencodehx` bin; keep that gate in sync with package metadata changes before the next generated release notes are prepared.
 
 Current platform-parity expectations include the Windows shell smoke workflow for `cmd.exe`, PowerShell, Git Bash, PTY shell args, and `killTree` behavior; keep `npm run windows:shell:smoke`, `.github/workflows/ci.yml`, and release-contract checks synchronized when changing shell or process teardown behavior.
+
+Current CI bootstrap expectations include checking out sibling `genes-ts` for Haxe/lix jobs and explicitly installing the local `bun` binary after `npm ci --ignore-scripts` before Bun-backed harnesses run.
