@@ -34,10 +34,16 @@ class Cli {
 			return ok(TranscriptHarness.oneTurnJson());
 		if (has(args, "--version") || has(args, "-v"))
 			return ok(BuildInfo.version);
-		if (has(args, "--help") || has(args, "-h"))
-			return ok(help());
 		if (args[0] == "run")
 			return runCommand(args.slice(1));
+		final surface = CliSurface.find(args);
+		if (surface != null) {
+			if (has(args, "--help") || has(args, "-h"))
+				return ok(CliSurface.help(surface));
+			return fail(CliSurface.notImplemented(surface));
+		}
+		if (has(args, "--help") || has(args, "-h"))
+			return ok(CliSurface.topHelp());
 		return fail('Unknown command: ${args[0]}\n\n${help()}');
 	}
 
@@ -49,10 +55,16 @@ class Cli {
 			return ok(TranscriptHarness.oneTurnJson());
 		if (has(args, "--version") || has(args, "-v"))
 			return ok(BuildInfo.version);
-		if (has(args, "--help") || has(args, "-h"))
-			return ok(help());
 		if (args[0] == "run")
 			return @:await runCommandAsync(args.slice(1));
+		final surface = CliSurface.find(args);
+		if (surface != null) {
+			if (has(args, "--help") || has(args, "-h"))
+				return ok(CliSurface.help(surface));
+			return fail(CliSurface.notImplemented(surface));
+		}
+		if (has(args, "--help") || has(args, "-h"))
+			return ok(CliSurface.topHelp());
 		return fail('Unknown command: ${args[0]}\n\n${help()}');
 	}
 
@@ -203,7 +215,7 @@ class Cli {
 		var i = 0;
 		while (i < args.length) {
 			final item = args[i];
-			if (item == "--format" || item == "--model" || item == "-m" || item == "--agent" || item == "--variant" || item == "--dir") {
+			if (valueOption(item)) {
 				i += 2;
 				continue;
 			}
@@ -219,6 +231,12 @@ class Cli {
 		return values.join(" ");
 	}
 
+	static function valueOption(item:String):Bool {
+		return item == "--format" || item == "--model" || item == "-m" || item == "--agent" || item == "--variant" || item == "--dir"
+			|| item == "--command" || item == "--session" || item == "-s" || item == "--file" || item == "-f" || item == "--title" || item == "--attach"
+			|| item == "--password" || item == "-p" || item == "--port";
+	}
+
 	static function option(args:Array<String>, name:String, fallback:String):String {
 		for (i in 0...args.length - 1) {
 			if (args[i] == name)
@@ -232,33 +250,17 @@ class Cli {
 	}
 
 	static function help():String {
-		return [
-			"opencodehx " + BuildInfo.version,
-			"",
-			"Usage:",
-			"  opencodehx run [message..] [--model provider/model] [--format default|json]",
-			"",
-			"Commands:",
-			"  run       run opencodehx with a message",
-			"",
-			"Options:",
-			"  -h, --help      show help",
-			"  -v, --version   show version number",
-		].join("\n");
+		return CliSurface.topHelp();
 	}
 
 	static function runHelp():String {
-		return [
-			"opencodehx run [message..]",
-			"",
-			"run opencodehx with a message",
-			"",
-			"Options:",
-			"  --model, -m   model to use in the format of provider/model",
-			"  --format      format: default (formatted) or json (raw JSON events)",
-			"  --mock-ai-sdk run through the credential-free AI SDK session harness",
-			"  --live-ai-sdk run through the provider registry and real AI SDK model",
-		].join("\n");
+		final surface = CliSurface.find(["run"]);
+		final lines = [surface == null ? "opencodehx run [message..]" : CliSurface.help(surface)];
+		lines.push("");
+		lines.push("OpenCodeHX harness options:");
+		lines.push("  --mock-ai-sdk   run through the credential-free AI SDK session harness");
+		lines.push("  --live-ai-sdk   run through the provider registry and real AI SDK model");
+		return lines.join("\n");
 	}
 
 	static function ok(stdout:String):CliResult {

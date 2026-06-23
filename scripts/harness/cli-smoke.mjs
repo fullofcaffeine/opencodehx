@@ -151,7 +151,28 @@ function writeAccountDatabase(file, url) {
 
 const help = run(["--help"]);
 assert.equal(help.status, 0);
-assert.match(help.stdout, /opencodehx run \[message\.\.\]/);
+assert.match(help.stdout, /run\s+run opencode with a message/);
+assert.match(help.stdout, /providers\s+manage AI providers and credentials/);
+assert.match(help.stdout, /--print-logs\s+print logs to stderr/);
+
+const runHelp = run(["run", "--help"]);
+assert.equal(runHelp.status, 0);
+assert.match(runHelp.stdout, /--file <value>\s+file\(s\) to attach to message/);
+assert.match(runHelp.stdout, /--dangerously-skip-permissions\s+auto-approve permissions/);
+
+const authHelp = run(["auth", "login", "--help"]);
+assert.equal(authHelp.status, 0);
+assert.match(authHelp.stdout, /opencodehx providers login \[url\]/);
+assert.match(authHelp.stdout, /-p, --provider <value>\s+provider id or name/);
+
+const plugHelp = run(["plug", "--help"]);
+assert.equal(plugHelp.status, 0);
+assert.match(plugHelp.stdout, /Aliases: plug/);
+assert.match(plugHelp.stdout, /-g, --global\s+install in global config/);
+
+const unsupportedKnown = run(["providers", "list"]);
+assert.equal(unsupportedKnown.status, 1);
+assert.match(unsupportedKnown.stderr, /Command not implemented yet: providers list/);
 
 const version = run(["--version"]);
 assert.equal(version.status, 0);
@@ -160,6 +181,10 @@ assert.equal(version.stdout, `${packageJson.version}\n`);
 const text = run(["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."]);
 assert.equal(text.status, 0);
 assert.equal(text.stdout, "Hello from the fake provider.\n");
+
+const textWithFile = run(["run", "--file", "ignored.txt", "Say", "hello", "from", "the", "fixture."]);
+assert.equal(textWithFile.status, 0);
+assert.equal(textWithFile.stdout, "Hello from the fake provider.\n");
 
 const json = run(["run", "--format", "json", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."]);
 assert.equal(json.status, 0);

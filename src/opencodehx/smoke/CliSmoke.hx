@@ -16,13 +16,37 @@ class CliSmoke {
 	public static function run():Void {
 		final help = Cli.run(["--help"]);
 		eq(help.exitCode, 0, "help exit");
-		eq(help.stdout.indexOf("opencodehx run [message..]") != -1, true, "help mentions run");
+		eq(help.stdout.indexOf("run         run opencode with a message") != -1, true, "help mentions run");
+		eq(help.stdout.indexOf("providers") != -1, true, "help mentions providers");
+		eq(help.stdout.indexOf("--print-logs") != -1, true, "help mentions global print logs option");
+
+		final runHelp = Cli.run(["run", "--help"]);
+		eq(runHelp.exitCode, 0, "run help exit");
+		eq(runHelp.stdout.indexOf("--file <value>") != -1, true, "run help mentions file option");
+		eq(runHelp.stdout.indexOf("--dangerously-skip-permissions") != -1, true, "run help mentions permission skip option");
+
+		final providersHelp = Cli.run(["auth", "login", "--help"]);
+		eq(providersHelp.exitCode, 0, "providers alias help exit");
+		eq(providersHelp.stdout.indexOf("opencodehx providers login [url]") != -1, true, "providers alias resolves canonical usage");
+		eq(providersHelp.stdout.indexOf("-p, --provider <value>") != -1, true, "providers login help mentions provider alias");
+
+		final pluginHelp = Cli.run(["plug", "--help"]);
+		eq(pluginHelp.exitCode, 0, "plugin alias help exit");
+		eq(pluginHelp.stdout.indexOf("Aliases: plug") != -1, true, "plugin help mentions alias");
+		eq(pluginHelp.stdout.indexOf("-g, --global") != -1, true, "plugin help mentions global alias");
+
+		final unsupported = Cli.run(["providers", "list"]);
+		eq(unsupported.exitCode, 1, "known unsupported command exit");
+		eq(unsupported.stderr.indexOf("Command not implemented yet: providers list") != -1, true, "known unsupported command message");
 
 		final version = Cli.run(["--version"]);
 		eq(version.stdout, BuildInfo.version + "\n", "version output");
 
 		final text = Cli.run(["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."]);
 		eq(text.stdout, "Hello from the fake provider.\n", "run text output");
+
+		final textWithFile = Cli.run(["run", "--file", "ignored.txt", "Say", "hello", "from", "the", "fixture."]);
+		eq(textWithFile.stdout, "Hello from the fake provider.\n", "run file option does not leak into prompt");
 
 		final json = Cli.run(["run", "--format", "json", "Say", "hello", "from", "the", "fixture."]);
 		final parsed:Dynamic = Json.parse(json.stdout);
