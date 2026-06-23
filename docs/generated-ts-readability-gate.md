@@ -3,6 +3,7 @@
 **Bead:** `opencodehx-046`  
 **genes-ts pin reviewed:** `0ffe38943b9ed51225167b19a4c38b06fd5a30b1`  
 **TSX temp follow-up resolved at:** `9c129acf60db6bfef0dae2699d32f8b5e146b6fe`
+**Declaration helper-base follow-up resolved at:** `32982d3cc779584701a3e8b5f62a2bfc74375223`
 **Reviewed on:** 2026-06-23
 
 This gate defines the minimum review standard for generated TypeScript in high-risk OpenCodeHX modules. Passing `tsc` is necessary, but it is not enough: the generated output is also a product surface that should be readable, narrow at app boundaries, and debuggable by someone comparing it to upstream OpenCode.
@@ -44,11 +45,11 @@ Tool output is strict-checkable. Tool `execute(args: any, ...)` signatures and m
 
 TUI output is the cleanest typing surface in this review: the reviewed TSX files contain no `any`, no `unknown`, and no `Register.unsafeCast`. The original review found one readability issue in `TuiScaffold.renderView`: a 23-local `tmp`/`tmpN` cluster for JSX children before returning the root `<box>`. That compiler-owned issue is now fixed in `../genes` commit `9c129acf60db6bfef0dae2699d32f8b5e146b6fe`; the refreshed OpenCodeHX TUI snapshot emits tag-based `text` and `input` locals instead.
 
-Public generated declarations still expose inheritance helper-base declarations typed as `any`, such as `declare const SyncEventStore_base: any;`. This is not blocking runtime parity, but it violates the public declaration surface standard and is tracked as compiler work.
+Public generated declarations no longer expose inheritance helper-base declarations typed as `any`. The issue was fixed generically in `../genes` commit `32982d3cc779584701a3e8b5f62a2bfc74375223`; OpenCodeHX `dist` declarations were regenerated at that pin and `rg -n "^declare const \\w+_base: any;$" dist -g '*.d.ts'` returns no matches.
 
 ## Follow-Ups
 
-- `opencodehx-7rh` / `genes-3v7`: remove or type generated declaration helper-base `any`.
+- `opencodehx-7rh` / `genes-3v7`: remove or type generated declaration helper-base `any`. Closed by `../genes` commit `32982d3cc779584701a3e8b5f62a2bfc74375223` and regenerated OpenCodeHX declarations.
 - `opencodehx-25r` / `genes-7tc`: improve generated TSX child temp readability. Closed by `../genes` commit `9c129acf60db6bfef0dae2699d32f8b5e146b6fe` and the refreshed TUI scaffold snapshot.
 
 With those follow-ups filed, `opencodehx-046` establishes the review gate and records the current generated-output state without weakening the Haxe source to hide compiler-owned issues.
