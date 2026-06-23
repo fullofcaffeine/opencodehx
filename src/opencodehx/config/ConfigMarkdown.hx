@@ -10,12 +10,37 @@ typedef MarkdownDocument = {
 	final content:String;
 }
 
+typedef MarkdownFileReference = Array<String>;
+
 // Boundary debt: frontmatter is a user-authored YAML-ish interop surface.
 // Keep raw values inside ConfigMarkdown and narrow them in ConfigAgent/ConfigCommand.
 
 typedef MarkdownValue = Unknown;
 
 class ConfigMarkdown {
+	public static function files(template:String):Array<MarkdownFileReference> {
+		final out:Array<MarkdownFileReference> = [];
+		var index = 0;
+		while (index < template.length) {
+			if (template.charAt(index) != "@") {
+				index++;
+				continue;
+			}
+			if (index > 0 && blocksFileReference(template.charAt(index - 1))) {
+				index++;
+				continue;
+			}
+			final match = readFileReference(template, index + 1);
+			if (match == "") {
+				index++;
+				continue;
+			}
+			out.push(["@" + match, match]);
+			index += match.length + 1;
+		}
+		return out;
+	}
+
 	public static function parse(path:String):MarkdownDocument {
 		return parseText(Fs.readFileSync(path, "utf8"), path);
 	}
@@ -144,5 +169,50 @@ class ConfigMarkdown {
 		if (StringTools.startsWith(line, "\t"))
 			return line.substr(1);
 		return line;
+	}
+
+	static function readFileReference(template:String, start:Int):String {
+		var index = start;
+		var out = "";
+		if (index < template.length && template.charAt(index) == ".") {
+			out += ".";
+			index++;
+		}
+		final first = readFileReferenceSegment(template, index);
+		out += first.value;
+		index = first.next;
+		while (index < template.length && template.charAt(index) == ".") {
+			final next = readFileReferenceSegment(template, index + 1);
+			if (next.value == "")
+				break;
+			out += "." + next.value;
+			index = next.next;
+		}
+		return out;
+	}
+
+	static function readFileReferenceSegment(template:String, start:Int):{value:String, next:Int} {
+		var index = start;
+		var out = "";
+		while (index < template.length) {
+			final char = template.charAt(index);
+			if (char == "" || StringTools.isSpace(template, index) || char == "`" || char == "," || char == ".")
+				break;
+			out += char;
+			index++;
+		}
+		return {value: out, next: index};
+	}
+
+	static function blocksFileReference(char:String):Bool {
+		return char == "`" || isWord(char);
+	}
+
+	static function isWord(char:String):Bool {
+		final code = char.charCodeAt(0);
+		return (code >= "A".code && code <= "Z".code)
+			|| (code >= "a".code && code <= "z".code)
+			|| (code >= "0".code && code <= "9".code)
+			|| char == "_";
 	}
 }

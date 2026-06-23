@@ -3,6 +3,7 @@ package opencodehx.smoke;
 import haxe.DynamicAccess;
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import js.lib.Promise;
 import opencodehx.agent.AgentRuntime;
 import opencodehx.config.ConfigError.ConfigException;
@@ -15,6 +16,8 @@ import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigLoader.ConfigEnv;
 import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigManaged;
+import opencodehx.config.ConfigMarkdown;
+import opencodehx.config.ConfigMarkdown.MarkdownDocument;
 import opencodehx.config.ConfigPlugin;
 import opencodehx.config.ConfigPlugin.PluginOrigin;
 import opencodehx.config.ConfigPlugin.PluginOptionValue;
@@ -51,6 +54,7 @@ class ConfigSmoke {
 			envContentAndSubstitution(root);
 			legacyTuiKeys(root);
 			lspConfigRefinement(root);
+			markdownParsing();
 			projectDiscovery(root);
 			configDirAndProjectDisable(root);
 			schemaAutoAddPreservesTokens(root);
@@ -228,6 +232,129 @@ class ConfigSmoke {
 				case _: false;
 			}
 		});
+	}
+
+	static function markdownParsing():Void {
+		final refs = ConfigMarkdown.files('This is a @valid/path/to/a/file and it should also match at
+  the beginning of a line:
+
+  @another-valid/path/to/a/file
+
+  but this is not:
+
+     - Adds a "Co-authored-by:" footer which clarifies which AI agent
+       helped create this commit, using an appropriate `noreply@...`
+       or `noreply@anthropic.com` email address.
+
+  We also need to deal with files followed by @commas, ones
+  with @file-extensions.md, even @multiple.extensions.bak,
+  hidden directories like @.config/ or files like @.bashrc
+  and ones at the end of a sentence like @foo.md.
+
+  Also shouldn\'t forget @/absolute/paths.txt with and @/without/extensions,
+  as well as @~/home-files and @~/paths/under/home.txt.
+
+  If the reference is `@quoted/in/backticks` then it shouldn\'t match at all.');
+		eq(refs.length, 12, "markdown file reference count");
+		eq(refs[0][1], "valid/path/to/a/file", "markdown file reference first");
+		eq(refs[1][1], "another-valid/path/to/a/file", "markdown file reference line start");
+		eq(refs[2][1], "commas", "markdown file reference strips comma");
+		eq(refs[3][1], "file-extensions.md", "markdown file reference extension");
+		eq(refs[4][1], "multiple.extensions.bak", "markdown file reference multiple extensions");
+		eq(refs[5][1], ".config/", "markdown file reference hidden dir");
+		eq(refs[6][1], ".bashrc", "markdown file reference hidden file");
+		eq(refs[7][1], "foo.md", "markdown file reference strips period");
+		eq(refs[8][1], "/absolute/paths.txt", "markdown file reference absolute");
+		eq(refs[9][1], "/without/extensions", "markdown file reference absolute no extension");
+		eq(refs[10][1], "~/home-files", "markdown file reference home");
+		eq(refs[11][1], "~/paths/under/home.txt", "markdown file reference home nested");
+		eq(ConfigMarkdown.files("This `@should/not/match` should be ignored").length, 0, "markdown backtick reference ignored");
+		eq(ConfigMarkdown.files("Contact user@example.com for help").length, 0, "markdown email ignored");
+
+		final parsed = ConfigMarkdown.parseText('---
+description: "This is a description wrapped in quotes"
+# field: this is a commented out field that should be ignored
+occupation: This man has the following occupation: Software Engineer
+title: \'Hello World\'
+name: John "Doe"
+
+family: He has no \'family\'
+summary: >
+  This is a summary
+url: https://example.com:8080/path?query=value
+time: The time is 12:30:00 PM
+nested: First: Second: Third: Fourth
+quoted_colon: "Already quoted: no change needed"
+single_quoted_colon: \'Single quoted: also fine\'
+mixed: He said "hello: world" and then left
+empty:
+dollar: Use $\' and $& for special patterns
+---
+
+Content that should not be parsed:
+
+fake_field: this is not yaml
+another: neither is this
+time: 10:30:00 AM
+url: https://should-not-be-parsed.com:3000
+
+The above lines look like YAML but are just content.', "frontmatter.md");
+		eq(markdownString(parsed, "description"), "This is a description wrapped in quotes", "frontmatter description");
+		eq(markdownString(parsed, "occupation"), "This man has the following occupation: Software Engineer", "frontmatter colon value");
+		eq(markdownString(parsed, "title"), "Hello World", "frontmatter single quote");
+		eq(markdownString(parsed, "name"), 'John "Doe"', "frontmatter embedded quote");
+		eq(markdownString(parsed, "family"), "He has no 'family'", "frontmatter embedded single quote");
+		eq(markdownString(parsed, "summary"), "This is a summary\n", "frontmatter folded summary");
+		eq(parsed.data.exists("field"), false, "frontmatter comment ignored");
+		eq(markdownString(parsed, "url"), "https://example.com:8080/path?query=value", "frontmatter url with port");
+		eq(markdownString(parsed, "time"), "The time is 12:30:00 PM", "frontmatter time colons");
+		eq(markdownString(parsed, "nested"), "First: Second: Third: Fourth", "frontmatter multiple colons");
+		eq(markdownString(parsed, "quoted_colon"), "Already quoted: no change needed", "frontmatter quoted colon");
+		eq(markdownString(parsed, "single_quoted_colon"), "Single quoted: also fine", "frontmatter single quoted colon");
+		eq(markdownString(parsed, "mixed"), 'He said "hello: world" and then left', "frontmatter mixed quotes");
+		eq(UnknownNarrow.isNull(parsed.data.get("empty")), true, "frontmatter empty value");
+		eq(markdownString(parsed, "dollar"), "Use $' and $& for special patterns", "frontmatter dollar literals");
+		eq(parsed.data.exists("fake_field"), false, "frontmatter content fake field ignored");
+		contains(parsed.content, "fake_field: this is not yaml", "frontmatter content preserved");
+		contains(parsed.content, "url: https://should-not-be-parsed.com:3000", "frontmatter url content preserved");
+
+		final empty = ConfigMarkdown.parseText("---
+---
+
+Content", "empty-frontmatter.md");
+		eq(empty.data.keys().length, 0, "empty frontmatter data");
+		eq(StringTools.trim(empty.content), "Content", "empty frontmatter content");
+
+		final none = ConfigMarkdown.parseText("Content", "no-frontmatter.md");
+		eq(none.data.keys().length, 0, "no frontmatter data");
+		eq(StringTools.trim(none.content), "Content", "no frontmatter content");
+
+		final markdownHeader = ConfigMarkdown.parseText("# Response Formatting Requirements\n\nAlways structure your responses using clear markdown formatting:",
+			"markdown-header.md");
+		eq(markdownHeader.data.keys().length, 0, "markdown header data");
+		contains(markdownHeader.content, "# Response Formatting Requirements", "markdown header content");
+
+		final weird = ConfigMarkdown.parseText('---
+description: General coding and planning agent
+mode: subagent
+model: synthetic/hf:zai-org/GLM-4.7
+tools:
+  write: true
+  read: true
+  edit: true
+stuff: >
+  This is some stuff
+---
+
+Strictly follow da rules', "weird-model-id.md");
+		eq(markdownString(weird, "description"), "General coding and planning agent", "weird model description");
+		eq(markdownString(weird, "mode"), "subagent", "weird model mode");
+		eq(markdownString(weird, "model"), "synthetic/hf:zai-org/GLM-4.7", "weird model id");
+		final tools = require(UnknownNarrow.record(weird.data.get("tools")), "weird model tools");
+		eq(UnknownNarrow.bool(tools.get("write")), true, "weird model write tool");
+		eq(UnknownNarrow.bool(tools.get("read")), true, "weird model read tool");
+		eq(markdownString(weird, "stuff"), "This is some stuff\n", "weird model folded stuff");
+		eq(StringTools.trim(weird.content), "Strictly follow da rules", "weird model content");
 	}
 
 	static function projectDiscovery(root:String):Void {
@@ -787,6 +914,11 @@ Global command template');
 		if (value == null)
 			throw '${label}: expected value';
 		return value;
+	}
+
+	static function markdownString(document:MarkdownDocument, field:String):String {
+		final value = UnknownNarrow.string(document.data.get(field));
+		return value == null ? "" : value;
 	}
 
 	static function contains(text:String, needle:String, label:String):Void {
