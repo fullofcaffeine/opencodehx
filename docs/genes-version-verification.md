@@ -1,7 +1,7 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-23T17:14:43Z
+**Recorded:** 2026-06-23T17:39:16Z
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
@@ -18,16 +18,16 @@ The active compiler checkout reports `1.12.0`; the older Cafetera vendored refer
 The canonical compiler checkout is now ahead of the Cafetera vendored reference for OpenCodeHX work:
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
-- Source files: 35 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, inline local-name collision handling, nullish null-comparison parenthesization, nullable branch local cast elision, typed catch temp lowering, map facade non-inlining, exiting null-guard flow, map presence/key-iteration narrowing, object-construction temp naming, and callback null/bind output polish fixes landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `7bf50f77d41d38737fc0fa47ef2ca5700ae50abfb258a63f99085c45b8d4d83a`
+- Source files: 38 in the canonical tree
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, inline local-name collision handling, nullish null-comparison parenthesization, nullable branch local cast elision, typed catch temp lowering, map facade non-inlining, exiting null-guard flow, map presence/key-iteration narrowing, object-construction temp naming, callback null/bind output polish, and TSX child temp naming fixes landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `a08448ea28e049fb2e32cf44dc3568f178d67184ed584f8b9958b5ca62331440`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `0ffe38943b9ed51225167b19a4c38b06fd5a30b1`
+- Commit: `9c129acf60db6bfef0dae2699d32f8b5e146b6fe`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
@@ -61,10 +61,11 @@ Canonical `../genes` checkout:
 - Map presence/key-iteration narrowing: `c4cf03c7cb614cefe4b1bab169ca44a67a19c828` (`ts: narrow map gets from presence facts`), carrying stable `Map.exists(key)` and `Map.keys()` iteration facts into following `Map.get(key)` reads for maps with non-null value types, replacing broad generated `Register.unsafeCast` calls with direct reads or precise non-null TypeScript assertions where strict TS requires them.
 - Object-construction temp naming: `84952a73b9978fa3d47ce213d992a6b2e65ec3d8` (`ts: name object construction temps`), giving Haxe-lowered same-prefix object-construction temporaries field-based names while preserving separate declarations and evaluation order, so provider-shaped generated TS uses names such as `family`, `status`, `capabilities`, `url`, and `npm` instead of `parsedN`/`baseN`.
 - Callback null and bind output polish: `0ffe38943b9ed51225167b19a4c38b06fd5a30b1` (`ts: polish callback null and bind output`), emitting non-nullable locals intentionally initialized with `null` as `null!` instead of `Register.unsafeCast<T>(null)` and unwrapping no-op cast/meta receivers so method closures over stable locals emit `Register.bind(server, server.method)` instead of an IIFE wrapper. The generic fixture is `tests/genes-ts/snapshot/basic/src/foo/ServerCallbacks.hx`.
+- TSX child temp naming: `9c129acf60db6bfef0dae2699d32f8b5e146b6fe` (`ts: name lowered TSX child locals`), recognizing Haxe-lowered TSX child-element temporaries in TSX mode and preferring tag-based local names such as `text`, `input`, `span`, and `strong` while preserving separate declarations and evaluation order. The generic fixture is `tests/genes-ts/snapshot/react/src/Main.hx`.
 
 ## Current Gate Evidence
 
-- `../genes`: focused local gates passed on 2026-06-23 at `0ffe38943b9ed51225167b19a4c38b06fd5a30b1`: `yarn test:genes-ts:snapshots`, `yarn test:genes-ts:minimal`, `yarn test:genes-ts:full`, and `yarn test`. OpenCodeHX downstream gates `npm run build` and `npm run package:smoke` also passed against this compiler checkout.
+- `../genes`: full local CI passed on 2026-06-23 at `9c129acf60db6bfef0dae2699d32f8b5e146b6fe`: `yarn test:ci`. Focused gates also passed: `yarn test:genes-ts:tsx`, `UPDATE_SNAPSHOTS=1 yarn test:genes-ts:snapshots`, `yarn test:genes-ts:snapshots`, `yarn test:genes-ts`, `yarn test:genes-ts:full`, `yarn test`, and `yarn test:acceptance`. OpenCodeHX downstream gates `npm run tui:scaffold` and `npm run build` passed against this compiler checkout.
 - Previous full `../genes` and remote gates passed on 2026-06-23 at `84952a73b9978fa3d47ce213d992a6b2e65ec3d8`: local `yarn test:ci`; remote `genes-ts CI`, `CodeQL`, and `Release`.
 
 Cafetera vendored reference:
