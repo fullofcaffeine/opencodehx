@@ -22,6 +22,7 @@ import opencodehx.smoke.CopilotChatStreamSmoke;
 import opencodehx.smoke.CopilotChatToolsSmoke;
 import opencodehx.smoke.CopilotProviderFactorySmoke;
 import opencodehx.smoke.CopilotResponsesLanguageModelSmoke;
+import opencodehx.smoke.ControlPlaneSmoke;
 import opencodehx.smoke.FileSmoke;
 import opencodehx.smoke.FormatterSmoke;
 import opencodehx.smoke.LspSmoke;
@@ -173,6 +174,10 @@ class Main {
 				log("lsp-smoke:ok");
 				PluginSmoke.run();
 				log("plugin-smoke:ok");
+				return ControlPlaneSmoke.run();
+			})
+			.then(_ -> {
+				log("control-plane-smoke:ok");
 				return ServerSmoke.run();
 			})
 			.then(_ -> {
