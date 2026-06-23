@@ -33,6 +33,14 @@ import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTrace;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.server.WorkspaceProxy;
+import opencodehx.session.MessageCodec;
+import opencodehx.session.MessageID;
+import opencodehx.session.MessageTypes.Info;
+import opencodehx.session.MessageTypes.Part;
+import opencodehx.session.PartID;
+import opencodehx.session.SessionID;
+import opencodehx.session.SessionInfo.SessionInfo;
+import opencodehx.storage.SqliteSessionStore;
 import opencodehx.sync.SyncRouteRuntime;
 import opencodehx.sync.WorkspaceSyncBackgroundTask;
 import opencodehx.sync.WorkspaceSyncBackgroundTask.WorkspaceSyncTaskTimer;
@@ -406,6 +414,13 @@ class ServerSmoke {
 		eq(Reflect.field(cursorWithoutLimit, "status"), 400, "message cursor without limit status");
 		final missing = await(server.app.request("/session/ses_missing/message?limit=1"));
 		eq(Reflect.field(missing, "status"), 404, "missing session status");
+		final legacySessionID = seedHighVolumeMessages(NodePath.join(root, "opencodehx.db"), root);
+		final legacyResponse = await(server.app.request('/session/${legacySessionID}/message?limit=510'));
+		eq(Reflect.field(legacyResponse, "status"), 200, "legacy message limit status");
+		final legacyMessages = await(jsonResponse(legacyResponse));
+		eq(legacyMessages.length, 510, "legacy message limit count");
+		eq(messageResponseID(legacyMessages[0]), "msg_legacy_10", "legacy message page head");
+		eq(messageResponseID(legacyMessages[legacyMessages.length - 1]), "msg_legacy_519", "legacy message page tail");
 
 		final selected = await(jsonResponse(await(server.app.request("/tui/select-session", {
 			method: "POST",
@@ -989,6 +1004,69 @@ class ServerSmoke {
 			ProjectRuntime.reset();
 			throw error;
 		}
+	}
+
+	static function seedHighVolumeMessages(dbPath:String, root:String):String {
+		final store = new SqliteSessionStore(dbPath);
+		final sessionID = SessionID.make("ses_legacy_limit");
+		try {
+			store.upsertProject({id: "proj_server", worktree: root, name: "Server fixture"});
+			store.createSession(highVolumeSession(sessionID, root));
+			for (index in 0...520) {
+				final messageID = MessageID.make('msg_legacy_${index}');
+				store.upsertMessage(highVolumeUserMessage(sessionID, messageID, index));
+				store.upsertPart(highVolumeTextPart(sessionID, messageID, PartID.make('prt_legacy_${index}'), 'legacy message ${index}'), 1000 + index);
+			}
+			store.close();
+			return sessionID.toString();
+		} catch (error:Dynamic) {
+			// Dynamic is required at this JS runtime cleanup boundary because
+			// SQLite and message codec APIs may throw strings, Haxe exceptions,
+			// or JS errors. The seeded data itself stays typed above.
+			store.close();
+			throw error;
+		}
+	}
+
+	static function highVolumeSession(sessionID:SessionID, root:String):SessionInfo {
+		return {
+			id: sessionID,
+			slug: "legacy-limit",
+			projectID: "proj_server",
+			directory: root,
+			title: "Legacy limit fixture",
+			version: "0.0.0-test",
+			time: {
+				created: 1000,
+				updated: 2000,
+			},
+		};
+	}
+
+	static function highVolumeUserMessage(sessionID:SessionID, messageID:MessageID, index:Int):Info {
+		return MessageCodec.decodeInfoRecord({
+			id: messageID.toString(),
+			sessionID: sessionID.toString(),
+			role: "user",
+			time: {created: 1000 + index},
+			agent: "test",
+			model: {providerID: "test", modelID: "test-model"},
+			tools: {},
+		}, 'legacy-info:${messageID.toString()}');
+	}
+
+	static function highVolumeTextPart(sessionID:SessionID, messageID:MessageID, partID:PartID, value:String):Part {
+		return MessageCodec.decodePartRecord({
+			id: partID.toString(),
+			sessionID: sessionID.toString(),
+			messageID: messageID.toString(),
+			type: "text",
+			text: value,
+		}, 'legacy-part:${partID.toString()}');
+	}
+
+	static function messageResponseID(item:Dynamic):String {
+		return Std.string(Reflect.field(Reflect.field(item, "info"), "id"));
 	}
 
 	static function serverTraceAttributes():Void {
