@@ -212,7 +212,7 @@ function directEvidence(path) {
     ["control-plane/sse.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "SSE emission is covered by /event; standalone parseSSE helper and multiline parser cases remain deferred", "ServerSmoke /event text fixture"]],
     ["server/session-list.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md", "route-level smoke covers upstream directory, root, start, search, and limit filter behavior", "ServerSmoke GET /session filter fixtures", "none"]],
     ["server/session-messages.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "message page, cursor header, bad cursor, and missing session are covered; high-volume legacy limit remains deferred", "ServerSmoke GET /session/:id/message"]],
-    ["server/session-actions.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "abort route success is covered; remaining action routes remain deferred", "ServerSmoke POST /session/:id/abort"]],
+    ["server/session-actions.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md", "route-level smoke covers upstream abort action success response", "ServerSmoke POST /session/:id/abort", "none"]],
     ["server/session-select.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md", "route-level smoke covers upstream valid, missing, and invalid select-session outcomes", "ServerSmoke POST /tui/select-session validation fixtures", "none"]],
   ])
   return exact.get(path)
