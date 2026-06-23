@@ -1,6 +1,6 @@
 # Server Hono Seam
 
-**Beads:** `opencodehx-026`, `opencodehx-027`, `opencodehx-jr4`, `opencodehx-x4i`
+**Beads:** `opencodehx-026`, `opencodehx-027`, `opencodehx-jr4`, `opencodehx-x4i`, `opencodehx-o48`
 
 ## Upstream Oracle
 
@@ -30,7 +30,7 @@ OpenCodeHX now has a first Node/Hono server seam:
 - `opencodehx.smoke.ServerSmoke` covers in-memory `app.request()` routes, SSE text emission, message cursor headers, bad/missing session cases, upstream's `before`-requires-`limit` validation edge, select-session validation, abort success, PTY HTTP routes, listener start/stop, and a real PTY WebSocket write/replay/tail flow.
 - `opencodehx.sdk.OpenCodeCompatClient` and `opencodehx.smoke.SdkCompatSmoke` cover the first upstream SDK-compatible server flow: a client starts against a real `OpenCodeServer` listener, creates a session with routing headers, lists sessions with GET query routing, selects/resumes the session through full-history and cursor-paged message reads, consumes `/event` SSE frames, and verifies the `session.created` payload. This follows the current upstream SDK rule that `directory` and `workspace` stay as headers for non-GET requests but become query parameters for GET/HEAD requests.
 - `opencodehx.sync.SyncRouteRuntime` decodes sync replay/history request bodies from `genes.ts.Unknown` into typed route records before route logic sees them. Raw sync event `data` remains `unknown` until the full SyncEvent schema/projector registry lands.
-- `scripts/harness/package-smoke.mjs` now exercises the same listener through the globally installed package binary: `/health`, `/event` SSE connect plus live `session.created`, session create/list, message page read, `/tui/select-session`, and session abort.
+- `scripts/harness/package-smoke.mjs` now exercises the same listener through the globally installed package binary: `/health`, `/event` SSE connect plus live `session.created`, session create/list, message page read, `/tui/select-session`, session abort, and a deterministic PTY WebSocket write/replay/tail/delete flow.
 
 ## Typing Lesson
 

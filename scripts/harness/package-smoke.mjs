@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
+import { WebSocket } from "ws";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -176,6 +177,7 @@ try {
 		assert.equal(selected, true, "installed server selects session through TUI route");
 		const aborted = await fetchJson(`${server.url}/session/${sessionID}/abort`, jsonRequest("POST"));
 		assert.equal(aborted, true, "installed server aborts session");
+		await verifyInstalledPty(server.url);
 	} finally {
 		if (events != null) {
 			await events.close();
@@ -309,6 +311,88 @@ async function openEventStream(url) {
 			}
 		},
 	};
+}
+
+async function verifyInstalledPty(baseUrl) {
+	const created = await fetchJson(
+		`${baseUrl}/pty`,
+		jsonRequest("POST", {
+			command: "cat",
+			title: "Installed WebSocket PTY",
+		}),
+	);
+	assert.match(created.id, /^pty_/, "installed server PTY id");
+	assert.equal(created.title, "Installed WebSocket PTY", "installed server PTY title");
+	const ptyList = await fetchJson(`${baseUrl}/pty`);
+	assert.equal(ptyList.some((pty) => pty.id === created.id), true, "installed server lists created PTY");
+	const pty = await fetchJson(`${baseUrl}/pty/${encodeURIComponent(created.id)}`);
+	assert.equal(pty.status, "running", "installed server PTY status");
+	const wsBase = baseUrl.replace(/^http:\/\//, "ws://");
+	const wsPath = `${wsBase}/pty/${encodeURIComponent(created.id)}/connect`;
+	const first = await ptyWebSocket(`${wsPath}?cursor=0`, "installed-pty\n", "installed-pty");
+	assert.equal(first.text.includes("installed-pty"), true, "installed server PTY websocket write output");
+	assert.equal(first.cursor >= 0, true, "installed server PTY websocket initial cursor");
+	const replay = await ptyWebSocket(`${wsPath}?cursor=0`, null, "installed-pty");
+	assert.equal(replay.text.includes("installed-pty"), true, "installed server PTY websocket replay output");
+	assert.equal(replay.cursor > first.cursor, true, "installed server PTY websocket replay cursor advances");
+	const tail = await ptyWebSocket(`${wsPath}?cursor=-1`, null, null);
+	assert.equal(tail.text.includes("installed-pty"), false, "installed server PTY websocket tail skips replay");
+	assert.equal(tail.cursor >= replay.cursor, true, "installed server PTY websocket tail cursor");
+	const removed = await fetchJson(`${baseUrl}/pty/${encodeURIComponent(created.id)}`, jsonRequest("DELETE"));
+	assert.equal(removed, true, "installed server deletes PTY");
+}
+
+function ptyWebSocket(url, message, expected) {
+	return new Promise((resolve, reject) => {
+		const socket = new WebSocket(url);
+		let text = "";
+		let cursor = -1;
+		let done = false;
+		const timeout = setTimeout(() => {
+			done = true;
+			socket.close();
+			reject(new Error(`timed out waiting for PTY WebSocket ${url}\nreceived:\n${text}`));
+		}, 3000);
+
+		function finish() {
+			if (done) return;
+			done = true;
+			clearTimeout(timeout);
+			socket.close();
+			resolve({ text, cursor });
+		}
+
+		socket.on("open", () => {
+			if (message != null) {
+				socket.send(message);
+			}
+		});
+		socket.on("message", (data) => {
+			const payload = websocketPayloadText(data);
+			if (payload.length > 0 && payload.charCodeAt(0) === 0) {
+				cursor = JSON.parse(payload.slice(1)).cursor;
+			} else {
+				text += payload;
+			}
+			if (cursor >= 0 && (expected == null || text.includes(expected))) {
+				finish();
+			}
+		});
+		socket.on("error", (error) => {
+			if (done) return;
+			done = true;
+			clearTimeout(timeout);
+			reject(error);
+		});
+	});
+}
+
+function websocketPayloadText(data) {
+	if (typeof data === "string") return data;
+	if (Buffer.isBuffer(data)) return data.toString("utf8");
+	if (data instanceof ArrayBuffer) return Buffer.from(data).toString("utf8");
+	if (ArrayBuffer.isView(data)) return Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString("utf8");
+	return String(data);
 }
 
 function stopChild(child) {

@@ -1,6 +1,6 @@
 # PTY Runtime
 
-**Beads:** `opencodehx-3qi`, `opencodehx-m5b`
+**Beads:** `opencodehx-3qi`, `opencodehx-m5b`, `opencodehx-o48`
 **Upstream oracle:** `../opencode/packages/opencode/src/pty/index.ts`, `../opencode/packages/opencode/src/pty/pty.node.ts`, `../opencode/packages/opencode/test/pty/*.test.ts`
 
 ## Slice
@@ -38,6 +38,8 @@ Shell-selection parity for `Shell.preferred`/`Shell.acceptable`, Git Bash normal
 - writing to a PTY through a WebSocket message,
 - replaying buffered output from `cursor=0`,
 - tailing from `cursor=-1` without replaying old output.
+
+`scripts/harness/package-smoke.mjs` now repeats the deterministic `cat`-backed PTY WebSocket path through the globally installed package binary, proving the packed server can create a PTY, echo WebSocket input, replay buffered output, tail without replay, and delete the PTY from a real listener.
 
 Run:
 
