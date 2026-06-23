@@ -48,5 +48,5 @@ Revisit this guardrail only after:
 
 1. M3 headless fake-provider flow passes.
 2. Tool, provider, server, and TUI parity have enough evidence for daily use.
-3. `opencodehx-041` maps Cafex responsibilities to OpenCodeHX extension points.
+3. `opencodehx-041` maps Cafex responsibilities to OpenCodeHX extension points in [cafex-seam-inventory.md](cafex-seam-inventory.md).
 4. A decision record explicitly permits adapter work without changing OpenCodeHX core semantics.
