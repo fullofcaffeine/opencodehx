@@ -1,6 +1,7 @@
 package opencodehx.tui;
 
 import opencodehx.tui.TuiKeybind.TuiKeybindRegistry;
+import opencodehx.tui.TuiKeybind.TuiKeybindActions;
 import opencodehx.tui.TuiKeybind.TuiParsedKey;
 import opencodehx.tui.TuiRoute.TuiRoute;
 import opencodehx.tui.TuiRoute.TuiRouteStore;
@@ -31,12 +32,12 @@ class TuiFoundation {
 	}
 
 	public function dispatchKey(key:TuiParsedKey):TuiDispatchResult {
-		if (!leaderActive && keybind.match("leader", key)) {
+		if (!leaderActive && keybind.match(TuiKeybindActions.action("leader"), key)) {
 			leaderActive = true;
 			return Leader;
 		}
 
-		final matchedThemeList = keybind.match("theme_list", key, leaderActive);
+		final matchedThemeList = keybind.match(TuiKeybindActions.action("theme_list"), key, leaderActive);
 		leaderActive = false;
 		if (matchedThemeList) {
 			route.navigate(TuiRoutes.plugin("themes"));
@@ -52,6 +53,7 @@ class TuiFoundation {
 
 	public function summary():String {
 		final tokens = theme.current();
-		return 'route=${route.currentName()} theme=${theme.selected()} mode=${theme.mode()} primary=${tokens.primary} key=${keybind.print("theme_list")}';
+		return
+			'route=${route.currentName()} theme=${theme.selected()} mode=${theme.mode()} primary=${tokens.primary} key=${keybind.print(TuiKeybindActions.action("theme_list"))}';
 	}
 }

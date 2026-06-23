@@ -10,13 +10,23 @@ npm run tui:scaffold
 
 The harness rebuilds `src-gen/tui`, type-checks with `tsconfig.tui.json`, compares `src-gen/tui/opencodehx/tui/TuiScaffold.tsx` with `reference/tui-scaffold.TuiScaffold.tsx`, then runs the generated TSX with the repo-pinned Bun binary and `scripts/harness/opentui-solid-preload.mjs`.
 
+Known TUI artifact typo diagnostics are covered separately with:
+
+```bash
+npm run macro:diagnostics
+```
+
+That harness compiles a generated negative fixture and requires the Haxe macro error for an unknown built-in keybind action. `npm run ci:full` includes this gate.
+
 `npm run package:smoke` now builds the same scaffold before packing, includes `src-gen/tui/index.tsx` plus `bin/opencodehx-opentui-solid-preload.mjs` in the tarball, installs the package into a temporary global prefix, and runs the installed scaffold through the package-local pinned Bun binary. That is installed-package evidence for the scaffold path only; it is not a claim that the final live terminal UI is packaged.
 
 The scaffold also exercises a small typed TUI foundation: route state, theme state, host keybind parsing/printing, leader-key dispatch, a fake-provider transcript with user, tool, assistant, and metadata rows, and typed replay fixtures for model/provider/session/permission dialogs. The Haxe source uses genes-ts default inline markup (`<box>...</box>`) rather than string-based JSX escapes, keeping Haxe expression splices typed while still emitting ordinary TSX.
 
 Dialog replay is intentionally pure at this stage. `TuiDialogReplay` models upstream-shaped rows and decisions for model selection, provider auth selection, session selection, and permission allow/reject choices without broad `Dynamic` payloads. The fixture uses TUI-local abstract IDs so this TSX target does not drag provider/session internals into a pure UI replay. Live Solid state, SDK calls, prompt focus management, and terminal-sized scroll behavior remain later TUI worker work.
 
-Built-in plugin routes now go through `TuiRoutes.plugin("...")`, a macro-checked constructor. That keeps the literal authoring style close to upstream while failing the Haxe compile if the route is not in the typed catalog.
+Built-in plugin routes now go through `TuiRoutes.plugin("...")`, a macro-checked constructor. Built-in TUI keybind action references use `TuiKeybindActions.action("...")` against the `TuiKeybindActionName` catalog. These keep the literal authoring style close to upstream while failing the Haxe compile if the route or action is not in the typed catalog.
+
+This is the representative checked-string slice for `opencodehx-vyz`. `opencodehx-8dx` tracks the remaining non-TUI catalogs such as tool IDs, provider/model IDs, event discriminants, config keys, resource names, fixture/snapshot targets, and generated file targets.
 
 Dependency pins:
 

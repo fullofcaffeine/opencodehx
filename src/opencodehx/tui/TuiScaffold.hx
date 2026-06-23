@@ -7,6 +7,7 @@ import opencodehx.externs.node.Console;
 import opencodehx.externs.opentui.OpenTuiSolid;
 import opencodehx.tui.TuiDialogReplay.TuiDialogAction;
 import opencodehx.tui.TuiFoundation.TuiDispatchResult;
+import opencodehx.tui.TuiKeybind.TuiKeybindActions;
 import opencodehx.tui.TuiKeybind.TuiParsedKey;
 
 class TuiScaffold {
@@ -71,7 +72,7 @@ class TuiScaffold {
 	static function renderView():Element {
 		final routeLabel = foundation.route.currentLabel();
 		final theme = foundation.theme.current();
-		final key = foundation.keybind.print("theme_list");
+		final key = foundation.keybind.print(TuiKeybindActions.action("theme_list"));
 		final user = transcriptRows[0];
 		final tool = transcriptRows[1];
 		final assistant = transcriptRows[2];

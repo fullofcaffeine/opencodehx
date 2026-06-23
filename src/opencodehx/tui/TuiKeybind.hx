@@ -1,5 +1,11 @@
 package opencodehx.tui;
 
+#if macro
+import haxe.macro.Context;
+import haxe.macro.Expr;
+import haxe.macro.Type;
+#end
+
 typedef TuiParsedKey = {
 	final name:String;
 	final ctrl:Bool;
@@ -22,6 +28,80 @@ typedef TuiKeybindEntry = {
 	final value:String;
 }
 
+enum abstract TuiKeybindActionName(String) to String {
+	var Leader = "leader";
+	var ThemeList = "theme_list";
+	var SessionNew = "session_new";
+}
+
+class TuiKeybindActions {
+	public static macro function action(name:Expr):Expr {
+		final actionName = literalString(name);
+		final entries = actionEntries();
+		for (entry in entries) {
+			if (entry.value == actionName) {
+				final actionExpr:Expr = {
+					expr: EField(macro opencodehx.tui.TuiKeybind.TuiKeybindActionName, entry.fieldName),
+					pos: name.pos,
+				};
+				final out = macro $actionExpr;
+				out.pos = name.pos;
+				return out;
+			}
+		}
+
+		Context.error('Unknown TUI keybind action "${actionName}". Known actions: ${knownActionNames(entries)}.', name.pos);
+		return macro null;
+	}
+
+	#if macro
+	static function actionEntries():Array<{final fieldName:String; final value:String;}> {
+		return switch Context.getType("opencodehx.tui.TuiKeybind.TuiKeybindActionName") {
+			case TAbstract(_.get() => abstractType, _):
+				final impl = abstractType.impl.get();
+				final out:Array<{final fieldName:String; final value:String;}> = [];
+				for (field in impl.statics.get()) {
+					switch field.kind {
+						case FVar(_, _):
+							final value = typedStringValue(field.expr());
+							if (value != null) out.push({fieldName: field.name, value: value});
+						default:
+					}
+				}
+				out;
+			default:
+				[];
+		}
+	}
+
+	static function typedStringValue(expr:TypedExpr):Null<String> {
+		if (expr == null)
+			return null;
+		return switch expr.expr {
+			case TMeta(_, inner) | TParenthesis(inner) | TCast(inner, _):
+				typedStringValue(inner);
+			case TConst(TString(value)):
+				value;
+			default:
+				null;
+		}
+	}
+
+	static function knownActionNames(entries:Array<{final fieldName:String; final value:String;}>):String {
+		return [for (entry in entries) entry.value].join(", ");
+	}
+
+	static function literalString(expr:Expr):String {
+		return switch expr.expr {
+			case EConst(CString(value, _)):
+				value;
+			default:
+				Context.error("TUI keybind action names must be string literals so the action catalog can be checked at compile time.", expr.pos);
+		}
+	}
+	#end
+}
+
 class TuiKeybindRegistry {
 	final entries:Array<TuiKeybindEntry>;
 
@@ -31,9 +111,9 @@ class TuiKeybindRegistry {
 
 	public static function defaults():TuiKeybindRegistry {
 		return new TuiKeybindRegistry([
-			{name: "leader", value: "ctrl+x"},
-			{name: "theme_list", value: "<leader>t"},
-			{name: "session_new", value: "<leader>n"},
+			{name: TuiKeybindActionName.Leader, value: "ctrl+x"},
+			{name: TuiKeybindActionName.ThemeList, value: "<leader>t"},
+			{name: TuiKeybindActionName.SessionNew, value: "<leader>n"},
 		]);
 	}
 
@@ -68,7 +148,7 @@ class TuiKeybindRegistry {
 		if (first == null)
 			return "";
 		final text = format(first);
-		final lead = parse("leader")[0];
+		final lead = parse(TuiKeybindActionName.Leader)[0];
 		if (lead == null)
 			return text;
 		return StringTools.replace(text, "<leader>", format(lead));
