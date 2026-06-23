@@ -50,6 +50,7 @@ class ConfigSmoke {
 			jsonAndJsonc(root);
 			envContentAndSubstitution(root);
 			legacyTuiKeys(root);
+			lspConfigRefinement(root);
 			projectDiscovery(root);
 			configDirAndProjectDisable(root);
 			schemaAutoAddPreservesTokens(root);
@@ -169,6 +170,64 @@ class ConfigSmoke {
 		write(dir, "opencode.json", '{"model":"test/model","theme":"legacy","tui":{"scroll_speed":4},"keybinds":{"x":"y"}}');
 		final config = ConfigLoader.loadProject(dir, {defaultUsername: "fixture-user"});
 		eq(config.model, "test/model", "legacy tui stripped model preserved");
+	}
+
+	static function lspConfigRefinement(root:String):Void {
+		final enabledDir = directory(root, "lsp-enabled");
+		write(enabledDir, "opencode.json", '{"lsp":true}');
+		eq(ConfigLoader.loadProject(enabledDir, {defaultUsername: "fixture-user"}).lsp, true, "lsp true toggle");
+		final disabledDir = directory(root, "lsp-disabled");
+		write(disabledDir, "opencode.json", '{"lsp":false}');
+		eq(ConfigLoader.loadProject(disabledDir, {defaultUsername: "fixture-user"}).lsp, false, "lsp false toggle");
+
+		final builtinDir = directory(root, "lsp-builtin");
+		write(builtinDir, "opencode.json", '{"lsp":{"typescript":{"command":["typescript-language-server","--stdio"]}}}');
+		final builtin = ConfigLoader.loadProject(builtinDir, {defaultUsername: "fixture-user"}).lsp;
+		eq(Reflect.hasField(Reflect.field(builtin, "typescript"), "extensions"), false, "builtin lsp can omit extensions");
+
+		final customDir = directory(root, "lsp-custom");
+		write(customDir, "opencode.json", '{"lsp":{"my-lsp":{"command":["my-lsp-bin"],"extensions":[".ml"]}}}');
+		final custom = ConfigLoader.loadProject(customDir, {defaultUsername: "fixture-user"}).lsp;
+		eq((cast Reflect.field(Reflect.field(custom, "my-lsp"), "extensions") : Array<Dynamic>)[0], ".ml", "custom lsp extensions");
+
+		final disabledCustomDir = directory(root, "lsp-disabled-custom");
+		write(disabledCustomDir, "opencode.json", '{"lsp":{"my-lsp":{"disabled":true}}}');
+		eq(Reflect.field(Reflect.field(ConfigLoader.loadProject(disabledCustomDir, {defaultUsername: "fixture-user"}).lsp, "my-lsp"), "disabled"), true,
+			"disabled custom lsp omits extensions");
+
+		final mixedDir = directory(root, "lsp-mixed");
+		write(mixedDir, "opencode.json",
+			'{"lsp":{"typescript":{"command":["typescript-language-server","--stdio"]},"my-lsp":{"command":["my-lsp-bin"],"extensions":[".ml"]}}}');
+		eq(Reflect.hasField(ConfigLoader.loadProject(mixedDir, {defaultUsername: "fixture-user"}).lsp, "typescript"), true, "mixed lsp builtin");
+
+		final emptyExtensionsDir = directory(root, "lsp-empty-extensions");
+		write(emptyExtensionsDir, "opencode.json", '{"lsp":{"my-lsp":{"command":["my-lsp-bin"],"extensions":[]}}}');
+		eq((cast Reflect.field(Reflect.field(ConfigLoader.loadProject(emptyExtensionsDir, {defaultUsername: "fixture-user"}).lsp, "my-lsp"),
+			"extensions") : Array<Dynamic>).length,
+			0, "empty lsp extensions current behavior");
+
+		expectFailure(() -> {
+			final invalidDir = directory(root, "lsp-invalid");
+			write(invalidDir, "opencode.json", '{"lsp":{"my-lsp":{"command":["my-lsp-bin"]}}}');
+			ConfigLoader.loadProject(invalidDir, {defaultUsername: "fixture-user"});
+		}, "custom lsp without extensions", function(failure) {
+			return switch failure {
+				case InvalidError(_, issues): issues.indexOf("For custom LSP servers, 'extensions' array is required.") != -1;
+				case _: false;
+			}
+		});
+
+		expectFailure(() -> {
+			final invalidMixedDir = directory(root, "lsp-invalid-mixed");
+			write(invalidMixedDir, "opencode.json",
+				'{"lsp":{"typescript":{"command":["typescript-language-server","--stdio"]},"my-lsp":{"command":["my-lsp-bin"]}}}');
+			ConfigLoader.loadProject(invalidMixedDir, {defaultUsername: "fixture-user"});
+		}, "mixed custom lsp without extensions", function(failure) {
+			return switch failure {
+				case InvalidError(_, issues): issues.indexOf("For custom LSP servers, 'extensions' array is required.") != -1;
+				case _: false;
+			}
+		});
 	}
 
 	static function projectDiscovery(root:String):Void {

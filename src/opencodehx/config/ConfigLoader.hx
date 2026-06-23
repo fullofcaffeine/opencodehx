@@ -454,7 +454,7 @@ class ConfigLoader {
 		info.provider = optionalObject(data, "provider", issues);
 		info.mcp = optionalAny(data, "mcp");
 		info.formatter = optionalAny(data, "formatter");
-		info.lsp = optionalAny(data, "lsp");
+		info.lsp = optionalLsp(data, issues);
 		info.instructions = optionalStringArray(data, "instructions", source, issues);
 		info.layout = optionalAny(data, "layout");
 		info.permission = optionalObject(data, "permission", issues);
@@ -480,6 +480,12 @@ class ConfigLoader {
 
 	static function optionalAny(data:Dynamic, field:String):Dynamic {
 		return Reflect.hasField(data, field) ? Reflect.field(data, field) : null;
+	}
+
+	static function optionalLsp(data:Dynamic, issues:Array<String>):Dynamic {
+		if (!Reflect.hasField(data, "lsp"))
+			return null;
+		return ConfigLsp.validate(Reflect.field(data, "lsp"), issues);
 	}
 
 	static function optionalObject<T>(data:Dynamic, field:String, issues:Array<String>):Null<haxe.DynamicAccess<T>> {
