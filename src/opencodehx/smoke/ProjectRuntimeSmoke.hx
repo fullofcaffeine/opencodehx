@@ -6,6 +6,9 @@ import haxe.Json;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.bus.EventBus;
+import opencodehx.command.CommandRuntime.CommandDefaultName;
+import opencodehx.command.CommandRuntime.CommandEventType;
+import opencodehx.command.CommandRuntime.CommandExecutedEvent;
 import opencodehx.file.FileWatcherRuntime;
 import opencodehx.file.FileWatcherRuntime.FileWatchBackend;
 import opencodehx.file.FileWatcherRuntime.FileWatchCallback;
@@ -30,10 +33,13 @@ import opencodehx.npm.Npm as NpmRuntime;
 import opencodehx.npm.Npm.NpmDeps;
 import opencodehx.npm.Npm.NpmHttpResponse;
 import opencodehx.npm.Npm.NpmReifyRequest;
+import opencodehx.project.InstanceBootstrapRuntime;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.InstanceRuntime.InstanceContext;
 import opencodehx.project.InstanceRuntime.InstanceEvent;
 import opencodehx.project.InstanceRuntime.InstanceEventType;
+import opencodehx.project.InstanceRuntime.InstanceServiceFactory;
+import opencodehx.project.InstanceRuntime.InstanceServiceHandle;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.project.ProjectRuntime.ProjectEvent;
 import opencodehx.project.ProjectRuntime.ProjectEventType;
@@ -137,6 +143,7 @@ class ProjectRuntimeSmoke {
 			projectGlobalMigration(root);
 			worktreeProject(root);
 			worktreeEdges(root);
+			instanceBootstrapGraph(root);
 			npmSanitize();
 			npmRuntime(root);
 			installationRuntime();
@@ -449,6 +456,82 @@ class ProjectRuntimeSmoke {
 				WorktreeRuntime.remove(main, failedBootstrapDirectory);
 			throw error;
 		}
+	}
+
+	static function instanceBootstrapGraph(root:String):Void {
+		ProjectRuntime.reset();
+		InstanceRuntime.reset();
+		final dir = directory(root, "instance-bootstrap-graph");
+		initCommittedRepo(dir);
+		final project = ProjectRuntime.fromDirectory(dir).project;
+		final commandBus = new EventBus<CommandExecutedEvent>();
+		final disposeOrder:Array<String> = [];
+		final services = InstanceBootstrapRuntime.upstreamOrder(commandBus, [
+			(_:InstanceContext) -> ({
+				id: Snapshot,
+				dispose: () -> disposeOrder.push("snapshot-extra"),
+			} : InstanceServiceHandle)
+		]);
+		final context = InstanceRuntime.boot({
+			directory: dir,
+			worktree: dir,
+			project: project,
+			services: services,
+		});
+		if (context == null)
+			throw "instance bootstrap graph failed";
+		eq(serviceIDs(context), "config,plugin,lsp,share,format,file,file-watcher,vcs,snapshot,command,snapshot", "instance bootstrap service order");
+		eq(ProjectRuntime.get(project.id).time.initialized == null, true, "project not initialized before command");
+		commandBus.publish(commandEvent(CommandDefaultName.Review));
+		eq(ProjectRuntime.get(project.id).time.initialized == null, true, "non-init command does not initialize project");
+		commandBus.publish(commandEvent(CommandDefaultName.Init));
+		final initialized = ProjectRuntime.get(project.id).time.initialized;
+		eq(initialized != null, true, "init command initializes project");
+		eq(InstanceRuntime.dispose(dir), true, "instance bootstrap graph dispose");
+		eq(disposeOrder.join(","), "snapshot-extra", "instance service disposer ran");
+		commandBus.publish(commandEvent(CommandDefaultName.Init));
+		eq(ProjectRuntime.get(project.id).time.initialized, initialized, "disposed command hook unsubscribed");
+
+		final failedDir = directory(root, "instance-bootstrap-failure");
+		initCommittedRepo(failedDir);
+		final failedProject = ProjectRuntime.fromDirectory(failedDir).project;
+		final failureOrder:Array<String> = [];
+		final failed = InstanceRuntime.boot({
+			directory: failedDir,
+			worktree: failedDir,
+			project: failedProject,
+			services: failingServices(failureOrder),
+		});
+		eq(failed == null, true, "failed service graph returns null");
+		eq(InstanceRuntime.get(failedDir) == null, true, "failed service graph not cached");
+		eq(failureOrder.join(","), "config,dispose-config", "failed service graph disposes started services");
+	}
+
+	static function failingServices(order:Array<String>):Array<InstanceServiceFactory> {
+		return [
+			(_:InstanceContext) -> {
+				order.push("config");
+				return ({
+					id: Config,
+					dispose: () -> order.push("dispose-config"),
+				} : InstanceServiceHandle);
+			},
+			(_:InstanceContext) -> null,
+		];
+	}
+
+	static function serviceIDs(context:InstanceContext):String {
+		return [for (service in context.services) service.id].join(",");
+	}
+
+	static function commandEvent(name:String):CommandExecutedEvent {
+		return {
+			type: CommandEventType.Executed,
+			name: name,
+			sessionID: "ses_bootstrap",
+			arguments: "",
+			messageID: "msg_bootstrap",
+		};
 	}
 
 	static function vcsEvents(dir:String):Void {

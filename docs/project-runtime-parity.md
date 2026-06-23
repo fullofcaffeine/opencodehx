@@ -1,8 +1,8 @@
 # Project Runtime Parity
 
-**Beads:** `opencodehx-who`, expanded by `opencodehx-hic` and `opencodehx-99y`
+**Beads:** `opencodehx-who`, expanded by `opencodehx-hic`, `opencodehx-99y`, and `opencodehx-obx`
 
-This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, worktree, npm, installation-adjacent, and sync tests. The executable fixture is `src/opencodehx/smoke/ProjectRuntimeSmoke.hx`, which runs as part of `npm run smoke`.
+This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, worktree, instance bootstrap, npm, installation-adjacent, and sync tests. The executable fixture is `src/opencodehx/smoke/ProjectRuntimeSmoke.hx`, which runs as part of `npm run smoke`.
 
 ## Covered
 
@@ -48,6 +48,13 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - configured project start commands and explicit start commands run in the created worktree,
   - reset hard-resets to the default branch, cleans untracked files, and verifies a clean status,
   - removal handles missing directories, deletes the worktree branch, and untracks the sandbox.
+- Instance bootstrap:
+  - `InstanceRuntime` records an ordered service graph on each cached context,
+  - `InstanceBootstrapRuntime.upstreamOrder` preserves upstream's config, plugin, LSP, share, format, file, file-watcher, VCS, and snapshot initialization order,
+  - the typed command hook subscribes to `command.executed` and marks the project initialized only for the default `init` command,
+  - disposing an instance tears down service hooks before emitting `server.instance.disposed`,
+  - disposed command hooks unsubscribe and no longer mutate project timestamps, and
+  - a service-start refusal cleans up already-started services and does not cache the failed context.
 - NPM/install-adjacent behavior:
   - package spec sanitizing matches the upstream Windows-safe path rule while staying a no-op on POSIX.
   - package cache paths are derived from sanitized package specs,
@@ -108,9 +115,10 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 ## Deferred
 
 - Full installation side effects for package managers that cannot be constrained to a disposable sandbox or dry-run/noop mode.
-- Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
+- Full project service behavior: deeper integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Broader watcher service behavior beyond git HEAD updates, including full root file watching, config ignore integration, protected paths, and upstream `@parcel/watcher` backend parity.
-- Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
+- Concrete share/snapshot service internals, live plugin imports/installs, and real LSP process service boot inside the instance graph; the current graph records upstream order and lifecycle hooks without claiming those unported service bodies.
+- Upstream's broader worktree/service failure matrix.
 - Full workspace control-plane routing/service integration beyond the covered sync/proxy seams.
 
 ## Boundary Notes
@@ -122,3 +130,5 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 When a `SessionStore` is supplied, `ProjectRuntime.fromDirectory` persists the discovered project and migrates legacy sessions from `global` only when their stored directory exactly matches the real project worktree. This matches upstream's project migration rule without making the default in-memory discovery path depend on SQLite.
 
 `FileWatcherRuntime` is intentionally narrow: it converts native Node `fs.watch` callbacks into typed `FileUpdatedEvent` records and filters git metadata notifications down to `.git/HEAD` for VCS branch refresh. The injected smoke backend keeps normal `npm run smoke` deterministic, while `npm run file:watcher:smoke` gives opt-in native watcher evidence on hosts where `fs.watch` is reliable.
+
+`InstanceBootstrapRuntime` is intentionally a Haxe-owned service graph seam, not an Effect clone. It preserves upstream bootstrap order and command initialization semantics with typed service factories so already-ported services can attach concrete lifecycle handles incrementally.

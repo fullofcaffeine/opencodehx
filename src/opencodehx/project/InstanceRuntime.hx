@@ -18,15 +18,41 @@ typedef InstanceContext = {
 	final directory:String;
 	final worktree:String;
 	final project:ProjectInfo;
+	final services:Array<InstanceServiceState>;
 }
 
 typedef InstanceBootstrap = InstanceContext->Bool;
+
+enum abstract InstanceServiceID(String) to String {
+	var Config = "config";
+	var Plugin = "plugin";
+	var Lsp = "lsp";
+	var Share = "share";
+	var Format = "format";
+	var File = "file";
+	var FileWatcher = "file-watcher";
+	var Vcs = "vcs";
+	var Snapshot = "snapshot";
+	var Command = "command";
+}
+
+typedef InstanceServiceState = {
+	final id:InstanceServiceID;
+}
+
+typedef InstanceServiceHandle = {
+	final id:InstanceServiceID;
+	@:optional final dispose:Void->Void;
+}
+
+typedef InstanceServiceFactory = InstanceContext->Null<InstanceServiceHandle>;
 
 typedef InstanceBootInput = {
 	final directory:String;
 	final worktree:String;
 	final project:ProjectInfo;
 	@:optional final init:InstanceBootstrap;
+	@:optional final services:Array<InstanceServiceFactory>;
 }
 
 enum abstract InstanceEventType(String) to String {
@@ -42,24 +68,33 @@ typedef InstanceEvent = {
 typedef InstanceEventListener = InstanceEvent->Void;
 typedef InstanceEventUnsubscribe = Void->Void;
 
+private typedef InstanceEntry = {
+	final context:InstanceContext;
+	final disposers:Array<Void->Void>;
+}
+
 class InstanceRuntime {
-	static var contexts:Map<String, InstanceContext> = new Map();
+	static var contexts:Map<String, InstanceEntry> = new Map();
 	static final history:Array<InstanceEvent> = [];
 	static final listeners:Array<InstanceEventListener> = [];
 
 	public static function reset():Void {
+		for (entry in contexts) {
+			disposeServices(entry.disposers);
+		}
 		contexts = new Map();
 		history.resize(0);
 		listeners.resize(0);
 	}
 
-	public static function fromDirectory(directory:String, ?init:InstanceBootstrap):Null<InstanceContext> {
+	public static function fromDirectory(directory:String, ?init:InstanceBootstrap, ?services:Array<InstanceServiceFactory>):Null<InstanceContext> {
 		final discovery = ProjectRuntime.fromDirectory(directory);
 		return boot({
 			directory: directory,
 			worktree: discovery.sandbox,
 			project: discovery.project,
 			init: init,
+			services: services,
 		});
 	}
 
@@ -68,11 +103,15 @@ class InstanceRuntime {
 			directory: canonical(input.directory),
 			worktree: canonical(input.worktree),
 			project: input.project,
+			services: [],
 		};
 		final init = input.init;
 		if (init != null && !init(context))
 			return null;
-		contexts.set(context.directory, context);
+		final disposers:Array<Void->Void> = [];
+		if (!startServices(context, input.services, disposers))
+			return null;
+		contexts.set(context.directory, {context: context, disposers: disposers});
 		return context;
 	}
 
@@ -82,13 +121,14 @@ class InstanceRuntime {
 	}
 
 	public static function get(directory:String):Null<InstanceContext> {
-		return contexts.get(canonical(directory));
+		final entry = contexts.get(canonical(directory));
+		return entry == null ? null : entry.context;
 	}
 
 	public static function list():Array<InstanceContext> {
 		final out:Array<InstanceContext> = [];
-		for (context in contexts) {
-			out.push(context);
+		for (entry in contexts) {
+			out.push(entry.context);
 		}
 		return out;
 	}
@@ -110,14 +150,15 @@ class InstanceRuntime {
 
 	public static function dispose(directory:String):Bool {
 		final key = canonical(directory);
-		final context = contexts.get(key);
-		if (context == null)
+		final entry = contexts.get(key);
+		if (entry == null)
 			return false;
 		contexts.remove(key);
+		disposeServices(entry.disposers);
 		publish({
 			type: Disposed,
-			directory: context.directory,
-			project: context.project.id.toString(),
+			directory: entry.context.directory,
+			project: entry.context.project.id.toString(),
 		});
 		return true;
 	}
@@ -137,6 +178,32 @@ class InstanceRuntime {
 		for (listener in listeners.copy()) {
 			listener(event);
 		}
+	}
+
+	static function startServices(context:InstanceContext, factories:Null<Array<InstanceServiceFactory>>, disposers:Array<Void->Void>):Bool {
+		if (factories == null)
+			return true;
+		for (factory in factories) {
+			final handle = factory(context);
+			if (handle == null) {
+				disposeServices(disposers);
+				return false;
+			}
+			context.services.push({id: handle.id});
+			final dispose = handle.dispose;
+			if (dispose != null)
+				disposers.push(dispose);
+		}
+		return true;
+	}
+
+	static function disposeServices(disposers:Array<Void->Void>):Void {
+		var index = disposers.length;
+		while (index > 0) {
+			index--;
+			disposers[index]();
+		}
+		disposers.resize(0);
 	}
 
 	static function canonical(path:String):String {
