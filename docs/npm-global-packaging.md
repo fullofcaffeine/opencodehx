@@ -18,9 +18,10 @@ The package remains `0.x` beta and local-install focused. This is not a stable p
 
 `scripts/harness/package-smoke.mjs` builds on `npm pack --json` and installs the resulting tarball into a temporary global prefix. The smoke verifies:
 
-- packed file membership includes the bin shim, generated JS entrypoint, generated TS source, and copied runtime resources;
+- packed file membership includes the bin shim, generated JS entrypoint, generated TS source, copied runtime resources, generated resource manifests, and parser/TUI worker fixtures;
 - packed file membership excludes Beads metadata and Haxe source;
 - `npm install -g --prefix <tmp> <tarball>` exposes an executable `opencodehx` bin;
+- the installed package manifest records prompt, JSON, WASM, and worker resources with byte counts and hashes;
 - the installed bin passes `--version`, `--help`, deterministic `run --model openai/gpt-5.2`, and `serve --help`.
 
 Useful command:

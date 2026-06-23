@@ -38,7 +38,11 @@ try {
 	assert.equal(packed.version, packageJson.version);
 	assert.equal(fileNames.has("bin/opencodehx.mjs"), true, "package includes bin shim");
 	assert.equal(fileNames.has("dist/index.js"), true, "package includes generated JS entrypoint");
+	assert.equal(fileNames.has("dist/resources/manifest.json"), true, "package includes runtime resource manifest");
 	assert.equal(fileNames.has("dist/resources/smoke-resource.json"), true, "package includes copied runtime resource");
+	assert.equal(fileNames.has("dist/resources/worker/parser-worker.mjs"), true, "package includes parser worker resource");
+	assert.equal(fileNames.has("dist/resources/worker/tui-worker.mjs"), true, "package includes TUI worker resource");
+	assert.equal(fileNames.has("src-gen/resources/manifest.json"), true, "package includes TypeScript-side resource manifest");
 	assert.equal(fileNames.has("src-gen/index.ts"), true, "package includes generated TS source");
 	for (const name of fileNames) {
 		assert.equal(name.startsWith(".beads/"), false, `package should not include Beads metadata: ${name}`);
@@ -48,6 +52,16 @@ try {
 	const prefix = path.join(tempRoot, "prefix");
 	const tarball = path.join(tempRoot, packed.filename);
 	expectOk(run("npm", ["install", "-g", "--prefix", prefix, tarball], { timeout: 180_000 }), "npm install -g");
+	const globalRoot = expectOk(run("npm", ["root", "-g", "--prefix", prefix]), "npm root -g").stdout.trim();
+	const installedRoot = path.join(globalRoot, packageJson.name);
+	const manifest = JSON.parse(await readFile(path.join(installedRoot, "dist/resources/manifest.json"), "utf8"));
+	assert.equal(manifest.version, 1, "installed manifest version");
+	assert.equal(manifest.generatedBy, "scripts/build/copy-resources.mjs", "installed manifest generator");
+	assert.equal(manifestEntry(manifest, "prompt/example.txt").kind, "text", "installed prompt manifest kind");
+	assert.equal(manifestEntry(manifest, "smoke-resource.json").kind, "json", "installed json manifest kind");
+	assert.equal(manifestEntry(manifest, "wasm/tree-sitter.wasm").kind, "wasm", "installed parser wasm manifest kind");
+	assert.equal(manifestEntry(manifest, "worker/parser-worker.mjs").kind, "worker", "installed parser worker manifest kind");
+	assert.equal(manifestEntry(manifest, "worker/tui-worker.mjs").kind, "worker", "installed tui worker manifest kind");
 	const bin = path.join(prefix, "bin", "opencodehx");
 	assert.equal(existsSync(bin), true, "global install exposes opencodehx bin");
 
@@ -65,6 +79,14 @@ try {
 	assert.match(serveHelp.stdout, /--hostname <value>/);
 } finally {
 	rmSync(tempRoot, { recursive: true, force: true });
+}
+
+function manifestEntry(manifest, resourcePath) {
+	const entry = manifest.resources.find((item) => item.path === resourcePath);
+	assert.ok(entry, `manifest includes ${resourcePath}`);
+	assert.equal(entry.bytes > 0, true, `${resourcePath} has byte count`);
+	assert.match(entry.sha256, /^[a-f0-9]{64}$/, `${resourcePath} has sha256`);
+	return entry;
 }
 
 console.log("package-smoke:ok");
