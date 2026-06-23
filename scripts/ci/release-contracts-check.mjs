@@ -68,6 +68,9 @@ for (const entry of ["bin/", "dist/", "src-gen/"]) {
 if (!packageJson.scripts?.["package:smoke"]?.includes("package-smoke.mjs")) {
   fail("package.json scripts missing package:smoke harness");
 }
+if (!packageJson.scripts?.["windows:shell:smoke"]?.includes("windows-shell-smoke.mjs")) {
+  fail("package.json scripts missing windows:shell:smoke harness");
+}
 expectIncludes(packageJson.scripts.test, "ci:version-sync", "npm test");
 expectIncludes(packageJson.scripts.test, "ci:release-contracts", "npm test");
 expectIncludes(packageJson.scripts["public:precommit"], "format:haxe:check", "public:precommit");
@@ -144,6 +147,8 @@ expectIncludes(ciWorkflow, "npm run test:haxe:unit", "CI workflow");
 expectIncludes(ciWorkflow, "npm run smoke", "CI workflow");
 expectIncludes(ciWorkflow, "npm run package:smoke", "CI workflow");
 expectIncludes(ciWorkflow, "npm run tui:scaffold", "CI workflow");
+expectIncludes(ciWorkflow, "windows-latest", "CI workflow");
+expectIncludes(ciWorkflow, "npm run windows:shell:smoke", "CI workflow");
 expectExcludes(ciWorkflow, "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24", "CI workflow");
 
 expectIncludes(releaseWorkflow, "npx semantic-release", "Release workflow");

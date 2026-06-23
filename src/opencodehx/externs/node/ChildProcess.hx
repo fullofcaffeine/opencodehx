@@ -1,5 +1,19 @@
 package opencodehx.externs.node;
 
+import haxe.DynamicAccess;
+
+@:ts.type("NodeJS.Signals")
+abstract NodeSignal(String) from String to String {}
+
+typedef SpawnOptions = {
+	@:optional final cwd:String;
+	@:optional final env:DynamicAccess<String>;
+	@:optional final detached:Bool;
+	@:optional final shell:haxe.extern.EitherType<Bool, String>;
+	@:optional final stdio:String;
+	@:optional final windowsHide:Bool;
+}
+
 /**
  * Node's spawnSync overloads are sensitive to exact optional-property types.
  * Reusing the upstream Node declaration keeps this extern boundary aligned
@@ -9,7 +23,7 @@ package opencodehx.externs.node;
 typedef SpawnSyncOptions = {
 	@:optional final cwd:String;
 	@:optional final encoding:String;
-	@:optional final env:haxe.DynamicAccess<String>;
+	@:optional final env:DynamicAccess<String>;
 	@:optional final shell:haxe.extern.EitherType<Bool, String>;
 	@:optional final timeout:Int;
 	@:optional final killSignal:String;
@@ -31,7 +45,15 @@ typedef SpawnSyncResult = {
 	@:optional final error:js.lib.Error;
 }
 
+typedef ChildProcessHandle = {
+	@:optional final pid:Int;
+	function kill(?signal:NodeSignal):Bool;
+	function once(event:String, listener:Dynamic->Void):ChildProcessHandle;
+	function unref():Void;
+}
+
 @:jsRequire("node:child_process")
 extern class ChildProcess {
+	static function spawn(command:String, args:Array<String>, ?options:SpawnOptions):ChildProcessHandle;
 	static function spawnSync(command:String, args:Array<String>, ?options:SpawnSyncOptions):SpawnSyncResult;
 }

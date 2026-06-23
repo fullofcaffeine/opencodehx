@@ -12,9 +12,10 @@ This seam started as the first Node-backed shell execution slice and now include
 - `BashTool` validates `command`, `description`, optional `timeout`, and optional `workdir`.
 - `BashCommandScanner` preloads `web-tree-sitter` plus Bash/PowerShell WASM grammars and extracts upstream-style command patterns and file path arguments.
 - `NodeProcess` now mirrors upstream `Shell.preferred`/`Shell.acceptable` selection semantics for blacklisted shells, Git Bash normalization, PowerShell fallback, `COMSPEC`, and POSIX/Darwin fallback behavior.
+- `NodeProcess.killTree` mirrors upstream process-tree teardown: `taskkill /f /t` on Windows and process-group `SIGTERM`/`SIGKILL` with a direct-process fallback on POSIX.
 - Tool permission requests are emitted for parsed `bash` command execution and for external working directories/path arguments.
 - Output is normalized into upstream-shaped `ToolResult` metadata with `exit`, `description`, `truncated`, `signal`, and preview output.
-- Runtime smoke covers command output, cwd, inherited env, timeout metadata, output truncation, denied bash permission, denied external-directory permission, tree-sitter multi-command prompts, nested command path extraction, shell-selection parity fixtures, and deterministic Windows PowerShell scanner cases for drive-relative paths, `$PWD`, `$PSHOME`, FileSystem providers, and conditionals.
+- Runtime smoke covers command output, cwd, inherited env, timeout metadata, output truncation, denied bash permission, denied external-directory permission, tree-sitter multi-command prompts, nested command path extraction, shell-selection parity fixtures, POSIX kill-tree descendant teardown, and deterministic Windows PowerShell scanner cases for drive-relative paths, `$PWD`, `$PSHOME`, FileSystem providers, and conditionals.
 
 ## Evidence
 
@@ -23,13 +24,16 @@ Gates used for this slice:
 ```bash
 npm run build
 npm run smoke
+npm run windows:shell:smoke
 ```
+
+`windows:shell:smoke` is a native Windows gate. It skips on non-Windows hosts, but on `windows-latest` it builds the generated TypeScript and exercises `cmd.exe`, available `pwsh`/`powershell`, available Git Bash, PTY login-argument behavior for PowerShell and Git Bash, and `NodeProcess.killTree` descendant teardown.
 
 ## Boundary
 
 This is still a Node-first, non-interactive shell tool. It uses synchronous process execution to unblock deterministic session/tool lifecycle work. Long-lived PTY lifecycle is now represented separately in `docs/pty-runtime.md`; streaming bash metadata updates and the full upstream Effect process runner remain follow-up work.
 
-The Windows shell-selection and PowerShell path fixtures are deterministic and run on every host by threading an explicit platform through the scanner/selector helpers. Native Windows process execution still needs a real Windows CI or manual smoke pass before we claim runtime parity for `pwsh`, `powershell`, `cmd.exe`, and Git Bash process spawning.
+The Windows shell-selection and PowerShell path fixtures are deterministic and run on every host by threading an explicit platform through the scanner/selector helpers. Native Windows process execution is now represented by the `windows-shell-parity` GitHub CI job and `npm run windows:shell:smoke`; local non-Windows runs only verify the POSIX kill-tree path and report a Windows skip.
 
 The command scanner uses tree-sitter after `BashCommandScanner.preload()` has loaded the WASM assets copied by `scripts/build/copy-resources.mjs`. A conservative string fallback remains only for call sites that run before preload; production runtime startup should initialize the scanner before executing bash tools.
 

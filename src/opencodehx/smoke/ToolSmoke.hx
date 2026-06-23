@@ -1,9 +1,13 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
+import haxe.Json;
 import js.lib.Promise;
+import opencodehx.externs.node.ChildProcess;
+import opencodehx.externs.node.ChildProcess.ChildProcessHandle;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.tool.BashCommandScanner;
@@ -26,6 +30,7 @@ class ToolSmoke {
 			final registry = new ToolRegistry();
 			registrySurface(registry);
 			shellSelectionParity();
+			await(killTreeParity(root));
 			errorShapes(registry, context(root));
 			permissionShapes(registry, root);
 			bashExec(registry, context(root));
@@ -95,6 +100,39 @@ class ToolSmoke {
 			shell: "fish",
 			bash: "/usr/bin/bash",
 		}), "/usr/bin/bash", "linux acceptable rejects fish");
+	}
+
+	@:async
+	static function killTreeParity(root:String):Promise<Void> {
+		if (NodeProcess.platform() == "win32")
+			return;
+		final ticks = NodePath.join(root, "kill-tree-ticks.txt");
+		Fs.writeFileSync(ticks, "");
+		final script = 'const {spawn}=require("node:child_process");'
+			+ 'const file=process.argv[1];'
+			+ 'const child=spawn(process.execPath,["-e",'
+			+ Json.stringify('const fs=require("node:fs");const file=process.argv[1];setInterval(()=>fs.appendFileSync(file,"tick"),25);')
+			+ ',file],{stdio:"ignore"});'
+			+ 'child.unref();'
+			+ 'setInterval(()=>{},1000);';
+		final proc = ChildProcess.spawn("node", ["-e", script, ticks], {
+			detached: true,
+			stdio: "ignore",
+			windowsHide: true,
+		});
+		var exited = false;
+		proc.once("exit", _ -> exited = true);
+		try {
+			await(waitForFileGrowth(ticks, "killTree child tick"));
+			await(NodeProcess.killTree(proc, {exited: () -> exited}));
+			await(sleep(250));
+			final afterKill = Fs.readFileSync(ticks, "utf8");
+			await(sleep(150));
+			eq(Fs.readFileSync(ticks, "utf8"), afterKill, "killTree stops descendant output");
+		} catch (error:Dynamic) {
+			cleanupProcess(proc);
+			throw error;
+		}
 	}
 
 	static function errorShapes(registry:ToolRegistry, ctx:ToolContext):Void {
@@ -244,6 +282,42 @@ class ToolSmoke {
 	static function expectExternalDir(scan:BashScan, expected:String, label:String):Void {
 		eq(scan.usedTreeSitter, true, label + " used parser");
 		eq(scan.externalDirs.indexOf(expected) != -1, true, label + " external dir");
+	}
+
+	static function waitForFileGrowth(file:String, label:String):Promise<Void> {
+		return new Promise<Void>((resolve, reject) -> {
+			final resolveVoid:Void->Void = cast resolve;
+			waitForFileGrowthTick(file, label, 0, resolveVoid, reject);
+		});
+	}
+
+	static function waitForFileGrowthTick(file:String, label:String, elapsed:Int, resolve:Void->Void, reject:Dynamic->Void):Void {
+		try {
+			if (Fs.readFileSync(file, "utf8").length > 0) {
+				resolve();
+				return;
+			}
+			if (elapsed > 2000) {
+				reject('timeout waiting for ${label}');
+				return;
+			}
+			WebTimers.setTimeout(() -> waitForFileGrowthTick(file, label, elapsed + 25, resolve, reject), 25);
+		} catch (error:Dynamic) {
+			reject(error);
+		}
+	}
+
+	static function sleep(ms:Int):Promise<Void> {
+		return new Promise<Void>((resolve, _) -> {
+			final resolveVoid:Void->Void = cast resolve;
+			WebTimers.setTimeout(resolveVoid, ms);
+		});
+	}
+
+	static function cleanupProcess(proc:ChildProcessHandle):Void {
+		try {
+			proc.kill("SIGKILL");
+		} catch (_:Dynamic) {}
 	}
 
 	static function readExec(registry:ToolRegistry, ctx:ToolContext):Void {

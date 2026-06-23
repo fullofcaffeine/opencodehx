@@ -1,6 +1,7 @@
 package opencodehx.externs.node;
 
 import haxe.DynamicAccess;
+import opencodehx.externs.node.ChildProcess.NodeSignal;
 
 /**
  * Small global `process` extern for the entrypoint's CLI/smoke plumbing.
@@ -17,6 +18,7 @@ extern class Process {
 	static final platform:String;
 	static function cwd():String;
 	static function chdir(path:String):Void;
+	static function kill(pid:Int, signal:NodeSignal):Void;
 }
 
 extern class NodeWritableStream {

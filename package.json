@@ -24,6 +24,7 @@
     "transcript:parity": "npm run build && node scripts/harness/transcript-parity.mjs",
     "cli:smoke": "npm run build && node scripts/harness/cli-smoke.mjs",
     "package:smoke": "npm run build && node scripts/harness/package-smoke.mjs",
+    "windows:shell:smoke": "npm run build && node scripts/harness/windows-shell-smoke.mjs",
     "test:haxe:unit": "node scripts/harness/haxe-unit-specs.mjs",
     "tui:scaffold": "node scripts/harness/tui-scaffold.mjs",
     "format:haxe": "bash scripts/lint/hx_format_guard.sh --write",

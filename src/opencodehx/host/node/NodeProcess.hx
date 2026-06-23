@@ -1,15 +1,23 @@
 package opencodehx.host.node;
 
+import genes.js.Async.await;
 import haxe.DynamicAccess;
 import js.lib.Error;
+import js.lib.Promise;
 import opencodehx.externs.node.ChildProcess;
+import opencodehx.externs.node.ChildProcess.ChildProcessHandle;
 import opencodehx.externs.node.ChildProcess.SpawnSyncOptions;
 import opencodehx.externs.node.ChildProcess.SpawnSyncResult;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Process;
+import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.host.node.NodePath;
 
 using StringTools;
+
+typedef KillTreeOptions = {
+	@:optional final exited:Void->Bool;
+}
 
 typedef ShellRun = {
 	final command:String;
@@ -30,6 +38,7 @@ typedef ShellSelection = {
 }
 
 class NodeProcess {
+	static inline final SIGKILL_TIMEOUT_MS = 200;
 	static final BLACKLIST = ["fish", "nu"];
 	static final LOGIN = ["bash", "dash", "fish", "ksh", "sh", "zsh"];
 	static final POSIX = ["bash", "dash", "ksh", "sh", "zsh"];
@@ -189,6 +198,30 @@ class NodeProcess {
 		return ChildProcess.spawnSync(input.command, [], options);
 	}
 
+	@:async
+	public static function killTree(proc:ChildProcessHandle, ?opts:KillTreeOptions):Promise<Void> {
+		final pid = proc.pid;
+		if (pid == null || exited(opts))
+			return;
+
+		if (platform() == "win32") {
+			@:await killTreeWindows(pid);
+			return;
+		}
+
+		try {
+			Process.kill(-pid, "SIGTERM");
+			@:await sleep(SIGKILL_TIMEOUT_MS);
+			if (!exited(opts))
+				Process.kill(-pid, "SIGKILL");
+		} catch (_:Error) {
+			proc.kill("SIGTERM");
+			@:await sleep(SIGKILL_TIMEOUT_MS);
+			if (!exited(opts))
+				proc.kill("SIGKILL");
+		}
+	}
+
 	static function runtimeShellSelection():ShellSelection {
 		return {
 			platform: platform(),
@@ -199,6 +232,40 @@ class NodeProcess {
 			powershell: firstWhich(["powershell.exe", "powershell"]),
 			bash: which("bash"),
 		};
+	}
+
+	static function exited(?opts:KillTreeOptions):Bool {
+		return opts != null && opts.exited != null && opts.exited();
+	}
+
+	static function killTreeWindows(pid:Int):Promise<Void> {
+		return new Promise<Void>((resolve, _) -> {
+			// taskkill owns Windows descendant traversal. Errors are treated as
+			// successful teardown, matching upstream's best-effort behavior.
+			final resolveVoid:Void->Void = cast resolve;
+			final killer = ChildProcess.spawn("taskkill", ["/pid", Std.string(pid), "/f", "/t"], {
+				stdio: "ignore",
+				windowsHide: true,
+			});
+			var done = false;
+			final finish = (_:Dynamic) -> {
+				if (!done) {
+					done = true;
+					resolveVoid();
+				}
+			};
+			killer.once("exit", finish);
+			killer.once("error", finish);
+		});
+	}
+
+	static function sleep(ms:Int):Promise<Void> {
+		return new Promise<Void>((resolve, _) -> {
+			// Promise<Void> needs a zero-arg resolver shape in Haxe, while JS
+			// promises resolve with undefined.
+			final resolveVoid:Void->Void = cast resolve;
+			WebTimers.setTimeout(resolveVoid, ms);
+		});
 	}
 
 	static function select(input:ShellSelection, acceptable:Bool):String {

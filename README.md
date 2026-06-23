@@ -2,7 +2,7 @@
 
 OpenCodeHX is a Haxe-authored port of upstream OpenCode that emits TypeScript through `genes-ts`.
 
-The current `0.1.0-beta.0` beta baseline has the public-readiness scaffolding in place: repo-managed hooks, Haxe formatting, staged and full-history gitleaks checks, GitHub CI, Dependabot, semantic-release dry-run support, and release contract checks. It is still a port-in-progress, not a production OpenCode replacement.
+The current `0.1.0-beta.0` beta baseline has the public-readiness scaffolding in place: repo-managed hooks, Haxe formatting, staged and full-history gitleaks checks, GitHub CI including a Windows shell parity job, Dependabot, semantic-release dry-run support, and release contract checks. It is still a port-in-progress, not a production OpenCode replacement.
 
 The project intentionally uses 0.x beta versioning until upstream OpenCode parity, packaging, and runtime smoke coverage are strong enough for stable release claims.
 
@@ -11,7 +11,7 @@ The project intentionally uses 0.x beta versioning until upstream OpenCode parit
 Current Beads-based completion snapshot:
 
 ```text
-[################################--------] 81% (80/98 non-epic port beads closed)
+[#################################-------] 82% (81/98 non-epic port beads closed)
 ```
 
 This is an unweighted planning indicator, not a parity claim. The working port already has the core scaffold, config, tools, parser-backed bash permissions with shell-selection parity fixtures, real Node PTY lifecycle and WebSocket replay controls, permissions, provider registry, first AI SDK streamText smoke, OpenAI-compatible/OpenAI/xAI/Azure/Google/Vertex/Anthropic/Bedrock/Mistral/Groq/Cohere/Perplexity/OpenRouter/DeepInfra/Cerebras/Gateway/TogetherAI/Vercel/Alibaba/GitLab SDK factory smokes, Bedrock small-model selection, Cloudflare AI Gateway env/config/auth loading plus no-network SDK factory and request-option header coverage, OpenCode public/paid model gating, first provider request-option/variant/schema transform smoke, models.dev normalization plus cache/fetch smoke, headless fake-provider flow, async `run --mock-ai-sdk` and opt-in `run --live-ai-sdk` CLI paths with global/project config, auth storage, well-known remote config discovery, read-only active-account remote config loading, registry tool schema advertisement to AI SDK model calls, and bounded repeated AI SDK calls after successful tool results, a typed upstream CLI command-surface catalog with alias/help smokes, a first local npm global-install package smoke, session retry/compaction/abort fixtures, store-backed session export, server seam, SDK-compatible create/list/resume/event smoke, first MCP/ACP protocol-surface smoke, first LSP runtime/client/tool smoke, first plugin metadata/loader/trigger smoke, and first TUI scaffold/transcript/dialog slices. The CLI `run` command still defaults to the deterministic fake provider; full live agentic chat wiring and side-effecting CLI subcommands remain later CLI/session integration slices. Remaining major work includes broader provider SDK loading/transforms, full published SDK/MCP/ACP/LSP/plugin surfaces, real MCP/ACP transports and OAuth flows, live plugin imports/installs/auth/adaptors, real LSP process transports/downloads, live TUI behavior, installed long-running server/TUI packaging behavior, and upstream drift/rebase discipline.
@@ -62,3 +62,11 @@ The broader local CI gate is:
 ```sh
 npm run ci:full
 ```
+
+The native Windows shell/PTY parity gate is separate from the portable local gate:
+
+```sh
+npm run windows:shell:smoke
+```
+
+It skips on non-Windows hosts and runs under the GitHub `windows-shell-parity` job.

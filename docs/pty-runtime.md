@@ -23,6 +23,7 @@ Runtime smoke in `PtySmoke` covers:
 - short-lived `/usr/bin/env sh -c "sleep 0.1"` lifecycle,
 - long-lived `/bin/sh` create/remove lifecycle,
 - bash login argument insertion when `/bin/bash` exists,
+- Windows PTY shell argument parity through `npm run windows:shell:smoke`: available `pwsh`/`powershell` commands get no login args, while available Git Bash gets `-l`,
 - buffered output replay and `cursor=-1` tail connections,
 - subscriber isolation for reused WebSocket wrappers,
 - Bun-style socket object recycling before reconnect,
@@ -47,6 +48,6 @@ npm run smoke
 
 ## Boundary
 
-This is still Node-first. Bun's `bun-pty` adapter, full Effect service integration, OpenAPI route metadata, and native Windows PTY process execution remain follow-up work.
+This is still Node-first. Bun's `bun-pty` adapter, full Effect service integration, OpenAPI route metadata, and deeper native Windows PTY lifecycle coverage remain follow-up work.
 
 `@lydell/node-pty` currently ships declarations that TypeScript cannot resolve through the package `exports` field. `types/lydell-node-pty.d.ts` is a local declaration bridge for the narrow API used here; remove it when the package exposes its own declarations correctly.
