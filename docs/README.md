@@ -18,6 +18,7 @@ Planning matrices:
 
 - `opencode-source-inventory.md` summarizes the upstream source inventory and points to `reference/opencode-source-parity-matrix.csv`.
 - `opencode-test-port-matrix.md` summarizes per-test port status and points to `reference/opencode-test-port-matrix.csv`.
+- `upstream-rebase-procedure.md` defines the controlled process for refreshing the `../opencode` oracle snapshot, reviewing matrix drift, updating evidence, and creating Beads for unresolved upstream changes.
 - Regenerate source/test matrices with `npm run inventory:matrix`.
 
 Decision records:

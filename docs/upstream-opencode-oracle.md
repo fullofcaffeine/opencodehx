@@ -69,4 +69,4 @@ OpenCode already defines runtime seams that OpenCodeHX should preserve:
 - Use this checkout for behavior, command output, source shape, tests, fixtures, and golden parity evidence.
 - Do not edit `../opencode` from OpenCodeHX unless explicitly asked.
 - Do not vendor or copy the full OpenCode source tree into OpenCodeHX by default.
-- If upstream is refreshed later, update `reference/upstream-opencode.pin.json`, regenerate the source/test matrices, and create Beads for any drift.
+- If upstream is refreshed later, follow [upstream-rebase-procedure.md](upstream-rebase-procedure.md): update `reference/upstream-opencode.pin.json`, regenerate the source/test matrices, and create Beads for any drift.

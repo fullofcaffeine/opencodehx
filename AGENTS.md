@@ -149,6 +149,7 @@ Use upstream OpenCode as the behavioral authority:
 - Keep golden evidence for high-risk UX and behavior: help/version output, config errors, fake-provider transcripts, tool edits, permission prompts, server events, provider streams, and TUI replays.
 - Treat upstream OpenCode tests as oracle inputs. Adapt them into Haxe-owned fixtures or differential harnesses rather than copying blindly.
 - Use `docs/ts2hx-opencode-audit.md` as the current ts2hx evidence. ts2hx is useful for inventory, dependency ordering, and small repros, but broad OpenCode conversion should be Haxe-native and parity-led rather than a blind generated rewrite.
+- Refresh upstream OpenCode only through `docs/upstream-rebase-procedure.md`: update the pin, regenerate matrices, update evidence, and create Beads for unresolved drift in the same change.
 
 ## Haxe-Authored Testing Strategy
 
