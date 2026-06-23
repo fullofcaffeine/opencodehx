@@ -263,6 +263,8 @@ Current `genes-ts` map facade lesson: do not make Haxe/Genes map facade methods 
 
 Current `genes-ts` null-flow lesson: TypeScript output can safely trust a stable local after an exiting `if (value == null)` guard, including `continue`, `break`, `return`, and `throw`, but those facts must be invalidated by assignment and reset inside nested function expressions. Fix these as generic compiler flow facts in `../genes`, not by adding casts or alternate control flow to OpenCodeHX source.
 
+Current `genes-ts` map-presence lesson: `Map.exists(key)` and `Map.keys()` iteration can prove a following same-map `Map.get(key)` non-null only when both the map receiver and key are stable and the map value type itself is non-null. Emit direct reads or precise TS non-null assertions for those proven cases; do not add OpenCodeHX source casts or provider-specific compiler exceptions.
+
 For provider/session parity, keep transcript fixtures deterministic and credential-free. Early harnesses may use upstream-shaped oracle scripts, but each one must document when it should be replaced by a real upstream command runner.
 
 For CLI parity, keep the command dispatcher pure enough to smoke test without spawning Node; use separate harness scripts for generated-binary behavior such as stdout, stderr, and exit codes.
