@@ -1,5 +1,11 @@
 package opencodehx.tui;
 
+#if macro
+import haxe.macro.Context;
+import haxe.macro.Expr;
+import haxe.macro.Type;
+#end
+
 using StringTools;
 
 abstract TuiProviderID(String) from String to String {
@@ -14,6 +20,76 @@ abstract TuiProviderID(String) from String to String {
 	public inline function toString():String {
 		return this;
 	}
+}
+
+enum abstract TuiKnownProviderID(String) to String {
+	var Anthropic = "anthropic";
+	var OpenAI = "openai";
+	var OpenCode = "opencode";
+}
+
+class TuiProviderIDs {
+	public static macro function known(id:Expr):Expr {
+		final providerID = literalString(id);
+		final entries = providerEntries();
+		for (entry in entries) {
+			if (entry.value == providerID) {
+				final out = macro opencodehx.tui.TuiDialogReplay.TuiProviderID.make($v{providerID});
+				out.pos = id.pos;
+				return out;
+			}
+		}
+
+		Context.error('Unknown source-authored TUI provider id "${providerID}". Known TUI provider ids: ${knownProviderIDs(entries)}.', id.pos);
+		return macro null;
+	}
+
+	#if macro
+	static function providerEntries():Array<{final fieldName:String; final value:String;}> {
+		return switch Context.getType("opencodehx.tui.TuiDialogReplay.TuiKnownProviderID") {
+			case TAbstract(_.get() => abstractType, _):
+				final impl = abstractType.impl.get();
+				final out:Array<{final fieldName:String; final value:String;}> = [];
+				for (field in impl.statics.get()) {
+					switch field.kind {
+						case FVar(_, _):
+							final value = typedStringValue(field.expr());
+							if (value != null) out.push({fieldName: field.name, value: value});
+						default:
+					}
+				}
+				out;
+			default:
+				[];
+		}
+	}
+
+	static function typedStringValue(expr:TypedExpr):Null<String> {
+		if (expr == null)
+			return null;
+		return switch expr.expr {
+			case TMeta(_, inner) | TParenthesis(inner) | TCast(inner, _):
+				typedStringValue(inner);
+			case TConst(TString(value)):
+				value;
+			default:
+				null;
+		}
+	}
+
+	static function knownProviderIDs(entries:Array<{final fieldName:String; final value:String;}>):String {
+		return [for (entry in entries) entry.value].join(", ");
+	}
+
+	static function literalString(expr:Expr):String {
+		return switch expr.expr {
+			case EConst(CString(value, _)):
+				value;
+			default:
+				Context.error("Source-authored TUI provider ids must be string literals so the TUI provider catalog can be checked at compile time.", expr.pos);
+		}
+	}
+	#end
 }
 
 abstract TuiModelID(String) from String to String {
@@ -156,7 +232,7 @@ class TuiDialogReplay {
 	public static function modelFixture():Array<TuiModelOption> {
 		return [
 			{
-				value: {providerID: TuiProviderID.make("openai"), modelID: TuiModelID.make("gpt-5.2")},
+				value: {providerID: TuiProviderIDs.known("openai"), modelID: TuiModelID.make("gpt-5.2")},
 				title: "GPT-5.2",
 				providerName: "OpenAI",
 				category: "Recent",
@@ -166,7 +242,7 @@ class TuiDialogReplay {
 				disabled: false,
 			},
 			{
-				value: {providerID: TuiProviderID.make("opencode"), modelID: TuiModelID.make("opencode-free")},
+				value: {providerID: TuiProviderIDs.known("opencode"), modelID: TuiModelID.make("opencode-free")},
 				title: "OpenCode Free",
 				providerName: "OpenCode",
 				category: "OpenCode",
@@ -181,7 +257,7 @@ class TuiDialogReplay {
 	public static function providerFixture():Array<TuiProviderOption> {
 		return [
 			{
-				providerID: TuiProviderID.make("opencode"),
+				providerID: TuiProviderIDs.known("opencode"),
 				title: "OpenCode",
 				category: "Popular",
 				connected: true,
@@ -189,7 +265,7 @@ class TuiDialogReplay {
 				authMethods: [],
 			},
 			{
-				providerID: TuiProviderID.make("openai"),
+				providerID: TuiProviderIDs.known("openai"),
 				title: "OpenAI",
 				category: "Popular",
 				connected: false,
@@ -202,12 +278,17 @@ class TuiDialogReplay {
 				],
 			},
 			{
-				providerID: TuiProviderID.make("anthropic"),
+				providerID: TuiProviderIDs.known("anthropic"),
 				title: "Anthropic",
 				category: "Popular",
 				connected: false,
 				description: "(API key)",
-				authMethods: [{kind: ApiKey, label: "API key"}],
+				authMethods: [
+					{
+						kind: ApiKey,
+						label: "API key"
+					}
+				],
 			},
 		];
 	}

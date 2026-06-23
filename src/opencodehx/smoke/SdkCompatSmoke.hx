@@ -8,6 +8,7 @@ import opencodehx.host.node.NodePath;
 import opencodehx.sdk.OpenCodeCompatClient;
 import opencodehx.session.MessageTypes.Info;
 import opencodehx.server.OpenCodeServer;
+import opencodehx.server.ServerProtocol.ServerEventTypes;
 import opencodehx.server.ServerTypes.ServerListener;
 
 class SdkCompatSmoke {
@@ -47,7 +48,7 @@ class SdkCompatSmoke {
 			eq(secondPage.items.length, 1, "sdk resume second page count");
 			eq(messageID(secondPage.items[0].info), "msg_user_one_ses_server_1", "sdk resume second page older message");
 			final received = @:await events;
-			eq(received[0].type, "server.connected", "sdk event connected");
+			eq(received[0].type, ServerEventTypes.known("server.connected"), "sdk event connected");
 			eq(hasSessionCreated(received, created.id), true, "sdk event session created");
 			@:await listener.stop(true);
 			server.close();
@@ -63,7 +64,7 @@ class SdkCompatSmoke {
 
 	static function hasSessionCreated(events:Array<opencodehx.server.ServerProtocol.ServerEvent>, sessionID:String):Bool {
 		for (event in events) {
-			if (event.type == "session.created" && event.properties.sessionID == sessionID)
+			if (event.type == ServerEventTypes.known("session.created") && event.properties.sessionID == sessionID)
 				return true;
 		}
 		return false;

@@ -191,6 +191,8 @@ npm run smoke
 
 Provider IDs and model IDs are Haxe abstracts over strings. This keeps upstream-compatible wire values while preventing accidental mixing at Haxe call sites.
 
+Built-in provider IDs now also have `KnownProviderID` plus `ProviderIDs.known("...")` for source-authored fixed references in the registry and Haxe-owned smokes. Config-defined, plugin-defined, `models.dev`, missing-provider, and typo-suggestion values remain runtime strings by design. The checked-string audit and skipped model-ID rationale live in `checked-artifact-constructors.md`.
+
 Provider/model typo suggestions are generated with a small deterministic Haxe Levenshtein scorer. Upstream uses `fuzzysort`; the Haxe version preserves the top-three suggestion behavior shape without adding a JavaScript-only dependency to core registry logic, which keeps the code easier to retarget.
 
 Capabilities, costs, limits, headers, and provider/model maps are typed records or maps. `headers` lowers to `Record<string, string>` in generated TypeScript.

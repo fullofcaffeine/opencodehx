@@ -28,6 +28,7 @@ import opencodehx.provider.ProviderTypes.ModelsDevModel;
 import opencodehx.provider.ProviderTypes.ModelsDevProvider;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderIDs;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
@@ -76,7 +77,7 @@ class ProviderSmoke {
 
 	static function registryEnvAndConfig():Void {
 		final envRegistry = registry(config({}), {ANTHROPIC_API_KEY: "test-api-key"});
-		final anthropic = envRegistry.getProvider(ProviderID.make("anthropic"));
+		final anthropic = envRegistry.getProvider(ProviderIDs.known("anthropic"));
 		eq(anthropic.source, "env", "anthropic env source");
 		eq(Reflect.hasField(Reflect.field(anthropic.options, "headers"), "anthropic-beta"), true, "anthropic custom headers");
 
@@ -124,13 +125,13 @@ class ProviderSmoke {
 				},
 			},
 		}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
-		final envConfiguredAnthropic = envWithConfig.getProvider(ProviderID.make("anthropic"));
+		final envConfiguredAnthropic = envWithConfig.getProvider(ProviderIDs.known("anthropic"));
 		eq(envConfiguredAnthropic.source, "env", "env source survives config merge");
 		eq(Reflect.field(envConfiguredAnthropic.options, "timeout"), 60000, "env provider config option merge");
 		final mergedHeaders = Reflect.field(envConfiguredAnthropic.options, "headers");
 		eq(Reflect.field(mergedHeaders, "X-Custom"), "custom-value", "provider nested option deep merge");
 		eq(Reflect.hasField(mergedHeaders, "anthropic-beta"), true, "provider loader header survives deep merge");
-		eq(Reflect.field(envWithConfig.getProvider(ProviderID.make("openai")).options, "timeout"), 30000, "multiple configured providers load together");
+		eq(Reflect.field(envWithConfig.getProvider(ProviderIDs.known("openai")).options, "timeout"), 30000, "multiple configured providers load together");
 
 		final configured = registry(config({
 			provider: {
@@ -143,7 +144,7 @@ class ProviderSmoke {
 				},
 			},
 		}));
-		final provider = configured.getProvider(ProviderID.make("anthropic"));
+		final provider = configured.getProvider(ProviderIDs.known("anthropic"));
 		eq(provider.source, "config", "anthropic config source");
 		eq(Reflect.field(provider.options, "apiKey"), "config-api-key", "config api key");
 		eq(Reflect.field(provider.options, "timeout"), 60000, "config timeout");
@@ -151,11 +152,11 @@ class ProviderSmoke {
 
 	static function registryFilters():Void {
 		final disabled = registry(config({disabled_providers: ["anthropic"]}), {ANTHROPIC_API_KEY: "test-api-key"});
-		eq(disabled.getProvider(ProviderID.make("anthropic")) == null, true, "disabled provider");
+		eq(disabled.getProvider(ProviderIDs.known("anthropic")) == null, true, "disabled provider");
 
 		final enabled = registry(config({enabled_providers: ["anthropic"]}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
-		eq(enabled.getProvider(ProviderID.make("anthropic")) != null, true, "enabled provider present");
-		eq(enabled.getProvider(ProviderID.make("openai")) == null, true, "enabled provider excludes openai");
+		eq(enabled.getProvider(ProviderIDs.known("anthropic")) != null, true, "enabled provider present");
+		eq(enabled.getProvider(ProviderIDs.known("openai")) == null, true, "enabled provider excludes openai");
 
 		final emptyEnabled = registry(config({enabled_providers: []}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
 		eq(emptyEnabled.all().length, 0, "empty enabled providers allows no providers");
@@ -164,8 +165,8 @@ class ProviderSmoke {
 			enabled_providers: ["anthropic", "openai"],
 			disabled_providers: ["openai"],
 		}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
-		eq(enabledDisabled.getProvider(ProviderID.make("anthropic")) != null, true, "enabled and not disabled provider kept");
-		eq(enabledDisabled.getProvider(ProviderID.make("openai")) == null, true, "enabled and disabled provider removed");
+		eq(enabledDisabled.getProvider(ProviderIDs.known("anthropic")) != null, true, "enabled and not disabled provider kept");
+		eq(enabledDisabled.getProvider(ProviderIDs.known("openai")) == null, true, "enabled and disabled provider removed");
 
 		final whitelist = registry(config({
 			provider: {
@@ -174,7 +175,7 @@ class ProviderSmoke {
 				},
 			},
 		}), {ANTHROPIC_API_KEY: "test-api-key"});
-		eq(whitelist.getProvider(ProviderID.make("anthropic")).models.exists("claude-sonnet-4-20250514"), true, "whitelist keeps model");
+		eq(whitelist.getProvider(ProviderIDs.known("anthropic")).models.exists("claude-sonnet-4-20250514"), true, "whitelist keeps model");
 		eq(modelCount(whitelist, "anthropic"), 1, "whitelist count");
 
 		final blacklist = registry(config({
@@ -184,7 +185,7 @@ class ProviderSmoke {
 				},
 			},
 		}), {ANTHROPIC_API_KEY: "test-api-key"});
-		eq(blacklist.getProvider(ProviderID.make("anthropic")).models.exists("claude-sonnet-4-20250514"), false, "blacklist removes model");
+		eq(blacklist.getProvider(ProviderIDs.known("anthropic")).models.exists("claude-sonnet-4-20250514"), false, "blacklist removes model");
 
 		final combined = registry(config({
 			provider: {
@@ -194,8 +195,8 @@ class ProviderSmoke {
 				},
 			},
 		}), {ANTHROPIC_API_KEY: "test-api-key"});
-		eq(combined.getProvider(ProviderID.make("anthropic")).models.exists("claude-sonnet-4-20250514"), true, "combined filter keeps whitelist model");
-		eq(combined.getProvider(ProviderID.make("anthropic")).models.exists("claude-opus-4-20250514"), false, "combined filter removes blacklist model");
+		eq(combined.getProvider(ProviderIDs.known("anthropic")).models.exists("claude-sonnet-4-20250514"), true, "combined filter keeps whitelist model");
+		eq(combined.getProvider(ProviderIDs.known("anthropic")).models.exists("claude-opus-4-20250514"), false, "combined filter removes blacklist model");
 		eq(modelCount(combined, "anthropic"), 1, "combined filter count");
 	}
 
@@ -216,8 +217,8 @@ class ProviderSmoke {
 				},
 			}
 		]);
-		eq(filters.getProvider(ProviderID.make("anthropic")) != null, true, "plugin enabled provider kept");
-		eq(filters.getProvider(ProviderID.make("openai")) == null, true, "plugin disabled provider removed");
+		eq(filters.getProvider(ProviderIDs.known("anthropic")) != null, true, "plugin enabled provider kept");
+		eq(filters.getProvider(ProviderIDs.known("openai")) == null, true, "plugin disabled provider removed");
 	}
 
 	static function registryModels():Void {
@@ -335,7 +336,7 @@ class ProviderSmoke {
 		final noLimit = custom.getModel(ProviderID.make("custom-provider"), ModelID.make("no-limit"));
 		eq(noLimit.limit.context, 0, "model default context limit");
 		eq(noLimit.limit.output, 0, "model default output limit");
-		final openaiCustom = custom.getModel(ProviderID.make("openai"), ModelID.make("my-custom-model"));
+		final openaiCustom = custom.getModel(ProviderIDs.known("openai"), ModelID.make("my-custom-model"));
 		eq(openaiCustom.api.npm, "@ai-sdk/openai", "custom model inherits provider npm package");
 		eq(openaiCustom.api.url, "https://api.openai.com/v1", "custom model inherits provider api url");
 		final newModel = custom.getModel(ProviderID.make("brand-new-provider"), ModelID.make("new-model"));
@@ -343,8 +344,8 @@ class ProviderSmoke {
 		eq(newModel.capabilities.attachment, true, "brand-new model attachment");
 		eq(newModel.capabilities.input.image, true, "brand-new model image input");
 		eq(newModel.capabilities.output.text, true, "brand-new model text output");
-		eq(custom.getModel(ProviderID.make("anthropic"), ModelID.make("my-alias")).name, "My Custom Alias", "alias model name");
-		eq(Reflect.field(custom.getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonnet-4-20250514")).options, "customOption"), "custom-value",
+		eq(custom.getModel(ProviderIDs.known("anthropic"), ModelID.make("my-alias")).name, "My Custom Alias", "alias model name");
+		eq(Reflect.field(custom.getModel(ProviderIDs.known("anthropic"), ModelID.make("claude-sonnet-4-20250514")).options, "customOption"), "custom-value",
 			"model option merge");
 
 		final parsed = ProviderRegistry.parseModel("openrouter/anthropic/claude-3-opus");
@@ -355,34 +356,35 @@ class ProviderSmoke {
 		eq(configuredDefault.providerID.toString(), "anthropic", "default model provider");
 		eq(configuredDefault.modelID.toString(), "claude-sonnet-4-20250514", "default model id");
 
-		final small = custom.smallModel(ProviderID.make("anthropic"));
+		final small = custom.smallModel(ProviderIDs.known("anthropic"));
 		if (small == null)
 			throw "small model: expected model";
 		eq(small.id.toString(), "claude-haiku-4-5", "small model priority");
 		final smallOverride = registry(config({small_model: "anthropic/claude-sonnet-4-20250514"}),
-			{ANTHROPIC_API_KEY: "test-api-key"}).smallModel(ProviderID.make("anthropic"));
+			{ANTHROPIC_API_KEY: "test-api-key"}).smallModel(ProviderIDs.known("anthropic"));
 		eq(requireModel(smallOverride, "small model override").id.toString(), "claude-sonnet-4-20250514", "small_model config override");
-		eq(requireModel(smallPriorityRegistry("opencode", ["gpt-5.2", "gpt-5-nano"]).smallModel(ProviderID.make("opencode")),
+		eq(requireModel(smallPriorityRegistry("opencode", ["gpt-5.2", "gpt-5-nano"]).smallModel(ProviderIDs.known("opencode")),
 			"opencode small priority").id.toString(),
 			"gpt-5-nano", "opencode small prefers nano");
-		eq(requireModel(smallPriorityRegistry("github-copilot", ["claude-haiku-4.5", "gpt-5-nano", "gpt-5-mini"]).smallModel(ProviderID.make("github-copilot")),
+		eq(requireModel(smallPriorityRegistry("github-copilot",
+			["claude-haiku-4.5", "gpt-5-nano", "gpt-5-mini"]).smallModel(ProviderIDs.known("github-copilot")),
 			"copilot small priority").id.toString(),
 			"gpt-5-mini", "copilot small prefers mini");
-		eq(requireModel(smallPriorityRegistry("github-copilot", ["claude-haiku-4.5", "gpt-5-nano"]).smallModel(ProviderID.make("github-copilot")),
+		eq(requireModel(smallPriorityRegistry("github-copilot", ["claude-haiku-4.5", "gpt-5-nano"]).smallModel(ProviderIDs.known("github-copilot")),
 			"copilot small fallback").id.toString(),
 			"claude-haiku-4.5", "copilot small falls back to haiku");
 
 		eq(custom.getProvider(ProviderID.make("missing-provider")) == null, true, "missing provider lookup returns null");
-		eq(requireProvider(custom.getProvider(ProviderID.make("anthropic")), "anthropic provider lookup").id.toString(), "anthropic", "provider lookup info");
+		eq(requireProvider(custom.getProvider(ProviderIDs.known("anthropic")), "anthropic provider lookup").id.toString(), "anthropic", "provider lookup info");
 
-		final closest = custom.closest(ProviderID.make("anthropic"), ["sonnet-4"]);
+		final closest = custom.closest(ProviderIDs.known("anthropic"), ["sonnet-4"]);
 		if (closest == null)
 			throw "closest model: expected match";
 		eq(closest.providerID.toString(), "anthropic", "closest provider id");
 		eq(closest.modelID.toString().indexOf("sonnet-4") != -1, true, "closest partial match");
 		eq(custom.closest(ProviderID.make("missing-provider"), ["model"]) == null, true, "closest missing provider");
-		eq(custom.closest(ProviderID.make("anthropic"), ["nonexistent-xyz-model"]) == null, true, "closest no partial match");
-		final secondClosest = custom.closest(ProviderID.make("anthropic"), ["nonexistent", "haiku"]);
+		eq(custom.closest(ProviderIDs.known("anthropic"), ["nonexistent-xyz-model"]) == null, true, "closest no partial match");
+		final secondClosest = custom.closest(ProviderIDs.known("anthropic"), ["nonexistent", "haiku"]);
 		if (secondClosest == null)
 			throw "closest model: expected second query match";
 		eq(secondClosest.modelID.toString().indexOf("haiku") != -1, true, "closest checks query terms in order");
@@ -398,13 +400,13 @@ class ProviderSmoke {
 		eq(sorted[1].id, "gpt-5-turbo", "provider sort keeps priority order");
 		eq(sorted[sorted.length - 1].id, "other-model", "provider sort leaves unprioritized last by id");
 
-		expectProviderFailure(() -> custom.getModel(ProviderID.make("anthropic"), ModelID.make("missing-model")), "missing model", function(failure) {
+		expectProviderFailure(() -> custom.getModel(ProviderIDs.known("anthropic"), ModelID.make("missing-model")), "missing model", function(failure) {
 			return switch failure {
 				case ModelNotFound(providerID, modelID, _): providerID.toString() == "anthropic" && modelID.toString() == "missing-model";
 				case _: false;
 			}
 		});
-		expectProviderFailure(() -> custom.getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonet-4")), "model typo suggestions",
+		expectProviderFailure(() -> custom.getModel(ProviderIDs.known("anthropic"), ModelID.make("claude-sonet-4")), "model typo suggestions",
 			function(failure) {
 				return switch failure {
 					case ModelNotFound(_, _, suggestions): suggestions.indexOf("claude-sonnet-4-20250514") != -1;
@@ -422,7 +424,7 @@ class ProviderSmoke {
 
 	static function registryAuthAndBedrock():Void {
 		final authRegistry = registry(config({}), {}, {"openai": {type: "api", key: "auth-key"}});
-		final openai = authRegistry.getProvider(ProviderID.make("openai"));
+		final openai = authRegistry.getProvider(ProviderIDs.known("openai"));
 		eq(openai.source, "api", "api auth source");
 		eq(openai.key, "auth-key", "api auth key");
 
@@ -437,20 +439,20 @@ class ProviderSmoke {
 				},
 			},
 		}), {AWS_REGION: "us-east-1", AWS_PROFILE: "default"});
-		final bedrock = bedrockConfig.getProvider(ProviderID.make("amazon-bedrock"));
+		final bedrock = bedrockConfig.getProvider(ProviderIDs.known("amazon-bedrock"));
 		eq(Reflect.field(bedrock.options, "region"), "eu-west-1", "bedrock config region");
 		eq(Reflect.field(bedrock.options, "profile"), "config-profile", "bedrock config profile");
 		eq(Reflect.field(bedrock.options, "baseURL"), "https://bedrock-runtime.example.com", "bedrock endpoint baseURL");
 
 		final bedrockEnv = registry(config({}), {AWS_REGION: "eu-west-1", AWS_PROFILE: "default"});
-		eq(Reflect.field(bedrockEnv.getProvider(ProviderID.make("amazon-bedrock")).options, "region"), "eu-west-1", "bedrock env region");
+		eq(Reflect.field(bedrockEnv.getProvider(ProviderIDs.known("amazon-bedrock")).options, "region"), "eu-west-1", "bedrock env region");
 
 		final bedrockAuth = registry(config({
 			provider: {
 				"amazon-bedrock": {options: {region: "us-east-1"}},
 			},
 		}), {}, {"amazon-bedrock": {type: "api", key: "bearer"}});
-		final authBedrock = bedrockAuth.getProvider(ProviderID.make("amazon-bedrock"));
+		final authBedrock = bedrockAuth.getProvider(ProviderIDs.known("amazon-bedrock"));
 		eq(authBedrock != null, true, "bedrock auth bearer");
 		eq(Reflect.field(authBedrock.options, "apiKey"), "bearer", "bedrock bearer apiKey");
 
@@ -460,7 +462,7 @@ class ProviderSmoke {
 			},
 		}),
 			{AWS_WEB_IDENTITY_TOKEN_FILE: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token", AWS_PROFILE: "", AWS_ACCESS_KEY_ID: ""});
-		eq(webIdentity.getProvider(ProviderID.make("amazon-bedrock")) != null, true, "bedrock web identity autoload");
+		eq(webIdentity.getProvider(ProviderIDs.known("amazon-bedrock")) != null, true, "bedrock web identity autoload");
 
 		bedrockCrossRegionPrefixes(authBedrock);
 		bedrockSmallModelSelection();
@@ -503,7 +505,7 @@ class ProviderSmoke {
 	}
 
 	static function bedrockSmallModelSelection():Void {
-		final providerID = ProviderID.make("amazon-bedrock");
+		final providerID = ProviderIDs.known("amazon-bedrock");
 		final unprefixed = "anthropic.claude-haiku-4-5-20250929-v1:0";
 		final us = "us.anthropic.claude-haiku-4-5-20250929-v1:0";
 		final eu = "eu.anthropic.claude-haiku-4-5-20250929-v1:0";
@@ -524,14 +526,14 @@ class ProviderSmoke {
 			CLOUDFLARE_ACCOUNT_ID: "test-account",
 			CLOUDFLARE_GATEWAY_ID: "test-gateway",
 		});
-		eq(partial.getProvider(ProviderID.make("cloudflare-ai-gateway")) == null, true, "cloudflare gateway requires token");
+		eq(partial.getProvider(ProviderIDs.known("cloudflare-ai-gateway")) == null, true, "cloudflare gateway requires token");
 
 		final loaded = registry(config({}), {
 			CLOUDFLARE_ACCOUNT_ID: "test-account",
 			CLOUDFLARE_GATEWAY_ID: "test-gateway",
 			CLOUDFLARE_API_TOKEN: "test-token",
 		});
-		final provider = loaded.getProvider(ProviderID.make("cloudflare-ai-gateway"));
+		final provider = loaded.getProvider(ProviderIDs.known("cloudflare-ai-gateway"));
 		eq(provider != null, true, "cloudflare gateway env autoload");
 		eq(provider.models.exists("openai/gpt-5.2-codex"), true, "cloudflare gateway default model");
 
@@ -551,16 +553,16 @@ class ProviderSmoke {
 			CLOUDFLARE_GATEWAY_ID: "test-gateway",
 			CLOUDFLARE_API_TOKEN: "test-token",
 		});
-		final metadata = Reflect.field(configured.getProvider(ProviderID.make("cloudflare-ai-gateway")).options, "metadata");
+		final metadata = Reflect.field(configured.getProvider(ProviderIDs.known("cloudflare-ai-gateway")).options, "metadata");
 		eq(Reflect.field(metadata, "invoked_by"), "test", "cloudflare metadata invoked_by");
 		eq(Reflect.field(metadata, "project"), "opencode", "cloudflare metadata project");
 	}
 
 	static function gitlabDuoLoading():Void {
-		eq(registry(config({})).getProvider(ProviderID.make("gitlab")) == null, true, "gitlab requires token");
+		eq(registry(config({})).getProvider(ProviderIDs.known("gitlab")) == null, true, "gitlab requires token");
 
 		final envLoaded = registry(config({}), {GITLAB_TOKEN: "test-gitlab-token"});
-		final gitlab = requireProvider(envLoaded.getProvider(ProviderID.make("gitlab")), "gitlab env");
+		final gitlab = requireProvider(envLoaded.getProvider(ProviderIDs.known("gitlab")), "gitlab env");
 		eq(gitlab.source, "env", "gitlab env source");
 		eq(gitlab.key, "test-gitlab-token", "gitlab env key");
 		eq(Reflect.field(gitlab.options, "instanceUrl"), "https://gitlab.com", "gitlab default instanceUrl");
@@ -573,7 +575,7 @@ class ProviderSmoke {
 		eq(gitlab.models.exists("duo-chat-opus-4-5"), true, "gitlab opus static model");
 
 		final envInstance = registry(config({}), {GITLAB_TOKEN: "env-token", GITLAB_INSTANCE_URL: "https://gitlab.example.com"});
-		eq(Reflect.field(envInstance.getProvider(ProviderID.make("gitlab")).options, "instanceUrl"), "https://gitlab.example.com", "gitlab env instanceUrl");
+		eq(Reflect.field(envInstance.getProvider(ProviderIDs.known("gitlab")).options, "instanceUrl"), "https://gitlab.example.com", "gitlab env instanceUrl");
 
 		final configured = registry(config({
 			provider: {
@@ -592,7 +594,7 @@ class ProviderSmoke {
 				},
 			},
 		}), {GITLAB_TOKEN: "env-token"});
-		final configuredGitlab = configured.getProvider(ProviderID.make("gitlab"));
+		final configuredGitlab = configured.getProvider(ProviderIDs.known("gitlab"));
 		eq(configuredGitlab.source, "config", "gitlab config apiKey source");
 		eq(configuredGitlab.key, "config-token", "gitlab config apiKey precedence");
 		eq(Reflect.field(configuredGitlab.options, "instanceUrl"), "https://gitlab.company.internal", "gitlab config instanceUrl");
@@ -605,10 +607,10 @@ class ProviderSmoke {
 		eq(Reflect.field(configuredFlags, "custom_flag"), true, "gitlab custom feature flag");
 
 		final apiAuth = registry(config({}), {}, {gitlab: {type: "api", key: "glpat-test-pat-token"}});
-		eq(apiAuth.getProvider(ProviderID.make("gitlab")).key, "glpat-test-pat-token", "gitlab api auth key");
+		eq(apiAuth.getProvider(ProviderIDs.known("gitlab")).key, "glpat-test-pat-token", "gitlab api auth key");
 
 		final oauth = registry(config({}), {}, {gitlab: {type: "oauth", access: "oauth-access-token"}});
-		final oauthGitlab = oauth.getProvider(ProviderID.make("gitlab"));
+		final oauthGitlab = oauth.getProvider(ProviderIDs.known("gitlab"));
 		eq(oauthGitlab.source, "oauth", "gitlab oauth source");
 		eq(oauthGitlab.key, "oauth-access-token", "gitlab oauth access key");
 	}
@@ -846,7 +848,7 @@ class ProviderSmoke {
 
 	static function registryModelVariants():Void {
 		final generated = registry(config({}), {ANTHROPIC_API_KEY: "test-api-key"});
-		final generatedModel = generated.getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonnet-4-20250514"));
+		final generatedModel = generated.getModel(ProviderIDs.known("anthropic"), ModelID.make("claude-sonnet-4-20250514"));
 		eq(generatedModel.variants.exists("high"), true, "reasoning model high variant generated");
 		eq(generatedModel.variants.exists("max"), true, "reasoning model max variant generated");
 
@@ -863,7 +865,7 @@ class ProviderSmoke {
 				},
 			},
 		}),
-			{OPENAI_API_KEY: "openai-key"}).getModel(ProviderID.make("openai"), ModelID.make("gpt-5.2"));
+			{OPENAI_API_KEY: "openai-key"}).getModel(ProviderIDs.known("openai"), ModelID.make("gpt-5.2"));
 		eq(databaseVariantFilter.variants.exists("high"), false, "database model high variant removed in final pass");
 		eq(databaseVariantFilter.variants.exists("medium"), true, "database model medium variant remains after final pass");
 
@@ -1065,7 +1067,7 @@ class ProviderSmoke {
 		for (id in modelIDs)
 			models.set(id, bedrockModel(id));
 		providers.set("amazon-bedrock", {
-			id: ProviderID.make("amazon-bedrock"),
+			id: ProviderIDs.known("amazon-bedrock"),
 			name: "Amazon Bedrock",
 			source: "custom",
 			env: [],
@@ -1078,7 +1080,7 @@ class ProviderSmoke {
 	static function bedrockModel(id:String):ProviderModel {
 		return {
 			id: ModelID.make(id),
-			providerID: ProviderID.make("amazon-bedrock"),
+			providerID: ProviderIDs.known("amazon-bedrock"),
 			name: id,
 			family: "claude",
 			api: {
@@ -1256,7 +1258,7 @@ class ProviderSmoke {
 
 	static function paidModelCount(registry:ProviderRegistry):Int {
 		var count = 0;
-		final provider = registry.getProvider(ProviderID.make("opencode"));
+		final provider = registry.getProvider(ProviderIDs.known("opencode"));
 		for (model in provider.models) {
 			if (model.cost.input > 0)
 				count++;
@@ -1276,7 +1278,7 @@ class ProviderSmoke {
 				},
 			},
 		}),
-			{ANTHROPIC_API_KEY: "test-api-key"}).getModel(ProviderID.make("anthropic"), ModelID.make("claude-sonnet-4-20250514"));
+			{ANTHROPIC_API_KEY: "test-api-key"}).getModel(ProviderIDs.known("anthropic"), ModelID.make("claude-sonnet-4-20250514"));
 	}
 
 	static function variantCount(model:ProviderModel):Int {

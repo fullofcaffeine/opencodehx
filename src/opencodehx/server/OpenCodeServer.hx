@@ -23,6 +23,7 @@ import opencodehx.session.SessionID;
 import opencodehx.session.SessionProcessor;
 import opencodehx.server.ServerProtocol.DecodeResult;
 import opencodehx.server.ServerProtocol.GlobalSessionResponse;
+import opencodehx.server.ServerProtocol.ServerEventTypes;
 import opencodehx.server.ServerProtocol.SessionResponse;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.server.ServerTypes.ServerOptions;
@@ -112,7 +113,7 @@ class OpenCodeServer {
 		final encoded = ServerProtocol.encodeSession(updated);
 		if (sessionOrder.indexOf(result.request.sessionID) == -1)
 			sessionOrder.push(result.request.sessionID);
-		eventBus.publish(ServerProtocol.sessionEvent("session.created", result.request.sessionID));
+		eventBus.publish(ServerProtocol.sessionEvent(ServerEventTypes.known("session.created"), result.request.sessionID));
 		return json(c, encoded);
 	}
 
@@ -206,7 +207,7 @@ class OpenCodeServer {
 		};
 		if (!hasSession(request.sessionID))
 			return json(c, ServerProtocol.error("Session not found"), 404);
-		eventBus.publish(ServerProtocol.sessionEvent("session.selected", request.sessionID));
+		eventBus.publish(ServerProtocol.sessionEvent(ServerEventTypes.known("session.selected"), request.sessionID));
 		return json(c, true);
 	}
 

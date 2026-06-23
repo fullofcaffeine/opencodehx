@@ -23,6 +23,7 @@ import opencodehx.provider.ProviderTypes.ProviderApiInfo;
 import opencodehx.provider.ProviderTypes.ProviderCost;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
 import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.KnownProviderID;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderInterleaved;
 import opencodehx.provider.ProviderTypes.ProviderModel;
@@ -166,12 +167,12 @@ class ProviderRegistry {
 			"gemini-2.5-flash",
 			"gpt-5-nano"
 		];
-		if (providerID.toString().startsWith("opencode"))
+		if (providerID.toString().startsWith(KnownProviderID.OpenCode))
 			priority = ["gpt-5-nano"];
-		if (providerID.toString().startsWith("github-copilot"))
+		if (providerID.toString().startsWith(KnownProviderID.GithubCopilot))
 			priority = ["gpt-5-mini", "claude-haiku-4.5"].concat(priority);
 		for (needle in priority) {
-			if (providerID.toString() == "amazon-bedrock") {
+			if (providerID.toString() == KnownProviderID.AmazonBedrock) {
 				final bedrock = smallBedrockModel(provider, needle);
 				if (bedrock != null)
 					return bedrock;
@@ -496,43 +497,43 @@ class ProviderRegistry {
 			}));
 		}
 
-		final opencode = database.get("opencode");
-		if (opencode != null && !disabled.exists("opencode")) {
+		final opencode = database.get(KnownProviderID.OpenCode);
+		if (opencode != null && !disabled.exists(KnownProviderID.OpenCode)) {
 			// Upstream exposes free OpenCode-hosted models with a public key, but
 			// removes paid models unless env/auth/config proves user-owned access.
-			final opencodeAlreadyLoaded = providers.exists("opencode");
-			final existingOpencode = providers.get("opencode");
+			final opencodeAlreadyLoaded = providers.exists(KnownProviderID.OpenCode);
+			final existingOpencode = providers.get(KnownProviderID.OpenCode);
 			final opencodeBase:ProviderInfo = existingOpencode == null ? opencode : existingOpencode;
-			final ok = opencodePaidAccess(opencodeBase, configProviders.get("opencode"), env, auths.get("opencode"));
+			final ok = opencodePaidAccess(opencodeBase, configProviders.get(KnownProviderID.OpenCode), env, auths.get(KnownProviderID.OpenCode));
 			final opencodeResolved:ProviderInfo = ok ? opencodeBase : withoutPaidModels(opencodeBase);
 			if (opencodeAlreadyLoaded || opencodeResolved.models.iterator().hasNext()) {
-				providers.set("opencode", withPatch(opencodeResolved, {
+				providers.set(KnownProviderID.OpenCode, withPatch(opencodeResolved, {
 					source: opencodeAlreadyLoaded ? opencodeBase.source : "custom",
 					options: ok ? opencodeBase.options : mergeObject(opencodeBase.options, {apiKey: "public"}),
 				}));
 			}
 		}
 
-		final bedrock = database.get("amazon-bedrock");
-		if (bedrock != null && !disabled.exists("amazon-bedrock")) {
-			final bedrockAlreadyLoaded = providers.exists("amazon-bedrock");
-			final bedrockBase = bedrockAlreadyLoaded ? providers.get("amazon-bedrock") : bedrock;
-			final bedrockResolved = bedrockOptions(bedrockBase, bedrock, env, auths.get("amazon-bedrock"));
+		final bedrock = database.get(KnownProviderID.AmazonBedrock);
+		if (bedrock != null && !disabled.exists(KnownProviderID.AmazonBedrock)) {
+			final bedrockAlreadyLoaded = providers.exists(KnownProviderID.AmazonBedrock);
+			final bedrockBase = bedrockAlreadyLoaded ? providers.get(KnownProviderID.AmazonBedrock) : bedrock;
+			final bedrockResolved = bedrockOptions(bedrockBase, bedrock, env, auths.get(KnownProviderID.AmazonBedrock));
 			if (bedrockAlreadyLoaded || bedrockResolved.autoload) {
-				providers.set("amazon-bedrock", withPatch(bedrockBase, {
+				providers.set(KnownProviderID.AmazonBedrock, withPatch(bedrockBase, {
 					source: bedrockAlreadyLoaded ? bedrockBase.source : "custom",
 					options: bedrockResolved.autoload ? bedrockResolved.options : bedrockBase.options,
 				}));
 			}
 		}
 
-		final cloudflareGateway = database.get("cloudflare-ai-gateway");
-		if (cloudflareGateway != null && !disabled.exists("cloudflare-ai-gateway")) {
-			final cloudflareAlreadyLoaded = providers.exists("cloudflare-ai-gateway");
-			final cloudflareBase = cloudflareAlreadyLoaded ? providers.get("cloudflare-ai-gateway") : cloudflareGateway;
-			final cloudflareResolved = cloudflareGatewayOptions(cloudflareBase, env, auths.get("cloudflare-ai-gateway"));
+		final cloudflareGateway = database.get(KnownProviderID.CloudflareAiGateway);
+		if (cloudflareGateway != null && !disabled.exists(KnownProviderID.CloudflareAiGateway)) {
+			final cloudflareAlreadyLoaded = providers.exists(KnownProviderID.CloudflareAiGateway);
+			final cloudflareBase = cloudflareAlreadyLoaded ? providers.get(KnownProviderID.CloudflareAiGateway) : cloudflareGateway;
+			final cloudflareResolved = cloudflareGatewayOptions(cloudflareBase, env, auths.get(KnownProviderID.CloudflareAiGateway));
 			if (cloudflareAlreadyLoaded || cloudflareResolved.autoload) {
-				providers.set("cloudflare-ai-gateway", withPatch(cloudflareBase, {
+				providers.set(KnownProviderID.CloudflareAiGateway, withPatch(cloudflareBase, {
 					source: cloudflareResolved.source,
 					key: cloudflareResolved.key,
 					options: cloudflareResolved.options,
@@ -540,13 +541,13 @@ class ProviderRegistry {
 			}
 		}
 
-		final gitlab = database.get("gitlab");
-		if (gitlab != null && !disabled.exists("gitlab")) {
-			final gitlabAlreadyLoaded = providers.exists("gitlab");
-			final gitlabBase = gitlabAlreadyLoaded ? providers.get("gitlab") : gitlab;
-			final gitlabResolved = gitlabOptions(gitlabBase, env, auths.get("gitlab"));
+		final gitlab = database.get(KnownProviderID.GitLab);
+		if (gitlab != null && !disabled.exists(KnownProviderID.GitLab)) {
+			final gitlabAlreadyLoaded = providers.exists(KnownProviderID.GitLab);
+			final gitlabBase = gitlabAlreadyLoaded ? providers.get(KnownProviderID.GitLab) : gitlab;
+			final gitlabResolved = gitlabOptions(gitlabBase, env, auths.get(KnownProviderID.GitLab));
 			if (gitlabAlreadyLoaded || gitlabResolved.autoload) {
-				providers.set("gitlab", withPatch(gitlabBase, {
+				providers.set(KnownProviderID.GitLab, withPatch(gitlabBase, {
 					source: gitlabResolved.source,
 					key: gitlabResolved.key,
 					options: gitlabResolved.options,
@@ -683,55 +684,59 @@ class ProviderRegistry {
 
 	static function defaultDatabase():Map<String, ProviderInfo> {
 		final result = new Map<String, ProviderInfo>();
-		final anthropic = provider("anthropic", "Anthropic", ["ANTHROPIC_API_KEY"], [
-			model("anthropic", "claude-sonnet-4-20250514", "Claude Sonnet 4", "@ai-sdk/anthropic", "https://api.anthropic.com/v1", 200000, 64000,
+		final anthropic = provider(KnownProviderID.Anthropic, "Anthropic", ["ANTHROPIC_API_KEY"], [
+			model(KnownProviderID.Anthropic, "claude-sonnet-4-20250514", "Claude Sonnet 4", "@ai-sdk/anthropic", "https://api.anthropic.com/v1", 200000,
+				64000,
 				{
 					reasoning: true,
 					attachment: true
 				}),
-			model("anthropic", "claude-haiku-4-5", "Claude Haiku 4.5", "@ai-sdk/anthropic", "https://api.anthropic.com/v1", 200000, 32000,
+			model(KnownProviderID.Anthropic, "claude-haiku-4-5", "Claude Haiku 4.5", "@ai-sdk/anthropic", "https://api.anthropic.com/v1", 200000, 32000,
 				{reasoning: true, attachment: true}),
 		]);
 		add(result, withPatch(anthropic, {options: {headers: {"anthropic-beta": "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14"}}}));
-		add(result, provider("openai", "OpenAI", ["OPENAI_API_KEY"], [
-			model("openai", "gpt-5.2", "GPT-5.2", "@ai-sdk/openai", "https://api.openai.com/v1", 200000, 10000, {
+		add(result, provider(KnownProviderID.OpenAI, "OpenAI", ["OPENAI_API_KEY"], [
+			model(KnownProviderID.OpenAI, "gpt-5.2", "GPT-5.2", "@ai-sdk/openai", "https://api.openai.com/v1", 200000, 10000, {
 				reasoning: true
 			}),
-			model("openai", "gpt-5-nano", "GPT-5 nano", "@ai-sdk/openai", "https://api.openai.com/v1", 200000, 10000, {reasoning: true}),
+			model(KnownProviderID.OpenAI, "gpt-5-nano", "GPT-5 nano", "@ai-sdk/openai", "https://api.openai.com/v1", 200000, 10000, {reasoning: true}),
 		]));
-		add(result, provider("amazon-bedrock", "Amazon Bedrock", ["AWS_ACCESS_KEY_ID", "AWS_BEARER_TOKEN_BEDROCK"], [
-			model("amazon-bedrock", "anthropic.claude-sonnet-4-20250514-v1:0", "Claude Sonnet 4", "@ai-sdk/amazon-bedrock", "", 200000, 64000,
-				{
+		add(result, provider(KnownProviderID.AmazonBedrock, "Amazon Bedrock", ["AWS_ACCESS_KEY_ID", "AWS_BEARER_TOKEN_BEDROCK"], [
+			model(KnownProviderID.AmazonBedrock, "anthropic.claude-sonnet-4-20250514-v1:0", "Claude Sonnet 4", "@ai-sdk/amazon-bedrock", "", 200000, 64000, {
+				reasoning: true,
+				attachment: true
+			}),
+			model(KnownProviderID.AmazonBedrock, "global.anthropic.claude-haiku-4-5-20250929-v1:0", "Claude Haiku 4.5", "@ai-sdk/amazon-bedrock", "", 200000,
+				32000, {
 					reasoning: true,
 					attachment: true
 				}),
-			model("amazon-bedrock", "global.anthropic.claude-haiku-4-5-20250929-v1:0", "Claude Haiku 4.5", "@ai-sdk/amazon-bedrock", "", 200000, 32000,
-				{reasoning: true, attachment: true}),
 		]));
-		add(result, provider("opencode", "opencode", ["OPENCODE_API_KEY"], [
-			withCost(model("opencode", "gpt-5.2", "GPT-5.2", "@ai-sdk/openai-compatible", "https://api.opencode.ai/v1", 200000, 10000, {
+		add(result, provider(KnownProviderID.OpenCode, "opencode", ["OPENCODE_API_KEY"], [
+			withCost(model(KnownProviderID.OpenCode, "gpt-5.2", "GPT-5.2", "@ai-sdk/openai-compatible", "https://api.opencode.ai/v1", 200000, 10000,
+				{
+					reasoning: true
+				}), 1.25, 10),
+			model(KnownProviderID.OpenCode, "gpt-5-nano", "GPT-5 nano", "@ai-sdk/openai-compatible", "https://api.opencode.ai/v1", 200000, 10000, {
 				reasoning: true
-			}), 1.25, 10),
-			model("opencode", "gpt-5-nano", "GPT-5 nano", "@ai-sdk/openai-compatible", "https://api.opencode.ai/v1", 200000, 10000, {
-				reasoning: true
 			}),
 		]));
-		add(result, provider("cloudflare-ai-gateway", "Cloudflare AI Gateway", [], [
-			model("cloudflare-ai-gateway", "openai/gpt-5.2-codex", "GPT-5.2 Codex", "ai-gateway-provider", "", 400000, 128000, {
+		add(result, provider(KnownProviderID.CloudflareAiGateway, "Cloudflare AI Gateway", [], [
+			model(KnownProviderID.CloudflareAiGateway, "openai/gpt-5.2-codex", "GPT-5.2 Codex", "ai-gateway-provider", "", 400000, 128000, {
 				reasoning: true,
 				attachment: true
 			}),
 		]));
-		add(result, provider("gitlab", "GitLab Duo", ["GITLAB_TOKEN"], [
-			model("gitlab", "duo-chat-haiku-4-5", "GitLab Duo Chat Haiku 4.5", "gitlab-ai-provider", "https://gitlab.com", 200000, 32000, {
+		add(result, provider(KnownProviderID.GitLab, "GitLab Duo", ["GITLAB_TOKEN"], [
+			model(KnownProviderID.GitLab, "duo-chat-haiku-4-5", "GitLab Duo Chat Haiku 4.5", "gitlab-ai-provider", "https://gitlab.com", 200000, 32000, {
 				reasoning: true,
 				attachment: true
 			}),
-			model("gitlab", "duo-chat-sonnet-4-5", "GitLab Duo Chat Sonnet 4.5", "gitlab-ai-provider", "https://gitlab.com", 200000, 64000, {
+			model(KnownProviderID.GitLab, "duo-chat-sonnet-4-5", "GitLab Duo Chat Sonnet 4.5", "gitlab-ai-provider", "https://gitlab.com", 200000, 64000, {
 				reasoning: true,
 				attachment: true
 			}),
-			model("gitlab", "duo-chat-opus-4-5", "GitLab Duo Chat Opus 4.5", "gitlab-ai-provider", "https://gitlab.com", 200000, 64000, {
+			model(KnownProviderID.GitLab, "duo-chat-opus-4-5", "GitLab Duo Chat Opus 4.5", "gitlab-ai-provider", "https://gitlab.com", 200000, 64000, {
 				reasoning: true,
 				attachment: true
 			}),

@@ -1,5 +1,10 @@
 package opencodehx.server;
 
+#if macro
+import haxe.macro.Context;
+import haxe.macro.Expr;
+import haxe.macro.Type;
+#end
 import genes.ts.Unknown;
 import opencodehx.session.SessionInfo.SessionInfo;
 
@@ -31,8 +36,93 @@ typedef ServerEventProperties = {
 }
 
 typedef ServerEvent = {
-	final type:String;
+	final type:ServerEventType;
 	final properties:ServerEventProperties;
+}
+
+enum abstract ServerEventType(String) to String {
+	var ServerConnected = "server.connected";
+	var ServerHeartbeat = "server.heartbeat";
+	var SessionCreated = "session.created";
+	var SessionSelected = "session.selected";
+}
+
+class ServerEventTypes {
+	public static function fromBoundary(type:String):Null<ServerEventType> {
+		return switch type {
+			case "server.connected": ServerConnected;
+			case "server.heartbeat": ServerHeartbeat;
+			case "session.created": SessionCreated;
+			case "session.selected": SessionSelected;
+			case _: null;
+		}
+	}
+
+	public static macro function known(type:Expr):Expr {
+		final eventType = literalString(type);
+		final entries = eventEntries();
+		for (entry in entries) {
+			if (entry.value == eventType) {
+				final eventExpr:Expr = {
+					expr: EField(macro opencodehx.server.ServerProtocol.ServerEventType, entry.fieldName),
+					pos: type.pos,
+				};
+				final out = macro $eventExpr;
+				out.pos = type.pos;
+				return out;
+			}
+		}
+
+		Context.error('Unknown source-authored server event type "${eventType}". Known server event types: ${knownEventTypes(entries)}.', type.pos);
+		return macro null;
+	}
+
+	#if macro
+	static function eventEntries():Array<{final fieldName:String; final value:String;}> {
+		return switch Context.getType("opencodehx.server.ServerProtocol.ServerEventType") {
+			case TAbstract(_.get() => abstractType, _):
+				final impl = abstractType.impl.get();
+				final out:Array<{final fieldName:String; final value:String;}> = [];
+				for (field in impl.statics.get()) {
+					switch field.kind {
+						case FVar(_, _):
+							final value = typedStringValue(field.expr());
+							if (value != null) out.push({fieldName: field.name, value: value});
+						default:
+					}
+				}
+				out;
+			default:
+				[];
+		}
+	}
+
+	static function typedStringValue(expr:TypedExpr):Null<String> {
+		if (expr == null)
+			return null;
+		return switch expr.expr {
+			case TMeta(_, inner) | TParenthesis(inner) | TCast(inner, _):
+				typedStringValue(inner);
+			case TConst(TString(value)):
+				value;
+			default:
+				null;
+		}
+	}
+
+	static function knownEventTypes(entries:Array<{final fieldName:String; final value:String;}>):String {
+		return [for (entry in entries) entry.value].join(", ");
+	}
+
+	static function literalString(expr:Expr):String {
+		return switch expr.expr {
+			case EConst(CString(value, _)):
+				value;
+			default:
+				Context.error("Source-authored server event types must be string literals so the event catalog can be checked at compile time.", expr.pos);
+		}
+	}
+	#end
 }
 
 typedef SessionResponseTime = {
@@ -199,14 +289,14 @@ class ServerProtocol {
 	}
 
 	public static inline function connectedEvent():ServerEvent {
-		return {type: "server.connected", properties: {}};
+		return {type: ServerConnected, properties: {}};
 	}
 
 	public static inline function heartbeatEvent():ServerEvent {
-		return {type: "server.heartbeat", properties: {}};
+		return {type: ServerHeartbeat, properties: {}};
 	}
 
-	public static inline function sessionEvent(type:String, sessionID:String):ServerEvent {
+	public static inline function sessionEvent(type:ServerEventType, sessionID:String):ServerEvent {
 		return {type: type, properties: {sessionID: sessionID}};
 	}
 

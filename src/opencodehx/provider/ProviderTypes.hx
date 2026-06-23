@@ -1,5 +1,10 @@
 package opencodehx.provider;
 
+#if macro
+import haxe.macro.Context;
+import haxe.macro.Expr;
+import haxe.macro.Type;
+#end
 import genes.ts.Unknown;
 import haxe.extern.EitherType;
 import haxe.DynamicAccess;
@@ -16,6 +21,80 @@ abstract ProviderID(String) from String to String {
 	public inline function toString():String {
 		return this;
 	}
+}
+
+enum abstract KnownProviderID(String) to String {
+	var AmazonBedrock = "amazon-bedrock";
+	var Anthropic = "anthropic";
+	var CloudflareAiGateway = "cloudflare-ai-gateway";
+	var GitLab = "gitlab";
+	var GithubCopilot = "github-copilot";
+	var OpenAI = "openai";
+	var OpenCode = "opencode";
+}
+
+class ProviderIDs {
+	public static macro function known(id:Expr):Expr {
+		final providerID = literalString(id);
+		final entries = providerEntries();
+		for (entry in entries) {
+			if (entry.value == providerID) {
+				final out = macro opencodehx.provider.ProviderTypes.ProviderID.make($v{providerID});
+				out.pos = id.pos;
+				return out;
+			}
+		}
+
+		Context.error('Unknown source-authored provider id "${providerID}". Known provider ids: ${knownProviderIDs(entries)}.', id.pos);
+		return macro null;
+	}
+
+	#if macro
+	static function providerEntries():Array<{final fieldName:String; final value:String;}> {
+		return switch Context.getType("opencodehx.provider.ProviderTypes.KnownProviderID") {
+			case TAbstract(_.get() => abstractType, _):
+				final impl = abstractType.impl.get();
+				final out:Array<{final fieldName:String; final value:String;}> = [];
+				for (field in impl.statics.get()) {
+					switch field.kind {
+						case FVar(_, _):
+							final value = typedStringValue(field.expr());
+							if (value != null) out.push({fieldName: field.name, value: value});
+						default:
+					}
+				}
+				out;
+			default:
+				[];
+		}
+	}
+
+	static function typedStringValue(expr:TypedExpr):Null<String> {
+		if (expr == null)
+			return null;
+		return switch expr.expr {
+			case TMeta(_, inner) | TParenthesis(inner) | TCast(inner, _):
+				typedStringValue(inner);
+			case TConst(TString(value)):
+				value;
+			default:
+				null;
+		}
+	}
+
+	static function knownProviderIDs(entries:Array<{final fieldName:String; final value:String;}>):String {
+		return [for (entry in entries) entry.value].join(", ");
+	}
+
+	static function literalString(expr:Expr):String {
+		return switch expr.expr {
+			case EConst(CString(value, _)):
+				value;
+			default:
+				Context.error("Source-authored provider ids must be string literals so the provider catalog can be checked at compile time.", expr.pos);
+		}
+	}
+	#end
 }
 
 abstract ModelID(String) from String to String {

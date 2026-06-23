@@ -12,6 +12,7 @@ import opencodehx.file.FileSystem;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.resource.Resources;
+import opencodehx.resource.Resources.ResourcePaths;
 
 using StringTools;
 
@@ -70,8 +71,8 @@ class BashCommandScanner {
 		await(Parser.init({
 			locateFile: locateTreeSitterFile,
 		}));
-		final bashLanguage = await(Language.load(Resources.wasm("wasm/tree-sitter-bash.wasm").path));
-		final powerShellLanguage = await(Language.load(Resources.wasm("wasm/tree-sitter-powershell.wasm").path));
+		final bashLanguage = await(Language.load(Resources.wasm(ResourcePaths.known("wasm/tree-sitter-bash.wasm")).path));
+		final powerShellLanguage = await(Language.load(Resources.wasm(ResourcePaths.known("wasm/tree-sitter-powershell.wasm")).path));
 		final bash = new Parser();
 		bash.setLanguage(bashLanguage);
 		final powerShell = new Parser();
@@ -101,7 +102,7 @@ class BashCommandScanner {
 	}
 
 	static function locateTreeSitterFile(_file:String):String {
-		return Resources.wasm("wasm/tree-sitter.wasm").path;
+		return Resources.wasm(ResourcePaths.known("wasm/tree-sitter.wasm")).path;
 	}
 
 	static function collect(projectRoot:String, root:TreeSitterNode, cwd:String, ps:Bool, shell:String, platform:String):BashScan {

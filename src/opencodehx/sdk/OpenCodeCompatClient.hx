@@ -15,6 +15,7 @@ import opencodehx.session.MessageCodec;
 import opencodehx.session.MessageTypes.WithParts;
 import opencodehx.server.ServerProtocol.SessionResponse;
 import opencodehx.server.ServerProtocol.ServerEvent;
+import opencodehx.server.ServerProtocol.ServerEventTypes;
 
 typedef CompatClientConfig = {
 	final baseUrl:String;
@@ -211,8 +212,12 @@ class OpenCodeCompatClient {
 		final propertiesRaw = record.get("properties");
 		final properties = UnknownNarrow.record(propertiesRaw);
 		final sessionID = properties == null ? null : UnknownNarrow.string(properties.get("sessionID"));
+		final typeText = requireString(record, "type", "event");
+		final eventType = ServerEventTypes.fromBoundary(typeText);
+		if (eventType == null)
+			throw 'event.type: unknown server event type ${typeText}';
 		return {
-			type: requireString(record, "type", "event"),
+			type: eventType,
 			properties: sessionID == null ? {} : {sessionID: sessionID},
 		};
 	}

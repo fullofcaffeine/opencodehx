@@ -36,6 +36,7 @@ import opencodehx.provider.copilot.CopilotOpenAICompatibleProvider;
 import opencodehx.provider.ProviderRegistry;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderIDs;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 
 typedef CopilotLanguageModelCapturedFetch = {
@@ -154,7 +155,7 @@ class CopilotChatLanguageModelSmoke {
 
 	static function registryResolvesCopilotChatModel():Void {
 		final registry = new ProviderRegistry({config: copilotConfig(), env: {}, auth: {}});
-		final model = registry.getModel(ProviderID.make("github-copilot"), ModelID.make("copilot-chat-alias"));
+		final model = registry.getModel(ProviderIDs.known("github-copilot"), ModelID.make("copilot-chat-alias"));
 		final resolved = registry.resolveCopilotChat(model);
 
 		eq(resolved.sdkModelID, "gemini-2.0-flash-001", "registry copilot sdk model id");
@@ -169,7 +170,7 @@ class CopilotChatLanguageModelSmoke {
 
 	static function registryGetLanguageReturnsSdkFacade():Void {
 		final registry = new ProviderRegistry({config: copilotConfig(), env: {}, auth: {}});
-		final model = registry.getModel(ProviderID.make("github-copilot"), ModelID.make("copilot-chat-alias"));
+		final model = registry.getModel(ProviderIDs.known("github-copilot"), ModelID.make("copilot-chat-alias"));
 		final language = registry.getLanguage(model);
 
 		eq(language.specificationVersion, AiLanguageModelSpecificationVersion.V3, "registry sdk spec version");

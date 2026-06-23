@@ -23,6 +23,7 @@ import opencodehx.provider.CopilotLanguageLoader;
 import opencodehx.provider.ProviderRegistry;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderIDs;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.copilot.CopilotChatHttpClient.CopilotChatFetchFunction;
 import opencodehx.provider.copilot.CopilotChatHttpClient.CopilotChatFetchInit;
@@ -110,8 +111,8 @@ class CopilotResponsesLanguageModelSmoke {
 		eq(CopilotLanguageLoader.shouldUseResponsesApi("gpt-5-mini"), false, "gpt-5-mini chat route");
 
 		final registry = new ProviderRegistry({config: copilotConfig(), env: {}, auth: {}});
-		final chatModel = registry.getModel(ProviderID.make("github-copilot"), ModelID.make("copilot-chat-alias"));
-		final responsesModel = registry.getModel(ProviderID.make("github-copilot"), ModelID.make("copilot-responses-alias"));
+		final chatModel = registry.getModel(ProviderIDs.known("github-copilot"), ModelID.make("copilot-chat-alias"));
+		final responsesModel = registry.getModel(ProviderIDs.known("github-copilot"), ModelID.make("copilot-responses-alias"));
 		final chatLanguage = registry.getLanguage(chatModel);
 		final responsesLanguage = registry.getLanguage(responsesModel);
 		final resolved = registry.resolveCopilotResponses(responsesModel);

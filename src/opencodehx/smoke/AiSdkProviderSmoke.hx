@@ -33,6 +33,7 @@ import opencodehx.provider.ProviderTypes.ProviderLimit;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderIDs;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.tool.ReadTool;
 import opencodehx.tool.ToolRegistry;
@@ -177,8 +178,8 @@ class AiSdkProviderSmoke {
 			},
 			auth: {},
 		});
-		final provider = requireProvider(registry.getProvider(ProviderID.make("cloudflare-ai-gateway")), "cloudflare provider");
-		final model = registry.getModel(ProviderID.make("cloudflare-ai-gateway"), ModelID.make("openai/gpt-5.2-codex"));
+		final provider = requireProvider(registry.getProvider(ProviderIDs.known("cloudflare-ai-gateway")), "cloudflare provider");
+		final model = registry.getModel(ProviderIDs.known("cloudflare-ai-gateway"), ModelID.make("openai/gpt-5.2-codex"));
 		final settings = CloudflareAiGatewayLoader.settings(provider, model);
 		eq(settings.accountId, "fixture-account", "cloudflare account id");
 		eq(settings.gateway, "fixture-gateway", "cloudflare gateway id");
@@ -220,8 +221,8 @@ class AiSdkProviderSmoke {
 			env: {ANTHROPIC_API_KEY: "fixture-anthropic-token"},
 			auth: {},
 		});
-		final provider = requireProvider(registry.getProvider(ProviderID.make("anthropic")), "anthropic provider");
-		final model = registry.getModel(ProviderID.make("anthropic"), ModelID.make("claude-haiku-4-5"));
+		final provider = requireProvider(registry.getProvider(ProviderIDs.known("anthropic")), "anthropic provider");
+		final model = registry.getModel(ProviderIDs.known("anthropic"), ModelID.make("claude-haiku-4-5"));
 		final settings = AiSdkLanguageLoader.anthropicFactoryOptions(provider, model);
 		eq(settings.name.orNull(), "anthropic", "anthropic provider name");
 		eq(settings.baseURL.orNull(), "https://api.anthropic.com/v1", "anthropic base url");
@@ -464,8 +465,8 @@ class AiSdkProviderSmoke {
 			},
 			auth: {},
 		});
-		final provider = requireProvider(registry.getProvider(ProviderID.make("gitlab")), "gitlab provider");
-		final model = registry.getModel(ProviderID.make("gitlab"), ModelID.make("duo-chat-haiku-4-5"));
+		final provider = requireProvider(registry.getProvider(ProviderIDs.known("gitlab")), "gitlab provider");
+		final model = registry.getModel(ProviderIDs.known("gitlab"), ModelID.make("duo-chat-haiku-4-5"));
 		final settings = AiSdkLanguageLoader.gitLabFactoryOptions(provider, model);
 		eq(settings.instanceUrl.orNull(), "https://gitlab.example.test", "gitlab instance url");
 		eq(settings.apiKey.orNull(), "fixture-gitlab-token", "gitlab api key");

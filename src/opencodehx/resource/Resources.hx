@@ -1,5 +1,11 @@
 package opencodehx.resource;
 
+#if macro
+import haxe.macro.Context;
+import haxe.macro.Expr;
+import haxe.macro.Type;
+#end
+#if !macro
 import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
 import haxe.Json;
@@ -8,6 +14,7 @@ import opencodehx.externs.js.EsmModule;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodeBuffer;
+#end
 
 enum abstract ResourceKind(String) from String to String {
 	final Text = "text";
@@ -15,6 +22,86 @@ enum abstract ResourceKind(String) from String to String {
 	final File = "file";
 	final Wasm = "wasm";
 	final Worker = "worker";
+}
+
+enum abstract KnownResourcePath(String) to String {
+	var AssetPulseA = "asset/pulse-a.wav";
+	var PromptExample = "prompt/example.txt";
+	var SmokeResourceJson = "smoke-resource.json";
+	var TreeSitterBashWasm = "wasm/tree-sitter-bash.wasm";
+	var TreeSitterFixtureWasm = "wasm/tree-sitter-fixture.wasm";
+	var TreeSitterPowerShellWasm = "wasm/tree-sitter-powershell.wasm";
+	var TreeSitterWasm = "wasm/tree-sitter.wasm";
+	var ParserWorker = "worker/parser-worker.mjs";
+	var TuiWorker = "worker/tui-worker.mjs";
+}
+
+class ResourcePaths {
+	public static macro function known(path:Expr):Expr {
+		final resourcePath = literalString(path);
+		final entries = resourceEntries();
+		for (entry in entries) {
+			if (entry.value == resourcePath) {
+				final resourceExpr:Expr = {
+					expr: EField(macro opencodehx.resource.Resources.KnownResourcePath, entry.fieldName),
+					pos: path.pos,
+				};
+				final out = macro $resourceExpr;
+				out.pos = path.pos;
+				return out;
+			}
+		}
+
+		Context.error('Unknown source-authored resource path "${resourcePath}". Known resource paths: ${knownResourcePaths(entries)}.', path.pos);
+		return macro null;
+	}
+
+	#if macro
+	static function resourceEntries():Array<{final fieldName:String; final value:String;}> {
+		return switch Context.getType("opencodehx.resource.Resources.KnownResourcePath") {
+			case TAbstract(_.get() => abstractType, _):
+				final impl = abstractType.impl.get();
+				final out:Array<{final fieldName:String; final value:String;}> = [];
+				for (field in impl.statics.get()) {
+					switch field.kind {
+						case FVar(_, _):
+							final value = typedStringValue(field.expr());
+							if (value != null) out.push({fieldName: field.name, value: value});
+						default:
+					}
+				}
+				out;
+			default:
+				[];
+		}
+	}
+
+	static function typedStringValue(expr:TypedExpr):Null<String> {
+		if (expr == null)
+			return null;
+		return switch expr.expr {
+			case TMeta(_, inner) | TParenthesis(inner) | TCast(inner, _):
+				typedStringValue(inner);
+			case TConst(TString(value)):
+				value;
+			default:
+				null;
+		}
+	}
+
+	static function knownResourcePaths(entries:Array<{final fieldName:String; final value:String;}>):String {
+		return [for (entry in entries) entry.value].join(", ");
+	}
+
+	static function literalString(expr:Expr):String {
+		return switch expr.expr {
+			case EConst(CString(value, _)):
+				value;
+			default:
+				Context.error("Source-authored resource paths must be string literals so the resource catalog can be checked at compile time.", expr.pos);
+		}
+	}
+	#end
 }
 
 typedef ResourceManifestEntry = {
@@ -36,6 +123,7 @@ typedef WasmResource = {
 	final prefix:Array<Int>;
 }
 
+#if !macro
 class Resources {
 	public static function text(relative:String):String {
 		return Fs.readFileSync(file(relative), "utf8");
@@ -139,3 +227,4 @@ class Resources {
 		}
 	}
 }
+#end

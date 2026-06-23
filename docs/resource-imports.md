@@ -24,6 +24,8 @@ OpenCode uses three resource patterns that matter for early ports:
 
 Paths are normalized and cannot be absolute or parent-directory escapes. The adapter is intentionally explicit because NodeNext does not natively load arbitrary `.txt`, `.wav`, or `.wasm` imports without a loader or bundler contract.
 
+Haxe-owned resource reads use `ResourcePaths.known("...")` against the copied-resource catalog so prompt, worker, WAV, and WASM path typos fail at compile time. The generated manifest remains runtime-decoded JSON because it is build output, not source-authored Haxe.
+
 The build script mirrors resources into both `src-gen/resources` for TypeScript-side package import metadata and `dist/resources` for runtime path reads after `tsc` emits JavaScript. `scripts/build/copy-resources.mjs` writes the same manifest into both trees after copying fixture resources and npm parser WASM files.
 
 ## Evidence
