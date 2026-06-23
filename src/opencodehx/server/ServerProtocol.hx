@@ -19,6 +19,11 @@ typedef SelectSessionRequest = {
 	final sessionID:String;
 }
 
+typedef UpdateSessionRequest = {
+	final title:Null<String>;
+	final archived:Null<Float>;
+}
+
 typedef SessionListQuery = {
 	final directory:Null<String>;
 	final roots:Bool;
@@ -198,6 +203,20 @@ class ServerProtocol {
 		}
 	}
 
+	public static function decodeUpdateSession(raw:Unknown):DecodeResult<UpdateSessionRequest> {
+		return switch optionalString(raw, "title") {
+			case Rejected(message):
+				Rejected(message);
+			case Decoded(title):
+				switch optionalNestedFloat(raw, "time", "archived") {
+					case Rejected(message):
+						Rejected(message);
+					case Decoded(archived):
+						Decoded({title: title, archived: archived});
+				}
+		}
+	}
+
 	public static function decodeSessionListQuery(read:String->Null<String>):SessionListQuery {
 		return {
 			directory: blankToNull(read("directory")),
@@ -252,6 +271,29 @@ class ServerProtocol {
 				updated: updated == null ? info.time.updated : updated,
 				compacting: info.time.compacting,
 				archived: info.time.archived,
+			},
+		};
+	}
+
+	public static function withArchived(info:SessionInfo, archived:Null<Float>, ?updated:Float):SessionInfo {
+		return {
+			id: info.id,
+			slug: info.slug,
+			projectID: info.projectID,
+			workspaceID: info.workspaceID,
+			directory: info.directory,
+			parentID: info.parentID,
+			title: info.title,
+			version: info.version,
+			summary: info.summary,
+			share: info.share,
+			revert: info.revert,
+			permission: info.permission,
+			time: {
+				created: info.time.created,
+				updated: updated == null ? info.time.updated : updated,
+				compacting: info.time.compacting,
+				archived: archived,
 			},
 		};
 	}
@@ -344,6 +386,24 @@ class ServerProtocol {
 		if (!Std.isOfType(value, String))
 			return Rejected('${field}: expected string');
 		return Decoded(value);
+	}
+
+	static function optionalNestedFloat(raw:Unknown, parent:String, field:String):DecodeResult<Null<Float>> {
+		// Justified Dynamic boundary: Hono request JSON arrives as `unknown`;
+		// the nested update DTO is immediately narrowed to `Null<Float>`.
+		final data:Dynamic = cast raw;
+		if (data == null || !Reflect.hasField(data, parent) || Reflect.field(data, parent) == null)
+			return Decoded(null);
+		final nested:Dynamic = Reflect.field(data, parent);
+		if (!Reflect.isObject(nested))
+			return Rejected('${parent}: expected object');
+		if (!Reflect.hasField(nested, field) || Reflect.field(nested, field) == null)
+			return Decoded(null);
+		final value:Dynamic = Reflect.field(nested, field);
+		if (!Std.isOfType(value, Int) && !Std.isOfType(value, Float))
+			return Rejected('${parent}.${field}: expected number');
+		final parsed = Std.parseFloat(Std.string(value));
+		return Math.isNaN(parsed) ? Rejected('${parent}.${field}: expected number') : Decoded(parsed);
 	}
 
 	static function emptyToDefault(value:Null<String>, fallback:String):String {

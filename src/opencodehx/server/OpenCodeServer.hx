@@ -95,6 +95,7 @@ class OpenCodeServer {
 		app.get("/project/current", c -> currentProject(c));
 		app.post("/project/git/init", c -> initGitProject(c));
 		app.post("/session", c -> createSession(c));
+		app.patch("/session/:sessionID", c -> updateSession(c));
 		app.get("/session/:sessionID/message", c -> sessionMessages(c));
 		app.post("/session/:sessionID/abort", c -> json(c, true));
 		app.post("/sync/start", c -> json(c, syncRuntime.start()));
@@ -239,6 +240,29 @@ class OpenCodeServer {
 			return json(c, ServerProtocol.error("Invalid message cursor"), 400);
 		} catch (_:StorageException) {
 			return json(c, ServerProtocol.error("Invalid message cursor"), 400);
+		}
+	}
+
+	@:async
+	function updateSession(c:HonoContext):Promise<Response> {
+		final sessionID = param(c, "sessionID");
+		final decoded = ServerProtocol.decodeUpdateSession(await(readJson(c)));
+		final request = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		try {
+			var info = store.getSession(SessionID.make(sessionID));
+			if (request.title != null)
+				info = ServerProtocol.withTitle(info, request.title, info.time.updated + 1);
+			if (request.archived != null)
+				info = ServerProtocol.withArchived(info, request.archived, info.time.updated + 1);
+			store.updateSession(info);
+			return json(c, ServerProtocol.encodeSession(info));
+		} catch (_:StorageException) {
+			return json(c, ServerProtocol.error("Session not found"), 404);
 		}
 	}
 

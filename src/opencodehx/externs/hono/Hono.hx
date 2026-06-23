@@ -39,6 +39,7 @@ extern class Hono {
 	function new();
 	function get(path:String, handler:HonoHandler):Hono;
 	function post(path:String, handler:HonoHandler):Hono;
+	function patch(path:String, handler:HonoHandler):Hono;
 	function put(path:String, handler:HonoHandler):Hono;
 	function delete(path:String, handler:HonoHandler):Hono;
 	function route(path:String, app:Hono):Hono;

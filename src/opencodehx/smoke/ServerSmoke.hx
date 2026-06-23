@@ -469,6 +469,23 @@ class ServerSmoke {
 		final globalSearch:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?search=other-session"))));
 		eq(globalSearch.length, 1, "global search count");
 		eq(Reflect.field(cast globalSearch[0], "id"), "ses_server_3", "global search id");
+		final archivedCreated = await(jsonResponse(await(server.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Archived", title: "archived-session"}),
+		}))));
+		final archivedID = Std.string(Reflect.field(archivedCreated, "id"));
+		final archivedPatch = await(jsonResponse(await(server.app.request('/session/${archivedID}', {
+			method: "PATCH",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({time: {archived: 12345}}),
+		}))));
+		eq(Reflect.field(archivedPatch, "id"), archivedID, "archive patch session id");
+		final archivedDefault:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?search=archived-session"))));
+		eq(archivedDefault.length, 0, "global archived excluded by default");
+		final archivedIncluded:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?search=archived-session&archived=true"))));
+		eq(archivedIncluded.length, 1, "global archived included when requested");
+		eq(Reflect.field(cast archivedIncluded[0], "id"), archivedID, "global archived included id");
 
 		final alternateDirectory = NodePath.join(root, "alternate-workspace");
 		final alternateResponse = @:await server.app.request("/session", {
