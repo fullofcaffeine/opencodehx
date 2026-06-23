@@ -12,15 +12,8 @@ import opencodehx.project.InstanceRuntime.InstanceServiceID;
 class InstanceBootstrapRuntime {
 	public static function upstreamOrder(?commandBus:EventBus<CommandExecutedEvent>, ?overrides:Array<InstanceServiceFactory>):Array<InstanceServiceFactory> {
 		final factories:Array<InstanceServiceFactory> = [];
-		factories.push(noop(Config));
-		factories.push(noop(Plugin));
-		factories.push(noop(Lsp));
-		factories.push(noop(Share));
-		factories.push(noop(Format));
-		factories.push(noop(File));
-		factories.push(noop(FileWatcher));
-		factories.push(noop(Vcs));
-		factories.push(noop(Snapshot));
+		for (id in [Config, Plugin, Lsp, Share, Format, File, FileWatcher, Vcs, Snapshot])
+			factories.push(noop(id));
 		if (commandBus != null)
 			factories.push(commandInitialization(commandBus));
 		if (overrides != null) {
