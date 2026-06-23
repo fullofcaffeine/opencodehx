@@ -8,4 +8,4 @@ Current beta packaging expectations include a local `npm pack` plus temporary gl
 
 Current platform-parity expectations include the Windows shell smoke workflow for `cmd.exe`, PowerShell, Git Bash, PTY shell args, and `killTree` behavior; keep `npm run windows:shell:smoke`, `.github/workflows/ci.yml`, and release-contract checks synchronized when changing shell or process teardown behavior.
 
-Current CI bootstrap expectations include checking out sibling `genes-ts` for Haxe/lix jobs, explicitly installing the local `bun` binary after `npm ci --ignore-scripts` before Bun-backed harnesses run, and installing `ripgrep` before the Node smoke file-search seam runs.
+Current CI bootstrap expectations include checking out sibling `genes-ts` for Haxe/lix jobs, explicitly rebuilding the `better-sqlite3` native addon and installing the local `bun` binary after `npm ci --ignore-scripts`, and installing `ripgrep` before the Node smoke file-search seam runs.

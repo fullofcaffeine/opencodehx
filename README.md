@@ -29,7 +29,7 @@ Primary local references:
 
 Builds currently require the sibling `../genes` checkout pinned in [reference/genes.pin.json](reference/genes.pin.json). GitHub CI checks out `fullofcaffeine/genes-ts` next to this repository to preserve that layout.
 
-CI installs npm packages with lifecycle scripts disabled, then explicitly runs the local `bun` package installer for Bun-backed harnesses. The Node smoke job also installs `ripgrep` before exercising the file-search seam. Keep those bootstrap steps with `npm run test:haxe:unit`, `npm run tui:scaffold`, and `npm run smoke`.
+CI installs npm packages with lifecycle scripts disabled, then explicitly rebuilds the `better-sqlite3` native addon and runs the local `bun` package installer for Bun-backed harnesses. The Node smoke job also installs `ripgrep` before exercising the file-search seam. Keep those bootstrap steps with `npm run test:haxe:unit`, `npm run tui:scaffold`, and `npm run smoke`.
 
 See [AGENTS.md](AGENTS.md) for project rules, Haxe design direction, and the `genes-ts` improvement loop.
 

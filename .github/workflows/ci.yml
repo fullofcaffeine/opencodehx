@@ -114,6 +114,10 @@ jobs:
         working-directory: opencodehx
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Build native Node addons
+        working-directory: opencodehx
+        run: npm rebuild better-sqlite3
+
       - name: Install ripgrep
         run: |
           sudo apt-get update
