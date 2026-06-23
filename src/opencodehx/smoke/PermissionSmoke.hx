@@ -3,6 +3,7 @@ package opencodehx.smoke;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
+import opencodehx.permission.BashArity;
 import opencodehx.permission.PermissionRules;
 import opencodehx.permission.PermissionRuntime;
 import opencodehx.permission.PermissionTypes.PermissionRule;
@@ -15,9 +16,26 @@ import opencodehx.tool.ToolTypes.ToolIDs;
 class PermissionSmoke {
 	public static function run():Void {
 		fromConfigAndEvaluate();
+		bashArityPrefix();
 		disabledTools();
 		runtimeAskReply();
 		toolIntegration();
+	}
+
+	static function bashArityPrefix():Void {
+		eq(BashArity.prefix(["unknown", "command", "subcommand"]).join(" "), "unknown", "arity unknown command");
+		eq(BashArity.prefix(["touch", "foo.txt"]).join(" "), "touch", "arity one token command");
+		eq(BashArity.prefix(["git", "checkout", "main"]).join(" "), "git checkout", "arity two git");
+		eq(BashArity.prefix(["docker", "run", "nginx"]).join(" "), "docker run", "arity two docker");
+		eq(BashArity.prefix(["aws", "s3", "ls", "my-bucket"]).join(" "), "aws s3 ls", "arity three aws");
+		eq(BashArity.prefix(["npm", "run", "dev", "script"]).join(" "), "npm run dev", "arity three npm run");
+		eq(BashArity.prefix(["docker", "compose", "up", "service"]).join(" "), "docker compose up", "arity longest docker compose");
+		eq(BashArity.prefix(["consul", "kv", "get", "config"]).join(" "), "consul kv get", "arity longest consul kv");
+		eq(BashArity.prefix(["git", "checkout"]).join(" "), "git checkout", "arity exact git checkout");
+		eq(BashArity.prefix(["npm", "run", "dev"]).join(" "), "npm run dev", "arity exact npm run dev");
+		eq(BashArity.prefix([]).join(" "), "", "arity empty");
+		eq(BashArity.prefix(["single"]).join(" "), "single", "arity single");
+		eq(BashArity.prefix(["git"]).join(" "), "git", "arity short known command");
 	}
 
 	static function fromConfigAndEvaluate():Void {

@@ -11,12 +11,13 @@ This slice adds the first Haxe-owned permission model:
 - `PermissionRules.evaluate` with last matching wildcard rule semantics.
 - `PermissionRules.fromConfig` for upstream-shaped config objects, including top-level wildcard-first ordering and `~` / `$HOME` expansion.
 - `PermissionRules.disabled` for removing tools when a wildcard deny applies, including edit-family mapping for `write`, `edit`, and `apply_patch`.
+- `BashArity.prefix` for deriving the command-prefix tokens used by bash permission matching, including upstream arity-1/2/3 and longest-match cases.
 - `PermissionRuntime`, a synchronous ask/reply adapter for the current tool execution model. It supports prompt replies of `once`, `always`, and `reject`, and records upstream-shaped permission ask payloads.
 - Tool integration through the existing `ToolContext.ask` hook.
 
 ## Evidence
 
-`PermissionSmoke` covers config conversion, wildcard evaluation, specific-over-wildcard precedence, disabled tools, ask/always/reject behavior, and read/bash tool integration.
+`PermissionSmoke` covers config conversion, wildcard evaluation, specific-over-wildcard precedence, bash arity prefixing, disabled tools, ask/always/reject behavior, and read/bash tool integration.
 
 Gates used for this slice:
 
