@@ -27,6 +27,8 @@ import opencodehx.externs.ws.WebSocket;
 import opencodehx.host.Clock;
 import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
+import opencodehx.project.InstanceRuntime;
+import opencodehx.project.ProjectRuntime;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTrace;
 import opencodehx.server.ServerTypes.ServerListener;
@@ -127,6 +129,7 @@ class ServerSmoke {
 		final health = await(jsonResponse(await(server.app.request("/health"))));
 		eq(Reflect.field(health, "service"), "opencodehx", "health service");
 		await(workspaceRemoteHttp());
+		await(projectGitInitRoutes(server, root));
 
 		// Parsed PTY route JSON is inspected as a smoke boundary payload here;
 		// production PTY request bodies decode through PtyRouteProtocol first.
@@ -917,6 +920,58 @@ class ServerSmoke {
 			out.push(Std.string(Reflect.field(item, "id")));
 		}
 		return out;
+	}
+
+	@:async
+	static function projectGitInitRoutes(server:OpenCodeServer, root:String):Promise<Void> {
+		ProjectRuntime.reset();
+		InstanceRuntime.reset();
+		final plain = NodePath.join(root, "project-init-plain");
+		Fs.mkdirSync(plain, {recursive: true});
+		final plainReal = Fs.realpathSync(plain);
+		final before = ProjectRuntime.fromDirectory(plain).project;
+		InstanceRuntime.boot({
+			directory: plain,
+			worktree: plain,
+			project: before,
+		});
+		final events:Array<opencodehx.project.InstanceRuntime.InstanceEvent> = [];
+		final unsubscribe = InstanceRuntime.subscribe(event -> events.push(event));
+		try {
+			final init = await(jsonResponse(await(server.app.request("/project/git/init", {
+				method: "POST",
+				headers: {"x-opencode-directory": StringTools.urlEncode(plain)},
+			}))));
+			eq(Reflect.field(init, "id"), "global", "project init id");
+			eq(Reflect.field(init, "vcs"), "git", "project init vcs");
+			eq(Reflect.field(init, "worktree"), plainReal, "project init worktree");
+			eq(Fs.existsSync(NodePath.join(plain, ".git")), true, "project init created git dir");
+			eq(Fs.existsSync(NodePath.join(NodePath.join(plain, ".git"), "opencode")), false, "project init does not create opencode git cache");
+			eq(events.length, 1, "project init reload disposes previous instance");
+			eq(events[0].directory, plainReal, "project init disposed directory");
+			eq(Std.string(events[0].type), "server.instance.disposed", "project init disposed event type");
+
+			final current = await(jsonResponse(await(server.app.request("/project/current", {
+				headers: {"x-opencode-directory": StringTools.urlEncode(plain)},
+			}))));
+			eq(Reflect.field(current, "vcs"), "git", "project current vcs");
+			eq(Reflect.field(current, "worktree"), plainReal, "project current worktree");
+
+			final alreadyGit = await(jsonResponse(await(server.app.request("/project/git/init", {
+				method: "POST",
+				headers: {"x-opencode-directory": StringTools.urlEncode(plain)},
+			}))));
+			eq(Reflect.field(alreadyGit, "vcs"), "git", "project init already git vcs");
+			eq(events.length, 1, "project init already git does not reload");
+			unsubscribe();
+			InstanceRuntime.reset();
+			ProjectRuntime.reset();
+		} catch (error:Dynamic) {
+			unsubscribe();
+			InstanceRuntime.reset();
+			ProjectRuntime.reset();
+			throw error;
+		}
 	}
 
 	static function serverTraceAttributes():Void {

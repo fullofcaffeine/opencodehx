@@ -12,6 +12,9 @@ import opencodehx.externs.hono.NodeWs.NodeWebSocketMessage;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketRuntime;
 import opencodehx.externs.web.WebStreams.WebArrayBuffer;
 import opencodehx.externs.web.WebStreams.WebBinary;
+import opencodehx.project.InstanceRuntime;
+import opencodehx.project.ProjectRuntime;
+import opencodehx.project.ProjectRuntime.ProjectInfo;
 import opencodehx.pty.PtyService;
 import opencodehx.pty.PtyTypes.PtyConnectHandler;
 import opencodehx.pty.PtyTypes.PtyID;
@@ -32,6 +35,21 @@ import opencodehx.storage.SqliteSessionStore;
 import opencodehx.storage.StorageError.StorageException;
 import opencodehx.sync.SyncRouteRuntime;
 import opencodehx.sync.SyncRouteRuntime.SyncRouteDecode;
+
+typedef ProjectRouteTime = {
+	final created:Float;
+	final updated:Float;
+	@:optional final initialized:Float;
+}
+
+typedef ProjectRouteResponse = {
+	final id:String;
+	final worktree:String;
+	final vcs:Null<String>;
+	final name:Null<String>;
+	final time:ProjectRouteTime;
+	final sandboxes:Array<String>;
+}
 
 class OpenCodeServer {
 	public final app:Hono;
@@ -74,6 +92,8 @@ class OpenCodeServer {
 		app.get("/event", c -> eventStream(c));
 		app.get("/session", c -> listSessions(c));
 		app.get("/experimental/session", c -> listGlobalSessions(c));
+		app.get("/project/current", c -> currentProject(c));
+		app.post("/project/git/init", c -> initGitProject(c));
 		app.post("/session", c -> createSession(c));
 		app.get("/session/:sessionID/message", c -> sessionMessages(c));
 		app.post("/session/:sessionID/abort", c -> json(c, true));
@@ -160,6 +180,31 @@ class OpenCodeServer {
 			c.header("x-next-cursor", Std.string(tail.time.updated));
 		}
 		return json(c, page);
+	}
+
+	function currentProject(c:HonoContext):Response {
+		final dir = routingDirectory(c);
+		final project = ProjectRuntime.fromDirectory(dir, store).project;
+		return json(c, projectResponse(project));
+	}
+
+	function initGitProject(c:HonoContext):Response {
+		final dir = routingDirectory(c);
+		final prev = ProjectRuntime.fromDirectory(dir, store).project;
+		try {
+			ProjectRuntime.initGit(dir, prev);
+		} catch (error:Dynamic) {
+			return json(c, ServerProtocol.error(Std.string(error)), 400);
+		}
+		final next = ProjectRuntime.fromDirectory(dir, store).project;
+		if (projectChanged(prev, next)) {
+			InstanceRuntime.reload({
+				directory: dir,
+				worktree: dir,
+				project: next,
+			});
+		}
+		return json(c, projectResponse(next));
 	}
 
 	function sessionMessages(c:HonoContext):Response {
@@ -345,6 +390,25 @@ class OpenCodeServer {
 		} catch (_:StorageException) {
 			return false;
 		}
+	}
+
+	static function projectChanged(prev:ProjectInfo, next:ProjectInfo):Bool {
+		return prev.id.toString() != next.id.toString() || prev.vcs != next.vcs || prev.worktree != next.worktree;
+	}
+
+	static function projectResponse(project:ProjectInfo):ProjectRouteResponse {
+		return {
+			id: project.id.toString(),
+			worktree: project.worktree,
+			vcs: project.vcs == null ? null : Std.string(project.vcs),
+			name: project.name,
+			time: {
+				created: project.time.created,
+				updated: project.time.updated,
+				initialized: project.time.initialized,
+			},
+			sandboxes: project.sandboxes.copy(),
+		};
 	}
 
 	static function ptyID(c:HonoContext):PtyID {
