@@ -8,6 +8,18 @@ extern typedef FsStats = {
 	@:optional final mtimeMs:Float;
 }
 
+extern typedef FsWatchOptions = {
+	@:optional final persistent:Bool;
+	@:optional final recursive:Bool;
+	@:optional final encoding:String;
+}
+
+typedef FsWatchListener = (String, Null<String>) -> Void;
+
+extern typedef FsWatcher = {
+	function close():Void;
+}
+
 @:jsRequire("node:fs")
 extern class Fs {
 	static function existsSync(path:String):Bool;
@@ -22,4 +34,5 @@ extern class Fs {
 	@:native("readdirSync") static function readdirNamesSync(path:String):Array<String>;
 	static function statSync(path:String):FsStats;
 	static function realpathSync(path:String):String;
+	static function watch(path:String, options:FsWatchOptions, listener:FsWatchListener):FsWatcher;
 }

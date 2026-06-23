@@ -71,17 +71,22 @@ if (!packageJson.scripts?.["package:smoke"]?.includes("package-smoke.mjs")) {
 if (!packageJson.scripts?.["windows:shell:smoke"]?.includes("windows-shell-smoke.mjs")) {
   fail("package.json scripts missing windows:shell:smoke harness");
 }
+if (!packageJson.scripts?.["file:watcher:smoke"]?.includes("file-watcher-smoke.mjs")) {
+  fail("package.json scripts missing native file watcher smoke harness");
+}
 if (!packageJson.scripts?.["live:package-managers"]?.includes("live-package-manager-side-effects.mjs")) {
   fail("package.json scripts missing opt-in live package-manager harness");
 }
 expectIncludes(packageJson.scripts.test, "ci:version-sync", "npm test");
 expectIncludes(packageJson.scripts.test, "ci:release-contracts", "npm test");
+expectExcludes(packageJson.scripts.test, "file:watcher:smoke", "npm test");
 expectExcludes(packageJson.scripts.test, "live:package-managers", "npm test");
 expectIncludes(packageJson.scripts["public:precommit"], "format:haxe:check", "public:precommit");
 expectIncludes(packageJson.scripts["public:precommit"], "security:gitleaks", "public:precommit");
 expectIncludes(packageJson.scripts["ci:full"], "npm run build", "ci:full");
 expectIncludes(packageJson.scripts["ci:full"], "npm run package:smoke", "ci:full");
 expectIncludes(packageJson.scripts["ci:full"], "npm run tui:scaffold", "ci:full");
+expectExcludes(packageJson.scripts["ci:full"], "file:watcher:smoke", "ci:full");
 expectExcludes(packageJson.scripts["ci:full"], "live:package-managers", "ci:full");
 
 for (const dependency of [

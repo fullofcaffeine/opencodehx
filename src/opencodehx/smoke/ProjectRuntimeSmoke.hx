@@ -6,6 +6,11 @@ import haxe.Json;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.bus.EventBus;
+import opencodehx.file.FileWatcherRuntime;
+import opencodehx.file.FileWatcherRuntime.FileWatchBackend;
+import opencodehx.file.FileWatcherRuntime.FileWatchCallback;
+import opencodehx.file.FileWatcherRuntime.FileWatchChangeKind;
+import opencodehx.file.FileWatcherRuntime.FileWatchHandle;
 import opencodehx.file.FileWatcherRuntime.FileUpdatedEvent;
 import opencodehx.file.FileWatcherRuntime.FileWatchEventType;
 import opencodehx.git.Git;
@@ -78,6 +83,49 @@ typedef SmokeNpmDeps = {
 	final responses:Map<String, NpmHttpResponse>;
 }
 
+class SmokeFileWatchHandle implements FileWatchHandle {
+	final backend:SmokeFileWatchBackend;
+
+	public function new(backend:SmokeFileWatchBackend) {
+		this.backend = backend;
+	}
+
+	public function close():Void {
+		backend.closed = true;
+	}
+}
+
+class SmokeFileWatchBackend implements FileWatchBackend {
+	public final watched:Array<String> = [];
+	public var closed = false;
+
+	var callbacks = new Map<String, FileWatchCallback>();
+
+	public function new() {}
+
+	public function hasNativeBinding():Bool {
+		return true;
+	}
+
+	public function watch(directory:String, callback:FileWatchCallback):FileWatchHandle {
+		watched.push(directory);
+		callbacks.set(directory, callback);
+		return new SmokeFileWatchHandle(this);
+	}
+
+	public function emit(directory:String, file:String):Void {
+		final callback = callbacks.get(directory);
+		if (callback == null)
+			throw 'missing watcher callback for ${directory}';
+		callback({
+			type: FileUpdated,
+			directory: directory,
+			file: file,
+			event: Change,
+		});
+	}
+}
+
 class ProjectRuntimeSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-project-"));
@@ -137,6 +185,7 @@ class ProjectRuntimeSmoke {
 		eq(Git.branch(dir), "main", "git branch");
 		eq(Git.defaultBranch(dir).name, "main", "git default branch");
 		vcsEvents(dir);
+		vcsWatcherEvents(dir);
 
 		final weird = NodeProcess.platform() == "win32" ? "space file.txt" : "tab\tfile.txt";
 		write(dir, weird, "before\n");
@@ -432,6 +481,35 @@ class ProjectRuntimeSmoke {
 		eq(branchHistory[0].type, BranchUpdated, "vcs branch bus event type");
 		eq(branchHistory[0].branch, "feature/vcs-event", "vcs branch bus event payload");
 		eq(hasVcsEvent(branchEvents, BranchUpdated, "feature/vcs-event"), true, "vcs live branch bus event");
+	}
+
+	static function vcsWatcherEvents(dir:String):Void {
+		final fileBus = new EventBus<FileUpdatedEvent>();
+		final branchBus = new EventBus<VcsEvent>();
+		final backend = new SmokeFileWatchBackend();
+		final watcher = new FileWatcherRuntime(dir, fileBus, backend);
+		final vcs = new VcsRuntime(dir, branchBus, fileBus);
+		try {
+			eq(watcher.init(false, true), true, "native watcher seam subscribed git dir");
+			final gitDir = NodePath.join(dir, ".git");
+			eq(backend.watched.indexOf(gitDir) != -1, true, "native watcher seam watches git dir");
+			git(dir, ["branch", "feature/vcs-watch"]);
+			Fs.writeFileSync(NodePath.join(gitDir, "HEAD"), "ref: refs/heads/feature/vcs-watch\n", "utf8");
+			backend.emit(gitDir, "HEAD");
+			eq(vcs.branch(), "feature/vcs-watch", "vcs watcher refreshed branch");
+			eq(hasVcsEvent(branchBus.snapshot(), BranchUpdated, "feature/vcs-watch"), true, "vcs watcher branch bus event");
+			eq(fileBus.snapshot()[0].file, NodePath.join(gitDir, "HEAD"), "native watcher bus publishes HEAD path");
+			// Dynamic is required at this JS runtime cleanup boundary because Haxe
+			// code, Node externs, and Git helpers may throw strings, Haxe
+			// exceptions, or JS errors.
+		} catch (error:Dynamic) {
+			watcher.dispose();
+			vcs.dispose();
+			throw error;
+		}
+		watcher.dispose();
+		vcs.dispose();
+		eq(backend.closed, true, "native watcher handle closed");
 	}
 
 	static function hasVcsEvent(events:Array<VcsEvent>, type:VcsEventType, branch:String):Bool {

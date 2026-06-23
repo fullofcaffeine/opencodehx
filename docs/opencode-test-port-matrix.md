@@ -10,9 +10,9 @@
 
 | Port status | Kind | Count |
 | --- | --- | ---: |
-| deferred | test | 49 |
+| deferred | test | 63 |
 | direct | test | 2 |
-| partial | test | 106 |
+| partial | test | 92 |
 | ported | fixture | 1 |
 | ported | test | 3 |
 | reference-only | doc | 9 |
@@ -31,6 +31,6 @@ Every `partial` or `deferred` executable test row has a `skip_or_defer_reason`, 
 
 ## Current Reading
 
-OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider registry, credential-free AI SDK stream mechanics, OpenAI-compatible/OpenAI/xAI/Azure/Google/Vertex/Anthropic/Bedrock/Mistral/Groq/Cohere/Perplexity/OpenRouter/DeepInfra/Cerebras/Gateway/TogetherAI/Vercel/Alibaba/GitLab SDK factory paths, first provider request-option, variant, and schema transforms, CLI run behavior plus the upstream command-surface catalog, project/git/worktree/sync/npm, parser-backed bash permissions, PTY lifecycle/WebSocket replay, one-turn session behavior, store-backed session export, server routes/SSE/WebSocket, SDK-compatible create/list/resume/event client behavior, first MCP/ACP protocol-surface smokes, first LSP runtime/client/tool smokes, and first plugin metadata/loader/trigger smokes. Large product surfaces remain deferred: full server/API parity, full published SDK compatibility, broader provider SDK loading/transforms, full session lifecycle, real MCP/ACP transports and OAuth flows, side-effecting CLI subcommands beyond `run`, live plugin imports/installs/auth/adaptors, real LSP process transports/downloads, live TUI, live package-manager installation side effects, and packaging.
+OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider registry, credential-free AI SDK stream mechanics, OpenAI-compatible/OpenAI/xAI/Azure/Google/Vertex/Anthropic/Bedrock/Mistral/Groq/Cohere/Perplexity/OpenRouter/DeepInfra/Cerebras/Gateway/TogetherAI/Vercel/Alibaba/GitLab SDK factory paths, first provider request-option, variant, and schema transforms, CLI, project/git/worktree/sync/npm, parser-backed bash permissions, PTY lifecycle/WebSocket replay, and one-turn session behavior. Large product surfaces remain deferred: full server/API and SDK compatibility, broader provider SDK loading/transforms, full session lifecycle, MCP/ACP, plugin loading, LSP, live TUI, live package-manager installation side effects, and packaging.
 
 The next practical move is to use this matrix while selecting Beads: before starting a subsystem, filter `reference/opencode-test-port-matrix.csv` by `next_bead` and promote the relevant upstream tests into Haxe-owned fixtures or differential harnesses.

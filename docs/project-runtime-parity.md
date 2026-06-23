@@ -18,6 +18,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - typed branch-update events,
   - typed bus propagation for `vcs.branch.updated`,
   - HEAD `file.updated` events refresh the cached branch,
+  - `FileWatcherRuntime` subscribes to the git metadata directory and publishes typed HEAD events into the same bus,
+  - `npm run file:watcher:smoke` exercises the real Node `fs.watch` backend against a temporary git repo outside normal CI,
   - working-tree diff mode for tracked and untracked changes,
   - branch diff mode against the default branch merge base.
 - Project discovery:
@@ -107,7 +109,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 
 - Full installation side effects for package managers that cannot be constrained to a disposable sandbox or dry-run/noop mode.
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
-- Native VCS file watching bindings beyond typed HEAD-event bus refresh.
+- Broader watcher service behavior beyond git HEAD updates, including full root file watching, config ignore integration, protected paths, and upstream `@parcel/watcher` backend parity.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
 - Full workspace control-plane routing/service integration beyond the covered sync/proxy seams.
 
@@ -118,3 +120,5 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 `ProjectRuntime` stores canonical realpaths when the path exists. This avoids macOS `/var` versus `/private/var` drift and gives project/worktree comparisons one stable host spelling.
 
 When a `SessionStore` is supplied, `ProjectRuntime.fromDirectory` persists the discovered project and migrates legacy sessions from `global` only when their stored directory exactly matches the real project worktree. This matches upstream's project migration rule without making the default in-memory discovery path depend on SQLite.
+
+`FileWatcherRuntime` is intentionally narrow: it converts native Node `fs.watch` callbacks into typed `FileUpdatedEvent` records and filters git metadata notifications down to `.git/HEAD` for VCS branch refresh. The injected smoke backend keeps normal `npm run smoke` deterministic, while `npm run file:watcher:smoke` gives opt-in native watcher evidence on hosts where `fs.watch` is reliable.

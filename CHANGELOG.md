@@ -11,3 +11,5 @@ Current platform-parity expectations include the Windows shell smoke workflow fo
 Current CI bootstrap expectations include checking out sibling `genes-ts` for Haxe/lix jobs, explicitly rebuilding the `better-sqlite3` native addon and installing the local `bun` binary after `npm ci --ignore-scripts`, and installing `ripgrep` before the Node smoke file-search seam runs.
 
 Current live package-manager parity expectations include an explicit opt-in `npm run live:package-managers` harness. It must stay out of normal smoke/CI, require `OPENCODEHX_LIVE_PACKAGE_MANAGERS=1`, and keep side effects inside temp prefixes/projects or package-manager dry-run/noop modes.
+
+Current native watcher parity expectations include an explicit `npm run file:watcher:smoke` harness for host-timed Node `fs.watch` evidence. Keep the deterministic injected watcher path in `npm run smoke`, and keep the native harness out of normal CI unless it becomes stable across hosted platforms.
