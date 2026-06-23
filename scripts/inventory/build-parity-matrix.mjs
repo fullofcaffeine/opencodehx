@@ -130,28 +130,28 @@ function testKind(path) {
   return "fixture"
 }
 
+const m11Owners = {
+  foundation: "opencodehx-000.11",
+  session: "opencodehx-000.2",
+  provider: "opencodehx-000.3",
+  server: "opencodehx-000.4",
+  plugin: "opencodehx-000.5",
+  protocol: "opencodehx-000.6",
+  lsp: "opencodehx-000.7",
+  tui: "opencodehx-000.8",
+  tool: "opencodehx-000.9",
+}
+
 function nextBeadFor(path, area) {
-  if (path.includes("/tui/") || area === "tui") return "opencodehx-031/opencodehx-032/opencodehx-033/opencodehx-034/opencodehx-035"
-  if (area === "server" || area === "control-plane") return "opencodehx-026/opencodehx-027"
-  if (area === "session") return "opencodehx-023/opencodehx-048"
-  if (area === "provider" || area === "account" || area === "auth") return "opencodehx-024/opencodehx-025"
-  if (area === "tool" || area === "patch" || area === "snapshot") return "opencodehx-u5i"
-  if (area === "shell") return "opencodehx-jc7"
-  if (area === "pty") return "opencodehx-m5b"
-  if (area === "permission") return "opencodehx-049"
-  if (area === "config") return "opencodehx-zr1"
-  if (area === "project" || area === "workspace" || area === "git" || area === "installation" || area === "sync")
-    return "opencodehx-who"
-  if (area === "mcp" || area === "acp") return "opencodehx-028"
-  if (area === "lsp" || area === "ide") return "opencodehx-029"
-  if (area === "plugin" || area === "skill") return "opencodehx-030"
-  if (area === "cli") return "opencodehx-036"
-  if (area === "storage") return "opencodehx-048"
-  if (area === "format") return "opencodehx-bvh"
-  if (area === "effect" || area === "bus") return "opencodehx-026"
-  if (area === "agent" || area === "question") return "opencodehx-023/opencodehx-024"
-  if (area === "memory") return "opencodehx-049"
-  return "opencodehx-000"
+  if (path.includes("/tui/") || area === "tui") return m11Owners.tui
+  if (area === "server" || area === "control-plane") return m11Owners.server
+  if (area === "session" || area === "agent" || area === "question") return m11Owners.session
+  if (area === "provider" || area === "account" || area === "auth") return m11Owners.provider
+  if (area === "tool" || area === "patch" || area === "snapshot" || area === "share") return m11Owners.tool
+  if (area === "mcp" || area === "acp") return m11Owners.protocol
+  if (area === "lsp" || area === "ide") return m11Owners.lsp
+  if (area === "plugin" || area === "skill") return m11Owners.plugin
+  return m11Owners.foundation
 }
 
 function directEvidence(path) {
@@ -159,7 +159,7 @@ function directEvidence(path) {
     ["util/format.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#formatDuration; docs/util-port.md", "none", "UtilSmoke.formatDuration"]],
     ["util/lazy.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#lazy; docs/util-port.md", "none", "UtilSmoke.lazy"]],
     ["util/data-url.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#dataUrl; docs/util-port.md", "none", "UtilSmoke.dataUrl"]],
-    ["util/error.test.ts", ["partial", "src/opencodehx/smoke/UtilSmoke.hx#errorTools; docs/error-diagnostics-parity.md", "representative native, record-like, and opaque throwable shapes are covered; full upstream arbitrary object edge cases remain deferred", "UtilSmoke.errorTools golden", "opencodehx-049"]],
+    ["util/error.test.ts", ["partial", "src/opencodehx/smoke/UtilSmoke.hx#errorTools; docs/error-diagnostics-parity.md", "representative native, record-like, and opaque throwable shapes are covered; full upstream arbitrary object edge cases remain deferred", "UtilSmoke.errorTools golden", m11Owners.foundation]],
     ["fake/provider.ts", ["ported", "src/opencodehx/provider/FakeProvider.hx; scripts/harness/transcript-parity.mjs; docs/fake-provider-transcript-harness.md", "none", "FakeProvider plus one-turn golden transcript"]],
     ["session/message-v2.test.ts", ["partial", "src/opencodehx/smoke/MessageSmoke.hx; docs/message-v2-port.md", "model-message conversion and provider-transform cases are not ported yet", "MessageSmoke codec/part/cursor fixtures"]],
     ["session/processor-effect.test.ts", ["partial", "src/opencodehx/smoke/SessionProcessorSmoke.hx; docs/session-processor-one-turn.md", "current processor is one-turn and synchronous; upstream Effect streaming lifecycle remains deferred", "SessionProcessorSmoke"]],
@@ -170,7 +170,7 @@ function directEvidence(path) {
         "fixtures/transcripts/one-turn.golden.json; scripts/harness/transcript-parity.mjs; scripts/harness/cli-smoke.mjs; src/opencodehx/smoke/SessionProcessorSmoke.hx",
         "credential-backed success evidence plus live tool schema advertisement and continuation after tool results remain deferred",
         "one-turn fake-provider transcript golden plus credential-free async AI SDK session/CLI harness including first model-emitted tool-call dispatch and live-registry CLI validation with well-known remote config plus global/project config/auth storage/active-account config discovery",
-        "opencodehx-023/opencodehx-048/opencodehx-nrh",
+        m11Owners.session,
       ],
     ],
     ["storage/storage.test.ts", ["partial", "src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "storage service integration beyond session/message CRUD remains deferred", "StorageSmoke"]],
@@ -188,27 +188,27 @@ function directEvidence(path) {
     ["tool/write.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "basic write behavior is covered; full overwrite and diagnostics matrix remains deferred", "ToolSmoke.writeExec"]],
     ["tool/edit.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative exact/replace-all/multiple-match and tolerant fallback behavior is covered; full upstream Effect/LSP/BOM/event matrix remains deferred", "ToolSmoke.editExec"]],
     ["tool/apply_patch.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative add/update/delete/move, EOF, heredoc, Unicode, malformed, and no-side-effect behavior is covered; full upstream Effect/LSP/BOM/event matrix remains deferred", "ToolSmoke.applyPatchExec"]],
-    ["tool/bash.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "non-interactive Node shell seam and tree-sitter Bash scanner prompts are covered; streaming metadata and full PowerShell/Windows matrix remain deferred", "ToolSmoke.bashExec and BashCommandScanner fixtures", "opencodehx-jc7"]],
+    ["tool/bash.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "non-interactive Node shell seam and tree-sitter Bash scanner prompts are covered; streaming metadata and full PowerShell/Windows matrix remain deferred", "ToolSmoke.bashExec and BashCommandScanner fixtures", m11Owners.tool]],
     ["pty/pty-output-isolation.test.ts", ["direct", "src/opencodehx/smoke/PtySmoke.hx; docs/pty-runtime.md", "service-level fixtures cover replay, tail cursors, reused socket wrappers, recycled socket objects, and in-place data mutation", "PtySmoke outputReplay/reusedSocketIsolation/recycledSocketIsolation/inPlaceSocketDataMutation", "none"]],
     ["pty/pty-session.test.ts", ["direct", "src/opencodehx/smoke/PtySmoke.hx; src/opencodehx/smoke/ServerSmoke.hx; docs/pty-runtime.md", "created/exited/deleted lifecycle plus PTY HTTP/WebSocket routes are covered; full Effect service integration remains deferred", "PtySmoke lifecycle fixtures plus ServerSmoke PTY routes/WebSocket", "none"]],
-    ["pty/pty-shell.test.ts", ["partial", "src/opencodehx/smoke/PtySmoke.hx; docs/pty-runtime.md", "bash login args are covered on POSIX; Windows PowerShell/Git Bash selection remains deferred", "PtySmoke bash login arg fixture", "opencodehx-jc7"]],
-    ["shell/shell.test.ts", ["partial", "src/opencodehx/host/node/NodeProcess.hx; src/opencodehx/smoke/PtySmoke.hx", "shell classification and login args are covered; full upstream selection/kill-tree/Git Bash matrix remains deferred", "PtySmoke bash login args", "opencodehx-jc7"]],
+    ["pty/pty-shell.test.ts", ["partial", "src/opencodehx/smoke/PtySmoke.hx; docs/pty-runtime.md", "bash login args are covered on POSIX; Windows PowerShell/Git Bash selection remains deferred", "PtySmoke bash login arg fixture", m11Owners.foundation]],
+    ["shell/shell.test.ts", ["partial", "src/opencodehx/host/node/NodeProcess.hx; src/opencodehx/smoke/PtySmoke.hx", "shell classification and login args are covered; full upstream selection/kill-tree/Git Bash matrix remains deferred", "PtySmoke bash login args", m11Owners.foundation]],
     ["tool/external-directory.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "external workdir denial is covered for bash; full permission surface remains deferred", "ToolSmoke.bashExec external directory case"]],
     ["tool/registry.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "builtin registry and errors are covered; .opencode custom tool loading remains deferred", "ToolSmoke.registrySurface"]],
     ["permission/next.test.ts", ["partial", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "sync ask/allow/deny is covered; full async session prompt lifecycle remains deferred", "PermissionSmoke.runtimeAskReply/toolIntegration"]],
     ["permission/arity.test.ts", ["partial", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "disabled-tool derivation and rule matching are covered; full arity policy remains deferred", "PermissionSmoke.disabledTools"]],
     ["provider/provider.test.ts", ["partial", "src/opencodehx/smoke/ProviderSmoke.hx; docs/provider-registry-port.md", "AI SDK language model loading, models.dev cache/fetch, plugin provider hooks, and provider transforms remain deferred", "ProviderSmoke registry env/config/auth/filter/model fixtures"]],
     ["provider/amazon-bedrock.test.ts", ["partial", "src/opencodehx/smoke/ProviderSmoke.hx; docs/provider-registry-port.md", "Bedrock SDK prefix/getLanguageModel and credential provider chain internals remain deferred", "ProviderSmoke Bedrock config/env/auth fixtures"]],
-    ["cli/error.test.ts", ["partial", "src/opencodehx/smoke/CliSmoke.hx; fixtures/resources/errors/diagnostics.golden.json; docs/error-diagnostics-parity.md", "account transport plus provider/config diagnostics are covered; full yargs/OpenCode CLI errors remain deferred", "CliSmoke diagnosticFormatting plus live-registry stderr smoke", "opencodehx-049"]],
-    ["git/git.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; scripts/harness/file-watcher-smoke.mjs; docs/project-runtime-parity.md", "branch/defaultBranch/status/diff/stats, explicit branch-refresh events, and native watcher-backed HEAD branch refresh are covered; broader file service watcher behavior remains deferred", "ProjectRuntimeSmoke Git/VCS fixtures; file-watcher-smoke.mjs", "opencodehx-706"]],
-    ["installation/installation.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "installation method detection, latest-version lookup for GitHub/npm/bun/pnpm/brew/scoop/choco shapes, release-type classification, upgrade command planning, and package-manager uninstall command planning are covered with typed injected HTTP/process seams; real package-manager side effects remain deferred", "ProjectRuntimeSmoke installationRuntime fixture", "opencodehx-gzn"]],
-    ["npm.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "package spec sanitizing, package cache add/install/which/outdated semantics, installation package-manager discovery, uninstall command planning, and config dependency bootstrap are covered through typed injected seams; live package-manager side effects remain deferred", "ProjectRuntimeSmoke npmSanitize/npmRuntime/installationRuntime and ConfigSmoke dependencyBootstrap fixtures", "opencodehx-gzn"]],
-    ["project/migrate-global.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "global/no-commit discovery plus storage-backed migration of matching global sessions are covered; fuller database service integration remains deferred", "ProjectRuntimeSmoke projectGlobalMigration fixture", "opencodehx-hic"]],
-    ["project/project.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "project discovery, initGit, stable/cached git-root IDs, clone/bare cache behavior, updates/events, initialization timestamps, command-executed init timestamps, favicon discovery, sandbox pruning, and stored command updates are covered; fuller config/service integration remains deferred", "ProjectRuntimeSmoke project edge fixtures", "opencodehx-obx"]],
-    ["project/vcs.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; scripts/harness/file-watcher-smoke.mjs; docs/project-runtime-parity.md", "git repo discovery, core VCS commands, explicit branch-change events, typed bus propagation, HEAD file-update refresh, native watcher-backed HEAD refresh, and git/branch diff modes are covered; broader file watcher service behavior remains deferred", "ProjectRuntimeSmoke VcsRuntime fixture; file-watcher-smoke.mjs", "opencodehx-706"]],
+    ["cli/error.test.ts", ["partial", "src/opencodehx/smoke/CliSmoke.hx; fixtures/resources/errors/diagnostics.golden.json; docs/error-diagnostics-parity.md", "account transport plus provider/config diagnostics are covered; full yargs/OpenCode CLI errors remain deferred", "CliSmoke diagnosticFormatting plus live-registry stderr smoke", m11Owners.foundation]],
+    ["git/git.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; scripts/harness/file-watcher-smoke.mjs; docs/project-runtime-parity.md", "branch/defaultBranch/status/diff/stats, explicit branch-refresh events, and native watcher-backed HEAD branch refresh are covered; broader file service watcher behavior remains deferred", "ProjectRuntimeSmoke Git/VCS fixtures; file-watcher-smoke.mjs", m11Owners.foundation]],
+    ["installation/installation.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "installation method detection, latest-version lookup for GitHub/npm/bun/pnpm/brew/scoop/choco shapes, release-type classification, upgrade command planning, and package-manager uninstall command planning are covered with typed injected HTTP/process seams; real package-manager side effects remain deferred", "ProjectRuntimeSmoke installationRuntime fixture", m11Owners.foundation]],
+    ["npm.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "package spec sanitizing, package cache add/install/which/outdated semantics, installation package-manager discovery, uninstall command planning, and config dependency bootstrap are covered through typed injected seams; live package-manager side effects remain deferred", "ProjectRuntimeSmoke npmSanitize/npmRuntime/installationRuntime and ConfigSmoke dependencyBootstrap fixtures", m11Owners.foundation]],
+    ["project/migrate-global.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "global/no-commit discovery plus storage-backed migration of matching global sessions are covered; fuller database service integration remains deferred", "ProjectRuntimeSmoke projectGlobalMigration fixture", m11Owners.foundation]],
+    ["project/project.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "project discovery, initGit, stable/cached git-root IDs, clone/bare cache behavior, updates/events, initialization timestamps, command-executed init timestamps, favicon discovery, sandbox pruning, and stored command updates are covered; fuller config/service integration remains deferred", "ProjectRuntimeSmoke project edge fixtures", m11Owners.foundation]],
+    ["project/vcs.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; scripts/harness/file-watcher-smoke.mjs; docs/project-runtime-parity.md", "git repo discovery, core VCS commands, explicit branch-change events, typed bus propagation, HEAD file-update refresh, native watcher-backed HEAD refresh, and git/branch diff modes are covered; broader file watcher service behavior remains deferred", "ProjectRuntimeSmoke VcsRuntime fixture; file-watcher-smoke.mjs", m11Owners.foundation]],
     ["project/worktree-remove.test.ts", ["direct", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "service-level fixtures cover existing/missing removal, branch deletion, sandbox untracking, nonzero git remove after detach, Windows-sensitive path keys, and conditional native Windows fsmonitor cleanup", "ProjectRuntimeSmoke worktree remove/platform failure fixtures", "none"]],
-    ["project/worktree.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "worktree slug/unique naming, branch, create, ready/failed events, project-ID sharing, sandbox tracking, typed upstream-order instance service graph, bootstrap/cache/disposal, command-executed initialization, start commands, reset/clean, primary/missing reset errors, and non-git rejection are covered; concrete share/snapshot/live plugin/LSP service internals remain deferred", "ProjectRuntimeSmoke worktree and instance bootstrap graph fixtures", "opencodehx-obx"]],
-    ["sync/index.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; src/opencodehx/smoke/ServerSmoke.hx; docs/project-runtime-parity.md", "typed sequencing, custom aggregate fields, aggregate history, persistence hooks, publish/replay bus behavior, restart-style reload, remove, server replay/history routes, unknown-type errors, and sequence gaps are covered; full SyncEvent definition/projector/database/GlobalBus/payload registry graph remains deferred", "ProjectRuntimeSmoke SyncEventStore fixture plus ServerSmoke /sync routes", "opencodehx-dlz"]],
+    ["project/worktree.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/project-runtime-parity.md", "worktree slug/unique naming, branch, create, ready/failed events, project-ID sharing, sandbox tracking, typed upstream-order instance service graph, bootstrap/cache/disposal, command-executed initialization, start commands, reset/clean, primary/missing reset errors, and non-git rejection are covered; concrete share/snapshot/live plugin/LSP service internals remain deferred", "ProjectRuntimeSmoke worktree and instance bootstrap graph fixtures", m11Owners.foundation]],
+    ["sync/index.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; src/opencodehx/smoke/ServerSmoke.hx; docs/project-runtime-parity.md", "typed sequencing, custom aggregate fields, aggregate history, persistence hooks, publish/replay bus behavior, restart-style reload, remove, server replay/history routes, unknown-type errors, and sequence gaps are covered; full SyncEvent definition/projector/database/GlobalBus/payload registry graph remains deferred", "ProjectRuntimeSmoke SyncEventStore fixture plus ServerSmoke /sync routes", m11Owners.foundation]],
     ["control-plane/sse.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "SSE emission is covered by /event; standalone parseSSE helper and multiline parser cases remain deferred", "ServerSmoke /event text fixture"]],
     ["server/session-list.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "basic /session list is covered; directory/root/start/search/limit filters remain deferred", "ServerSmoke GET /session"]],
     ["server/session-messages.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "message page, cursor header, bad cursor, and missing session are covered; high-volume legacy limit remains deferred", "ServerSmoke GET /session/:id/message"]],
@@ -417,7 +417,7 @@ const statusSummary = [...portSummary.entries()]
 const portMarkdown = [
   "# OpenCode Test Port Matrix",
   "",
-  "**Bead:** `opencodehx-039`",
+  "**Bead:** `opencodehx-000.1`",
   "",
   "## Summary",
   "",
