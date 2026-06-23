@@ -57,6 +57,13 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - latest-version lookup covers GitHub releases, npm registry, bun/pnpm registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
   - upgrade command planning covers curl, npm, pnpm, bun, Homebrew tap refresh/upgrade, Scoop, and Chocolatey elevated-shell failure messaging,
   - uninstall package-manager command planning covers npm, pnpm, bun, yarn, Homebrew, Chocolatey, Scoop, and the curl no-op package-manager case.
+- Opt-in live package-manager harness:
+  - `npm run live:package-managers` is a guarded no-op unless `OPENCODEHX_LIVE_PACKAGE_MANAGERS=1` is set,
+  - npm uses a temporary global prefix/cache and exercises install, upgrade-by-reinstall, and uninstall,
+  - pnpm and Bun use temporary project directories and isolated stores/caches for add, upgrade-by-add, and remove,
+  - Homebrew uses dry-run install/upgrade/uninstall when available,
+  - Chocolatey uses `--noop` install/upgrade/uninstall on Windows when available, and
+  - Scoop is probed read-only and skips mutation until a repo-approved disposable or dry-run install/remove path exists.
 - Sync:
   - typed event sequencing,
   - custom aggregate fields,
@@ -98,7 +105,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 
 ## Deferred
 
-- Full installation side effects against real package managers.
+- Full installation side effects for package managers that cannot be constrained to a disposable sandbox or dry-run/noop mode.
 - Full project service behavior: integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Native VCS file watching bindings beyond typed HEAD-event bus refresh.
 - Full upstream worktree bootstrap service graph and upstream's broader failure matrix.
