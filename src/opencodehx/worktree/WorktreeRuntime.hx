@@ -212,9 +212,13 @@ class WorktreeRuntime {
 	}
 
 	static function canonical(path:String):String {
+		return directoryKeyForPlatform(path, NodeProcess.platform(), path -> Fs.existsSync(path), path -> Fs.realpathSync(path));
+	}
+
+	public static function directoryKeyForPlatform(path:String, platform:String, exists:String->Bool, realpath:String->String):String {
 		final resolved = NodePath.normalize(NodePath.resolve(path, ""));
-		final normalized = Fs.existsSync(resolved) ? NodePath.normalize(Fs.realpathSync(resolved)) : resolved;
-		return NodeProcessPlatform.isWindows() ? normalized.toLowerCase() : normalized;
+		final normalized = exists(resolved) ? NodePath.normalize(realpath(resolved)) : resolved;
+		return platform == "win32" ? normalized.toLowerCase() : normalized;
 	}
 
 	static function branchExists(project:ProjectInfo, branch:String):Bool {
@@ -304,11 +308,5 @@ class WorktreeRuntime {
 		value = new EReg("^-+", "").replace(value, "");
 		value = new EReg("-+$", "").replace(value, "");
 		return value == "" ? "workspace" : value;
-	}
-}
-
-private class NodeProcessPlatform {
-	public static function isWindows():Bool {
-		return opencodehx.host.node.NodeProcess.platform() == "win32";
 	}
 }

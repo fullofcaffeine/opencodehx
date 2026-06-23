@@ -44,6 +44,7 @@ import opencodehx.project.ProjectRuntime;
 import opencodehx.project.ProjectRuntime.ProjectEvent;
 import opencodehx.project.ProjectRuntime.ProjectEventType;
 import opencodehx.project.ProjectRuntime.ProjectID;
+import opencodehx.project.ProjectRuntime.ProjectInfo;
 import opencodehx.project.ProjectRuntime.ProjectVcs;
 import opencodehx.project.VcsRuntime;
 import opencodehx.project.VcsRuntime.VcsDiffMode;
@@ -143,6 +144,7 @@ class ProjectRuntimeSmoke {
 			projectGlobalMigration(root);
 			worktreeProject(root);
 			worktreeEdges(root);
+			worktreePlatformFailures(root);
 			instanceBootstrapGraph(root);
 			npmSanitize();
 			npmRuntime(root);
@@ -419,6 +421,8 @@ class ProjectRuntimeSmoke {
 			eq(WorktreeRuntime.reset(main, info.directory), true, "worktree reset result");
 			eq(Fs.existsSync(NodePath.join(info.directory, "scratch.txt")), false, "worktree reset cleaned untracked");
 			eq(Fs.readFileSync(NodePath.join(info.directory, "README.md"), "utf8"), "# fixture\n", "worktree reset restored tracked");
+			expectFailure(() -> WorktreeRuntime.reset(main, main.worktree), "Cannot reset the primary workspace", "worktree reset primary workspace");
+			expectFailure(() -> WorktreeRuntime.reset(main, NodePath.join(dir, "not-a-worktree")), "Worktree not found", "worktree reset missing worktree");
 
 			eq(InstanceRuntime.dispose(info.directory), true, "worktree instance dispose result");
 			instanceUnsubscribe();
@@ -456,6 +460,131 @@ class ProjectRuntimeSmoke {
 				WorktreeRuntime.remove(main, failedBootstrapDirectory);
 			throw error;
 		}
+	}
+
+	static function worktreePlatformFailures(root:String):Void {
+		ProjectRuntime.reset();
+		InstanceRuntime.reset();
+		WorktreeRuntime.resetEvents();
+		final dir = directory(root, "worktree-platform-main");
+		initCommittedRepo(dir);
+		final main = ProjectRuntime.fromDirectory(dir).project;
+
+		final nonGit = directory(root, "worktree-platform-non-git");
+		final nonGitProject = ProjectRuntime.fromDirectory(nonGit).project;
+		expectFailure(() -> WorktreeRuntime.makeWorktreeInfo(nonGitProject, "No Git"), "Worktrees are only supported for git projects",
+			"worktree info non-git project");
+		expectFailure(() -> WorktreeRuntime.remove(nonGitProject, nonGit), "Worktrees are only supported for git projects", "worktree remove non-git project");
+
+		final fakeResolved = NodePath.join(root, "CaseSensitiveWorktree");
+		final fakeRealpath = fakeResolved.toUpperCase();
+		eq(WorktreeRuntime.directoryKeyForPlatform(fakeResolved, "win32", _ -> true, _ -> fakeRealpath), NodePath.normalize(fakeRealpath).toLowerCase(),
+			"worktree windows directory key lowercases realpath");
+		eq(WorktreeRuntime.directoryKeyForPlatform(fakeResolved, "linux", _ -> true, _ -> fakeRealpath), NodePath.normalize(fakeRealpath),
+			"worktree posix directory key preserves realpath case");
+
+		worktreeRemoveNonZeroAfterDetach(root, main);
+		worktreeFsmonitorStopIfSupported(main);
+	}
+
+	static function worktreeRemoveNonZeroAfterDetach(root:String, main:ProjectInfo):Void {
+		if (NodeProcess.platform() == "win32")
+			return;
+		final realGit = locateGit(main.worktree);
+		if (realGit == null)
+			throw "worktree remove shim: git executable not found";
+		final info = WorktreeRuntime.makeWorktreeInfo(main, "Remove Regression");
+		final bin = directory(root, "git-shim-bin");
+		final shim = NodePath.join(bin, "git");
+		final originalPath = NodeProcess.envValue("PATH");
+		try {
+			WorktreeRuntime.create(main, info);
+			Fs.writeFileSync(shim, removeShimScript(realGit), "utf8");
+			Fs.chmodSync(shim, 0x1ed);
+			NodeProcess.setEnv("PATH", originalPath == null || originalPath == "" ? bin : bin + ":" + originalPath);
+			eq(WorktreeRuntime.remove(main, info.directory), true, "worktree remove ignores detached nonzero");
+			eq(Fs.existsSync(info.directory), false, "worktree remove detached directory cleaned");
+			eq(Git.run(main.worktree, ["worktree", "list", "--porcelain"]).stdout.indexOf('worktree ${info.directory}'), -1,
+				"worktree remove detached list cleaned");
+			neq(Git.run(main.worktree, ["show-ref", "--verify", "--quiet", 'refs/heads/${info.branch}']).code, 0, "worktree remove detached branch deleted");
+			// Dynamic is required at this JS runtime cleanup boundary because Git
+			// failures can arrive as strings, Haxe exceptions, or JS errors.
+		} catch (error:Dynamic) {
+			restorePath(originalPath);
+			WorktreeRuntime.remove(main, info.directory);
+			throw error;
+		}
+		restorePath(originalPath);
+	}
+
+	static function worktreeFsmonitorStopIfSupported(main:ProjectInfo):Void {
+		if (NodeProcess.platform() != "win32")
+			return;
+		final info = WorktreeRuntime.makeWorktreeInfo(main, "Remove Fsmonitor");
+		try {
+			WorktreeRuntime.create(main, info);
+			git(info.directory, ["config", "core.fsmonitor", "true"]);
+			Git.run(info.directory, ["fsmonitor--daemon", "stop"]);
+			write(info.directory, "tracked.txt", "next\n");
+			Git.run(info.directory, ["diff"]);
+			final before = Git.run(info.directory, ["fsmonitor--daemon", "status"]);
+			if (before.code != 0) {
+				WorktreeRuntime.remove(main, info.directory);
+				return;
+			}
+			eq(WorktreeRuntime.remove(main, info.directory), true, "worktree fsmonitor remove");
+			eq(Fs.existsSync(info.directory), false, "worktree fsmonitor directory removed");
+			neq(Git.run(main.worktree, ["show-ref", "--verify", "--quiet", 'refs/heads/${info.branch}']).code, 0, "worktree fsmonitor branch deleted");
+			// Dynamic is required at this JS runtime cleanup boundary because Git
+			// failures can arrive as strings, Haxe exceptions, or JS errors.
+		} catch (error:Dynamic) {
+			WorktreeRuntime.remove(main, info.directory);
+			throw error;
+		}
+	}
+
+	static function locateGit(cwd:String):Null<String> {
+		final result = NodeProcess.runShell({
+			command: "command -v git",
+			cwd: cwd,
+			env: NodeProcess.env(),
+			timeout: 5000,
+			maxBuffer: 1024 * 1024,
+		});
+		if (result.status != 0 || result.stdout == null)
+			return null;
+		final value = result.stdout.trim();
+		return value == "" ? null : value;
+	}
+
+	static function removeShimScript(realGit:String):String {
+		final quoted = shellQuote(realGit);
+		return [
+			"#!/bin/sh",
+			'REAL_GIT=${quoted}',
+			"previous=''",
+			"for arg in \"$@\"; do",
+			"  if [ \"$previous\" = \"worktree\" ] && [ \"$arg\" = \"remove\" ]; then",
+			"    \"$REAL_GIT\" \"$@\" >/dev/null 2>&1",
+			"    echo \"fatal: failed to remove worktree: Directory not empty\" >&2",
+			"    exit 1",
+			"  fi",
+			"  previous=\"$arg\"",
+			"done",
+			"exec \"$REAL_GIT\" \"$@\"",
+			"",
+		].join("\n");
+	}
+
+	static function shellQuote(value:String):String {
+		return "'" + value.split("'").join("'\\''") + "'";
+	}
+
+	static function restorePath(value:Null<String>):Void {
+		if (value == null)
+			NodeProcess.unsetEnv("PATH");
+		else
+			NodeProcess.setEnv("PATH", value);
 	}
 
 	static function instanceBootstrapGraph(root:String):Void {

@@ -1,6 +1,6 @@
 # Project Runtime Parity
 
-**Beads:** `opencodehx-who`, expanded by `opencodehx-hic`, `opencodehx-99y`, and `opencodehx-obx`
+**Beads:** `opencodehx-who`, expanded by `opencodehx-hic`, `opencodehx-99y`, `opencodehx-obx`, and `opencodehx-grp`
 
 This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, worktree, instance bootstrap, npm, installation-adjacent, and sync tests. The executable fixture is `src/opencodehx/smoke/ProjectRuntimeSmoke.hx`, which runs as part of `npm run smoke`.
 
@@ -47,7 +47,12 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - ready and failed events are emitted,
   - configured project start commands and explicit start commands run in the created worktree,
   - reset hard-resets to the default branch, cleans untracked files, and verifies a clean status,
-  - removal handles missing directories, deletes the worktree branch, and untracks the sandbox.
+  - reset rejects the primary workspace and missing worktree directories,
+  - non-git projects reject worktree info/create/remove paths,
+  - Windows directory keys normalize existing realpaths case-insensitively while POSIX keys preserve case,
+  - removal handles missing directories, deletes the worktree branch, and untracks the sandbox,
+  - removal tolerates a nonzero `git worktree remove` result after Git has already detached the worktree, then still removes the directory, branch, and sandbox entry, and
+  - Windows fsmonitor cleanup is represented by a native conditional smoke branch that configures fsmonitor, verifies daemon support when available, then removes the worktree through the same runtime path.
 - Instance bootstrap:
   - `InstanceRuntime` records an ordered service graph on each cached context,
   - `InstanceBootstrapRuntime.upstreamOrder` preserves upstream's config, plugin, LSP, share, format, file, file-watcher, VCS, and snapshot initialization order,
@@ -118,7 +123,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - Full project service behavior: deeper integration with config/service layers and any future automatic start-command inference beyond the stored `commands.start` field.
 - Broader watcher service behavior beyond git HEAD updates, including full root file watching, config ignore integration, protected paths, and upstream `@parcel/watcher` backend parity.
 - Concrete share/snapshot service internals, live plugin imports/installs, and real LSP process service boot inside the instance graph; the current graph records upstream order and lifecycle hooks without claiming those unported service bodies.
-- Upstream's broader worktree/service failure matrix.
+- Native Windows fsmonitor daemon behavior remains host-conditional: the smoke branch runs only on Windows and exits early when the installed Git does not support a running fsmonitor daemon.
 - Full workspace control-plane routing/service integration beyond the covered sync/proxy seams.
 
 ## Boundary Notes
