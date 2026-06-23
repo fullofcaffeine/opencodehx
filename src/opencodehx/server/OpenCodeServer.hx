@@ -100,15 +100,16 @@ class OpenCodeServer {
 		};
 		createdCount += 1;
 		final sessionID = 'ses_server_${createdCount}';
+		final requestDirectory = routingDirectory(c);
 		final result = SessionProcessor.run({
 			prompt: request.prompt,
-			directory: directory,
+			directory: requestDirectory,
 			sessionID: sessionID,
 			projectID: "proj_server",
 			store: store,
 		});
 		final info = store.getSession(SessionID.make(result.request.sessionID));
-		final updated = ServerProtocol.withTitle(info, request.title, 1002 + createdCount);
+		final updated = ServerProtocol.withCreateRequest(info, request, requestDirectory, 1002 + createdCount);
 		store.updateSession(updated);
 		final encoded = ServerProtocol.encodeSession(updated);
 		if (sessionOrder.indexOf(result.request.sessionID) == -1)
@@ -403,5 +404,12 @@ class OpenCodeServer {
 
 	static function query(c:HonoContext, name:String):Null<String> {
 		return c.req.query(name).orNull();
+	}
+
+	function routingDirectory(c:HonoContext):String {
+		final value = c.req.header("x-opencode-directory").orNull();
+		if (value == null || value == "")
+			return directory;
+		return StringTools.urlDecode(value);
 	}
 }

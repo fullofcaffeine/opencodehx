@@ -124,7 +124,7 @@ question/question.test.ts,test,question,P2,deferred,none yet,owning runtime/prod
 server/global-session-list.test.ts,test,server,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.4
 server/project-init-git.test.ts,test,server,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.4
 server/session-actions.test.ts,test,server,P1,partial,src/opencodehx/smoke/ServerSmoke.hx,abort route success is covered; remaining action routes remain deferred,ServerSmoke POST /session/:id/abort,opencodehx-000.4
-server/session-list.test.ts,test,server,P1,partial,src/opencodehx/smoke/ServerSmoke.hx,basic /session list is covered; directory/root/start/search/limit filters remain deferred,ServerSmoke GET /session,opencodehx-000.4
+server/session-list.test.ts,test,server,P1,direct,src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md,"route-level smoke covers upstream directory, root, start, search, and limit filter behavior",ServerSmoke GET /session filter fixtures,none
 server/session-messages.test.ts,test,server,P1,partial,src/opencodehx/smoke/ServerSmoke.hx,"message page, cursor header, bad cursor, and missing session are covered; high-volume legacy limit remains deferred",ServerSmoke GET /session/:id/message,opencodehx-000.4
 server/session-select.test.ts,test,server,P1,partial,src/opencodehx/smoke/ServerSmoke.hx,"valid, missing, and invalid select-session cases are covered",ServerSmoke POST /tui/select-session,opencodehx-000.4
 server/trace-attributes.test.ts,test,server,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.4

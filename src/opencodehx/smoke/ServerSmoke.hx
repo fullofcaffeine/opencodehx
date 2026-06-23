@@ -465,24 +465,59 @@ class ServerSmoke {
 		eq(globalSearch.length, 1, "global search count");
 		eq(Reflect.field(cast globalSearch[0], "id"), "ses_server_3", "global search id");
 
+		final alternateDirectory = NodePath.join(root, "alternate-workspace");
+		final alternateResponse = @:await server.app.request("/session", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-opencode-directory": StringTools.urlEncode(alternateDirectory),
+			},
+			body: Json.stringify({prompt: "Alternate", title: "alternate-directory-session"}),
+		});
+		final alternate = @:await jsonResponse(alternateResponse);
+		final alternateID = Std.string(Reflect.field(alternate, "id"));
+		eq(Reflect.field(alternate, "directory"), alternateDirectory, "create session routing directory");
+		final directoryFilteredResponse = @:await server.app.request('/session?directory=${StringTools.urlEncode(root)}');
+		final directoryFiltered:Dynamic = @:await jsonResponse(directoryFilteredResponse);
+		final directoryIDs = responseIDs(directoryFiltered);
+		eq(directoryIDs.indexOf(sessionID) != -1, true, "session directory filter keeps root session");
+		eq(directoryIDs.indexOf(alternateID), -1, "session directory filter excludes alternate directory");
+
+		final childResponse = @:await server.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Child", title: "child-session", parentID: sessionID}),
+		});
+		final child = @:await jsonResponse(childResponse);
+		final childID = Std.string(Reflect.field(child, "id"));
+		eq(Reflect.field(child, "parentID"), sessionID, "create child parent id");
+		final rootsResponse = @:await server.app.request("/session?roots=true");
+		final roots:Dynamic = @:await jsonResponse(rootsResponse);
+		final rootIDs = responseIDs(roots);
+		eq(rootIDs.indexOf(sessionID) != -1, true, "root filter keeps root session");
+		eq(rootIDs.indexOf(childID), -1, "root filter excludes child session");
+
 		final aborted = await(jsonResponse(await(server.app.request('/session/${sessionID}/abort', {method: "POST"}))));
 		eq(aborted, true, "abort route");
 
-		final eventResponse = await(server.app.request("/event"));
-		final eventText = await(readSseEvents(eventResponse, 6));
+		final eventResponse = @:await server.app.request("/event");
+		final eventText = @:await readSseEvents(eventResponse, 10);
 		eq(eventText.indexOf('"type":"server.connected"') != -1, true, "sse connected event");
 		eq(eventText.indexOf('"type":"server.heartbeat"') != -1, true, "sse heartbeat event");
 		eq(eventText.indexOf('"type":"session.created"') != -1, true, "sse session event");
 
-		final liveEventResponse = await(server.app.request("/event"));
-		final fourth = await(jsonResponse(await(server.app.request("/session", {
+		final liveEventResponse = @:await server.app.request("/event");
+		final liveCreateResponse = @:await server.app.request("/session", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({prompt: "Fourth", title: "live-event-session"}),
-		}))));
-		eq(Reflect.field(fourth, "id"), "ses_server_4", "live event session id");
-		final liveEventText = await(readSseEvents(liveEventResponse, 8));
-		eq(liveEventText.indexOf('"sessionID":"ses_server_4"') != -1, true, "sse live session event");
+		});
+		final liveCreated = @:await jsonResponse(liveCreateResponse);
+		final liveSessionID = Std.string(Reflect.field(liveCreated, "id"));
+		eq(StringTools.startsWith(liveSessionID, "ses_server_"), true, "live event session id");
+		final liveEventPattern = '"sessionID":"' + liveSessionID + '"';
+		final liveEventText = @:await readSseUntil(liveEventResponse, liveEventPattern, 16);
+		eq(liveEventText.indexOf(liveEventPattern) != -1, true, "sse live session event");
 	}
 
 	@:async
@@ -720,6 +755,31 @@ class ServerSmoke {
 		}
 	}
 
+	@:async
+	static function readSseUntil(response:Response, pattern:String, maxEvents:Int):Promise<String> {
+		final body = WebResponseStreams.body(response);
+		if (body == null)
+			return "";
+
+		final reader = body.getReader();
+		final decoder = new WebTextDecoder();
+		var text = "";
+		try {
+			while (text.indexOf(pattern) == -1 && sseEventCount(text) < maxEvents) {
+				final result = @:await reader.read();
+				if (result.done)
+					break;
+				if (result.value != null)
+					text += decoder.decode(result.value, {stream: true});
+			}
+			@:await reader.cancel();
+			return text;
+		} catch (error:Dynamic) {
+			@:await reader.cancel();
+			throw error;
+		}
+	}
+
 	static function sseEventCount(text:String):Int {
 		var count = 0;
 		var offset = 0;
@@ -847,6 +907,14 @@ class ServerSmoke {
 				controller.close();
 			},
 		});
+	}
+
+	static function responseIDs(items:Dynamic):Array<String> {
+		final out:Array<String> = [];
+		for (item in cast(items, Array<Dynamic>)) {
+			out.push(Std.string(Reflect.field(item, "id")));
+		}
+		return out;
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

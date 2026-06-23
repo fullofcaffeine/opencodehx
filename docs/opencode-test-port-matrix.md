@@ -11,8 +11,8 @@
 | Port status | Kind | Count |
 | --- | --- | ---: |
 | deferred | test | 63 |
-| direct | test | 3 |
-| partial | test | 91 |
+| direct | test | 4 |
+| partial | test | 90 |
 | ported | fixture | 1 |
 | ported | test | 3 |
 | reference-only | doc | 9 |
@@ -23,6 +23,7 @@
 ## Status Meanings
 
 - `ported`: current OpenCodeHX smoke/golden evidence covers the upstream item's core behavior.
+- `direct`: existing OpenCodeHX executable evidence covers the upstream item's behavior without a separate copied test.
 - `partial`: current evidence covers part of the upstream behavior, but the matrix names the missing scope and owning Bead.
 - `deferred`: no replacement exists yet because the owning product/runtime slice has not started.
 - `reference-only`: upstream fixture/helper/document input, not an executable test. It remains an oracle input for the owning slice.

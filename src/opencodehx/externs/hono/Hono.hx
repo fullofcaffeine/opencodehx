@@ -15,6 +15,7 @@ typedef HonoRequest = {
 	function json():Promise<Unknown>;
 	function param(name:String):HonoQueryValue;
 	function query(name:String):HonoQueryValue;
+	function header(name:String):HonoQueryValue;
 }
 
 typedef HonoContext = {

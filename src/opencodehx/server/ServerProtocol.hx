@@ -6,11 +6,13 @@ import haxe.macro.Expr;
 import haxe.macro.Type;
 #end
 import genes.ts.Unknown;
+import opencodehx.session.SessionID;
 import opencodehx.session.SessionInfo.SessionInfo;
 
 typedef CreateSessionRequest = {
 	final prompt:String;
 	final title:String;
+	final parentID:Null<String>;
 }
 
 typedef SelectSessionRequest = {
@@ -172,10 +174,17 @@ class ServerProtocol {
 					case Rejected(message):
 						Rejected(message);
 					case Decoded(rawTitle):
-						Decoded({
-							prompt: prompt,
-							title: emptyToDefault(rawTitle, prompt),
-						});
+						switch optionalString(raw, "parentID") {
+							case Rejected(message):
+								Rejected(message);
+							case Decoded(parentID):
+								final parentIDValid = parentID == null || StringTools.startsWith(parentID, "ses_");
+								if (!parentIDValid) Rejected("Invalid parent session ID"); else Decoded({
+									prompt: prompt,
+									title: emptyToDefault(rawTitle, prompt),
+									parentID: parentID,
+								});
+						}
 				}
 		}
 	}
@@ -233,6 +242,29 @@ class ServerProtocol {
 			directory: info.directory,
 			parentID: info.parentID,
 			title: title,
+			version: info.version,
+			summary: info.summary,
+			share: info.share,
+			revert: info.revert,
+			permission: info.permission,
+			time: {
+				created: info.time.created,
+				updated: updated == null ? info.time.updated : updated,
+				compacting: info.time.compacting,
+				archived: info.time.archived,
+			},
+		};
+	}
+
+	public static function withCreateRequest(info:SessionInfo, request:CreateSessionRequest, directory:String, ?updated:Float):SessionInfo {
+		return {
+			id: info.id,
+			slug: info.slug,
+			projectID: info.projectID,
+			workspaceID: info.workspaceID,
+			directory: directory,
+			parentID: request.parentID == null ? info.parentID : SessionID.make(request.parentID),
+			title: request.title,
 			version: info.version,
 			summary: info.summary,
 			share: info.share,
