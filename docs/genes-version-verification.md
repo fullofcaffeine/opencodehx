@@ -1,7 +1,7 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-22T21:09:36Z
+**Recorded:** 2026-06-23T08:29:57Z
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
@@ -19,15 +19,15 @@ The canonical compiler checkout is now ahead of the Cafetera vendored reference 
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 35 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, inline local-name collision handling, nullish null-comparison parenthesization, nullable branch local cast elision, and typed catch temp lowering fixes landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `542d2a7501ff0fe6cacc55065fb2854cd893292af1b705255ec46598a469f178`
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, inline local-name collision handling, nullish null-comparison parenthesization, nullable branch local cast elision, typed catch temp lowering, and map facade non-inlining fixes landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `91512254e8c431250e6604826f851e9076c1f8aef7db5ee987cba0e69ccfa397`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `e0a30ce6dbc519babf5236931b7e20faad86e6a0`
+- Commit: `57fa1e6ad6419423d905a6825fc2c91d3a37b6b6`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
@@ -56,10 +56,11 @@ Canonical `../genes` checkout:
 - Nullish null-comparison parenthesization: `ab862272e1813d44393fa5e8bc059a8fb7d67298` (`fix(ts): parenthesize nullish null comparisons`), wrapping nullish-coalescing operands when they are emitted inside `== null` or `!= null` comparisons so helpers such as `genes.ts.Undefinable<T>.orNull()` generate `(value ?? null) != null` instead of TypeScript parsing `value ?? null != null` as `value ?? (null != null)`.
 - Nullable branch local cast elision: `63d3a42575b222981cc6d1b028e597501d53ff17` (`fix(ts): preserve narrowed locals from nullable branches`), carrying non-null flow facts from a narrowed initializer to an immediately consumed local so nullable switch/branch pattern variables emit direct TypeScript assignments instead of identity `Register.unsafeCast<T>(value)` calls.
 - Typed catch temp lowering: `e0a30ce6dbc519babf5236931b7e20faad86e6a0` (`fix: type lowered catch temps without any`), detecting Haxe's lowered `Exception.caught(raw).unwrap()` catch temp and emitting `{ } | null | undefined` in user modules so TypeScript `instanceof` / `typeof` guards narrow without a broad generated `any`.
+- Map facade non-inlining: `57fa1e6ad6419423d905a6825fc2c91d3a37b6b6` (`ts: keep map facade calls in user output`), keeping `genes.util.EsMap` facade methods and Haxe map `copy()` helpers non-inline so generated user modules call stable map APIs instead of exposing the backing native `Map` field.
 
 ## Current Gate Evidence
 
-- `../genes`: `yarn test:ci` passed on 2026-06-22 at `e0a30ce6dbc519babf5236931b7e20faad86e6a0`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
+- `../genes`: `yarn test:ci` passed on 2026-06-23 at `57fa1e6ad6419423d905a6825fc2c91d3a37b6b6`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
 
 Cafetera vendored reference:
 

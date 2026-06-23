@@ -245,7 +245,9 @@ This is not the full provider runtime:
 
 ## genes-ts Notes
 
-The Haxe model generates strict-checkable TypeScript, but the provider registry exposed output polish debt: repeated temporary declarations, `tmpN` names in larger object literals, and visible `StringMap.inst` access in generated user modules. Keep the Haxe source typed and clear; reduce these shapes into generic `../genes` fixtures instead of weakening the provider model.
+The Haxe model generates strict-checkable TypeScript, but the provider registry exposed output polish debt: repeated temporary declarations, `tmpN` names in larger object literals, non-null cast noise around `Map.get` handoffs, and visible `StringMap.inst` access in generated user modules. Keep the Haxe source typed and clear; reduce these shapes into generic `../genes` fixtures instead of weakening the provider model.
+
+The map facade leak is fixed in `../genes` commit `57fa1e6ad6419423d905a6825fc2c91d3a37b6b6` (`genes-oih`): `genes.util.EsMap` facade methods now stay non-inline, so provider generated output calls stable public APIs such as `providers.get(...)`, `models.set(...)`, and `provider.models.keys()` instead of exposing the backing native `Map` field. Remaining provider-style non-null casts and verbose object-construction locals are tracked by OpenCodeHX `opencodehx-1ru` and Genes `genes-rlr`.
 
 The models.dev runtime-options path exposed a generic optional-field narrowing hole for Haxe conditions such as `field == null || field == "" ? fallback : field`. The fix landed in `../genes` commit `bed806092d198f075a62d7da52f1d90b53feb860` (`genes-o41`), teaching `genes-ts` to carry optional-field non-null facts through boolean `&&`/`||` branches without OpenCodeHX-specific knowledge.
 
