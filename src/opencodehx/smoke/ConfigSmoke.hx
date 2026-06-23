@@ -4,6 +4,7 @@ import haxe.DynamicAccess;
 import genes.js.Async.await;
 import genes.ts.Unknown;
 import js.lib.Promise;
+import opencodehx.agent.AgentRuntime;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigError.ConfigFailure;
 import opencodehx.config.ConfigDependencyRuntime;
@@ -55,6 +56,7 @@ class ConfigSmoke {
 			pluginMergeAndOrigins(root);
 			pluginDirectoryDiscovery(root);
 			pluginPathResolution(root);
+			agentColorConfig(root);
 			globalLoadAndUpdate(root);
 			legacyGlobalTomlMigration(root);
 			localUpdateWritesConfigJson(root);
@@ -329,6 +331,19 @@ class ConfigSmoke {
 		final direct = ConfigPlugin.resolveSpec({specifier: "./plugin.ts", options: option}, NodePath.join(opencodeDir, "opencode.json"));
 		eq(ConfigPlugin.specifier(direct), fileUrl, "direct plugin resolver");
 		eq(Reflect.field(direct.options, "source"), "direct", "direct resolver preserves options");
+	}
+
+	static function agentColorConfig(root:String):Void {
+		final dir = directory(root, "agent-color");
+		write(dir, "opencode.json", '{"' + "$" + 'schema":"${ConfigInfo.DEFAULT_SCHEMA}","agent":{"build":{"color":"#FFA500"},"plan":{"color":"primary"}}}');
+		final config = ConfigLoader.loadProject(dir, {defaultUsername: "fixture-user"});
+		final agents = require(config.agent, "agent color map");
+		eq(require(agents.get("build"), "build agent color").color, "#FFA500", "project config hex agent color");
+		eq(require(agents.get("plan"), "plan agent color").color, "primary", "project config theme agent color");
+
+		final runtime = new AgentRuntime(config);
+		eq(require(runtime.get("build"), "runtime build agent").color, "#FFA500", "agent runtime hex color");
+		eq(require(runtime.get("plan"), "runtime plan agent").color, "primary", "agent runtime theme color");
 	}
 
 	static function globalLoadAndUpdate(root:String):Void {

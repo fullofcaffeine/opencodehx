@@ -7,6 +7,7 @@ import js.Syntax;
 import js.lib.Error as JsError;
 import opencodehx.resource.Resources;
 import opencodehx.resource.Resources.ResourcePaths;
+import opencodehx.util.Color;
 import opencodehx.util.DataUrl;
 import opencodehx.util.ErrorTools;
 import opencodehx.util.Format;
@@ -15,6 +16,7 @@ import opencodehx.util.Lazy;
 class UtilSmoke {
 	public static function run():Void {
 		formatDuration();
+		color();
 		errorTools();
 		lazy();
 		dataUrl();
@@ -33,6 +35,16 @@ class UtilSmoke {
 		eq(Format.formatDuration(604799), "~6 days", "duration week boundary");
 		eq(Format.formatDuration(604800), "~1 week", "duration week");
 		eq(Format.formatDuration(1209600), "~2 weeks", "duration weeks");
+	}
+
+	static function color():Void {
+		eq(Color.hexToAnsiBold("#FFA500"), "\x1b[38;2;255;165;0m\x1b[1m", "hex ansi bold");
+		eq(Color.hexToAnsiBold(null), null, "null hex ansi bold");
+		eq(Color.hexToAnsiBold(""), null, "empty hex ansi bold");
+		eq(Color.hexToAnsiBold("#FFF"), null, "short hex ansi bold");
+		eq(Color.hexToAnsiBold("FFA500"), null, "missing hash hex ansi bold");
+		eq(Color.hexToAnsiBold("#GGGGGG"), null, "invalid hex ansi bold");
+		eq(Color.hexToAnsiBold("primary"), null, "theme color is not hex ansi bold");
 	}
 
 	static function lazy():Void {

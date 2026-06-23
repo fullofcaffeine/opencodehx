@@ -1,7 +1,7 @@
 # Config Port
 
 **Bead:** `opencodehx-011`  
-**Upstream oracle:** `../opencode/packages/opencode/src/config/*` and `../opencode/packages/opencode/test/config/config.test.ts`
+**Upstream oracle:** `../opencode/packages/opencode/src/config/*`, `../opencode/packages/opencode/test/config/config.test.ts`, and `../opencode/packages/opencode/test/config/agent-color.test.ts`
 
 ## Slice
 
@@ -32,6 +32,7 @@ Implemented:
 - Markdown-backed command discovery from `command/**/*.md` and `commands/**/*.md`, including nested path-derived names and typed command records.
 - Markdown-backed agent discovery from `agent/**/*.md` and `agents/**/*.md`, including nested path-derived names, typed agent records, tool-to-permission migration, color, options passthrough, and primary-mode promotion.
 - Markdown-backed mode discovery from `mode/*.md` and `modes/*.md`, promoted into `agent` entries with `mode: "primary"` like upstream.
+- Project JSON agent color parsing, config-backed agent lookup through the minimal `AgentRuntime.get` facade, and strict `Color.hexToAnsiBold` conversion for `#RRGGBB` inputs.
 - Legacy `theme`, `keybinds`, and `tui` stripping from main OpenCode config.
 - Strict top-level key rejection for the known upstream config field set.
 - Typed provider config records for provider entries, model entries, model API override, modalities, cost, limits, headers, variants, whitelist, and blacklist. Provider SDK `options` and `variants` stay open as documented passthrough maps.
@@ -42,7 +43,7 @@ Implemented:
 - Typed `skills` config for local extra skill paths and remote skill index URLs. Local path consumption and remote URL discovery/cache behavior are covered by `docs/skill-registry-port.md`.
 - Narrow Node fs/os/url externs used only by the config smoke and host boundary.
 
-Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, remote well-known config, remote account config token substitution, managed config metadata stripping, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, plugin directory discovery, plugin path resolution, global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, top-level legacy tools migration, env-driven finalization flags, dependency bootstrap gitignore/install success/failure behavior, command/agent/mode markdown discovery, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields.
+Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and exercises missing config defaults, JSONC precedence, env substitution, file substitution, remote well-known config, remote account config token substitution, managed config metadata stripping, `$schema` auto-add with raw token preservation, plugin merge/dedup/origin alignment, plugin directory discovery, plugin path resolution, JSON project agent colors, config-backed agent lookup color propagation, global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, top-level legacy tools migration, env-driven finalization flags, dependency bootstrap gitignore/install success/failure behavior, command/agent/mode markdown discovery, legacy TUI key stripping, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, invalid JSON, and invalid schema fields. `UtilSmoke` covers strict color hex-to-ANSI conversion and invalid hex/theme inputs.
 
 ## Deliberate Boundaries
 
