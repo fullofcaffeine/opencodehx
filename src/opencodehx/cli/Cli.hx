@@ -85,12 +85,16 @@ class Cli {
 			return fail('Invalid --format "${format}". Expected "default" or "json".');
 		if (model != "openai/gpt-5.2")
 			return fail('Only the fake provider model is available in this scaffold: openai/gpt-5.2');
+		final directoryResult = runDirectory(args);
+		final directoryError = directoryResult.error;
+		if (directoryError != null)
+			return fail(directoryError);
 		final prompt = message(args);
 		if (StringTools.trim(prompt) == "")
 			return fail("You must provide a message or a command");
 		final processed = SessionProcessor.run({
 			prompt: prompt,
-			directory: SessionProcessor.FIXTURE_DIRECTORY,
+			directory: directoryResult.directory,
 		});
 		return formatRunResult(processed, format);
 	}
@@ -109,13 +113,17 @@ class Cli {
 			return fail('Invalid --format "${format}". Expected "default" or "json".');
 		if (model != "openai/gpt-5.2")
 			return fail('The mock AI SDK harness currently provides only: openai/gpt-5.2');
+		final directoryResult = runDirectory(args);
+		final directoryError = directoryResult.error;
+		if (directoryError != null)
+			return fail(directoryError);
 		final prompt = message(args);
 		if (StringTools.trim(prompt) == "")
 			return fail("You must provide a message or a command");
 		final fixture = new FakeProvider();
 		final processed = @:await SessionProcessor.runAiSdk({
 			prompt: prompt,
-			directory: SessionProcessor.FIXTURE_DIRECTORY,
+			directory: directoryResult.directory,
 			provider: fixture.info,
 			model: fixture.model,
 			language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
@@ -210,6 +218,20 @@ class Cli {
 		} catch (error:haxe.Exception) {
 			server.close();
 			return fail(error.message == null ? Std.string(error) : error.message);
+		}
+	}
+
+	static function runDirectory(args:Array<String>):{final directory:String; final error:Null<String>;} {
+		final raw = option(args, "--dir", "");
+		if (raw == "")
+			return {directory: SessionProcessor.FIXTURE_DIRECTORY, error: null};
+		final resolved = NodePath.isAbsolute(raw) ? raw : NodePath.resolve(NodeProcess.cwd(), raw);
+		try {
+			if (!Fs.statSync(resolved).isDirectory())
+				return {directory: SessionProcessor.FIXTURE_DIRECTORY, error: 'Run directory is not a directory: ${raw}'};
+			return {directory: NodePath.normalize(resolved), error: null};
+		} catch (error:haxe.Exception) {
+			return {directory: SessionProcessor.FIXTURE_DIRECTORY, error: 'Failed to resolve run directory: ${raw}'};
 		}
 	}
 

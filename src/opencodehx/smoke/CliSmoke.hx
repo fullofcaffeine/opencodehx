@@ -53,6 +53,33 @@ class CliSmoke {
 		eq(Reflect.field(Reflect.field(parsed, "provider"), "id"), "openai", "run json provider");
 		eq(Reflect.field(Reflect.field(parsed, "request"), "prompt"), "Say hello from the fixture.", "run json prompt");
 
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-run-"));
+		try {
+			final runDir = NodePath.join(root, "project");
+			Fs.mkdirSync(runDir, {recursive: true});
+			final withDir = Cli.run([
+				"run",
+				"--format",
+				"json",
+				"--dir",
+				runDir,
+				"Say",
+				"hello",
+				"from",
+				"a",
+				"workspace."
+			]);
+			eq(withDir.exitCode, 0, "run dir exit");
+			eq(assistantPath(Json.parse(withDir.stdout)), NodePath.normalize(runDir), "run dir assistant path");
+			final missingDir = Cli.run(["run", "--dir", NodePath.join(root, "missing"), "Hello"]);
+			eq(missingDir.exitCode, 1, "missing run dir exit");
+			eq(missingDir.stderr.indexOf("Failed to resolve run directory") != -1, true, "missing run dir message");
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+
 		final missing = Cli.run(["run"]);
 		eq(missing.exitCode, 1, "missing prompt exit");
 		eq(missing.stderr.indexOf("You must provide a message") != -1, true, "missing prompt message");
@@ -81,6 +108,31 @@ class CliSmoke {
 		final events:Array<Dynamic> = Reflect.field(parsed, "events");
 		eq(Reflect.field(events[0], "type"), "start", "async cli start event");
 		eq(Reflect.field(events[1], "text"), "Hello ", "async cli first delta");
+
+		final mockRoot = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-mock-"));
+		try {
+			final mockDir = NodePath.join(mockRoot, "project");
+			Fs.mkdirSync(mockDir, {recursive: true});
+			final withDir = @:await Cli.runAsync([
+				"run",
+				"--mock-ai-sdk",
+				"--format",
+				"json",
+				"--dir",
+				mockDir,
+				"Say",
+				"hello",
+				"from",
+				"mock",
+				"workspace."
+			]);
+			eq(withDir.exitCode, 0, "async cli dir exit");
+			eq(assistantPath(Json.parse(withDir.stdout)), NodePath.normalize(mockDir), "async cli dir assistant path");
+			Fs.rmSync(mockRoot, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(mockRoot, {recursive: true, force: true});
+			throw error;
+		}
 
 		final unsupported = @:await Cli.runAsync(["run", "--mock-ai-sdk", "--model", "anthropic/claude", "Hello"]);
 		eq(unsupported.exitCode, 1, "async cli unsupported model exit");
@@ -181,6 +233,14 @@ class CliSmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	static function assistantPath(transcript:Dynamic):String {
+		final messages:Array<Dynamic> = Reflect.field(transcript, "messages");
+		final assistant:Dynamic = messages[1];
+		final info:Dynamic = Reflect.field(assistant, "info");
+		final path:Dynamic = Reflect.field(info, "path");
+		return Std.string(Reflect.field(path, "cwd"));
 	}
 
 	static function writeAccountDatabase(path:String, url:String):Void {

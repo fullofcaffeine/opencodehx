@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -73,6 +73,48 @@ try {
 
 	const runResult = expectOk(run(bin, ["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "package."]), "installed run");
 	assert.equal(runResult.stdout, "Hello from the fake provider.\n");
+	const projectDir = path.join(tempRoot, "workspace");
+	mkdirSync(projectDir, { recursive: true });
+	const runJson = expectOk(
+		run(bin, [
+			"run",
+			"--format",
+			"json",
+			"--model",
+			"openai/gpt-5.2",
+			"--dir",
+			projectDir,
+			"Say",
+			"hello",
+			"from",
+			"the",
+			"installed",
+			"workspace.",
+		]),
+		"installed run with dir",
+	);
+	assert.equal(assistantCwd(JSON.parse(runJson.stdout)), projectDir, "installed run assistant cwd");
+	const mockJson = expectOk(
+		run(bin, [
+			"run",
+			"--mock-ai-sdk",
+			"--format",
+			"json",
+			"--dir",
+			projectDir,
+			"Say",
+			"hello",
+			"through",
+			"the",
+			"installed",
+			"SDK.",
+		]),
+		"installed mock AI SDK run with dir",
+	);
+	const mockTranscript = JSON.parse(mockJson.stdout);
+	assert.equal(mockTranscript.provider.id, "openai", "installed mock AI SDK provider");
+	assert.equal(mockTranscript.events[0].type, "start", "installed mock AI SDK start event");
+	assert.equal(assistantCwd(mockTranscript), projectDir, "installed mock AI SDK assistant cwd");
 
 	const serveHelp = expectOk(run(bin, ["serve", "--help"]), "installed serve help");
 	assert.match(serveHelp.stdout, /opencodehx serve/);
@@ -102,6 +144,10 @@ function manifestEntry(manifest, resourcePath) {
 	assert.equal(entry.bytes > 0, true, `${resourcePath} has byte count`);
 	assert.match(entry.sha256, /^[a-f0-9]{64}$/, `${resourcePath} has sha256`);
 	return entry;
+}
+
+function assistantCwd(transcript) {
+	return transcript.messages[1].info.path.cwd;
 }
 
 function startInstalledServer(bin, args, env) {
