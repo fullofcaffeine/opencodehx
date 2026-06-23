@@ -145,10 +145,12 @@ try {
 		OPENCODE_TEST_HOME: path.join(tempRoot, "server-home"),
 	};
 	const server = await startInstalledServer(bin, ["serve", "--hostname", "127.0.0.1", "--port", "0"], serverEnv);
+	let events = null;
 	try {
 		const health = await fetchJson(`${server.url}/health`);
 		assert.equal(health.ok, true, "installed server health ok");
 		assert.equal(health.service, "opencodehx", "installed server health service");
+		events = await openEventStream(`${server.url}/event`);
 		const createdSession = await fetchJson(
 			`${server.url}/session`,
 			jsonRequest("POST", {
@@ -158,6 +160,11 @@ try {
 		);
 		assert.equal(createdSession.id, "ses_server_1", "installed server session id");
 		assert.equal(createdSession.title, "Installed package session", "installed server session title");
+		const eventText = await events.readUntil((text) => {
+			return text.includes('"type":"server.connected"') && text.includes('"type":"session.created"') && text.includes(`"sessionID":"${createdSession.id}"`);
+		});
+		assert.match(eventText, /"type":"server\.connected"/, "installed server SSE connected event");
+		assert.match(eventText, /"type":"session\.created"/, "installed server SSE session event");
 		const sessions = await fetchJson(`${server.url}/session`);
 		assert.equal(sessions.some((session) => session.id === createdSession.id), true, "installed server lists created session");
 		const sessionID = encodeURIComponent(createdSession.id);
@@ -170,6 +177,9 @@ try {
 		const aborted = await fetchJson(`${server.url}/session/${sessionID}/abort`, jsonRequest("POST"));
 		assert.equal(aborted, true, "installed server aborts session");
 	} finally {
+		if (events != null) {
+			await events.close();
+		}
 		await stopChild(server.child);
 	}
 } finally {
@@ -259,6 +269,46 @@ async function fetchJson(url, init = {}) {
 		}
 	}
 	throw lastError ?? new Error(`timed out fetching ${url}`);
+}
+
+async function openEventStream(url) {
+	const controller = new AbortController();
+	const response = await fetch(url, {
+		headers: { accept: "text/event-stream" },
+		signal: controller.signal,
+	});
+	assert.equal(response.status, 200, `${url} status`);
+	assert.match(response.headers.get("content-type") ?? "", /text\/event-stream/, `${url} content-type`);
+	assert.ok(response.body, `${url} body`);
+	const reader = response.body.getReader();
+	const decoder = new TextDecoder();
+	let text = "";
+	return {
+		async readUntil(predicate) {
+			const deadline = Date.now() + 10_000;
+			while (Date.now() < deadline) {
+				const remaining = Math.max(1, deadline - Date.now());
+				const chunk = await Promise.race([
+					reader.read(),
+					new Promise((_, reject) => {
+						setTimeout(() => reject(new Error(`timed out reading ${url}`)), remaining);
+					}),
+				]);
+				if (chunk.done) break;
+				text += decoder.decode(chunk.value, { stream: true });
+				if (predicate(text)) return text;
+			}
+			throw new Error(`timed out waiting for SSE event from ${url}\nreceived:\n${text}`);
+		},
+		async close() {
+			controller.abort();
+			try {
+				await reader.cancel();
+			} catch {
+				// Aborting the fetch is the intended way to close this long-lived smoke stream.
+			}
+		},
+	};
 }
 
 function stopChild(child) {

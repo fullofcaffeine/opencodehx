@@ -1,6 +1,6 @@
 # npm Global Packaging
 
-**Beads:** `opencodehx-037`, `opencodehx-61d`, `opencodehx-5kz`, `opencodehx-d5b`, `opencodehx-jr4`
+**Beads:** `opencodehx-037`, `opencodehx-61d`, `opencodehx-5kz`, `opencodehx-d5b`, `opencodehx-jr4`, `opencodehx-x4i`
 
 ## Slice
 
@@ -27,7 +27,7 @@ The package remains `0.x` beta and local-install focused. This is not a stable p
 - the installed bin passes `--version`, `--help`, deterministic `run --model openai/gpt-5.2`, deterministic `run --dir <workspace> --format json`, mock AI SDK `run --mock-ai-sdk --dir <workspace> --format json`, and `serve --help`;
 - installed `run --dir` transcripts preserve the requested workspace in assistant path metadata for both the deterministic fake-provider path and the credential-free mock AI SDK path;
 - the installed package exposes its package-local pinned Bun binary and runs `src-gen/tui/index.tsx` with the packaged preload, producing `tui-scaffold:ok`;
-- the installed bin starts `serve --hostname 127.0.0.1 --port 0`, reports the bound URL, answers `/health` with the `opencodehx` service payload, creates and lists a session, reads a message page, selects the session through `/tui/select-session`, aborts it, and terminates cleanly when the harness stops the child process.
+- the installed bin starts `serve --hostname 127.0.0.1 --port 0`, reports the bound URL, answers `/health` with the `opencodehx` service payload, opens `/event` as an SSE stream, observes `server.connected` and the live `session.created` event for a created session, lists that session, reads a message page, selects the session through `/tui/select-session`, aborts it, and terminates cleanly when the harness stops the child process.
 
 Useful command:
 
@@ -39,7 +39,7 @@ npm run package:smoke
 
 ## Boundary
 
-Installed `serve` evidence is still a bootstrap smoke: it proves the packed global binary can start the Node/Hono server runtime, bind a host/port, answer `/health`, drive the current in-memory session HTTP workflow, and stay alive until the harness terminates the process. Broader installed server behavior such as auth, server attach, long-running/live provider session workflows, workspace proxying, PTY WebSocket exercise from the installed binary, and production process shutdown policy remain separate server/CLI integration work.
+Installed `serve` evidence is still a bootstrap smoke: it proves the packed global binary can start the Node/Hono server runtime, bind a host/port, answer `/health`, drive the current in-memory session HTTP workflow, stream first server/session SSE events, and stay alive until the harness terminates the process. Broader installed server behavior such as auth, server attach, long-running/live provider session workflows, workspace proxying, PTY WebSocket exercise from the installed binary, and production process shutdown policy remain separate server/CLI integration work.
 
 Installed `run --dir` evidence is still a headless bootstrap smoke, not full OpenCode chat parity. It proves the package can resolve a real workspace path and run both deterministic and mock AI SDK session paths from the installed binary. It does not yet ingest file attachments, continue prior sessions, initialize projects, attach to a server, prompt for permissions, or perform live provider chat without the explicit `--live-ai-sdk` opt-in path.
 
