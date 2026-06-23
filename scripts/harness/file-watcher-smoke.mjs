@@ -3,18 +3,15 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
+import { generatedModules, repoRoot, rootPathFromPackageMember } from "./paths.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, "../..");
+const root = repoRoot;
 
-const { EventBus } = await import(pathToFileURL(path.join(root, "dist/opencodehx/bus/EventBus.js")).href);
-const { FileWatcherRuntime } = await import(
-	pathToFileURL(path.join(root, "dist/opencodehx/file/FileWatcherRuntime.js")).href
-);
-const { VcsRuntime } = await import(pathToFileURL(path.join(root, "dist/opencodehx/project/VcsRuntime.js")).href);
+const { EventBus } = await import(pathToFileURL(rootPathFromPackageMember(generatedModules.eventBus)).href);
+const { FileWatcherRuntime } = await import(pathToFileURL(rootPathFromPackageMember(generatedModules.fileWatcherRuntime)).href);
+const { VcsRuntime } = await import(pathToFileURL(rootPathFromPackageMember(generatedModules.vcsRuntime)).href);
 
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "opencodehx-file-watcher-"));
 try {

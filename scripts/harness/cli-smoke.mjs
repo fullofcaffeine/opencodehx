@@ -4,17 +4,15 @@ import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
+import { distIndexArgs, repoRoot } from "./paths.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, "../..");
+const root = repoRoot;
 const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
 
 function run(args, options = {}) {
-	return spawnSync("node", ["dist/index.js", ...args], {
+	return spawnSync("node", [...distIndexArgs, ...args], {
 		cwd: options.cwd ?? root,
 		env: options.env ?? process.env,
 		encoding: "utf8",
@@ -25,7 +23,7 @@ function run(args, options = {}) {
 
 function runAsync(args, options = {}) {
 	return new Promise((resolve, reject) => {
-		const child = spawn("node", ["dist/index.js", ...args], {
+		const child = spawn("node", [...distIndexArgs, ...args], {
 			cwd: options.cwd ?? root,
 			env: options.env ?? process.env,
 			stdio: ["ignore", "pipe", "pipe"],
@@ -34,7 +32,7 @@ function runAsync(args, options = {}) {
 		let stderr = "";
 		const timeout = setTimeout(() => {
 			child.kill("SIGTERM");
-			reject(new Error(`Timed out running dist/index.js ${args.join(" ")}`));
+			reject(new Error(`Timed out running ${distIndexArgs[0]} ${args.join(" ")}`));
 		}, 15_000);
 		child.stdout.setEncoding("utf8");
 		child.stderr.setEncoding("utf8");

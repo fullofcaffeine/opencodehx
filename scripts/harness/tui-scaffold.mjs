@@ -1,12 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { localBunExecutable, repoRoot, tuiScaffoldPaths } from "./paths.mjs";
 
-const root = path.resolve(new URL("../..", import.meta.url).pathname);
-const snapshotPath = path.join(root, "reference", "tui-scaffold.TuiScaffold.tsx");
-const generatedPath = path.join(root, "src-gen", "tui", "opencodehx", "tui", "TuiScaffold.tsx");
-const bunPath = path.join(root, "node_modules", ".bin", process.platform === "win32" ? "bun.exe" : "bun");
-const preloadPath = path.join(root, "scripts", "harness", "opentui-solid-preload.mjs");
+const root = repoRoot;
+const snapshotPath = tuiScaffoldPaths.snapshot;
+const generatedPath = tuiScaffoldPaths.generated;
+const bunPath = localBunExecutable();
+const preloadPath = tuiScaffoldPaths.sourcePreload;
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -19,8 +20,8 @@ function run(command, args) {
   }
 }
 
-rmSync(path.join(root, "src-gen", "tui"), { recursive: true, force: true });
-rmSync(path.join(root, "dist-tui"), { recursive: true, force: true });
+rmSync(tuiScaffoldPaths.srcGenDir, { recursive: true, force: true });
+rmSync(tuiScaffoldPaths.distDir, { recursive: true, force: true });
 run("haxe", ["hxml/opencodehx.tui.genes-ts.hxml"]);
 run("tsc", ["-p", "tsconfig.tui.json"]);
 
@@ -35,8 +36,8 @@ if (!existsSync(snapshotPath)) {
 const expected = readFileSync(snapshotPath, "utf8");
 if (generated !== expected) {
   console.error("[tui-scaffold] Generated TSX differs from reference/tui-scaffold.TuiScaffold.tsx");
-  console.error("[tui-scaffold] Regenerate intentionally by updating the snapshot from src-gen/tui/opencodehx/tui/TuiScaffold.tsx");
+  console.error(`[tui-scaffold] Regenerate intentionally by updating the snapshot from ${path.relative(root, generatedPath)}`);
   process.exit(1);
 }
 
-run(bunPath, ["--preload", preloadPath, "./src-gen/tui/index.tsx"]);
+run(bunPath, ["--preload", preloadPath, tuiScaffoldPaths.entryArg]);

@@ -20,4 +20,4 @@ This is not the full upstream Effect/Zod/plugin registry. Dynamic description ho
 
 The registry keeps validation explicit rather than depending on Zod externs. If more tools repeat schema boilerplate, derive simple validators with a macro instead of expanding broad `Dynamic` usage.
 
-`npm run macro:diagnostics` includes a generated negative Haxe fixture for `ToolIDs.known("grepp")`, proving typos in source-authored tool IDs fail at compile time. `opencodehx-zot` tracks the remaining checked-string audit for provider/model IDs, event discriminants, config keys, resource names, fixture/snapshot targets, and generated file targets.
+`npm run macro:diagnostics` includes a generated negative Haxe fixture for `ToolIDs.known("grepp")`, proving typos in source-authored tool IDs fail at compile time. The current checked-string audit status for provider IDs, event discriminants, resource names, JS harness generated targets, and deliberate boundary strings is tracked in `docs/checked-artifact-constructors.md`.

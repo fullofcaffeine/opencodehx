@@ -4,19 +4,18 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
+import { generatedModules, repoRoot, rootPathFromPackageMember } from "./paths.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, "../..");
+const root = repoRoot;
 
 if (process.platform !== "win32") {
 	console.log(`windows-shell-smoke:skip platform=${process.platform}`);
 	process.exit(0);
 }
 
-const { NodeProcess } = await import(pathToFileURL(path.join(root, "dist/opencodehx/host/node/NodeProcess.js")).href);
-const { PtyService } = await import(pathToFileURL(path.join(root, "dist/opencodehx/pty/PtyService.js")).href);
+const { NodeProcess } = await import(pathToFileURL(rootPathFromPackageMember(generatedModules.nodeProcess)).href);
+const { PtyService } = await import(pathToFileURL(rootPathFromPackageMember(generatedModules.ptyService)).href);
 
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "opencodehx-windows-shell-"));
 try {

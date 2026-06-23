@@ -8,7 +8,7 @@ Run it with:
 npm run tui:scaffold
 ```
 
-The harness rebuilds `src-gen/tui`, type-checks with `tsconfig.tui.json`, compares `src-gen/tui/opencodehx/tui/TuiScaffold.tsx` with `reference/tui-scaffold.TuiScaffold.tsx`, then runs the generated TSX with the repo-pinned Bun binary and `scripts/harness/opentui-solid-preload.mjs`.
+The harness rebuilds `src-gen/tui`, type-checks with `tsconfig.tui.json`, compares `src-gen/tui/opencodehx/tui/TuiScaffold.tsx` with `reference/tui-scaffold.TuiScaffold.tsx`, then runs the generated TSX with the repo-pinned Bun binary and `scripts/harness/opentui-solid-preload.mjs`. The fixed generated/snapshot/package paths are centralized in `scripts/harness/paths.mjs` so the scaffold and package smokes share the same path catalog.
 
 Known TUI artifact typo diagnostics are covered separately with:
 
@@ -26,7 +26,7 @@ Dialog replay is intentionally pure at this stage. `TuiDialogReplay` models upst
 
 Built-in plugin routes now go through `TuiRoutes.plugin("...")`, a macro-checked constructor. Built-in TUI keybind action references use `TuiKeybindActions.action("...")` against the `TuiKeybindActionName` catalog. TUI dialog fixture provider IDs use the TUI-local `TuiProviderIDs.known("...")` catalog so the TSX scaffold does not depend on provider runtime modules. These keep the literal authoring style close to upstream while failing the Haxe compile if the route, action, or fixture provider is not in the typed catalog.
 
-This is the representative TUI checked-string slice for `opencodehx-vyz`; source-authored tool IDs are covered in `docs/tool-registry-port.md`. `opencodehx-zot` tracks the remaining catalogs such as provider/model IDs, event discriminants, config keys, resource names, fixture/snapshot targets, and generated file targets.
+This is the representative TUI checked-string slice for `opencodehx-vyz`; source-authored tool IDs are covered in `docs/tool-registry-port.md`. Provider IDs, server event types, resource paths, and JS harness generated targets are covered in `docs/checked-artifact-constructors.md`; model IDs, config keys, and dynamic harness/runtime paths remain boundary data.
 
 Dependency pins:
 

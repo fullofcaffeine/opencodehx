@@ -2,12 +2,10 @@
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
+import { distIndexArgs, repoRoot } from "./paths.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, "../..");
+const root = repoRoot;
 
 function runJson(command, args, label) {
   const result = spawnSync(command, args, {
@@ -42,10 +40,10 @@ function flattenKeys(value, keys = {}) {
 }
 
 const upstream = runJson("node", ["scripts/harness/upstream-fake-provider-oracle.mjs"], "upstream fake-provider oracle");
-const hx = runJson("node", ["dist/index.js", "--transcript-fixture"], "OpenCodeHX transcript fixture");
+const hx = runJson("node", [...distIndexArgs, "--transcript-fixture"], "OpenCodeHX transcript fixture");
 const hxRun = runJson(
   "node",
-  ["dist/index.js", "run", "--format", "json", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."],
+  [...distIndexArgs, "run", "--format", "json", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."],
   "OpenCodeHX run transcript",
 );
 const goldenPath = path.join(root, "fixtures/transcripts/one-turn.golden.json");

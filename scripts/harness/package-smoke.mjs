@@ -4,13 +4,11 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 import { WebSocket } from "ws";
+import { packageForbiddenPrefixes, packageMembers, repoRoot, resourcePaths } from "./paths.mjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const root = path.resolve(__dirname, "../..");
+const root = repoRoot;
 const packageJson = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
 
 function run(command, args, options = {}) {
@@ -37,20 +35,21 @@ try {
 	const fileNames = new Set(packed.files.map((file) => file.path));
 	assert.equal(packed.name, packageJson.name);
 	assert.equal(packed.version, packageJson.version);
-	assert.equal(fileNames.has("bin/opencodehx.mjs"), true, "package includes bin shim");
-	assert.equal(fileNames.has("bin/opencodehx-opentui-solid-preload.mjs"), true, "package includes TUI preload");
-	assert.equal(fileNames.has("dist/index.js"), true, "package includes generated JS entrypoint");
-	assert.equal(fileNames.has("dist/resources/manifest.json"), true, "package includes runtime resource manifest");
-	assert.equal(fileNames.has("dist/resources/smoke-resource.json"), true, "package includes copied runtime resource");
-	assert.equal(fileNames.has("dist/resources/worker/parser-worker.mjs"), true, "package includes parser worker resource");
-	assert.equal(fileNames.has("dist/resources/worker/tui-worker.mjs"), true, "package includes TUI worker resource");
-	assert.equal(fileNames.has("src-gen/resources/manifest.json"), true, "package includes TypeScript-side resource manifest");
-	assert.equal(fileNames.has("src-gen/index.ts"), true, "package includes generated TS source");
-	assert.equal(fileNames.has("src-gen/tui/index.tsx"), true, "package includes generated TUI TSX entrypoint");
-	assert.equal(fileNames.has("src-gen/tui/opencodehx/tui/TuiScaffold.tsx"), true, "package includes generated TUI scaffold TSX");
+	assert.equal(fileNames.has(packageMembers.bin), true, "package includes bin shim");
+	assert.equal(fileNames.has(packageMembers.tuiPreload), true, "package includes TUI preload");
+	assert.equal(fileNames.has(packageMembers.distIndex), true, "package includes generated JS entrypoint");
+	assert.equal(fileNames.has(packageMembers.runtimeResourceManifest), true, "package includes runtime resource manifest");
+	assert.equal(fileNames.has(packageMembers.runtimeSmokeResource), true, "package includes copied runtime resource");
+	assert.equal(fileNames.has(packageMembers.parserWorker), true, "package includes parser worker resource");
+	assert.equal(fileNames.has(packageMembers.tuiWorker), true, "package includes TUI worker resource");
+	assert.equal(fileNames.has(packageMembers.tsResourceManifest), true, "package includes TypeScript-side resource manifest");
+	assert.equal(fileNames.has(packageMembers.tsIndex), true, "package includes generated TS source");
+	assert.equal(fileNames.has(packageMembers.tuiIndex), true, "package includes generated TUI TSX entrypoint");
+	assert.equal(fileNames.has(packageMembers.tuiScaffold), true, "package includes generated TUI scaffold TSX");
 	for (const name of fileNames) {
-		assert.equal(name.startsWith(".beads/"), false, `package should not include Beads metadata: ${name}`);
-		assert.equal(name.startsWith("src/opencodehx/"), false, `package should not include Haxe source: ${name}`);
+		for (const prefix of packageForbiddenPrefixes) {
+			assert.equal(name.startsWith(prefix), false, `package should not include ${prefix} files: ${name}`);
+		}
 	}
 
 	const prefix = path.join(tempRoot, "prefix");
@@ -58,14 +57,14 @@ try {
 	expectOk(run("npm", ["install", "-g", "--prefix", prefix, tarball], { timeout: 180_000 }), "npm install -g");
 	const globalRoot = expectOk(run("npm", ["root", "-g", "--prefix", prefix]), "npm root -g").stdout.trim();
 	const installedRoot = path.join(globalRoot, packageJson.name);
-	const manifest = JSON.parse(await readFile(path.join(installedRoot, "dist/resources/manifest.json"), "utf8"));
+	const manifest = JSON.parse(await readFile(path.join(installedRoot, packageMembers.runtimeResourceManifest), "utf8"));
 	assert.equal(manifest.version, 1, "installed manifest version");
-	assert.equal(manifest.generatedBy, "scripts/build/copy-resources.mjs", "installed manifest generator");
-	assert.equal(manifestEntry(manifest, "prompt/example.txt").kind, "text", "installed prompt manifest kind");
-	assert.equal(manifestEntry(manifest, "smoke-resource.json").kind, "json", "installed json manifest kind");
-	assert.equal(manifestEntry(manifest, "wasm/tree-sitter.wasm").kind, "wasm", "installed parser wasm manifest kind");
-	assert.equal(manifestEntry(manifest, "worker/parser-worker.mjs").kind, "worker", "installed parser worker manifest kind");
-	assert.equal(manifestEntry(manifest, "worker/tui-worker.mjs").kind, "worker", "installed tui worker manifest kind");
+	assert.equal(manifest.generatedBy, resourcePaths.generator, "installed manifest generator");
+	assert.equal(manifestEntry(manifest, resourcePaths.promptExample).kind, "text", "installed prompt manifest kind");
+	assert.equal(manifestEntry(manifest, resourcePaths.smokeResource).kind, "json", "installed json manifest kind");
+	assert.equal(manifestEntry(manifest, resourcePaths.treeSitterWasm).kind, "wasm", "installed parser wasm manifest kind");
+	assert.equal(manifestEntry(manifest, resourcePaths.parserWorker).kind, "worker", "installed parser worker manifest kind");
+	assert.equal(manifestEntry(manifest, resourcePaths.tuiWorker).kind, "worker", "installed tui worker manifest kind");
 	const bin = path.join(prefix, "bin", "opencodehx");
 	assert.equal(existsSync(bin), true, "global install exposes opencodehx bin");
 	const installedBun = path.join(installedRoot, "node_modules", ".bin", process.platform === "win32" ? "bun.cmd" : "bun");
@@ -126,8 +125,8 @@ try {
 			installedBun,
 			[
 				"--preload",
-				path.join(installedRoot, "bin", "opencodehx-opentui-solid-preload.mjs"),
-				path.join(installedRoot, "src-gen", "tui", "index.tsx"),
+				path.join(installedRoot, packageMembers.tuiPreload),
+				path.join(installedRoot, packageMembers.tuiIndex),
 			],
 			{ cwd: installedRoot, timeout: 60_000 },
 		),
