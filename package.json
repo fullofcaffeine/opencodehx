@@ -19,6 +19,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "copy:resources": "node scripts/build/copy-resources.mjs",
     "inventory:matrix": "node scripts/inventory/build-parity-matrix.mjs",
+    "inventory:portability": "node scripts/inventory/build-portability-ledger.mjs",
     "build": "npm run clean && npm run build:haxe && npm run copy:resources && npm run typecheck",
     "smoke": "node --enable-source-maps dist/index.js",
     "transcript:parity": "npm run build && node scripts/harness/transcript-parity.mjs",
