@@ -104,23 +104,32 @@ async function ptyArgs(shells) {
 async function killTree() {
 	const ticks = path.join(tempRoot, "kill-tree-ticks.txt");
 	writeFileSync(ticks, "");
-	const childScript = 'const fs=require("node:fs");const file=process.argv[1];setInterval(()=>fs.appendFileSync(file,"tick"),25);';
+	const childScript =
+		'const fs=require("node:fs");'
+		+ "const file=process.argv[process.argv.length-1];"
+		+ 'setInterval(()=>fs.appendFileSync(file,"tick"),25);';
 	const parentScript =
 		'const {spawn}=require("node:child_process");'
-		+ 'const file=process.argv[1];'
-		+ `const child=spawn(process.execPath,["-e",${JSON.stringify(childScript)},file],{stdio:"ignore"});`
-		+ "child.unref();"
+		+ "const file=process.argv[process.argv.length-1];"
+		+ `spawn(process.execPath,["-e",${JSON.stringify(childScript)},file],{stdio:"ignore",windowsHide:true});`
 		+ "setInterval(()=>{},1000);";
 	const proc = spawn(process.execPath, ["-e", parentScript, ticks], {
-		detached: true,
-		stdio: "ignore",
+		stdio: ["ignore", "ignore", "pipe"],
 		windowsHide: true,
 	});
 	let exited = false;
+	let stderr = "";
+	proc.stderr.setEncoding("utf8");
+	proc.stderr.on("data", (chunk) => {
+		stderr += chunk;
+	});
 	proc.once("exit", () => {
 		exited = true;
 	});
-	await waitFor(() => readFileSync(ticks, "utf8").length > 0, "killTree descendant tick");
+	await waitFor(() => {
+		if (exited) throw new Error(`killTree parent exited before descendant tick${stderr ? `: ${stderr.trim()}` : ""}`);
+		return readFileSync(ticks, "utf8").length > 0;
+	}, "killTree descendant tick");
 	await NodeProcess.killTree(proc, { exited: () => exited });
 	await delay(250);
 	const afterKill = readFileSync(ticks, "utf8");
