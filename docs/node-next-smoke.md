@@ -40,7 +40,7 @@ This proves:
 - The first Node built-in extern imports `node:path` and runs through the host facade.
 - The first Effect facade imports `effect` and constructs a `Task.succeed(...)` value.
 - The import/resource fixture imports `#opencodehx/smoke-resource` with `with { type: "json" }`, copies resources from `fixtures/resources` into `src-gen/resources` and `dist/resources`, and executes it through Node's package `imports` map.
-- Text, file-path, and WASM-named assets are resolved through `opencodehx.resource.Resources` instead of relying on a Node loader for arbitrary `.txt`, `.wav`, or `.wasm` imports.
+- Text, file-path, and WASM-named assets are resolved through `opencodehx.resource.Resources` instead of relying on a Node loader for arbitrary `.txt`, `.wav`, or `.wasm` imports. Generic `genes.ts.Imports.text`, `file`, `dynamicWith`, and `dynamicWasm` helpers exist for hosts with a loader/bundler contract, but this smoke intentionally proves the plain-Node fallback.
 - The dynamic import fixture emits and executes a `genes.Genes.dynamicImport(...)` import of `opencodehx.fixtures.DynamicFixture`.
 - The utility smoke runs Haxe ports of `formatDuration`, `lazy`, and `decodeDataUrl`, including a Node `Buffer` facade for base64 data URLs.
 - `npm run build` starts by cleaning `src-gen` and `dist`, preventing stale generated TypeScript from failed experiments from entering `tsc`.

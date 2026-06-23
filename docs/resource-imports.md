@@ -1,6 +1,6 @@
 # Resource Imports
 
-**Bead:** `opencodehx-6pq`
+**Beads:** `opencodehx-6pq`, `opencodehx-5lx`
 
 ## Upstream Shapes
 
@@ -10,7 +10,9 @@ OpenCode uses three resource patterns that matter for early ports:
 - JSON imports with import attributes for TUI themes.
 - File-path imports with `with { type: "file" }` for WAV assets and dynamic WASM imports for tree-sitter parsers.
 
-`opencodehx-010` already proved JSON import attributes through `genes.ts.Imports.defaultImportWith(...)`. This slice adds the Node-first runtime plan for text, file, and WASM-style assets.
+`opencodehx-010` already proved JSON import attributes through `genes.ts.Imports.defaultImportWith(...)`. `opencodehx-6pq` added the Node-first runtime plan for text, file, and WASM-style assets.
+
+`opencodehx-5lx` completed the paired generic compiler task in `../genes` commit `c1b0d8e`: `genes.ts.Imports.text(...)`, `Imports.file(...)`, `Imports.dynamicWith(...)`, and `Imports.dynamicWasm(...)` now cover plain text-as-string imports, `with { type: "file" }` asset imports, and typed dynamic resource imports. The generic fixture is `../genes/tests/genes-ts/snapshot/resource-imports`.
 
 ## OpenCodeHX Adapter
 
@@ -41,6 +43,6 @@ npm run smoke
 
 ## Deferred
 
-This is not yet a generic `genes-ts` resource import compiler feature. Follow-up `opencodehx-5lx` / `genes-cbr` tracks direct text/file/WASM import helpers. Preserve this adapter as the Node runtime fallback even if compiler syntax improves.
+The generic `genes-ts` helper syntax now exists, but this adapter remains the OpenCodeHX Node runtime fallback because plain NodeNext still does not execute arbitrary `.txt`, `.wav`, or `.wasm` imports without a loader or bundler contract. Migrate source slices to direct helpers only when their runtime host owns that loader contract.
 
 The current worker resources prove copy/package resolution only. Full parser-worker and TUI-worker behavior still needs the owning parser/TUI runtime slices to define worker entrypoints, lifecycle, messages, and bundling constraints.

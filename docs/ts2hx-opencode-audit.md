@@ -53,7 +53,7 @@ The AST audit scanned 446 `.ts`/`.tsx` files. It confirms that ts2hx can be usef
 - `satisfies-needs-type-directed-haxe-modeling`: 60 sites, often registries and typed constants.
 - `advanced-type-level-ts-manual-or-extern`: 34 sites covering conditional, mapped, and template literal types.
 - `resource-txt-needs-copy-or-loader`: 34 prompt/description imports. OpenCodeHX now has a Node runtime adapter for copied text resources; direct import syntax remains manual.
-- `resource-wav-needs-copy-or-loader`: 4 TUI sound imports. OpenCodeHX now has a Node runtime adapter for copied file-path resources; direct `type:file` import syntax remains manual.
+- `resource-wav-needs-copy-or-loader`: 4 TUI sound imports. OpenCodeHX now has a Node runtime adapter for copied file-path resources; `../genes` commit `c1b0d8e` adds direct `type:file` helper syntax for runtime paths that own a loader contract.
 
 ## Conversion Guidance
 

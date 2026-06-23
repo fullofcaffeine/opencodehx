@@ -8,6 +8,8 @@ Current beta packaging expectations include a local `npm pack` plus temporary gl
 
 Current source-safety expectations include macro-checked built-in plugin routes, built-in keybind action references, source-authored tool IDs, built-in provider IDs, server event types, copied-resource paths, and `npm run macro:diagnostics` as the negative compile gate for typo diagnostics.
 
+Current resource-import expectations keep `opencodehx.resource.Resources` as the plain-Node fallback for copied text/file/WASM assets. The paired `genes-ts` helper work landed in `../genes` commit `c1b0d8e` with `Imports.text`, `Imports.file`, `Imports.dynamicWith`, and `Imports.dynamicWasm`; use those only when the owning runtime has a loader or bundler contract.
+
 Current platform-parity expectations include the Windows shell smoke workflow for `cmd.exe`, PowerShell, Git Bash, PTY shell args, and `killTree` behavior; keep `npm run windows:shell:smoke`, `.github/workflows/ci.yml`, and release-contract checks synchronized when changing shell or process teardown behavior.
 
 Current CI bootstrap expectations include checking out sibling `genes-ts` for Haxe/lix jobs, explicitly rebuilding the `better-sqlite3` native addon and installing the local `bun` binary after `npm ci --ignore-scripts`, and installing `ripgrep` before the Node smoke file-search seam runs.
