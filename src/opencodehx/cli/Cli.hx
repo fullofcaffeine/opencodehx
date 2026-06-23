@@ -1,10 +1,12 @@
 package opencodehx.cli;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.account.AccountStore;
 import opencodehx.auth.AuthStore;
+import opencodehx.cli.ErrorFormatter;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigWriter;
@@ -189,7 +191,7 @@ class Cli {
 			});
 			return formatRunResult(processed, format);
 		} catch (error:haxe.Exception) {
-			return fail(error.message == null ? Std.string(error) : error.message);
+			return fail(ErrorFormatter.format(Unknown.fromBoundary(error)));
 		}
 	}
 
@@ -217,7 +219,7 @@ class Cli {
 			return ok('opencodehx server listening on ${listener.url}');
 		} catch (error:haxe.Exception) {
 			server.close();
-			return fail(error.message == null ? Std.string(error) : error.message);
+			return fail(ErrorFormatter.format(Unknown.fromBoundary(error)));
 		}
 	}
 

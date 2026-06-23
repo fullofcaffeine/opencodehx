@@ -17,7 +17,9 @@ rg -n "Syntax\.code|js\.Syntax" src test hxml scripts docs AGENTS.md README.md
 | `src/opencodehx/interop/JsIdentityKey.hx` | Justified JS identity boundary | Models an opaque host object reference that may only be selected and compared by upstream JavaScript reference identity. Haxe has no portable type for arbitrary JS object identity plus `===`, so product code receives a semantic `JsIdentityKey` instead of raw object access. |
 | `src/opencodehx/externs/js/EsmModule.hx` | Justified ESM metadata boundary | Haxe/genes-ts does not expose a structured `import.meta` expression. The raw expression is a tiny string-valued facade used by typed URL/resource code. |
 | `src/opencodehx/externs/web/WebStreams.hx` | Justified Web runtime predicate boundary | Localizes `typeof value === "string"` and `value instanceof ArrayBuffer` checks used to narrow WebSocket/stream payloads from `Unknown` into typed Web facades. Callers must prove the predicate before retrieving the narrowed value. |
+| `src/opencodehx/util/ErrorTools.hx` | Justified arbitrary throwable boundary | Mirrors upstream `util/error.ts` behavior for JavaScript `unknown` throwables: `typeof`, exact `undefined`, `String(value)`, constructor-name probing, and a contained `Record<string, unknown>` field read. Public APIs use `genes.ts.Unknown` and return strings or `Record<string, unknown>`-shaped data. |
 | `src/opencodehx/smoke/SmokeFetchStub.hx` | Smoke-only monkey-patch boundary | Adapts a typed smoke fixture callback to the host `typeof fetch` declaration. The cast is restricted to replacing/restoring `globalThis.fetch` in credential-free remote-config smoke tests. |
+| `src/opencodehx/smoke/UtilSmoke.hx` | Smoke-only upstream fixture shape | Constructs the same JavaScript object-literal throwable with custom `toString()` that upstream `test/util/error.test.ts` uses. The raw snippet is confined to the golden smoke fixture. |
 
 ## Retired Patterns
 

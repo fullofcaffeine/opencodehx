@@ -26,6 +26,7 @@ enum abstract ResourceKind(String) from String to String {
 
 enum abstract KnownResourcePath(String) to String {
 	var AssetPulseA = "asset/pulse-a.wav";
+	var ErrorDiagnosticsGolden = "errors/diagnostics.golden.json";
 	var PromptExample = "prompt/example.txt";
 	var SmokeResourceJson = "smoke-resource.json";
 	var TreeSitterBashWasm = "wasm/tree-sitter-bash.wasm";

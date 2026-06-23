@@ -24,6 +24,7 @@ The executable runtime remains intentionally narrow. `run` still owns the determ
 - alias help resolves to canonical usage for `auth login --help` and `plug --help`;
 - `providers list` is recognized as a known unsupported command instead of falling through to an unknown-command error;
 - `run --file ignored.txt ...` does not leak the file option value into the prompt text.
+- `ErrorFormatter` covers upstream-style account transport, provider model-not-found, and config invalid diagnostics against `fixtures/resources/errors/diagnostics.golden.json`.
 
 Gates used for this slice:
 

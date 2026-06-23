@@ -1,12 +1,21 @@
 package opencodehx.smoke;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import haxe.Json;
+import js.Syntax;
+import js.lib.Error as JsError;
+import opencodehx.resource.Resources;
+import opencodehx.resource.Resources.ResourcePaths;
 import opencodehx.util.DataUrl;
+import opencodehx.util.ErrorTools;
 import opencodehx.util.Format;
 import opencodehx.util.Lazy;
 
 class UtilSmoke {
 	public static function run():Void {
 		formatDuration();
+		errorTools();
 		lazy();
 		dataUrl();
 	}
@@ -49,6 +58,38 @@ class UtilSmoke {
 		eq(DataUrl.decode("data:text/plain,hello%20world"), "hello world", "data-url plain");
 		eq(DataUrl.decode("data:text/plain,hello+world"), "hello+world", "data-url plus parity");
 		eq(DataUrl.decode("not-a-data-url"), "", "data-url missing comma");
+	}
+
+	static function errorTools():Void {
+		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
+		final util:Dynamic = Reflect.field(golden, "util");
+
+		final native = new JsError("boom");
+		final nativeUnknown = Unknown.fromBoundary(native);
+		final nativeData = ErrorTools.data(nativeUnknown);
+		eq(ErrorTools.message(nativeUnknown), Reflect.field(util, "nativeMessage"), "native error message");
+		eq(dataString(nativeData, "type"), Reflect.field(util, "nativeType"), "native error type");
+		eq(dataString(nativeData, "message"), Reflect.field(util, "nativeMessage"), "native error data message");
+		eq(ErrorTools.format(nativeUnknown).indexOf("boom") != -1, true, "native error formatted");
+
+		final record = {message: "bad input", code: "E_BAD"};
+		final recordUnknown = Unknown.fromBoundary(record);
+		final recordData = ErrorTools.data(recordUnknown);
+		eq(ErrorTools.message(recordUnknown), Reflect.field(util, "recordMessage"), "record error message");
+		eq(dataString(recordData, "message"), Reflect.field(util, "recordMessage"), "record error data message");
+		eq(dataString(recordData, "code"), Reflect.field(util, "recordCode"), "record error code");
+
+		// Upstream util/error tests use a JavaScript object literal with a custom
+		// toString method. Keep this fixture at that JS boundary shape.
+		final opaque:Dynamic = Syntax.code("({ toString() { return \"ResolveMessage: Cannot resolve module\"; } })");
+		final opaqueUnknown = Unknown.fromBoundary(opaque);
+		eq(ErrorTools.message(opaqueUnknown), Reflect.field(util, "opaqueMessage"), "opaque error message");
+		eq(dataString(ErrorTools.data(opaqueUnknown), "message"), Reflect.field(util, "opaqueMessage"), "opaque error data message");
+	}
+
+	static function dataString(data:opencodehx.util.ErrorTools.ErrorData, field:String):String {
+		final value = UnknownNarrow.string(data.get(field));
+		return value == null ? "" : value;
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

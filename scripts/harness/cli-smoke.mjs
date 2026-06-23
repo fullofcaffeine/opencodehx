@@ -250,13 +250,14 @@ try {
 	delete env.CF_AIG_TOKEN;
 	const globalLoaded = run(["run", "--live-ai-sdk", "--model", "global-live/missing", "Hello"], { env });
 	assert.equal(globalLoaded.status, 1);
-	assert.match(globalLoaded.stderr, /Provider model not found: global-live\/missing/);
+	assert.match(globalLoaded.stderr, /Model not found: global-live\/missing/);
+	assert.match(globalLoaded.stderr, /Try: `opencode models` to list available models/);
 	const projectLoaded = run(["run", "--live-ai-sdk", "--model", "project-live/missing", "--dir", project, "Hello"], { env });
 	assert.equal(projectLoaded.status, 1);
-	assert.match(projectLoaded.stderr, /Provider model not found: project-live\/missing/);
+	assert.match(projectLoaded.stderr, /Model not found: project-live\/missing/);
 	const authLoaded = run(["run", "--live-ai-sdk", "--model", "cloudflare-ai-gateway/missing", "Hello"], { env });
 	assert.equal(authLoaded.status, 1);
-	assert.match(authLoaded.stderr, /Provider model not found: cloudflare-ai-gateway\/missing/);
+	assert.match(authLoaded.stderr, /Model not found: cloudflare-ai-gateway\/missing/);
 	await withRemoteConfigServer(async (remoteUrl, observed) => {
 		writeFileSync(
 			path.join(authDir, "auth.json"),
@@ -270,11 +271,11 @@ try {
 		);
 		const remoteLoaded = await runAsync(["run", "--live-ai-sdk", "--model", "remote-live/missing", "Hello"], { env });
 		assert.equal(remoteLoaded.status, 1);
-		assert.match(remoteLoaded.stderr, /Provider model not found: remote-live\/missing/);
+		assert.match(remoteLoaded.stderr, /Model not found: remote-live\/missing/);
 		writeAccountDatabase(path.join(authDir, "opencode.db"), `${remoteUrl}/`);
 		const accountLoaded = await runAsync(["run", "--live-ai-sdk", "--model", "account-live/missing", "Hello"], { env });
 		assert.equal(accountLoaded.status, 1);
-		assert.match(accountLoaded.stderr, /Provider model not found: account-live\/missing/);
+		assert.match(accountLoaded.stderr, /Model not found: account-live\/missing/);
 		assert.equal(observed.accountAuth, "Bearer account-live-token");
 		assert.equal(observed.accountOrg, "org-live");
 	});

@@ -1,0 +1,14 @@
+{
+  "util": {
+    "nativeMessage": "boom",
+    "nativeType": "Error",
+    "recordMessage": "bad input",
+    "recordCode": "E_BAD",
+    "opaqueMessage": "ResolveMessage: Cannot resolve module"
+  },
+  "cli": {
+    "accountTransport": "Could not reach POST https://console.opencode.ai/auth/device/code.\nThis failed before the server returned an HTTP response.\nCheck your network, proxy, or VPN configuration and try again.",
+    "providerModelNotFound": "Model not found: fixture-provider/missing-model\nDid you mean: gpt-5.2, gpt-5.1\nTry: `opencode models` to list available models\nOr check your config (opencode.json) provider/model names",
+    "configInvalid": "Configuration is invalid at /workspace/opencode.json\n↳ Unknown field provider.bad\n↳ Invalid permission value"
+  }
+}

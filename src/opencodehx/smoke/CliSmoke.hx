@@ -1,16 +1,27 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
 import haxe.Json;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
+import opencodehx.account.AccountError.AccountTransportError;
 import opencodehx.cli.Cli;
+import opencodehx.cli.ErrorFormatter;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigError.ConfigException;
+import opencodehx.config.ConfigError.ConfigFailure;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.BetterSqlite;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
+import opencodehx.provider.ProviderError.ProviderException;
+import opencodehx.provider.ProviderError.ProviderFailure;
+import opencodehx.provider.ProviderTypes.ModelID;
+import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.resource.Resources;
+import opencodehx.resource.Resources.ResourcePaths;
 
 class CliSmoke {
 	public static function run():Void {
@@ -83,6 +94,8 @@ class CliSmoke {
 		final missing = Cli.run(["run"]);
 		eq(missing.exitCode, 1, "missing prompt exit");
 		eq(missing.stderr.indexOf("You must provide a message") != -1, true, "missing prompt message");
+
+		diagnosticFormatting();
 	}
 
 	@:async
@@ -186,7 +199,8 @@ class CliSmoke {
 			NodeProcess.unsetEnv("CF_AIG_TOKEN");
 			final globalLoaded = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "global-live/missing", "Hello"]);
 			eq(globalLoaded.exitCode, 1, "live cli global config provider exit");
-			eq(globalLoaded.stderr.indexOf("Provider model not found: global-live/missing") != -1, true, "live cli global config provider loaded");
+			eq(globalLoaded.stderr.indexOf("Model not found: global-live/missing") != -1, true, "live cli global config provider loaded");
+			eq(globalLoaded.stderr.indexOf("Try: `opencode models`") != -1, true, "live cli global model diagnostic action");
 			final projectLoaded = @:await Cli.runAsync([
 				"run",
 				"--live-ai-sdk",
@@ -197,18 +211,18 @@ class CliSmoke {
 				"Hello"
 			]);
 			eq(projectLoaded.exitCode, 1, "live cli project config provider exit");
-			eq(projectLoaded.stderr.indexOf("Provider model not found: project-live/missing") != -1, true, "live cli project config provider loaded");
+			eq(projectLoaded.stderr.indexOf("Model not found: project-live/missing") != -1, true, "live cli project config provider loaded");
 			final authLoaded = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "cloudflare-ai-gateway/missing", "Hello"]);
 			eq(authLoaded.exitCode, 1, "live cli auth provider exit");
-			eq(authLoaded.stderr.indexOf("Provider model not found: cloudflare-ai-gateway/missing") != -1, true, "live cli auth provider loaded");
+			eq(authLoaded.stderr.indexOf("Model not found: cloudflare-ai-gateway/missing") != -1, true, "live cli auth provider loaded");
 			final remoteLoaded = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "remote-live/missing", "Hello"]);
 			eq(remoteLoaded.exitCode, 1, "live cli remote well-known provider exit");
-			eq(remoteLoaded.stderr.indexOf("Provider model not found: remote-live/missing") != -1, true, "live cli remote well-known provider loaded");
+			eq(remoteLoaded.stderr.indexOf("Model not found: remote-live/missing") != -1, true, "live cli remote well-known provider loaded");
 			eq(SmokeFetchStub.cliFetchedUrl(), "https://remote.example.com/.well-known/opencode", "live cli remote well-known URL normalized");
 			writeAccountDatabase(NodePath.join(authDir, "opencode.db"), "https://account.example.com/");
 			final accountLoaded = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "account-live/missing", "Hello"]);
 			eq(accountLoaded.exitCode, 1, "live cli remote account provider exit");
-			eq(accountLoaded.stderr.indexOf("Provider model not found: account-live/missing") != -1, true, "live cli remote account provider loaded");
+			eq(accountLoaded.stderr.indexOf("Model not found: account-live/missing") != -1, true, "live cli remote account provider loaded");
 			eq(SmokeFetchStub.cliFetchedUrl(), "https://account.example.com/api/config", "live cli remote account URL normalized");
 			eq(SmokeFetchStub.cliAccountAuth(), "Bearer account-live-token", "live cli remote account auth header");
 			eq(SmokeFetchStub.cliAccountOrg(), "org-live", "live cli remote account org header");
@@ -241,6 +255,24 @@ class CliSmoke {
 		final info:Dynamic = Reflect.field(assistant, "info");
 		final path:Dynamic = Reflect.field(info, "path");
 		return Std.string(Reflect.field(path, "cwd"));
+	}
+
+	static function diagnosticFormatting():Void {
+		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
+		final cli:Dynamic = Reflect.field(golden, "cli");
+		final account = ErrorFormatter.format(Unknown.fromBoundary(new AccountTransportError({
+			method: "POST",
+			url: "https://console.opencode.ai/auth/device/code",
+		})));
+		eq(account, Reflect.field(cli, "accountTransport"), "account transport diagnostic");
+
+		final provider = ErrorFormatter.format(Unknown.fromBoundary(new ProviderException(ProviderFailure.ModelNotFound(ProviderID.make("fixture-provider"),
+			ModelID.make("missing-model"), ["gpt-5.2", "gpt-5.1"]))));
+		eq(provider, Reflect.field(cli, "providerModelNotFound"), "provider model diagnostic");
+
+		final config = ErrorFormatter.format(Unknown.fromBoundary(new ConfigException(ConfigFailure.InvalidError("/workspace/opencode.json",
+			["Unknown field provider.bad", "Invalid permission value"]))));
+		eq(config, Reflect.field(cli, "configInvalid"), "config invalid diagnostic");
 	}
 
 	static function writeAccountDatabase(path:String, url:String):Void {
