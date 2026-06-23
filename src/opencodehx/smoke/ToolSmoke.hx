@@ -17,6 +17,7 @@ import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolPaths;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
+import opencodehx.tool.ToolTypes.ToolIDs;
 import opencodehx.tool.ToolTypes.ToolPermissionDecision;
 import opencodehx.tool.ToolTypes.ToolPermissionRequest;
 
@@ -58,8 +59,8 @@ class ToolSmoke {
 	static function registrySurface(registry:ToolRegistry):Void {
 		eq(registry.ids().join(","), "apply_patch,bash,edit,glob,grep,invalid,read,write", "builtin ids");
 		eq(registry.all().length, 8, "builtin count");
-		eq(registry.all({disabled: ["grep"]}).length, 7, "filtered count");
-		eq(registry.get("glob").schema.parameters[0].name, "pattern", "glob schema");
+		eq(registry.all({disabled: [ToolIDs.known("grep")]}).length, 7, "filtered count");
+		eq(registry.get(ToolIDs.known("glob")).schema.parameters[0].name, "pattern", "glob schema");
 	}
 
 	static function shellSelectionParity():Void {
@@ -143,21 +144,21 @@ class ToolSmoke {
 			}
 		}, "unknown tool");
 
-		expectToolFailure(() -> registry.get("grep", {disabled: ["grep"]}), function(failure) {
+		expectToolFailure(() -> registry.get(ToolIDs.known("grep"), {disabled: [ToolIDs.known("grep")]}), function(failure) {
 			return switch failure {
 				case DisabledTool(id): id == "grep";
 				case _: false;
 			}
 		}, "disabled tool");
 
-		expectToolFailure(() -> registry.execute("grep", {}, ctx), function(failure) {
+		expectToolFailure(() -> registry.execute(ToolIDs.known("grep"), {}, ctx), function(failure) {
 			return switch failure {
 				case InvalidArguments(id, issues): id == "grep" && issues.join("\n").indexOf("pattern") != -1;
 				case _: false;
 			}
 		}, "invalid args");
 
-		final invalid = registry.execute("invalid", {tool: "grep", error: "bad pattern"}, ctx);
+		final invalid = registry.execute(ToolIDs.known("invalid"), {tool: ToolIDs.known("grep"), error: "bad pattern"}, ctx);
 		eq(invalid.title, "Invalid Tool", "invalid title");
 		eq(invalid.output.indexOf("bad pattern") != -1, true, "invalid output");
 	}
@@ -168,7 +169,7 @@ class ToolSmoke {
 			seen.push(request.permission + ":" + request.patterns.join(","));
 			return {allowed: false, reason: "blocked by smoke"};
 		});
-		expectToolFailure(() -> registry.execute("read", {filePath: "src/a.ts"}, ctx), function(failure) {
+		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "src/a.ts"}, ctx), function(failure) {
 			return switch failure {
 				case PermissionDenied(id, message): id == "read" && message.indexOf("blocked") != -1;
 				case _: false;
@@ -179,7 +180,7 @@ class ToolSmoke {
 		final deniedBash = context(root, request -> {
 			return {allowed: false, reason: "no shell"};
 		});
-		expectToolFailure(() -> registry.execute("bash", {
+		expectToolFailure(() -> registry.execute(ToolIDs.known("bash"), {
 			command: "echo denied",
 			description: "Denied command"
 		}, deniedBash), function(failure) {
@@ -193,7 +194,7 @@ class ToolSmoke {
 	static function bashExec(registry:ToolRegistry, ctx:ToolContext):Void {
 		treeSitterScanner(ctx);
 
-		final hello = registry.execute("bash", {
+		final hello = registry.execute(ToolIDs.known("bash"), {
 			command: "printf hello",
 			description: "Print hello"
 		}, ctx);
@@ -201,7 +202,7 @@ class ToolSmoke {
 		eq(hello.output, "hello", "bash output");
 		eq(Reflect.field(hello.metadata, "exit"), 0, "bash exit");
 
-		final cwd = registry.execute("bash", {
+		final cwd = registry.execute(ToolIDs.known("bash"), {
 			command: "node -e \"process.stdout.write(process.cwd())\"",
 			workdir: "src",
 			description: "Show cwd"
@@ -209,20 +210,20 @@ class ToolSmoke {
 		eq(StringTools.endsWith(ToolPaths.normalize(cwd.output), ToolPaths.normalize(NodePath.join(NodePath.basename(ctx.directory), "src"))), true,
 			"bash cwd");
 
-		final env = registry.execute("bash", {
+		final env = registry.execute(ToolIDs.known("bash"), {
 			command: "node -e \"process.stdout.write(process.env.PATH ? 'env-ok' : 'missing')\"",
 			description: "Show env"
 		}, ctx);
 		eq(env.output, "env-ok", "bash env");
 
-		final truncated = registry.execute("bash", {
+		final truncated = registry.execute(ToolIDs.known("bash"), {
 			command: "node -e \"process.stdout.write('x'.repeat(31000))\"",
 			description: "Large output"
 		}, ctx);
 		eq(Reflect.field(truncated.metadata, "truncated"), true, "bash truncated metadata");
 		eq(truncated.output.indexOf("...output truncated...") == 0, true, "bash truncation output");
 
-		final timeout = registry.execute("bash", {
+		final timeout = registry.execute(ToolIDs.known("bash"), {
 			command: "node -e \"setTimeout(()=>{}, 200)\"",
 			timeout: 20,
 			description: "Timeout command"
@@ -234,7 +235,7 @@ class ToolSmoke {
 				return {allowed: false, reason: "external blocked"};
 			return {allowed: true};
 		});
-		expectToolFailure(() -> registry.execute("bash", {
+		expectToolFailure(() -> registry.execute(ToolIDs.known("bash"), {
 			command: "pwd",
 			workdir: Os.tmpdir(),
 			description: "External pwd"
@@ -321,16 +322,16 @@ class ToolSmoke {
 	}
 
 	static function readExec(registry:ToolRegistry, ctx:ToolContext):Void {
-		final file = registry.execute("read", {filePath: "src/a.ts", limit: 1}, ctx);
+		final file = registry.execute(ToolIDs.known("read"), {filePath: "src/a.ts", limit: 1}, ctx);
 		eq(Reflect.field(file.metadata, "truncated"), false, "read file not truncated");
 		eq(file.output.indexOf("<type>file</type>") != -1, true, "read file type");
 		eq(file.output.indexOf("1: export const needle = 1;") != -1, true, "read line");
 
-		final dir = registry.execute("read", {filePath: "src"}, ctx);
+		final dir = registry.execute(ToolIDs.known("read"), {filePath: "src"}, ctx);
 		eq(dir.output.indexOf("<type>directory</type>") != -1, true, "read directory type");
 		eq(dir.output.indexOf("a.ts") != -1, true, "read directory entry");
 
-		expectToolFailure(() -> registry.execute("read", {filePath: "../outside.ts"}, ctx), function(failure) {
+		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "../outside.ts"}, ctx), function(failure) {
 			return switch failure {
 				case ExecutionFailed(id, message): id == "read" && message.indexOf("escapes project") != -1;
 				case _: false;
@@ -339,12 +340,12 @@ class ToolSmoke {
 	}
 
 	static function globExec(registry:ToolRegistry, ctx:ToolContext):Void {
-		final result = registry.execute("glob", {pattern: "*.ts", path: "src"}, ctx);
+		final result = registry.execute(ToolIDs.known("glob"), {pattern: "*.ts", path: "src"}, ctx);
 		eq(Reflect.field(result.metadata, "count"), 2, "glob count");
 		eq(result.output.indexOf("a.ts") != -1, true, "glob output a");
 		eq(result.output.indexOf("b.txt") == -1, true, "glob excludes txt");
 
-		expectToolFailure(() -> registry.execute("glob", {pattern: "*.ts", path: "src/a.ts"}, ctx), function(failure) {
+		expectToolFailure(() -> registry.execute(ToolIDs.known("glob"), {pattern: "*.ts", path: "src/a.ts"}, ctx), function(failure) {
 			return switch failure {
 				case ExecutionFailed(id, message): id == "glob" && message.indexOf("glob path must be a directory") != -1;
 				case _: false;
@@ -353,32 +354,32 @@ class ToolSmoke {
 	}
 
 	static function grepExec(registry:ToolRegistry, ctx:ToolContext):Void {
-		final result = registry.execute("grep", {pattern: "needle", path: "src", include: "*.ts"}, ctx);
+		final result = registry.execute(ToolIDs.known("grep"), {pattern: "needle", path: "src", include: "*.ts"}, ctx);
 		eq(Reflect.field(result.metadata, "matches"), 1, "grep matches");
 		eq(result.output.indexOf("Found 1 matches") != -1, true, "grep found");
 		eq(result.output.indexOf("Line 1:") != -1, true, "grep line");
 
-		final exact = registry.execute("grep", {pattern: "needle", path: "src/b.txt"}, ctx);
+		final exact = registry.execute(ToolIDs.known("grep"), {pattern: "needle", path: "src/b.txt"}, ctx);
 		eq(Reflect.field(exact.metadata, "matches"), 1, "grep exact file");
 
-		final none = registry.execute("grep", {pattern: "definitely-not-here", path: "src"}, ctx);
+		final none = registry.execute(ToolIDs.known("grep"), {pattern: "definitely-not-here", path: "src"}, ctx);
 		eq(none.output, "No files found", "grep no matches");
 	}
 
 	static function writeExec(registry:ToolRegistry, ctx:ToolContext):Void {
-		final result = registry.execute("write", {filePath: "src/new.txt", content: "fresh\n"}, ctx);
+		final result = registry.execute(ToolIDs.known("write"), {filePath: "src/new.txt", content: "fresh\n"}, ctx);
 		eq(result.output, "Wrote file successfully.", "write output");
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/new.txt"), "utf8"), "fresh\n", "write content");
 		eq(Reflect.field(result.metadata, "exists"), false, "write existed metadata");
 	}
 
 	static function editExec(registry:ToolRegistry, ctx:ToolContext):Void {
-		final single = registry.execute("edit", {filePath: "src/a.ts", oldString: "needle", newString: "pin"}, ctx);
+		final single = registry.execute(ToolIDs.known("edit"), {filePath: "src/a.ts", oldString: "needle", newString: "pin"}, ctx);
 		eq(single.output, "Edit applied successfully.", "edit output");
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/a.ts"), "utf8").indexOf("pin") != -1, true, "edit content");
 
 		write(ctx.directory, "src/repeat.txt", "x\nx\n");
-		registry.execute("edit", {
+		registry.execute(ToolIDs.known("edit"), {
 			filePath: "src/repeat.txt",
 			oldString: "x",
 			newString: "y",
@@ -386,7 +387,7 @@ class ToolSmoke {
 		}, ctx);
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/repeat.txt"), "utf8"), "y\ny\n", "edit replace all");
 
-		expectToolFailure(() -> registry.execute("edit", {filePath: "src/repeat.txt", oldString: "y", newString: "z"}, ctx), function(failure) {
+		expectToolFailure(() -> registry.execute(ToolIDs.known("edit"), {filePath: "src/repeat.txt", oldString: "y", newString: "z"}, ctx), function(failure) {
 			return switch failure {
 				case ExecutionFailed(id, message): id == "edit" && message.indexOf("multiple matches") != -1;
 				case _: false;
@@ -394,7 +395,7 @@ class ToolSmoke {
 		}, "edit multiple failure");
 
 		write(ctx.directory, "src/line-trimmed.txt", "function run() {\n  return 1;\n}\n");
-		registry.execute("edit", {
+		registry.execute(ToolIDs.known("edit"), {
 			filePath: "src/line-trimmed.txt",
 			oldString: "function run() {\nreturn 1;\n}",
 			newString: "function run() {\n  return 2;\n}"
@@ -402,7 +403,7 @@ class ToolSmoke {
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/line-trimmed.txt"), "utf8"), "function run() {\n  return 2;\n}\n", "edit line-trimmed");
 
 		write(ctx.directory, "src/block-anchor.txt", "start\nactual middle\nfinish\n");
-		registry.execute("edit", {
+		registry.execute(ToolIDs.known("edit"), {
 			filePath: "src/block-anchor.txt",
 			oldString: "start\nstale middle\nfinish",
 			newString: "start\nfresh middle\nfinish"
@@ -410,7 +411,7 @@ class ToolSmoke {
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/block-anchor.txt"), "utf8"), "start\nfresh middle\nfinish\n", "edit block anchor");
 
 		write(ctx.directory, "src/whitespace.txt", "const pair = alpha   +\t beta;\n");
-		registry.execute("edit", {
+		registry.execute(ToolIDs.known("edit"), {
 			filePath: "src/whitespace.txt",
 			oldString: "const pair = alpha + beta;",
 			newString: "const pair = gamma;"
@@ -418,7 +419,7 @@ class ToolSmoke {
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/whitespace.txt"), "utf8"), "const pair = gamma;\n", "edit whitespace-normalized");
 
 		write(ctx.directory, "src/indent.txt", "    alpha\n      beta\n    gamma\n");
-		registry.execute("edit", {
+		registry.execute(ToolIDs.known("edit"), {
 			filePath: "src/indent.txt",
 			oldString: "alpha\n  beta\ngamma",
 			newString: "delta"
@@ -426,7 +427,7 @@ class ToolSmoke {
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/indent.txt"), "utf8"), "delta\n", "edit indentation-flexible");
 
 		write(ctx.directory, "src/escaped.txt", "const value = \"a\\nb\";\n");
-		registry.execute("edit", {
+		registry.execute(ToolIDs.known("edit"), {
 			filePath: "src/escaped.txt",
 			oldString: "const value = \"a\\\\nb\";",
 			newString: "const value = \"c\";"
@@ -447,7 +448,7 @@ class ToolSmoke {
 			"*** Delete File: src/b.txt",
 			"*** End Patch",
 		].join("\n");
-		final result = registry.execute("apply_patch", {patchText: patch}, ctx);
+		final result = registry.execute(ToolIDs.known("apply_patch"), {patchText: patch}, ctx);
 		eq(result.output.indexOf("A src/patch-added.txt") != -1, true, "patch add summary");
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/patch-added.txt"), "utf8"), "one\ntwo\n", "patch add content");
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/c.ts"), "utf8").indexOf("other = 3") != -1, true, "patch update content");
@@ -456,7 +457,7 @@ class ToolSmoke {
 		eq(Reflect.field(files[0], "type"), "add", "patch metadata type");
 
 		write(ctx.directory, "src/move-from.txt", "move me\n");
-		registry.execute("apply_patch", {
+		registry.execute(ToolIDs.known("apply_patch"), {
 			patchText: [
 				"*** Begin Patch",
 				"*** Update File: src/move-from.txt",
@@ -471,7 +472,7 @@ class ToolSmoke {
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/moved/move-to.txt"), "utf8"), "moved\n", "patch move writes target");
 
 		write(ctx.directory, "src/eof.txt", "start\nmarker\nmiddle\nmarker\nend\n");
-		registry.execute("apply_patch", {
+		registry.execute(ToolIDs.known("apply_patch"), {
 			patchText: [
 				"*** Begin Patch",
 				"*** Update File: src/eof.txt",
@@ -486,13 +487,13 @@ class ToolSmoke {
 		}, ctx);
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/eof.txt"), "utf8"), "start\nmarker\nmiddle\nmarker-changed\nend\n", "patch EOF anchor");
 
-		registry.execute("apply_patch", {
+		registry.execute(ToolIDs.known("apply_patch"), {
 			patchText: "cat <<'EOF'\n*** Begin Patch\n*** Add File: src/heredoc.txt\n+wrapped\n*** End Patch\nEOF"
 		}, ctx);
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/heredoc.txt"), "utf8"), "wrapped\n", "patch heredoc");
 
 		write(ctx.directory, "src/unicode.txt", "He said \u201Chello\u201D\nsome\u2014dash\nend\n");
-		registry.execute("apply_patch", {
+		registry.execute(ToolIDs.known("apply_patch"), {
 			patchText: [
 				"*** Begin Patch",
 				"*** Update File: src/unicode.txt",
@@ -504,7 +505,7 @@ class ToolSmoke {
 		}, ctx);
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/unicode.txt"), "utf8"), "He said \"hi\"\nsome\u2014dash\nend\n", "patch unicode-normalized");
 
-		expectToolFailure(() -> registry.execute("apply_patch", {patchText: "*** Begin Patch\n*** Frobnicate File: foo\n*** End Patch"}, ctx),
+		expectToolFailure(() -> registry.execute(ToolIDs.known("apply_patch"), {patchText: "*** Begin Patch\n*** Frobnicate File: foo\n*** End Patch"}, ctx),
 			function(failure) {
 				return switch failure {
 					case ExecutionFailed(id, message): id == "apply_patch" && message.indexOf("no hunks found") != -1;
@@ -512,7 +513,7 @@ class ToolSmoke {
 				}
 			}, "patch malformed header");
 
-		expectToolFailure(() -> registry.execute("apply_patch", {
+		expectToolFailure(() -> registry.execute(ToolIDs.known("apply_patch"), {
 			patchText: "*** Begin Patch\n*** Add File: src/should-not-exist.txt\n+hello\n*** Update File: src/missing.txt\n@@\n-old\n+new\n*** End Patch"
 		}, ctx), function(failure) {
 			return switch failure {

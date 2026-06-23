@@ -16,7 +16,7 @@ Known TUI artifact typo diagnostics are covered separately with:
 npm run macro:diagnostics
 ```
 
-That harness compiles a generated negative fixture and requires the Haxe macro error for an unknown built-in keybind action. `npm run ci:full` includes this gate.
+That harness compiles generated negative fixtures and requires Haxe macro errors for an unknown built-in keybind action and an unknown source-authored tool ID. `npm run ci:full` includes this gate.
 
 `npm run package:smoke` now builds the same scaffold before packing, includes `src-gen/tui/index.tsx` plus `bin/opencodehx-opentui-solid-preload.mjs` in the tarball, installs the package into a temporary global prefix, and runs the installed scaffold through the package-local pinned Bun binary. That is installed-package evidence for the scaffold path only; it is not a claim that the final live terminal UI is packaged.
 
@@ -26,7 +26,7 @@ Dialog replay is intentionally pure at this stage. `TuiDialogReplay` models upst
 
 Built-in plugin routes now go through `TuiRoutes.plugin("...")`, a macro-checked constructor. Built-in TUI keybind action references use `TuiKeybindActions.action("...")` against the `TuiKeybindActionName` catalog. These keep the literal authoring style close to upstream while failing the Haxe compile if the route or action is not in the typed catalog.
 
-This is the representative checked-string slice for `opencodehx-vyz`. `opencodehx-8dx` tracks the remaining non-TUI catalogs such as tool IDs, provider/model IDs, event discriminants, config keys, resource names, fixture/snapshot targets, and generated file targets.
+This is the representative TUI checked-string slice for `opencodehx-vyz`; source-authored tool IDs are covered in `docs/tool-registry-port.md`. `opencodehx-zot` tracks the remaining catalogs such as provider/model IDs, event discriminants, config keys, resource names, fixture/snapshot targets, and generated file targets.
 
 Dependency pins:
 

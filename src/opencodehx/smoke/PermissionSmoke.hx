@@ -10,6 +10,7 @@ import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
+import opencodehx.tool.ToolTypes.ToolIDs;
 
 class PermissionSmoke {
 	public static function run():Void {
@@ -106,21 +107,22 @@ class PermissionSmoke {
 				]
 			});
 			final ctx = context(root, allow);
-			final read = registry.execute("read", {filePath: "src/a.ts"}, ctx);
+			final read = registry.execute(ToolIDs.known("read"), {filePath: "src/a.ts"}, ctx);
 			eq(read.output.indexOf("ok") != -1, true, "permission read integration");
-			final bash = registry.execute("bash", {command: "printf ok", description: "Print ok"}, ctx);
+			final bash = registry.execute(ToolIDs.known("bash"), {command: "printf ok", description: "Print ok"}, ctx);
 			eq(bash.output, "ok", "permission bash integration");
 
 			final deny = new PermissionRuntime({
 				sessionID: "ses_perm",
 				ruleset: [{permission: "bash", pattern: "*", action: "deny"}]
 			});
-			expectToolFailure(() -> registry.execute("bash", {command: "printf no", description: "Denied"}, context(root, deny)), function(failure) {
-				return switch failure {
-					case PermissionDenied(id, message): id == "bash" && message.indexOf("prevents this tool call") != -1;
-					case _: false;
-				}
-			}, "permission deny integration");
+			expectToolFailure(() -> registry.execute(ToolIDs.known("bash"), {command: "printf no", description: "Denied"}, context(root, deny)),
+				function(failure) {
+					return switch failure {
+						case PermissionDenied(id, message): id == "bash" && message.indexOf("prevents this tool call") != -1;
+						case _: false;
+					}
+				}, "permission deny integration");
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			Fs.rmSync(root, {recursive: true, force: true});

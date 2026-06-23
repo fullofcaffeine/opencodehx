@@ -3,6 +3,7 @@ package opencodehx.tool;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -35,7 +36,7 @@ typedef PatchChange = {
 class ApplyPatchTool {
 	public static function define():ToolDef {
 		return {
-			id: "apply_patch",
+			id: KnownToolID.ApplyPatch,
 			description: "Apply an OpenAI-style patch envelope to project files.",
 			schema: {
 				parameters: [
@@ -55,14 +56,14 @@ class ApplyPatchTool {
 		final issues:Array<String> = [];
 		final patchText = ToolValidation.requireString(args, "patchText", issues);
 		if (issues.length > 0)
-			throw new ToolException(InvalidArguments("apply_patch", issues));
+			throw new ToolException(InvalidArguments(KnownToolID.ApplyPatch, issues));
 
 		final hunks = parse(patchText);
 		if (hunks.length == 0) {
 			final normalized = StringTools.trim(StringTools.replace(StringTools.replace(patchText, "\r\n", "\n"), "\r", "\n"));
 			if (normalized == "*** Begin Patch\n*** End Patch")
-				throw new ToolException(ExecutionFailed("apply_patch", "patch rejected: empty patch"));
-			throw new ToolException(ExecutionFailed("apply_patch", "apply_patch verification failed: no hunks found"));
+				throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch, "patch rejected: empty patch"));
+			throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch, "apply_patch verification failed: no hunks found"));
 		}
 
 		final changes:Array<PatchChange> = [];
@@ -76,7 +77,7 @@ class ApplyPatchTool {
 			patterns.push(change.relativePath);
 		}
 		final totalDiff = diffLines.join("\n");
-		ToolPermission.require("apply_patch", ctx, {
+		ToolPermission.require(KnownToolID.ApplyPatch, ctx, {
 			permission: "edit",
 			patterns: patterns,
 			always: ["*"],
@@ -103,7 +104,8 @@ class ApplyPatchTool {
 		final beginIdx = indexOfLine(lines, "*** Begin Patch");
 		final endIdx = indexOfLine(lines, "*** End Patch");
 		if (beginIdx == -1 || endIdx == -1 || beginIdx >= endIdx)
-			throw new ToolException(ExecutionFailed("apply_patch", "apply_patch verification failed: Invalid patch format: missing Begin/End markers"));
+			throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
+				"apply_patch verification failed: Invalid patch format: missing Begin/End markers"));
 
 		final hunks:Array<PatchHunk> = [];
 		var i = beginIdx + 1;
@@ -191,22 +193,24 @@ class ApplyPatchTool {
 	static function planChange(ctx:ToolContext, hunk:PatchHunk):PatchChange {
 		return switch hunk {
 			case AddFile(path, contents):
-				final absolute = resolve("apply_patch", ctx, path);
+				final absolute = resolve(KnownToolID.ApplyPatch, ctx, path);
 				final oldContent = "";
 				final newContent = contents == "" || StringTools.endsWith(contents, "\n") ? contents : contents + "\n";
 				makeChange(ctx, "add", absolute, null, oldContent, newContent);
 			case DeleteFile(path):
-				final absolute = resolve("apply_patch", ctx, path);
+				final absolute = resolve(KnownToolID.ApplyPatch, ctx, path);
 				if (!Fs.existsSync(absolute) || !Fs.statSync(absolute).isFile())
-					throw new ToolException(ExecutionFailed("apply_patch", 'apply_patch verification failed: Failed to read file to delete: ${absolute}'));
+					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
+						'apply_patch verification failed: Failed to read file to delete: ${absolute}'));
 				makeChange(ctx, "delete", absolute, null, Fs.readFileSync(absolute, "utf8"), "");
 			case UpdateFile(path, movePath, chunks):
-				final absolute = resolve("apply_patch", ctx, path);
+				final absolute = resolve(KnownToolID.ApplyPatch, ctx, path);
 				if (!Fs.existsSync(absolute) || !Fs.statSync(absolute).isFile())
-					throw new ToolException(ExecutionFailed("apply_patch", 'apply_patch verification failed: Failed to read file to update: ${absolute}'));
+					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
+						'apply_patch verification failed: Failed to read file to update: ${absolute}'));
 				final oldContent = Fs.readFileSync(absolute, "utf8");
 				final newContent = deriveNewContent(absolute, oldContent, chunks);
-				final resolvedMove = movePath == null ? null : resolve("apply_patch", ctx, movePath);
+				final resolvedMove = movePath == null ? null : resolve(KnownToolID.ApplyPatch, ctx, movePath);
 				makeChange(ctx, resolvedMove == null ? "update" : "move", absolute, resolvedMove, oldContent, newContent);
 		}
 	}
@@ -236,7 +240,8 @@ class ApplyPatchTool {
 			case "move":
 				final target:Null<String> = change.movePath;
 				if (target == null)
-					throw new ToolException(ExecutionFailed("apply_patch", 'apply_patch verification failed: missing move target for ${change.filePath}'));
+					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
+						'apply_patch verification failed: missing move target for ${change.filePath}'));
 				Fs.mkdirSync(NodePath.dirname(target), {recursive: true});
 				Fs.writeFileSync(target, change.newContent, "utf8");
 				Fs.rmSync(change.filePath, {force: true});
@@ -255,7 +260,7 @@ class ApplyPatchTool {
 				final contextText = Std.string(chunk.changeContext);
 				final contextIdx = seekSequence(original, [contextText], lineIndex, false);
 				if (contextIdx == -1)
-					throw new ToolException(ExecutionFailed("apply_patch",
+					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
 						'apply_patch verification failed: Failed to find context ${contextText} in ${filePath}'));
 				lineIndex = contextIdx + 1;
 			}
@@ -274,7 +279,7 @@ class ApplyPatchTool {
 				found = seekSequence(original, oldPattern, lineIndex, chunk.isEndOfFile == true);
 			}
 			if (found == -1)
-				throw new ToolException(ExecutionFailed("apply_patch",
+				throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
 					'apply_patch verification failed: Failed to find expected lines in ${filePath}:\n${chunk.oldLines.join("\n")}'));
 			replacements.push({start: found, remove: oldPattern.length, insert: newPattern});
 			lineIndex = found + oldPattern.length;

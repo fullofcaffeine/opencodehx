@@ -8,6 +8,7 @@ import opencodehx.lsp.LspRuntime;
 import opencodehx.lsp.LspTypes.LspLocationInput;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
+import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -27,7 +28,7 @@ class LspTool {
 
 	public static function define(runtime:LspRuntime):ToolDef {
 		return {
-			id: "lsp",
+			id: KnownToolID.Lsp,
 			description: "Query language server protocol features for a source file.",
 			schema: {
 				parameters: [
@@ -49,7 +50,7 @@ class LspTool {
 		final line = intField(args, "line");
 		final character = intField(args, "character");
 		if (OPERATIONS.indexOf(operation) == -1)
-			throw new ToolException(InvalidArguments("lsp", ['operation must be one of ${OPERATIONS.join(", ")}']));
+			throw new ToolException(InvalidArguments(KnownToolID.Lsp, ['operation must be one of ${OPERATIONS.join(", ")}']));
 		final file = NodePath.isAbsolute(filePath) ? filePath : NodePath.join(ctx.directory, filePath);
 		if (ctx.ask != null) {
 			final decision = ctx.ask({
@@ -59,12 +60,12 @@ class LspTool {
 				metadata: {}
 			});
 			if (!decision.allowed)
-				throw new ToolException(PermissionDenied("lsp", decision.reason == null ? "permission denied" : decision.reason));
+				throw new ToolException(PermissionDenied(KnownToolID.Lsp, decision.reason == null ? "permission denied" : decision.reason));
 		}
 		if (!Fs.existsSync(file))
-			throw new ToolException(ExecutionFailed("lsp", 'File not found: ${file}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Lsp, 'File not found: ${file}'));
 		if (!runtime.hasClients(file))
-			throw new ToolException(ExecutionFailed("lsp", "No LSP server available for this file type."));
+			throw new ToolException(ExecutionFailed(KnownToolID.Lsp, "No LSP server available for this file type."));
 		runtime.touchFile(file, true);
 		final position:LspLocationInput = {file: file, line: line - 1, character: character - 1};
 		final result:Array<Unknown> = switch operation {
@@ -93,7 +94,7 @@ class LspTool {
 		// See execute: raw field reads are contained to argument decoding.
 		final value = Reflect.field(args, name);
 		if (!Std.isOfType(value, String))
-			throw new ToolException(InvalidArguments("lsp", ['${name} must be a string']));
+			throw new ToolException(InvalidArguments(KnownToolID.Lsp, ['${name} must be a string']));
 		return value;
 	}
 
@@ -101,7 +102,7 @@ class LspTool {
 		// See execute: raw field reads are contained to argument decoding.
 		final value = Reflect.field(args, name);
 		if (!Std.isOfType(value, Int))
-			throw new ToolException(InvalidArguments("lsp", ['${name} must be an integer']));
+			throw new ToolException(InvalidArguments(KnownToolID.Lsp, ['${name} must be an integer']));
 		return value;
 	}
 }

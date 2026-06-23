@@ -5,6 +5,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -17,7 +18,7 @@ class BashTool {
 
 	public static function define():ToolDef {
 		return {
-			id: "bash",
+			id: KnownToolID.Bash,
 			description: "Execute a shell command through the Node host seam.",
 			schema: {
 				parameters: [
@@ -60,11 +61,11 @@ class BashTool {
 		final timeoutArg = ToolValidation.optionalInt(args, "timeout", issues);
 		final workdirArg = ToolValidation.optionalString(args, "workdir", issues);
 		if (issues.length > 0)
-			throw new ToolException(InvalidArguments("bash", issues));
+			throw new ToolException(InvalidArguments(KnownToolID.Bash, issues));
 
 		final timeout = timeoutArg == null ? DEFAULT_TIMEOUT : timeoutArg;
 		if (timeout < 0)
-			throw new ToolException(ExecutionFailed("bash", 'Invalid timeout value: ${timeout}. Timeout must be a positive number.'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Bash, 'Invalid timeout value: ${timeout}. Timeout must be a positive number.'));
 		final cwd = resolveWorkdir(ctx, workdirArg);
 		final shell = NodeProcess.acceptableShell();
 		final scan = BashCommandScanner.scan(ctx.directory, command, cwd, shell);
@@ -75,7 +76,7 @@ class BashTool {
 			final externalPatterns:Array<String> = [];
 			for (dir in externalDirs)
 				externalPatterns.push(ToolPaths.normalize(NodePath.join(dir, "*")));
-			ToolPermission.require("bash", ctx, {
+			ToolPermission.require(KnownToolID.Bash, ctx, {
 				permission: "external_directory",
 				patterns: externalPatterns,
 				always: externalPatterns,
@@ -83,7 +84,7 @@ class BashTool {
 			});
 		}
 		if (scan.patterns.length > 0) {
-			ToolPermission.require("bash", ctx, {
+			ToolPermission.require(KnownToolID.Bash, ctx, {
 				permission: "bash",
 				patterns: scan.patterns,
 				always: scan.always,
@@ -105,9 +106,9 @@ class BashTool {
 		final raw = value == null || value == "" ? ctx.directory : value;
 		final absolute = NodePath.isAbsolute(raw) ? NodePath.resolve(raw, ".") : NodePath.resolve(ctx.directory, raw);
 		if (!Fs.existsSync(absolute))
-			throw new ToolException(ExecutionFailed("bash", 'No such workdir: ${absolute}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Bash, 'No such workdir: ${absolute}'));
 		if (!Fs.statSync(absolute).isDirectory())
-			throw new ToolException(ExecutionFailed("bash", 'workdir must be a directory: ${absolute}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Bash, 'workdir must be a directory: ${absolute}'));
 		return absolute;
 	}
 

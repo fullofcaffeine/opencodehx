@@ -18,6 +18,7 @@ import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
+import opencodehx.tool.ToolTypes.ToolIDs;
 
 class LspSmoke {
 	public static function run():Void {
@@ -150,7 +151,7 @@ class LspSmoke {
 				return {allowed: true};
 			},
 		};
-		final result = registry.execute("lsp", {
+		final result = registry.execute(ToolIDs.known("lsp"), {
 			operation: "hover",
 			filePath: "src/test.ts",
 			line: 1,
@@ -159,7 +160,7 @@ class LspSmoke {
 		eq(result.title, "hover src/test.ts:1:1", "lsp tool title");
 		eq(permissions.join(","), "lsp", "lsp tool permission");
 		eq(Reflect.field(result.metadata, "result").length, 1, "lsp tool metadata result");
-		expectToolFailure(() -> registry.execute("lsp", {
+		expectToolFailure(() -> registry.execute(ToolIDs.known("lsp"), {
 			operation: "hover",
 			filePath: "src/missing.ts",
 			line: 1,

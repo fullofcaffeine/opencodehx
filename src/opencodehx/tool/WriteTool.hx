@@ -3,6 +3,7 @@ package opencodehx.tool;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -10,7 +11,7 @@ import opencodehx.tool.ToolTypes.ToolResult;
 class WriteTool {
 	public static function define():ToolDef {
 		return {
-			id: "write",
+			id: KnownToolID.Write,
 			description: "Write file contents, creating parent directories when needed.",
 			schema: {
 				parameters: [
@@ -37,16 +38,16 @@ class WriteTool {
 		final rawPath = ToolValidation.requireString(args, "filePath", issues);
 		final content = readRequiredString(args, "content", issues);
 		if (issues.length > 0)
-			throw new ToolException(InvalidArguments("write", issues));
+			throw new ToolException(InvalidArguments(KnownToolID.Write, issues));
 
-		final absolute = resolve("write", ctx, rawPath);
+		final absolute = resolve(KnownToolID.Write, ctx, rawPath);
 		final existed = Fs.existsSync(absolute);
 		final oldContent = existed && Fs.statSync(absolute).isFile() ? Fs.readFileSync(absolute, "utf8") : "";
 		if (existed && Fs.statSync(absolute).isDirectory())
-			throw new ToolException(ExecutionFailed("write", 'Path is a directory, not a file: ${absolute}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Write, 'Path is a directory, not a file: ${absolute}'));
 		final diff = TextDiff.unified(absolute, oldContent, content);
 		final relative = ToolPaths.relative(ctx, absolute);
-		ToolPermission.require("write", ctx, {
+		ToolPermission.require(KnownToolID.Write, ctx, {
 			permission: "edit",
 			patterns: [relative],
 			always: ["*"],

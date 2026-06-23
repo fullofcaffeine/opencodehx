@@ -7,12 +7,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, "../..");
 const generatedRoot = path.join(root, "test", ".generated", "macro-diagnostics");
-const fixturePath = path.join(generatedRoot, "BadTuiKeybindAction.hx");
 
 rmSync(generatedRoot, { recursive: true, force: true });
 mkdirSync(generatedRoot, { recursive: true });
-writeFileSync(
-	fixturePath,
+
+expectCompileFailure(
+	"BadTuiKeybindAction",
 	`import opencodehx.tui.TuiKeybind.TuiKeybindActions;
 
 class BadTuiKeybindAction {
@@ -21,24 +21,43 @@ class BadTuiKeybindAction {
 	}
 }
 `,
+	'Unknown TUI keybind action "theme_lsit". Known actions: leader, theme_list, session_new.',
 );
 
-const result = spawnSync("haxe", ["-cp", "src", "-cp", generatedRoot, "--main", "BadTuiKeybindAction", "-js", path.join(generatedRoot, "bad.js")], {
-	cwd: root,
-	encoding: "utf8",
-	env: process.env,
-});
+expectCompileFailure(
+	"BadToolID",
+	`import opencodehx.tool.ToolTypes.ToolIDs;
 
-const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-if (result.status === 0) {
-	console.error("[macro-diagnostics] Expected bad keybind action fixture to fail compilation.");
-	process.exit(1);
+class BadToolID {
+	static function main():Void {
+		ToolIDs.known("grepp");
+	}
 }
+`,
+	'Unknown source-authored tool id "grepp". Known tool ids: apply_patch, bash, edit, glob, grep, invalid, lsp, read, write.',
+);
 
-if (!output.includes('Unknown TUI keybind action "theme_lsit". Known actions: leader, theme_list, session_new.')) {
-	console.error("[macro-diagnostics] Bad keybind action fixture failed with an unexpected diagnostic:");
-	console.error(output);
-	process.exit(1);
+function expectCompileFailure(name, source, expectedDiagnostic) {
+	const fixturePath = path.join(generatedRoot, `${name}.hx`);
+	writeFileSync(fixturePath, source);
+
+	const result = spawnSync("haxe", ["-cp", "src", "-cp", generatedRoot, "--main", name, "-js", path.join(generatedRoot, `${name}.js`)], {
+		cwd: root,
+		encoding: "utf8",
+		env: process.env,
+	});
+
+	const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+	if (result.status === 0) {
+		console.error(`[macro-diagnostics] Expected ${name} fixture to fail compilation.`);
+		process.exit(1);
+	}
+
+	if (!output.includes(expectedDiagnostic)) {
+		console.error(`[macro-diagnostics] ${name} fixture failed with an unexpected diagnostic:`);
+		console.error(output);
+		process.exit(1);
+	}
 }
 
 console.log("macro-diagnostics:ok");

@@ -3,6 +3,7 @@ package opencodehx.tool;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -10,7 +11,7 @@ import opencodehx.tool.ToolTypes.ToolResult;
 class EditTool {
 	public static function define():ToolDef {
 		return {
-			id: "edit",
+			id: KnownToolID.Edit,
 			description: "Replace text in a file or create a file when oldString is empty.",
 			schema: {
 				parameters: [
@@ -51,16 +52,16 @@ class EditTool {
 		final newString = readRequiredString(args, "newString", issues);
 		final replaceAllArg = ToolValidation.optionalBool(args, "replaceAll", issues);
 		if (issues.length > 0)
-			throw new ToolException(InvalidArguments("edit", issues));
+			throw new ToolException(InvalidArguments(KnownToolID.Edit, issues));
 		if (oldString == newString)
-			throw new ToolException(ExecutionFailed("edit", "No changes to apply: oldString and newString are identical."));
+			throw new ToolException(ExecutionFailed(KnownToolID.Edit, "No changes to apply: oldString and newString are identical."));
 
-		final absolute = resolve("edit", ctx, rawPath);
+		final absolute = resolve(KnownToolID.Edit, ctx, rawPath);
 		final existed = Fs.existsSync(absolute);
 		if (existed && Fs.statSync(absolute).isDirectory())
-			throw new ToolException(ExecutionFailed("edit", 'Path is a directory, not a file: ${absolute}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Edit, 'Path is a directory, not a file: ${absolute}'));
 		if (!existed && oldString != "")
-			throw new ToolException(ExecutionFailed("edit", 'File ${absolute} not found'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Edit, 'File ${absolute} not found'));
 
 		final oldContent = existed ? Fs.readFileSync(absolute, "utf8") : "";
 		final ending = detectLineEnding(oldContent);
@@ -70,7 +71,7 @@ class EditTool {
 		final nextContent = oldString == "" ? normalizedNew : replace(oldContent, normalizedOld, normalizedNew, replaceAll);
 		final diff = TextDiff.unified(absolute, oldContent, nextContent);
 		final relative = ToolPaths.relative(ctx, absolute);
-		ToolPermission.require("edit", ctx, {
+		ToolPermission.require(KnownToolID.Edit, ctx, {
 			permission: "edit",
 			patterns: [relative],
 			always: ["*"],
@@ -109,9 +110,10 @@ class EditTool {
 			return content.substr(0, first) + newString + content.substr(first + search.length);
 		}
 		if (notFound)
-			throw new ToolException(ExecutionFailed("edit",
+			throw new ToolException(ExecutionFailed(KnownToolID.Edit,
 				"Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings."));
-		throw new ToolException(ExecutionFailed("edit", "Found multiple matches for oldString. Provide more surrounding context to make the match unique."));
+		throw new ToolException(ExecutionFailed(KnownToolID.Edit,
+			"Found multiple matches for oldString. Provide more surrounding context to make the match unique."));
 	}
 
 	static function replacementCandidates(content:String, find:String):Array<String> {

@@ -5,6 +5,7 @@ import opencodehx.file.Ripgrep;
 import opencodehx.file.Ripgrep.SearchMatch;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -15,7 +16,7 @@ class GrepTool {
 
 	public static function define():ToolDef {
 		return {
-			id: "grep",
+			id: KnownToolID.Grep,
 			description: "Search file contents by regex pattern.",
 			schema: {
 				parameters: [
@@ -49,12 +50,12 @@ class GrepTool {
 		final rawPath = ToolValidation.optionalString(args, "path", issues);
 		final include = ToolValidation.optionalString(args, "include", issues);
 		if (issues.length > 0)
-			throw new ToolException(InvalidArguments("grep", issues));
+			throw new ToolException(InvalidArguments(KnownToolID.Grep, issues));
 
 		final root = ctx.directory;
 		final search = rawPath == null ? root : resolvePath(root, rawPath);
 		if (!Fs.existsSync(search))
-			throw new ToolException(ExecutionFailed("grep", 'No such file or directory: ${search}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Grep, 'No such file or directory: ${search}'));
 		final stat:Dynamic = Fs.statSync(search);
 		final cwd = stat.isDirectory() ? search : NodePath.dirname(search);
 		final files:Null<Array<String>> = stat.isDirectory() ? null : [NodePath.relative(cwd, search)];

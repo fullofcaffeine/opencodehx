@@ -4,6 +4,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.file.Ripgrep;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -12,7 +13,7 @@ import opencodehx.tool.ToolValidation;
 class GlobTool {
 	public static function define():ToolDef {
 		return {
-			id: "glob",
+			id: KnownToolID.Glob,
 			description: "Find files by glob pattern.",
 			schema: {
 				parameters: [
@@ -39,14 +40,14 @@ class GlobTool {
 		final pattern = ToolValidation.requireString(args, "pattern", issues);
 		final rawPath = ToolValidation.optionalString(args, "path", issues);
 		if (issues.length > 0)
-			throw new ToolException(InvalidArguments("glob", issues));
+			throw new ToolException(InvalidArguments(KnownToolID.Glob, issues));
 
 		final root = ctx.directory;
 		final search = rawPath == null ? root : resolvePath(root, rawPath);
 		if (Fs.existsSync(search) && Fs.statSync(search).isFile())
-			throw new ToolException(ExecutionFailed("glob", 'glob path must be a directory: ${search}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Glob, 'glob path must be a directory: ${search}'));
 		if (!Fs.existsSync(search) || !Fs.statSync(search).isDirectory())
-			throw new ToolException(ExecutionFailed("glob", 'No such directory: ${search}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Glob, 'No such directory: ${search}'));
 
 		final limit = 100;
 		final rows:Array<{path:String, mtime:Float}> = [];

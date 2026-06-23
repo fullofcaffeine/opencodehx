@@ -3,6 +3,7 @@ package opencodehx.tool;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -14,7 +15,7 @@ class ReadTool {
 
 	public static function define():ToolDef {
 		return {
-			id: "read",
+			id: KnownToolID.Read,
 			description: "Read a file or list a directory.",
 			schema: {
 				parameters: [
@@ -48,11 +49,11 @@ class ReadTool {
 		final offsetArg = ToolValidation.optionalInt(args, "offset", issues);
 		final limitArg = ToolValidation.optionalInt(args, "limit", issues);
 		if (issues.length > 0)
-			throw new ToolException(InvalidArguments("read", issues));
+			throw new ToolException(InvalidArguments(KnownToolID.Read, issues));
 
-		final absolute = resolve("read", ctx, rawPath);
+		final absolute = resolve(KnownToolID.Read, ctx, rawPath);
 		final relative = ToolPaths.relative(ctx, absolute);
-		ToolPermission.require("read", ctx, {
+		ToolPermission.require(KnownToolID.Read, ctx, {
 			permission: "read",
 			patterns: [relative],
 			always: ["*"],
@@ -60,13 +61,13 @@ class ReadTool {
 		});
 
 		if (!Fs.existsSync(absolute))
-			throw new ToolException(ExecutionFailed("read", missingMessage(ctx, absolute)));
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, missingMessage(ctx, absolute)));
 
 		final stat:Dynamic = Fs.statSync(absolute);
 		if (stat.isDirectory())
 			return readDirectory(ctx, absolute);
 		if (!stat.isFile())
-			throw new ToolException(ExecutionFailed("read", 'Path is not a file: ${absolute}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, 'Path is not a file: ${absolute}'));
 
 		return readFile(ctx, absolute, offsetArg, limitArg);
 	}
@@ -103,7 +104,7 @@ class ReadTool {
 	static function readFile(ctx:ToolContext, absolute:String, offsetArg:Null<Int>, limitArg:Null<Int>):ToolResult {
 		final content = Fs.readFileSync(absolute, "utf8");
 		if (looksBinary(content))
-			throw new ToolException(ExecutionFailed("read", 'Cannot read binary file: ${absolute}'));
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, 'Cannot read binary file: ${absolute}'));
 
 		final lines = StringTools.replace(content, "\r\n", "\n").split("\n");
 		if (lines.length > 0 && lines[lines.length - 1] == "")
@@ -111,9 +112,9 @@ class ReadTool {
 		final offset = offsetArg == null ? 1 : offsetArg;
 		final limit = limitArg == null ? DEFAULT_READ_LIMIT : limitArg;
 		if (offset < 1)
-			throw new ToolException(ExecutionFailed("read", "offset must be greater than 0"));
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, "offset must be greater than 0"));
 		if (limit < 1)
-			throw new ToolException(ExecutionFailed("read", "limit must be greater than 0"));
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, "limit must be greater than 0"));
 
 		final start = offset - 1;
 		final end = start + limit > lines.length ? lines.length : start + limit;
