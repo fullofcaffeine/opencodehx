@@ -149,6 +149,26 @@ try {
 		const health = await fetchJson(`${server.url}/health`);
 		assert.equal(health.ok, true, "installed server health ok");
 		assert.equal(health.service, "opencodehx", "installed server health service");
+		const createdSession = await fetchJson(
+			`${server.url}/session`,
+			jsonRequest("POST", {
+				prompt: "Say hello from installed serve.",
+				title: "Installed package session",
+			}),
+		);
+		assert.equal(createdSession.id, "ses_server_1", "installed server session id");
+		assert.equal(createdSession.title, "Installed package session", "installed server session title");
+		const sessions = await fetchJson(`${server.url}/session`);
+		assert.equal(sessions.some((session) => session.id === createdSession.id), true, "installed server lists created session");
+		const sessionID = encodeURIComponent(createdSession.id);
+		const messages = await fetchJson(`${server.url}/session/${sessionID}/message?limit=1`);
+		assert.equal(Array.isArray(messages), true, "installed server message page is an array");
+		assert.equal(messages.length, 1, "installed server message page length");
+		assert.equal(messages[0].info.sessionID, createdSession.id, "installed server message session id");
+		const selected = await fetchJson(`${server.url}/tui/select-session`, jsonRequest("POST", { sessionID: createdSession.id }));
+		assert.equal(selected, true, "installed server selects session through TUI route");
+		const aborted = await fetchJson(`${server.url}/session/${sessionID}/abort`, jsonRequest("POST"));
+		assert.equal(aborted, true, "installed server aborts session");
 	} finally {
 		await stopChild(server.child);
 	}
@@ -166,6 +186,19 @@ function manifestEntry(manifest, resourcePath) {
 
 function assistantCwd(transcript) {
 	return transcript.messages[1].info.path.cwd;
+}
+
+function jsonRequest(method, body) {
+	const request = {
+		method,
+		headers: {
+			"content-type": "application/json",
+		},
+	};
+	if (body !== undefined) {
+		request.body = JSON.stringify(body);
+	}
+	return request;
 }
 
 function startInstalledServer(bin, args, env) {
@@ -212,12 +245,12 @@ function startInstalledServer(bin, args, env) {
 	});
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, init = {}) {
 	const deadline = Date.now() + 10_000;
 	let lastError;
 	while (Date.now() < deadline) {
 		try {
-			const response = await fetch(url);
+			const response = await fetch(url, init);
 			assert.equal(response.status, 200, `${url} status`);
 			return await response.json();
 		} catch (error) {
