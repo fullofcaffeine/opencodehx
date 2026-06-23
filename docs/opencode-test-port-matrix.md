@@ -12,13 +12,14 @@
 | --- | --- | ---: |
 | deferred | test | 57 |
 | direct | test | 18 |
-| partial | test | 82 |
+| partial | test | 81 |
 | ported | fixture | 1 |
 | ported | test | 3 |
 | reference-only | doc | 9 |
 | reference-only | fixture | 12 |
 | reference-only | helper | 4 |
 | reference-only | snapshot | 1 |
+| reference-only | test | 1 |
 
 ## Status Meanings
 
