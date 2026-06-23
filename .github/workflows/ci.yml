@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout OpenCodeHX
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: opencodehx
 
@@ -50,12 +50,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout OpenCodeHX
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: opencodehx
 
       - name: Checkout genes-ts sibling
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.GENES_REPOSITORY }}
           path: genes
@@ -94,12 +94,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout OpenCodeHX
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: opencodehx
 
       - name: Checkout genes-ts sibling
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.GENES_REPOSITORY }}
           path: genes
@@ -143,12 +143,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout OpenCodeHX
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: opencodehx
 
       - name: Checkout genes-ts sibling
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.GENES_REPOSITORY }}
           path: genes
@@ -188,12 +188,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout OpenCodeHX
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: opencodehx
 
       - name: Checkout genes-ts sibling
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.GENES_REPOSITORY }}
           path: genes
