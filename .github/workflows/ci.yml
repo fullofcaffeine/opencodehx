@@ -114,6 +114,12 @@ jobs:
         working-directory: opencodehx
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Install ripgrep
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+          rg --version
+
       - name: Install local Bun binary
         working-directory: opencodehx
         run: node node_modules/bun/install.js
