@@ -72,8 +72,7 @@ class PtyService {
 		final inputArgs = input.args;
 		if (inputArgs != null)
 			args = inputArgs.copy();
-		if (NodeProcess.isLoginShell(command))
-			args.push("-l");
+		args = shellArgsForPlatform(command, args, NodeProcess.platform());
 		var cwd = directory;
 		if (input.cwd != null && input.cwd != "")
 			cwd = input.cwd;
@@ -210,6 +209,13 @@ class PtyService {
 			ids.push(session.info.id);
 		for (id in ids)
 			remove(id);
+	}
+
+	public static function shellArgsForPlatform(command:String, args:Array<String>, platform:String):Array<String> {
+		final out = args.copy();
+		if (NodeProcess.isLoginShellForPlatform(command, platform))
+			out.push("-l");
+		return out;
 	}
 
 	static function ptyEnv(extra:Null<DynamicAccess<String>>):DynamicAccess<String> {

@@ -1,7 +1,7 @@
 # Bash Shell Seam
 
 **Bead:** `opencodehx-018`  
-**Upstream oracle:** `../opencode/packages/opencode/src/tool/bash.ts`, `../opencode/packages/opencode/test/pty/pty-session.test.ts`
+**Upstream oracle:** `../opencode/packages/opencode/src/tool/bash.ts`, `../opencode/packages/opencode/test/shell/shell.test.ts`, `../opencode/packages/opencode/test/pty/pty-session.test.ts`
 
 ## Slice
 
@@ -15,7 +15,7 @@ This seam started as the first Node-backed shell execution slice and now include
 - `NodeProcess.killTree` mirrors upstream process-tree teardown: `taskkill /f /t` on Windows and process-group `SIGTERM`/`SIGKILL` with a direct-process fallback on POSIX.
 - Tool permission requests are emitted for parsed `bash` command execution and for external working directories/path arguments.
 - Output is normalized into upstream-shaped `ToolResult` metadata with `exit`, `description`, `truncated`, `signal`, and preview output.
-- Runtime smoke covers command output, cwd, inherited env, timeout metadata, output truncation, denied bash permission, denied external-directory permission, tree-sitter multi-command prompts, nested command path extraction, shell-selection parity fixtures, POSIX kill-tree descendant teardown, and deterministic Windows PowerShell scanner cases for drive-relative paths, `$PWD`, `$PSHOME`, FileSystem providers, and conditionals.
+- Runtime smoke covers command output, cwd, inherited env, timeout metadata, output truncation, denied bash permission, denied external-directory permission, tree-sitter multi-command prompts, nested command path extraction, upstream shell-selection/classification fixtures, POSIX kill-tree descendant teardown, and deterministic Windows PowerShell scanner cases for drive-relative paths, `$PWD`, `$PSHOME`, FileSystem providers, and conditionals.
 
 ## Evidence
 
@@ -28,6 +28,8 @@ npm run windows:shell:smoke
 ```
 
 `windows:shell:smoke` is a native Windows gate. It skips on non-Windows hosts, but on `windows-latest` it builds the generated TypeScript and exercises `cmd.exe`, available `pwsh`/`powershell`, available Git Bash, PTY login-argument behavior for PowerShell and Git Bash, and `NodeProcess.killTree` descendant teardown.
+
+The default `npm run smoke` path also covers `shell/shell.test.ts` behavior through pure platform-injected fixtures in `PtySmoke`: shell basename normalization, Windows extension stripping, login/posix classification, blacklisted `nu` fallback, cygdrive Git Bash normalization, `/usr/bin/bash` Git Bash resolution, and bare `pwsh.exe` full-path resolution.
 
 ## Boundary
 

@@ -130,17 +130,29 @@ class NodeProcess {
 	}
 
 	public static function isPowerShell(file:String):Bool {
-		final name = shellName(file);
+		return isPowerShellForPlatform(file, platform());
+	}
+
+	public static function isPowerShellForPlatform(file:String, platform:String):Bool {
+		final name = shellNameForPlatform(file, platform);
 		return name == "pwsh" || name == "powershell";
 	}
 
 	public static function isLoginShell(file:String):Bool {
-		final name = shellName(file);
+		return isLoginShellForPlatform(file, platform());
+	}
+
+	public static function isLoginShellForPlatform(file:String, platform:String):Bool {
+		final name = shellNameForPlatform(file, platform);
 		return LOGIN.indexOf(name) != -1;
 	}
 
 	public static function isPosixShell(file:String):Bool {
-		final name = shellName(file);
+		return isPosixShellForPlatform(file, platform());
+	}
+
+	public static function isPosixShellForPlatform(file:String, platform:String):Bool {
+		final name = shellNameForPlatform(file, platform);
 		return POSIX.indexOf(name) != -1;
 	}
 

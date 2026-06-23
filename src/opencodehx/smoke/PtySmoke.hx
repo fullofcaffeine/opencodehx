@@ -21,6 +21,9 @@ import opencodehx.pty.PtyTypes.PtySocketPayload;
 class PtySmoke {
 	@:async
 	public static function run():Promise<Void> {
+		shellSelectionParity();
+		ptyShellArgsParity();
+
 		if (NodeProcess.platform() == "win32")
 			return;
 
@@ -43,6 +46,47 @@ class PtySmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	static function shellSelectionParity():Void {
+		eq(NodeProcess.shellNameForPlatform("/bin/bash", "linux"), "bash", "posix shell name");
+		eq(NodeProcess.shellNameForPlatform("C:/tools/NU.EXE", "win32"), "nu", "windows shell name strips extension");
+		eq(NodeProcess.shellNameForPlatform("C:/tools/PWSH.EXE", "win32"), "pwsh", "windows pwsh shell name");
+		eq(NodeProcess.isLoginShellForPlatform("/bin/bash", "linux"), true, "bash is login shell");
+		eq(NodeProcess.isLoginShellForPlatform("C:/tools/pwsh.exe", "win32"), false, "pwsh is not login shell");
+		eq(NodeProcess.isPosixShellForPlatform("/bin/bash", "linux"), true, "bash is posix shell");
+		eq(NodeProcess.isPosixShellForPlatform("/bin/fish", "linux"), false, "fish is not posix shell");
+		eq(NodeProcess.isPosixShellForPlatform("C:/tools/pwsh.exe", "win32"), false, "pwsh is not posix shell");
+		eq(NodeProcess.isPowerShellForPlatform("C:/tools/powershell.exe", "win32"), true, "powershell classification");
+		eq(NodeProcess.windowsPathForPlatform("/cygdrive/c/Program Files/Git/bin/bash.exe", "win32"), "C:/Program Files/Git/bin/bash.exe",
+			"cygdrive Git Bash path normalization");
+		eq(NodeProcess.selectAcceptable({
+			platform: "win32",
+			shell: "NU.EXE",
+			pwsh: "C:/Tools/pwsh.exe",
+			powershell: "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+		}), "C:/Tools/pwsh.exe", "blacklisted Windows shell falls back to pwsh");
+		eq(NodeProcess.selectPreferred({
+			platform: "win32",
+			shell: "/cygdrive/c/Program Files/Git/bin/bash.exe",
+		}), "C:/Program Files/Git/bin/bash.exe",
+			"preferred shell normalizes cygdrive Git Bash");
+		eq(NodeProcess.selectAcceptable({
+			platform: "win32",
+			shell: "/usr/bin/bash",
+			gitBash: "C:/Program Files/Git/bin/bash.exe",
+		}), "C:/Program Files/Git/bin/bash.exe", "usr bin bash resolves to Git Bash");
+		eq(NodeProcess.selectPreferred({
+			platform: "win32",
+			shell: "pwsh.exe",
+			pwsh: "C:/Program Files/PowerShell/7/pwsh.exe",
+		}), "C:/Program Files/PowerShell/7/pwsh.exe", "bare pwsh resolves to full path");
+	}
+
+	static function ptyShellArgsParity():Void {
+		eq(PtyService.shellArgsForPlatform("C:/Program Files/PowerShell/7/pwsh.exe", [], "win32").join(","), "", "PowerShell PTY args");
+		eq(PtyService.shellArgsForPlatform("C:/Program Files/Git/bin/bash.exe", [], "win32").join(","), "-l", "Git Bash PTY login args");
+		eq(PtyService.shellArgsForPlatform("/bin/bash", ["--noprofile"], "linux").join(","), "--noprofile,-l", "existing args preserved before login arg");
 	}
 
 	@:async

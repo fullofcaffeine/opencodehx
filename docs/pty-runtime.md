@@ -9,7 +9,7 @@ OpenCodeHX now has a real Node PTY lifecycle and WebSocket interaction seam:
 
 - `opencodehx.pty.PtyService` owns active PTY sessions, generated `pty_` IDs, titles, status, command, args, cwd, pid, and lifecycle events.
 - `opencodehx.externs.node.NodePty` binds the used subset of `@lydell/node-pty`.
-- `PtyService.create()` adds `-l` for login shells, sets upstream terminal environment variables, spawns a real pseudo-terminal, and publishes `pty.created`.
+- `PtyService.create()` uses the typed shell-argument helper to add `-l` for login shells, sets upstream terminal environment variables, spawns a real pseudo-terminal, and publishes `pty.created`.
 - PTY exit publishes `pty.exited` then removes the session and publishes `pty.deleted`.
 - Explicit `remove()` on a running PTY publishes the same created/exited/deleted lifecycle order deterministically before teardown.
 - `PtyService` buffers recent output, tracks a monotonic cursor, sends upstream-style `0x00 + JSON.stringify({cursor})` control frames on connect/replay, and chunks replay output.
@@ -22,14 +22,16 @@ Runtime smoke in `PtySmoke` covers:
 
 - short-lived `/usr/bin/env sh -c "sleep 0.1"` lifecycle,
 - long-lived `/bin/sh` create/remove lifecycle,
+- shell-selection parity for `Shell.name`, `Shell.login`, `Shell.posix`, blacklisted Windows shells, Git Bash path normalization, `/usr/bin/bash` Git Bash resolution, and bare PowerShell resolution,
 - bash login argument insertion when `/bin/bash` exists,
+- deterministic PTY shell args for Windows PowerShell and Git Bash without requiring a Windows host,
 - Windows PTY shell argument parity through `npm run windows:shell:smoke`: available `pwsh`/`powershell` commands get no login args, while available Git Bash gets `-l`,
 - buffered output replay and `cursor=-1` tail connections,
 - subscriber isolation for reused WebSocket wrappers,
 - Bun-style socket object recycling before reconnect,
 - in-place `ws.data` mutation preserving the active connection.
 
-Shell-selection parity for `Shell.preferred`/`Shell.acceptable`, Git Bash normalization, and PowerShell fallback is covered in `ToolSmoke` through the shared `NodeProcess` host facade used by `PtyService.create()`.
+Shell-selection parity for `Shell.preferred`/`Shell.acceptable`, Git Bash normalization, and PowerShell fallback is covered in `PtySmoke` through the shared `NodeProcess` host facade used by `PtyService.create()`.
 
 `ServerSmoke` covers:
 
