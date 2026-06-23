@@ -26,6 +26,7 @@ test/.generated/
 .vite/
 
 # Local analysis artifacts
+.artifacts/
 repomix-output*.xml
 repomix-output*.zip
 

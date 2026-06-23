@@ -24,6 +24,7 @@
     "transcript:parity": "npm run build && node scripts/harness/transcript-parity.mjs",
     "cli:smoke": "npm run build && node scripts/harness/cli-smoke.mjs",
     "package:smoke": "npm run build && npm run tui:scaffold && node scripts/harness/package-smoke.mjs",
+    "benchmark:parity": "npm run build && npm run tui:scaffold && node scripts/harness/performance-benchmark.mjs",
     "windows:shell:smoke": "npm run build && node scripts/harness/windows-shell-smoke.mjs",
     "file:watcher:smoke": "npm run build && node scripts/harness/file-watcher-smoke.mjs",
     "live:package-managers": "node scripts/harness/live-package-manager-side-effects.mjs",
