@@ -1,6 +1,6 @@
 # npm Global Packaging
 
-**Bead:** `opencodehx-037`
+**Beads:** `opencodehx-037`, `opencodehx-61d`
 
 ## Slice
 
@@ -22,7 +22,8 @@ The package remains `0.x` beta and local-install focused. This is not a stable p
 - packed file membership excludes Beads metadata and Haxe source;
 - `npm install -g --prefix <tmp> <tarball>` exposes an executable `opencodehx` bin;
 - the installed package manifest records prompt, JSON, WASM, and worker resources with byte counts and hashes;
-- the installed bin passes `--version`, `--help`, deterministic `run --model openai/gpt-5.2`, and `serve --help`.
+- the installed bin passes `--version`, `--help`, deterministic `run --model openai/gpt-5.2`, and `serve --help`;
+- the installed bin starts `serve --hostname 127.0.0.1 --port 0`, reports the bound URL, answers `/health` with the `opencodehx` service payload, and terminates cleanly when the harness stops the child process.
 
 Useful command:
 
@@ -34,4 +35,4 @@ npm run package:smoke
 
 ## Boundary
 
-The installed `serve` evidence is currently command-surface help, not a long-running installed server process. The server runtime itself has Node listener smoke coverage in `server-hono-seam.md`; wiring a side-effecting installed `serve` process that starts, reports its URL, accepts `/health`, and shuts down cleanly belongs to a later CLI/server integration slice.
+Installed `serve` evidence is intentionally narrow: it proves the packed global binary can start the Node/Hono server runtime, bind a host/port, answer `/health`, and stay alive until the harness terminates the process. Broader installed server behavior such as auth, server attach, long-running session workflows, workspace proxying, PTY WebSocket exercise from the installed binary, and production process shutdown policy remain separate server/CLI integration work.

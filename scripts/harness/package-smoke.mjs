@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,6 +77,21 @@ try {
 	const serveHelp = expectOk(run(bin, ["serve", "--help"]), "installed serve help");
 	assert.match(serveHelp.stdout, /opencodehx serve/);
 	assert.match(serveHelp.stdout, /--hostname <value>/);
+
+	const serverEnv = {
+		...process.env,
+		XDG_DATA_HOME: path.join(tempRoot, "server-data"),
+		XDG_CONFIG_HOME: path.join(tempRoot, "server-config"),
+		OPENCODE_TEST_HOME: path.join(tempRoot, "server-home"),
+	};
+	const server = await startInstalledServer(bin, ["serve", "--hostname", "127.0.0.1", "--port", "0"], serverEnv);
+	try {
+		const health = await fetchJson(`${server.url}/health`);
+		assert.equal(health.ok, true, "installed server health ok");
+		assert.equal(health.service, "opencodehx", "installed server health service");
+	} finally {
+		await stopChild(server.child);
+	}
 } finally {
 	rmSync(tempRoot, { recursive: true, force: true });
 }
@@ -87,6 +102,80 @@ function manifestEntry(manifest, resourcePath) {
 	assert.equal(entry.bytes > 0, true, `${resourcePath} has byte count`);
 	assert.match(entry.sha256, /^[a-f0-9]{64}$/, `${resourcePath} has sha256`);
 	return entry;
+}
+
+function startInstalledServer(bin, args, env) {
+	return new Promise((resolve, reject) => {
+		const child = spawn(bin, args, {
+			cwd: root,
+			env,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		let stdout = "";
+		let stderr = "";
+		let settled = false;
+		const timeout = setTimeout(() => {
+			if (settled) return;
+			settled = true;
+			child.kill("SIGTERM");
+			reject(new Error(`installed serve did not become ready\nstdout:\n${stdout}\nstderr:\n${stderr}`));
+		}, 30_000);
+		child.stdout.setEncoding("utf8");
+		child.stderr.setEncoding("utf8");
+		child.stdout.on("data", (chunk) => {
+			stdout += chunk;
+			const match = stdout.match(/opencodehx server listening on (http:\/\/[^\s]+)/);
+			if (!match || settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			resolve({ child, url: match[1] });
+		});
+		child.stderr.on("data", (chunk) => {
+			stderr += chunk;
+		});
+		child.on("error", (error) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			reject(error);
+		});
+		child.on("exit", (code, signal) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			reject(new Error(`installed serve exited before ready: code=${code} signal=${signal}\nstdout:\n${stdout}\nstderr:\n${stderr}`));
+		});
+	});
+}
+
+async function fetchJson(url) {
+	const deadline = Date.now() + 10_000;
+	let lastError;
+	while (Date.now() < deadline) {
+		try {
+			const response = await fetch(url);
+			assert.equal(response.status, 200, `${url} status`);
+			return await response.json();
+		} catch (error) {
+			lastError = error;
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
+	}
+	throw lastError ?? new Error(`timed out fetching ${url}`);
+}
+
+function stopChild(child) {
+	return new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			child.kill("SIGKILL");
+			reject(new Error("installed serve did not exit after SIGTERM"));
+		}, 10_000);
+		child.once("exit", () => {
+			clearTimeout(timeout);
+			resolve();
+		});
+		child.kill("SIGTERM");
+	});
 }
 
 console.log("package-smoke:ok");

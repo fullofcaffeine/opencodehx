@@ -8,6 +8,7 @@ import opencodehx.auth.AuthStore;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigWriter;
+import opencodehx.externs.node.Fs;
 import opencodehx.host.node.GlobalPaths;
 import opencodehx.harness.TranscriptHarness;
 import opencodehx.host.node.NodeProcess;
@@ -15,6 +16,8 @@ import opencodehx.host.node.NodePath;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
 import opencodehx.provider.ProviderRegistry;
+import opencodehx.server.OpenCodeServer;
+import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionProcessor.SessionProcessorResult;
@@ -27,6 +30,9 @@ typedef CliResult = {
 }
 
 class Cli {
+	static final runningServers:Array<OpenCodeServer> = [];
+	static final runningListeners:Array<ServerListener> = [];
+
 	public static function run(args:Array<String>):CliResult {
 		if (args.length == 0)
 			return pass();
@@ -57,6 +63,8 @@ class Cli {
 			return ok(BuildInfo.version);
 		if (args[0] == "run")
 			return @:await runCommandAsync(args.slice(1));
+		if (args[0] == "serve")
+			return @:await serveCommand(args.slice(1));
 		final surface = CliSurface.find(args);
 		if (surface != null) {
 			if (has(args, "--help") || has(args, "-h"))
@@ -177,6 +185,34 @@ class Cli {
 		}
 	}
 
+	@:async
+	static function serveCommand(args:Array<String>):Promise<CliResult> {
+		final surface = CliSurface.find(["serve"]);
+		if (has(args, "--help") || has(args, "-h"))
+			return ok(surface == null ? "opencodehx serve" : CliSurface.help(surface));
+		final port = parsePort(option(args, "--port", "0"));
+		if (port == null)
+			return fail('Invalid --port "${option(args, "--port", "0")}". Expected an integer from 0 to 65535.');
+		final hostname = option(args, "--hostname", has(args, "--mdns") ? "0.0.0.0" : "127.0.0.1");
+		final env = NodeProcess.env();
+		final dbDir = NodePath.join(GlobalPaths.data(env), "server");
+		Fs.mkdirSync(dbDir, {recursive: true});
+		final server = new OpenCodeServer({
+			directory: NodeProcess.cwd(),
+			dbPath: NodePath.join(dbDir, "server.sqlite"),
+			hostname: hostname,
+		});
+		try {
+			final listener = @:await server.listen(port, hostname);
+			runningServers.push(server);
+			runningListeners.push(listener);
+			return ok('opencodehx server listening on ${listener.url}');
+		} catch (error:haxe.Exception) {
+			server.close();
+			return fail(error.message == null ? Std.string(error) : error.message);
+		}
+	}
+
 	static function liveDirectory(args:Array<String>):{final directory:String; final error:Null<String>;} {
 		final raw = option(args, "--dir", "");
 		if (raw == "")
@@ -234,7 +270,7 @@ class Cli {
 	static function valueOption(item:String):Bool {
 		return item == "--format" || item == "--model" || item == "-m" || item == "--agent" || item == "--variant" || item == "--dir"
 			|| item == "--command" || item == "--session" || item == "-s" || item == "--file" || item == "-f" || item == "--title" || item == "--attach"
-			|| item == "--password" || item == "-p" || item == "--port";
+			|| item == "--password" || item == "-p" || item == "--port" || item == "--hostname" || item == "--mdns-domain" || item == "--cors";
 	}
 
 	static function option(args:Array<String>, name:String, fallback:String):String {
@@ -247,6 +283,13 @@ class Cli {
 
 	static function has(args:Array<String>, flag:String):Bool {
 		return args.indexOf(flag) != -1;
+	}
+
+	static function parsePort(value:String):Null<Int> {
+		final parsed = Std.parseInt(value);
+		if (parsed == null || parsed < 0 || parsed > 65535)
+			return null;
+		return parsed;
 	}
 
 	static function help():String {
