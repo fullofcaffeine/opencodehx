@@ -24,6 +24,7 @@ import opencodehx.externs.web.WebStreams.WebResponseStreams;
 import opencodehx.externs.web.WebStreams.WebTextDecoder;
 import opencodehx.externs.web.WebStreams.WebTextEncoder;
 import opencodehx.externs.ws.WebSocket;
+import opencodehx.git.Git;
 import opencodehx.host.Clock;
 import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
@@ -476,7 +477,7 @@ class ServerSmoke {
 		eq(globalLimited.length, 2, "global session list limit");
 		eq(Reflect.field(cast globalLimited[0], "id"), "ses_server_3", "global newest session");
 		final globalProject = Reflect.field(cast globalLimited[0], "project");
-		eq(Reflect.field(globalProject, "id"), "proj_server", "global project id");
+		eq(Reflect.field(globalProject, "id"), "global", "global project id");
 		eq(Reflect.field(globalProject, "worktree"), root, "global project worktree");
 		final globalNext:Dynamic = await(jsonResponse(await(server.app.request('/experimental/session?limit=10&cursor=${globalCursor}'))));
 		eq(globalNext.length, 1, "global cursor page size");
@@ -555,6 +556,39 @@ class ServerSmoke {
 		final liveEventPattern = '"sessionID":"' + liveSessionID + '"';
 		final liveEventText = @:await readSseUntil(liveEventResponse, liveEventPattern, 16);
 		eq(liveEventText.indexOf(liveEventPattern) != -1, true, "sse live session event");
+
+		final firstProjectDir = NodePath.join(root, "global-first-project");
+		final secondProjectDir = NodePath.join(root, "global-second-project");
+		initCommittedRepo(firstProjectDir, "# first\n");
+		initCommittedRepo(secondProjectDir, "# second\n");
+		final firstProjectSession = await(jsonResponse(await(server.app.request("/session", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-opencode-directory": StringTools.urlEncode(firstProjectDir),
+			},
+			body: Json.stringify({prompt: "First project", title: "first-project-session"}),
+		}))));
+		final secondProjectSession = await(jsonResponse(await(server.app.request("/session", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-opencode-directory": StringTools.urlEncode(secondProjectDir),
+			},
+			body: Json.stringify({prompt: "Second project", title: "second-project-session"}),
+		}))));
+		final firstProjectSessionID = Std.string(Reflect.field(firstProjectSession, "id"));
+		final secondProjectSessionID = Std.string(Reflect.field(secondProjectSession, "id"));
+		final multiProjectGlobal:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?limit=200"))));
+		final firstProjectItem = responseByID(multiProjectGlobal, firstProjectSessionID);
+		final secondProjectItem = responseByID(multiProjectGlobal, secondProjectSessionID);
+		neq(firstProjectItem, null, "global multi-project first session listed");
+		neq(secondProjectItem, null, "global multi-project second session listed");
+		final firstProjectMeta = Reflect.field(firstProjectItem, "project");
+		final secondProjectMeta = Reflect.field(secondProjectItem, "project");
+		neq(Reflect.field(firstProjectMeta, "id"), Reflect.field(secondProjectMeta, "id"), "global multi-project distinct project ids");
+		eq(Reflect.field(firstProjectMeta, "worktree"), firstProjectDir, "global first project worktree");
+		eq(Reflect.field(secondProjectMeta, "worktree"), secondProjectDir, "global second project worktree");
 	}
 
 	@:async
@@ -954,6 +988,38 @@ class ServerSmoke {
 		return out;
 	}
 
+	static function responseByID(items:Dynamic, id:String):Null<Dynamic> {
+		for (item in cast(items, Array<Dynamic>)) {
+			if (Reflect.field(item, "id") == id)
+				return item;
+		}
+		return null;
+	}
+
+	static function initCommittedRepo(dir:String, readme:String):Void {
+		Fs.mkdirSync(dir, {recursive: true});
+		git(dir, ["init"]);
+		git(dir, ["branch", "-M", "main"]);
+		Fs.writeFileSync(NodePath.join(dir, "README.md"), readme, "utf8");
+		git(dir, ["add", "."]);
+		git(dir, [
+			"-c",
+			"user.email=test@example.com",
+			"-c",
+			"user.name=OpenCodeHX",
+			"commit",
+			"--no-gpg-sign",
+			"-m",
+			"initial"
+		]);
+	}
+
+	static function git(cwd:String, args:Array<String>):Void {
+		final result = Git.run(cwd, args);
+		if (result.code != 0)
+			throw StringTools.trim(result.stderr) == "" ? 'git ${args.join(" ")} failed with code ${result.code}' : StringTools.trim(result.stderr);
+	}
+
 	@:async
 	static function projectGitInitRoutes(server:OpenCodeServer, root:String):Promise<Void> {
 		ProjectRuntime.reset();
@@ -1124,6 +1190,12 @@ class ServerSmoke {
 	static function eq<T>(actual:T, expected:T, label:String):Void {
 		if (actual != expected) {
 			throw '$label: expected ${expected}, got ${actual}';
+		}
+	}
+
+	static function neq<T>(actual:T, expected:T, label:String):Void {
+		if (actual == expected) {
+			throw '$label: did not expect ${expected}';
 		}
 	}
 }

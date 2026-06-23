@@ -122,11 +122,12 @@ class OpenCodeServer {
 		createdCount += 1;
 		final sessionID = 'ses_server_${createdCount}';
 		final requestDirectory = routingDirectory(c);
+		final project = ProjectRuntime.fromDirectory(requestDirectory, store).project;
 		final result = SessionProcessor.run({
 			prompt: request.prompt,
 			directory: requestDirectory,
 			sessionID: sessionID,
-			projectID: "proj_server",
+			projectID: project.id.toString(),
 			store: store,
 		});
 		final info = store.getSession(SessionID.make(result.request.sessionID));
