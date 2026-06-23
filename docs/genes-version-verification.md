@@ -1,33 +1,33 @@
 # Genes / genes-ts Version Verification
 
 **Bead:** `opencodehx-002`  
-**Recorded:** 2026-06-23T08:29:57Z
+**Recorded:** 2026-06-23T09:01:47Z
 **Decision:** use `../genes` as the canonical compiler checkout for OpenCodeHX.
 
 ## Summary
 
 The active sibling compiler checkout is `../genes`, not `../genes-ts`. It contains the `genes-ts` compiler mode, tests, and haxelib metadata.
 
-Both inspected compiler copies report version `1.11.0`:
+The active compiler checkout reports `1.12.0`; the older Cafetera vendored reference still reports `1.11.0`:
 
 | Copy | Path | package.json | haxelib.json |
 | --- | --- | --- | --- |
-| Canonical checkout | `../genes` | `1.11.0` | `genes-ts` `1.11.0` |
+| Canonical checkout | `../genes` | `1.12.0` | `genes-ts` `1.12.0` |
 | Cafetera vendor | `../fullofcaffeine/tools/cafetera/vendor/genes-ts` | `1.11.0` | `genes-ts` `1.11.0` |
 
 The canonical compiler checkout is now ahead of the Cafetera vendored reference for OpenCodeHX work:
 
 - Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 35 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, inline local-name collision handling, nullish null-comparison parenthesization, nullable branch local cast elision, typed catch temp lowering, and map facade non-inlining fixes landed in `../genes`
-- Relative-path source manifest hash for canonical `../genes/src`: `91512254e8c431250e6604826f851e9076c1f8aef7db5ee987cba0e69ccfa397`
+- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, inline local-name collision handling, nullish null-comparison parenthesization, nullable branch local cast elision, typed catch temp lowering, map facade non-inlining, and exiting null-guard flow fixes landed in `../genes`
+- Relative-path source manifest hash for canonical `../genes/src`: `059de7787487f647d0f1960ab7bb36d99b6758df5909bd11c0f3df851a5b133f`
 
 ## Pins
 
 Canonical `../genes` checkout:
 
 - Branch: `main`
-- Commit: `57fa1e6ad6419423d905a6825fc2c91d3a37b6b6`
+- Commit: `0897b1a7af382ea5dcb887648eeaf0c99ce396d9`
 - Origin: `git@github.com:fullofcaffeine/genes-ts.git`
 - Upstream: `git@github.com:benmerckx/genes.git`
 - Dirty state: no tracked changes; untracked repomix artifacts are present and ignored by this verification.
@@ -57,10 +57,12 @@ Canonical `../genes` checkout:
 - Nullable branch local cast elision: `63d3a42575b222981cc6d1b028e597501d53ff17` (`fix(ts): preserve narrowed locals from nullable branches`), carrying non-null flow facts from a narrowed initializer to an immediately consumed local so nullable switch/branch pattern variables emit direct TypeScript assignments instead of identity `Register.unsafeCast<T>(value)` calls.
 - Typed catch temp lowering: `e0a30ce6dbc519babf5236931b7e20faad86e6a0` (`fix: type lowered catch temps without any`), detecting Haxe's lowered `Exception.caught(raw).unwrap()` catch temp and emitting `{ } | null | undefined` in user modules so TypeScript `instanceof` / `typeof` guards narrow without a broad generated `any`.
 - Map facade non-inlining: `57fa1e6ad6419423d905a6825fc2c91d3a37b6b6` (`ts: keep map facade calls in user output`), keeping `genes.util.EsMap` facade methods and Haxe map `copy()` helpers non-inline so generated user modules call stable map APIs instead of exposing the backing native `Map` field.
+- Exiting null-guard flow: `0897b1a7af382ea5dcb887648eeaf0c99ce396d9` (`ts: preserve exiting null guard flow`), carrying non-null facts after exiting `if (value == null)` branches such as `continue`, `break`, `return`, and `throw`, while resetting those facts inside function expressions so captured mutable locals still emit conservative receiver assertions.
 
 ## Current Gate Evidence
 
-- `../genes`: `yarn test:ci` passed on 2026-06-23 at `57fa1e6ad6419423d905a6825fc2c91d3a37b6b6`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
+- `../genes`: `yarn test:ci` passed on 2026-06-23 at `0897b1a7af382ea5dcb887648eeaf0c99ce396d9`, covering security/dependency scanning, classic Genes JS runtime tests, `genes-ts` strict/snapshot/full acceptance, todoapp Playwright smoke tests, and ts2hx fixtures.
+- Remote `fullofcaffeine/genes-ts` checks for `0897b1a7af382ea5dcb887648eeaf0c99ce396d9` passed on 2026-06-23: `genes-ts CI` and `CodeQL`.
 
 Cafetera vendored reference:
 

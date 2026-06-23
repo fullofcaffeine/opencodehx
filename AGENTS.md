@@ -261,6 +261,8 @@ Current `genes-ts` temp-local lesson: Haxe compiler temps such as `_g`, `_g1`, c
 
 Current `genes-ts` map facade lesson: do not make Haxe/Genes map facade methods inline when inlining exposes target backing fields such as `StringMap.inst` in user modules. Keep stable facade calls visible in generated TypeScript and fix helper inlining/output behavior generically in `../genes`.
 
+Current `genes-ts` null-flow lesson: TypeScript output can safely trust a stable local after an exiting `if (value == null)` guard, including `continue`, `break`, `return`, and `throw`, but those facts must be invalidated by assignment and reset inside nested function expressions. Fix these as generic compiler flow facts in `../genes`, not by adding casts or alternate control flow to OpenCodeHX source.
+
 For provider/session parity, keep transcript fixtures deterministic and credential-free. Early harnesses may use upstream-shaped oracle scripts, but each one must document when it should be replaced by a real upstream command runner.
 
 For CLI parity, keep the command dispatcher pure enough to smoke test without spawning Node; use separate harness scripts for generated-binary behavior such as stdout, stderr, and exit codes.
