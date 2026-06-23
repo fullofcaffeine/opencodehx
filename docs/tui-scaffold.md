@@ -10,6 +10,8 @@ npm run tui:scaffold
 
 The harness rebuilds `src-gen/tui`, type-checks with `tsconfig.tui.json`, compares `src-gen/tui/opencodehx/tui/TuiScaffold.tsx` with `reference/tui-scaffold.TuiScaffold.tsx`, then runs the generated TSX with the repo-pinned Bun binary and `scripts/harness/opentui-solid-preload.mjs`.
 
+`npm run package:smoke` now builds the same scaffold before packing, includes `src-gen/tui/index.tsx` plus `bin/opencodehx-opentui-solid-preload.mjs` in the tarball, installs the package into a temporary global prefix, and runs the installed scaffold through the package-local pinned Bun binary. That is installed-package evidence for the scaffold path only; it is not a claim that the final live terminal UI is packaged.
+
 The scaffold also exercises a small typed TUI foundation: route state, theme state, host keybind parsing/printing, leader-key dispatch, a fake-provider transcript with user, tool, assistant, and metadata rows, and typed replay fixtures for model/provider/session/permission dialogs. The Haxe source uses genes-ts default inline markup (`<box>...</box>`) rather than string-based JSX escapes, keeping Haxe expression splices typed while still emitting ordinary TSX.
 
 Dialog replay is intentionally pure at this stage. `TuiDialogReplay` models upstream-shaped rows and decisions for model selection, provider auth selection, session selection, and permission allow/reject choices without broad `Dynamic` payloads. The fixture uses TUI-local abstract IDs so this TSX target does not drag provider/session internals into a pure UI replay. Live Solid state, SDK calls, prompt focus management, and terminal-sized scroll behavior remain later TUI worker work.
@@ -21,7 +23,7 @@ Dependency pins:
 - `@opentui/core@0.1.99`
 - `@opentui/solid@0.1.99`
 - `solid-js@1.9.11`
-- `bun@1.3.14` as a local dev dependency
+- `bun@1.3.14` as a runtime dependency while the beta package needs a package-local Bun binary for installed TUI scaffold evidence
 
 Upstream OpenCode's root catalog currently pins `solid-js` at `1.9.10`, but `@opentui/solid@0.1.99` declares a peer dependency on `solid-js@1.9.11`. OpenCodeHX uses the peer-compatible version here instead of relying on npm peer override behavior.
 

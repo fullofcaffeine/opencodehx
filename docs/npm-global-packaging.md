@@ -1,6 +1,6 @@
 # npm Global Packaging
 
-**Beads:** `opencodehx-037`, `opencodehx-61d`, `opencodehx-5kz`
+**Beads:** `opencodehx-037`, `opencodehx-61d`, `opencodehx-5kz`, `opencodehx-d5b`
 
 ## Slice
 
@@ -10,6 +10,8 @@ OpenCodeHX now has a first local npm global-install path:
 - the bin shim is a small ESM entrypoint that imports the generated `dist/index.js`;
 - the npm package file allowlist contains `bin/`, `dist/`, and `src-gen/`, plus npm's standard metadata files;
 - `src-gen/` stays in the package so generated TypeScript remains inspectable and declaration/source-map references have a source surface;
+- the generated TUI TSX scaffold under `src-gen/tui/` is included after `package:smoke` builds the TUI scaffold;
+- `bin/opencodehx-opentui-solid-preload.mjs` packages the Bun/OpenTUI/Solid transform used by the TUI scaffold;
 - `.beads/`, Haxe source, docs, tests, and local scripts are excluded from the packed artifact.
 
 The package remains `0.x` beta and local-install focused. This is not a stable published OpenCode replacement claim.
@@ -18,12 +20,13 @@ The package remains `0.x` beta and local-install focused. This is not a stable p
 
 `scripts/harness/package-smoke.mjs` builds on `npm pack --json` and installs the resulting tarball into a temporary global prefix. The smoke verifies:
 
-- packed file membership includes the bin shim, generated JS entrypoint, generated TS source, copied runtime resources, generated resource manifests, and parser/TUI worker fixtures;
+- packed file membership includes the bin shim, packaged TUI preload, generated JS entrypoint, generated TS source, generated TUI TSX scaffold source, copied runtime resources, generated resource manifests, and parser/TUI worker fixtures;
 - packed file membership excludes Beads metadata and Haxe source;
 - `npm install -g --prefix <tmp> <tarball>` exposes an executable `opencodehx` bin;
 - the installed package manifest records prompt, JSON, WASM, and worker resources with byte counts and hashes;
 - the installed bin passes `--version`, `--help`, deterministic `run --model openai/gpt-5.2`, deterministic `run --dir <workspace> --format json`, mock AI SDK `run --mock-ai-sdk --dir <workspace> --format json`, and `serve --help`;
 - installed `run --dir` transcripts preserve the requested workspace in assistant path metadata for both the deterministic fake-provider path and the credential-free mock AI SDK path;
+- the installed package exposes its package-local pinned Bun binary and runs `src-gen/tui/index.tsx` with the packaged preload, producing `tui-scaffold:ok`;
 - the installed bin starts `serve --hostname 127.0.0.1 --port 0`, reports the bound URL, answers `/health` with the `opencodehx` service payload, and terminates cleanly when the harness stops the child process.
 
 Useful command:
@@ -39,3 +42,5 @@ npm run package:smoke
 Installed `serve` evidence is intentionally narrow: it proves the packed global binary can start the Node/Hono server runtime, bind a host/port, answer `/health`, and stay alive until the harness terminates the process. Broader installed server behavior such as auth, server attach, long-running session workflows, workspace proxying, PTY WebSocket exercise from the installed binary, and production process shutdown policy remain separate server/CLI integration work.
 
 Installed `run --dir` evidence is still a headless bootstrap smoke, not full OpenCode chat parity. It proves the package can resolve a real workspace path and run both deterministic and mock AI SDK session paths from the installed binary. It does not yet ingest file attachments, continue prior sessions, initialize projects, attach to a server, prompt for permissions, or perform live provider chat without the explicit `--live-ai-sdk` opt-in path.
+
+Installed TUI evidence is the existing OpenTUI test-renderer scaffold, not the final live terminal UI. It proves the packed tarball contains generated TUI TSX, the preload needed for OpenTUI/Solid transforms, and a package-local Bun runtime capable of executing that scaffold after global install. Live prompt focus, terminal worker lifecycle, server attachment, model/provider dialogs backed by real data, and long-running TUI interaction remain later TUI integration work.

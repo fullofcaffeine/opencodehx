@@ -37,6 +37,7 @@ try {
 	assert.equal(packed.name, packageJson.name);
 	assert.equal(packed.version, packageJson.version);
 	assert.equal(fileNames.has("bin/opencodehx.mjs"), true, "package includes bin shim");
+	assert.equal(fileNames.has("bin/opencodehx-opentui-solid-preload.mjs"), true, "package includes TUI preload");
 	assert.equal(fileNames.has("dist/index.js"), true, "package includes generated JS entrypoint");
 	assert.equal(fileNames.has("dist/resources/manifest.json"), true, "package includes runtime resource manifest");
 	assert.equal(fileNames.has("dist/resources/smoke-resource.json"), true, "package includes copied runtime resource");
@@ -44,6 +45,8 @@ try {
 	assert.equal(fileNames.has("dist/resources/worker/tui-worker.mjs"), true, "package includes TUI worker resource");
 	assert.equal(fileNames.has("src-gen/resources/manifest.json"), true, "package includes TypeScript-side resource manifest");
 	assert.equal(fileNames.has("src-gen/index.ts"), true, "package includes generated TS source");
+	assert.equal(fileNames.has("src-gen/tui/index.tsx"), true, "package includes generated TUI TSX entrypoint");
+	assert.equal(fileNames.has("src-gen/tui/opencodehx/tui/TuiScaffold.tsx"), true, "package includes generated TUI scaffold TSX");
 	for (const name of fileNames) {
 		assert.equal(name.startsWith(".beads/"), false, `package should not include Beads metadata: ${name}`);
 		assert.equal(name.startsWith("src/opencodehx/"), false, `package should not include Haxe source: ${name}`);
@@ -64,6 +67,8 @@ try {
 	assert.equal(manifestEntry(manifest, "worker/tui-worker.mjs").kind, "worker", "installed tui worker manifest kind");
 	const bin = path.join(prefix, "bin", "opencodehx");
 	assert.equal(existsSync(bin), true, "global install exposes opencodehx bin");
+	const installedBun = path.join(installedRoot, "node_modules", ".bin", process.platform === "win32" ? "bun.cmd" : "bun");
+	assert.equal(existsSync(installedBun), true, "installed package exposes package-local bun");
 
 	const version = expectOk(run(bin, ["--version"]), "installed version");
 	assert.equal(version.stdout, `${packageJson.version}\n`);
@@ -115,6 +120,19 @@ try {
 	assert.equal(mockTranscript.provider.id, "openai", "installed mock AI SDK provider");
 	assert.equal(mockTranscript.events[0].type, "start", "installed mock AI SDK start event");
 	assert.equal(assistantCwd(mockTranscript), projectDir, "installed mock AI SDK assistant cwd");
+	const tui = expectOk(
+		run(
+			installedBun,
+			[
+				"--preload",
+				path.join(installedRoot, "bin", "opencodehx-opentui-solid-preload.mjs"),
+				path.join(installedRoot, "src-gen", "tui", "index.tsx"),
+			],
+			{ cwd: installedRoot, timeout: 60_000 },
+		),
+		"installed TUI scaffold",
+	);
+	assert.match(tui.stdout, /tui-scaffold:ok/);
 
 	const serveHelp = expectOk(run(bin, ["serve", "--help"]), "installed serve help");
 	assert.match(serveHelp.stdout, /opencodehx serve/);
