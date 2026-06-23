@@ -214,6 +214,7 @@ function directEvidence(path) {
     ["server/session-messages.test.ts", ["partial", "src/opencodehx/smoke/ServerSmoke.hx", "message page, cursor header, bad cursor, and missing session are covered; high-volume legacy limit remains deferred", "ServerSmoke GET /session/:id/message"]],
     ["server/session-actions.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md", "route-level smoke covers upstream abort action success response", "ServerSmoke POST /session/:id/abort", "none"]],
     ["server/session-select.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md", "route-level smoke covers upstream valid, missing, and invalid select-session outcomes", "ServerSmoke POST /tui/select-session validation fixtures", "none"]],
+    ["server/trace-attributes.test.ts", ["direct", "src/opencodehx/server/ServerTrace.hx; src/opencodehx/smoke/ServerSmoke.hx", "trace helper smoke covers ID-shaped route params, non-ID opencode namespace params, http method, and query-stripped path attributes", "ServerSmoke server trace attribute fixture", "none"]],
   ])
   return exact.get(path)
 }

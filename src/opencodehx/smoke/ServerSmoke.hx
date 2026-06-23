@@ -28,6 +28,7 @@ import opencodehx.host.Clock;
 import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
 import opencodehx.server.OpenCodeServer;
+import opencodehx.server.ServerTrace;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.server.WorkspaceProxy;
 import opencodehx.sync.SyncRouteRuntime;
@@ -70,6 +71,7 @@ class ServerSmoke {
 	@:async
 	public static function run():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-server-"));
+		serverTraceAttributes();
 		final syncRuntime = new SyncRouteRuntime(["item.created.1"]);
 		final remoteSync = new SyncRouteRuntime(["item.created.1"]);
 		remoteSync.replayAll([
@@ -915,6 +917,58 @@ class ServerSmoke {
 			out.push(Std.string(Reflect.field(item, "id")));
 		}
 		return out;
+	}
+
+	static function serverTraceAttributes():Void {
+		final idParams = [
+			{param: "sessionID", key: "session.id"},
+			{param: "messageID", key: "message.id"},
+			{param: "partID", key: "part.id"},
+			{param: "projectID", key: "project.id"},
+			{param: "providerID", key: "provider.id"},
+			{param: "ptyID", key: "pty.id"},
+			{param: "permissionID", key: "permission.id"},
+			{param: "requestID", key: "request.id"},
+			{param: "workspaceID", key: "workspace.id"},
+		];
+		for (entry in idParams) {
+			eq(ServerTrace.paramToAttributeKey(entry.param), entry.key, 'trace param key ${entry.param}');
+		}
+		eq(ServerTrace.paramToAttributeKey("name"), "opencode.name", "trace param name key");
+		eq(ServerTrace.paramToAttributeKey("slug"), "opencode.slug", "trace param slug key");
+
+		final empty = new DynamicAccess<String>();
+		final basic = ServerTrace.requestAttributes({method: "GET", url: "http://localhost/session", params: empty});
+		eq(basic.get("http.method"), "GET", "trace http method");
+		eq(basic.get("http.path"), "/session", "trace http path");
+
+		final query = ServerTrace.requestAttributes({method: "GET", url: "http://localhost/file/search?query=foo&limit=10", params: empty});
+		eq(query.get("http.path"), "/file/search", "trace strips query string");
+
+		final routeParams = new DynamicAccess<String>();
+		routeParams.set("sessionID", "ses_abc");
+		routeParams.set("messageID", "msg_def");
+		routeParams.set("partID", "prt_ghi");
+		final withParams = ServerTrace.requestAttributes({
+			method: "GET",
+			url: "http://localhost/session/ses_abc/message/msg_def/part/prt_ghi",
+			params: routeParams,
+		});
+		eq(withParams.get("session.id"), "ses_abc", "trace session id attr");
+		eq(withParams.get("message.id"), "msg_def", "trace message id attr");
+		eq(withParams.get("part.id"), "prt_ghi", "trace part id attr");
+		eq(withParams.get("opencode.sessionID") == null, true, "trace omits raw sessionID attr");
+		eq(withParams.get("opencode.messageID") == null, true, "trace omits raw messageID attr");
+		eq(withParams.get("opencode.partID") == null, true, "trace omits raw partID attr");
+
+		final noParams = ServerTrace.requestAttributes({method: "POST", url: "http://localhost/config", params: empty});
+		eq(noParams.keys().length, 2, "trace no route params");
+
+		final named = new DynamicAccess<String>();
+		named.set("name", "exa");
+		final mcp = ServerTrace.requestAttributes({method: "POST", url: "http://localhost/mcp/exa/connect", params: named});
+		eq(mcp.get("opencode.name"), "exa", "trace namespaced route param");
+		eq(mcp.get("name") == null, true, "trace omits bare route param");
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

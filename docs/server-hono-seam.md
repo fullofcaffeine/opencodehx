@@ -16,6 +16,7 @@ Primary upstream evidence:
 - `../opencode/packages/sdk/js/src/v2/client.ts`
 - `../opencode/packages/opencode/test/control-plane/sse.test.ts`
 - `../opencode/packages/opencode/test/server/session-{actions,list,messages,select}.test.ts`
+- `../opencode/packages/opencode/test/server/trace-attributes.test.ts`
 
 ## What Landed
 
@@ -27,6 +28,7 @@ OpenCodeHX now has a first Node/Hono server seam:
 - `opencodehx.server.NodeHonoAdapter` starts and stops the Node server in Haxe, injects WebSocket support, preserves upstream's port-0 behavior of trying `4096` before a random port, guards the TCP address shape, and structurally narrows optional Node close helpers.
 - `opencodehx.server.OpenCodeServer` exposes a first route set: `/health`, `/event`, `/session` GET/POST, `/session/:sessionID/message`, `/session/:sessionID/abort`, `/sync/start`, `/sync/replay`, `/sync/history`, `/tui/select-session`, `/pty`, `/pty/:ptyID`, and `/pty/:ptyID/connect`.
 - `opencodehx.server.ServerProtocol` models SSE event names as `ServerEventType`. Source-authored event emits use `ServerEventTypes.known("...")`, while SDK/SSE client decoding narrows wire strings through `ServerEventTypes.fromBoundary(...)`.
+- `opencodehx.server.ServerTrace` covers the upstream route trace attribute helpers: ID-shaped route parameters become OTel-style `<domain>.id` attributes, other route parameters stay under the `opencode.*` namespace, and request paths are recorded without query strings.
 - `opencodehx.server.WorkspaceProxy` covers the upstream workspace proxy's deterministic HTTP behavior: local session-route classification, target URL/query rewriting, WebSocket URL scheme rewriting, forwarded header cleanup, target header injection, response content-header cleanup, disconnected sync guard, and `x-opencode-sync` fence waiting through `WorkspaceSyncRuntime`.
 - `opencodehx.smoke.ServerSmoke` covers in-memory `app.request()` routes, `/session` list filtering by directory/root/start/search/limit, create routing through `x-opencode-directory`, optional child-session `parentID`, SSE text emission, message cursor headers, bad/missing session cases, upstream's `before`-requires-`limit` validation edge, select-session validation, abort success, PTY HTTP routes, listener start/stop, and a real PTY WebSocket write/replay/tail flow.
 - `opencodehx.sdk.OpenCodeCompatClient` and `opencodehx.smoke.SdkCompatSmoke` cover the first upstream SDK-compatible server flow: a client starts against a real `OpenCodeServer` listener, creates a session with routing headers, lists sessions with GET query routing, selects/resumes the session through full-history and cursor-paged message reads, consumes `/event` SSE frames, and verifies the `session.created` payload. This follows the current upstream SDK rule that `directory` and `workspace` stay as headers for non-GET requests but become query parameters for GET/HEAD requests.
