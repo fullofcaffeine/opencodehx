@@ -197,7 +197,16 @@ function directEvidence(path) {
       ],
     ],
     ["file/ripgrep.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "streaming and full ripgrep option matrix remain deferred", "FileSmoke.ripgrepFiles/ripgrepSearch"]],
-    ["file/path-traversal.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "representative escape checks are covered; full upstream error shape remains deferred", "FileSmoke.pathSafety"]],
+    [
+      "file/path-traversal.test.ts",
+      [
+        "partial",
+        "src/opencodehx/file/FileSystem.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md",
+        "File read/list path traversal and Filesystem.contains cases are covered; upstream Instance.containsPath monorepo/worktree semantics remain project-runtime evidence",
+        "FileSmoke.pathSafety",
+        m11Owners.foundation,
+      ],
+    ],
     ["tool/glob.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core glob cases are covered; full Effect/tool context parity remains deferred", "ToolSmoke.globExec"]],
     ["tool/grep.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core grep cases are covered; full upstream option matrix remains deferred", "ToolSmoke.grepExec"]],
     ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior is covered; full output/error matrix remains deferred", "ToolSmoke.readExec"]],

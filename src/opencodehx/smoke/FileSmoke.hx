@@ -114,6 +114,27 @@ class FileSmoke {
 	}
 
 	static function pathSafety(root:String):Void {
+		final projectRoot = NodePath.join(root, "project");
+		write(projectRoot, "valid.txt", "valid content");
+		write(projectRoot, "src/file.ts", "source");
+		write(projectRoot, "subdir/file.txt", "content");
+
+		eq(FileSystem.contains(projectRoot, NodePath.join(projectRoot, "src")), true, "contains child directory");
+		eq(FileSystem.contains(projectRoot, NodePath.join(projectRoot, "src/file.ts")), true, "contains child file");
+		eq(FileSystem.contains(projectRoot, projectRoot), true, "contains root");
+		eq(FileSystem.contains(projectRoot, NodePath.join(projectRoot, "../etc")), false, "contains parent traversal");
+		eq(FileSystem.contains(projectRoot, NodePath.join(projectRoot, "src/../../etc")), false, "contains nested traversal");
+		eq(FileSystem.contains(projectRoot, "/etc/passwd"), false, "contains absolute outside");
+		eq(FileSystem.contains(projectRoot, "/tmp/file"), false, "contains tmp outside");
+		eq(FileSystem.contains(projectRoot, NodePath.join(root, "other")), false, "contains sibling outside");
+		eq(FileSystem.contains(projectRoot, projectRoot + "-other/file"), false, "contains prefix collision directory");
+		eq(FileSystem.contains(projectRoot, projectRoot + "file"), false, "contains prefix collision file");
+		expectFailure(() -> FileSystem.read(projectRoot, "../../../etc/passwd"), "read passwd traversal");
+		expectFailure(() -> FileSystem.read(projectRoot, "src/nested/../../../../../../../etc/passwd"), "read deep traversal");
+		eq(FileSystem.read(projectRoot, "valid.txt").content, "valid content", "read valid path");
+		expectFailure(() -> FileSystem.list(projectRoot, "../../../etc"), "list traversal");
+		eq(FileSystem.list(projectRoot, "subdir").length, 1, "list valid subdirectory");
+
 		eq(FileSystem.contains(root, NodePath.join(root, "src/main.ts")), true, "contained path");
 		eq(FileSystem.contains(root, NodePath.join(root, "../outside.ts")), false, "escaped path");
 		expectFailure(() -> FileSystem.readText(root, "../outside.ts"), "read escaped");
