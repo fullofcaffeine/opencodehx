@@ -8,6 +8,7 @@ import opencodehx.file.FileIgnore;
 import opencodehx.file.FileSearchRuntime;
 import opencodehx.file.FileSearchRuntime.FileSearchType;
 import opencodehx.file.FileSystem;
+import opencodehx.git.Git;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
 
@@ -18,6 +19,7 @@ class FileSmoke {
 			fixture(root);
 			appFileSystem(root);
 			readFiles(root);
+			readDiffs(root);
 			ignoreRules();
 			listWithIgnore(root);
 			listEdges(root);
@@ -174,6 +176,47 @@ class FileSmoke {
 		eq(binary.type, "binary", "read binary type");
 		eq(binary.content, "", "read binary empty content");
 		expectFailure(() -> FileSystem.read(root, "../outside.txt"), "read escaped via read");
+	}
+
+	static function readDiffs(root:String):Void {
+		final repo = NodePath.join(root, "read-diff");
+		Fs.mkdirSync(repo, {recursive: true});
+		git(repo, ["init"], "read diff init");
+		git(repo, ["config", "user.email", "opencodehx@example.invalid"], "read diff git email");
+		git(repo, ["config", "user.name", "OpenCodeHX Smoke"], "read diff git name");
+		write(repo, "file.txt", "original content\n");
+		write(repo, "staged.txt", "before\n");
+		write(repo, "clean.txt", "unchanged\n");
+		writeBytes(repo, "data.bin", [0x00, 0x01, 0x02, 0x03]);
+		git(repo, ["add", "."], "read diff add initial");
+		git(repo, ["commit", "-m", "initial"], "read diff commit initial");
+
+		write(repo, "file.txt", "modified content\n");
+		final modified = FileSystem.read(repo, "file.txt");
+		eq(modified.content, "modified content", "read diff modified content");
+		eq(modified.diff.indexOf("original content") != -1, true, "read diff modified original");
+		eq(modified.diff.indexOf("modified content") != -1, true, "read diff modified current");
+		eq(modified.patch != null, true, "read diff modified patch");
+		eq(modified.patch.hunks.length > 0, true, "read diff modified hunks");
+
+		write(repo, "staged.txt", "after\n");
+		git(repo, ["add", "staged.txt"], "read diff staged add");
+		final staged = FileSystem.read(repo, "staged.txt");
+		eq(staged.diff.indexOf("before") != -1, true, "read diff staged original");
+		eq(staged.diff.indexOf("after") != -1, true, "read diff staged current");
+		eq(staged.patch != null, true, "read diff staged patch");
+		eq(staged.patch.hunks.length > 0, true, "read diff staged hunks");
+
+		final clean = FileSystem.read(repo, "clean.txt");
+		eq(clean.content, "unchanged", "read diff clean content");
+		eq(clean.diff, null, "read diff clean no diff");
+		eq(clean.patch, null, "read diff clean no patch");
+
+		writeBytes(repo, "data.bin", [0x00, 0x01, 0x02, 0x03, 0x04]);
+		final binary = FileSystem.read(repo, "data.bin");
+		eq(binary.type, "binary", "read diff binary type");
+		eq(binary.diff, null, "read diff binary no diff");
+		eq(binary.patch, null, "read diff binary no patch");
 	}
 
 	static function listWithIgnore(root:String):Void {
@@ -361,6 +404,12 @@ class FileSmoke {
 		final path = NodePath.join(root, relative);
 		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
 		Fs.writeFileSync(path, js.lib.Uint8Array.from(bytes));
+	}
+
+	static function git(cwd:String, args:Array<String>, label:String):Void {
+		final result = Git.run(cwd, args);
+		if (result.code != 0)
+			throw '${label}: ${result.stderr}';
 	}
 
 	static function findNode(nodes:Array<opencodehx.file.FileSystem.FileNode>, name:String):opencodehx.file.FileSystem.FileNode {

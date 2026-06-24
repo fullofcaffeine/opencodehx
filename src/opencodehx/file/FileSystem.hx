@@ -2,6 +2,7 @@ package opencodehx.file;
 
 import opencodehx.externs.node.Fs;
 import opencodehx.file.Ripgrep.SearchResult;
+import opencodehx.git.Git;
 import opencodehx.host.node.NodePath;
 
 typedef FileNode = {
@@ -15,8 +16,27 @@ typedef FileNode = {
 typedef FileReadResult = {
 	final type:String;
 	final content:String;
+	@:optional final diff:String;
+	@:optional final patch:FilePatch;
 	@:optional final encoding:String;
 	@:optional final mimeType:String;
+}
+
+typedef FilePatch = {
+	final oldFileName:String;
+	final newFileName:String;
+	@:optional final oldHeader:String;
+	@:optional final newHeader:String;
+	final hunks:Array<FilePatchHunk>;
+	@:optional final index:String;
+}
+
+typedef FilePatchHunk = {
+	final oldStart:Int;
+	final oldLines:Int;
+	final newStart:Int;
+	final newLines:Int;
+	final lines:Array<String>;
 }
 
 class FileSystem {
@@ -70,7 +90,7 @@ class FileSystem {
 			return {type: "binary", content: ""};
 		if (!Fs.existsSync(absolute) || !Fs.statSync(absolute).isFile())
 			return {type: "text", content: ""};
-		return {type: "text", content: StringTools.trim(Fs.readFileSync(absolute, "utf8"))};
+		return textRead(root, file, StringTools.trim(Fs.readFileSync(absolute, "utf8")));
 	}
 
 	public static function readText(root:String, file:String):String {
@@ -135,6 +155,74 @@ class FileSystem {
 			}
 		}
 		return patterns;
+	}
+
+	static function textRead(root:String, file:String, content:String):FileReadResult {
+		final diff = Git.diffFile(root, file);
+		if (StringTools.trim(diff) == "")
+			return {type: "text", content: content};
+		final patch = patchFromDiff(file, diff);
+		if (patch == null)
+			return {type: "text", content: content, diff: diff};
+		return {
+			type: "text",
+			content: content,
+			diff: diff,
+			patch: patch
+		};
+	}
+
+	static function patchFromDiff(file:String, diff:String):Null<FilePatch> {
+		final hunks:Array<FilePatchHunk> = [];
+		var index:Null<String> = null;
+		var current:Null<FilePatchHunk> = null;
+		final hunkPattern = ~/^@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@/;
+		for (line in diff.split("\n")) {
+			if (StringTools.startsWith(line, "index ")) {
+				index = line.substr("index ".length);
+				continue;
+			}
+			if (hunkPattern.match(line)) {
+				current = {
+					oldStart: matchedInt(hunkPattern, 1, 1),
+					oldLines: matchedInt(hunkPattern, 2, 1),
+					newStart: matchedInt(hunkPattern, 3, 1),
+					newLines: matchedInt(hunkPattern, 4, 1),
+					lines: [],
+				};
+				hunks.push(current);
+				continue;
+			}
+			if (current != null && isPatchLine(line))
+				current.lines.push(line);
+		}
+		if (hunks.length == 0)
+			return null;
+		return {
+			oldFileName: file,
+			newFileName: file,
+			oldHeader: "old",
+			newHeader: "new",
+			hunks: hunks,
+			index: index,
+		};
+	}
+
+	static function matchedInt(pattern:EReg, group:Int, fallback:Int):Int {
+		try {
+			final value = pattern.matched(group);
+			if (value == null || value == "")
+				return fallback;
+			final parsed = Std.parseInt(value);
+			return parsed == null ? fallback : parsed;
+		} catch (_:Dynamic) {
+			return fallback;
+		}
+	}
+
+	static function isPatchLine(line:String):Bool {
+		return StringTools.startsWith(line, " ") || StringTools.startsWith(line, "+") || StringTools.startsWith(line, "-")
+			|| StringTools.startsWith(line, "\\");
 	}
 
 	static function compareNode(a:FileNode, b:FileNode):Int {

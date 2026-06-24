@@ -154,6 +154,14 @@ class Git {
 		return out;
 	}
 
+	public static function diffFile(cwd:String, file:String):String {
+		final unstaged = run(cwd, ["diff", "--no-ext-diff", "--no-renames", "--", file]);
+		if (unstaged.code == 0 && unstaged.stdout.trim() != "")
+			return unstaged.stdout;
+		final staged = run(cwd, ["diff", "--no-ext-diff", "--no-renames", "--staged", "--", file]);
+		return staged.code == 0 ? staged.stdout : "";
+	}
+
 	public static function stats(cwd:String, ref:String):Array<GitStat> {
 		final result = run(cwd, ["diff", "--no-ext-diff", "--no-renames", "--numstat", "-z", ref, "--", "."]);
 		final out:Array<GitStat> = [];
