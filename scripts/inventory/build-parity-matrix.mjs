@@ -199,9 +199,9 @@ function directEvidence(path) {
       "file/index.test.ts",
       [
         "partial",
-        "src/opencodehx/file/FileSystem.hx; src/opencodehx/project/VcsRuntime.hx; src/opencodehx/smoke/FileSmoke.hx; src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/file-port.md; docs/project-runtime-parity.md",
-        "File.Service init/cache/fuzzy search, read diff/patch payloads, and full Effect integration remain deferred",
-        "FileSmoke.readFiles/listEdges plus ProjectRuntimeSmoke.fileStatusParity cover read/list and status cases including modified/added/deleted/mixed/clean/non-git/binary behavior",
+        "src/opencodehx/file/FileSystem.hx; src/opencodehx/file/FileSearchRuntime.hx; src/opencodehx/project/VcsRuntime.hx; src/opencodehx/smoke/FileSmoke.hx; src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/file-port.md; docs/project-runtime-parity.md",
+        "Full File.Service cache/state machine, exact fuzzysort ranking, read diff/patch payloads, and Effect integration remain deferred",
+        "FileSmoke.readFiles/listEdges/fileSearch plus ProjectRuntimeSmoke.fileStatusParity cover read/list/search and status cases including modified/added/deleted/mixed/clean/non-git/binary behavior",
         m11Owners.foundation,
       ],
     ],

@@ -5,6 +5,8 @@ import opencodehx.externs.node.Os;
 import opencodehx.file.AppFileSystem;
 import opencodehx.file.AppFileSystem.AppFileContent;
 import opencodehx.file.FileIgnore;
+import opencodehx.file.FileSearchRuntime;
+import opencodehx.file.FileSearchRuntime.FileSearchType;
 import opencodehx.file.FileSystem;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
@@ -19,6 +21,7 @@ class FileSmoke {
 			ignoreRules();
 			listWithIgnore(root);
 			listEdges(root);
+			fileSearch(root);
 			pathSafety(root);
 			ripgrepFiles(root);
 			ripgrepSearch(root);
@@ -204,6 +207,55 @@ class FileSmoke {
 		}
 	}
 
+	static function fileSearch(root:String):Void {
+		final searchRoot = NodePath.join(root, "search");
+		write(searchRoot, "index.ts", "code");
+		write(searchRoot, "utils.ts", "utils");
+		write(searchRoot, "readme.md", "readme");
+		write(searchRoot, "src/main.ts", "main");
+		write(searchRoot, ".hidden/secret.ts", "secret");
+
+		final files = FileSearchRuntime.search(searchRoot, {query: "", type: FileSearchType.File});
+		eq(files.length > 0, true, "file search empty files");
+		for (file in files)
+			eq(StringTools.endsWith(file, "/"), false, "file search file type");
+
+		final beforeInit = FileSearchRuntime.search(searchRoot, {query: "main", type: FileSearchType.File});
+		eq(beforeInit.indexOf("src/main.ts") != -1, true, "file search before init");
+
+		final dirs = FileSearchRuntime.search(searchRoot, {query: "", type: FileSearchType.Directory});
+		eq(dirs.length > 0, true, "file search empty directories");
+		for (dir in dirs)
+			eq(StringTools.endsWith(dir, "/"), true, "file search directory type");
+		final firstHidden = firstHiddenIndex(dirs);
+		final lastVisible = lastVisibleIndex(dirs);
+		if (firstHidden >= 0 && lastVisible >= 0)
+			eq(firstHidden > lastVisible, true, "file search hidden directories last");
+
+		final fuzzy = FileSearchRuntime.search(searchRoot, {query: "mn", type: FileSearchType.File});
+		eq(fuzzy.indexOf("src/main.ts") != -1, true, "file search fuzzy filename");
+
+		final limited = FileSearchRuntime.search(searchRoot, {query: "", type: FileSearchType.File, limit: 2});
+		eq(limited.length <= 2, true, "file search limit");
+
+		final hidden = FileSearchRuntime.search(searchRoot, {query: ".hidden", type: FileSearchType.Directory});
+		eq(hidden.length > 0, true, "file search dot query");
+		eq(hidden[0].indexOf(".hidden") != -1, true, "file search hidden preferred");
+
+		eq(FileSearchRuntime.search(searchRoot, {query: "fresh", type: FileSearchType.File}).length, 0, "file search fresh absent");
+		write(searchRoot, "fresh.ts", "fresh");
+		eq(FileSearchRuntime.search(searchRoot, {query: "fresh", type: FileSearchType.File}).indexOf("fresh.ts") != -1, true, "file search refresh");
+
+		final one = NodePath.join(root, "search-one");
+		final two = NodePath.join(root, "search-two");
+		write(one, "a.ts", "one");
+		write(two, "b.ts", "two");
+		eq(FileSearchRuntime.search(one, {query: "a.ts", type: FileSearchType.File}).join(","), "a.ts", "file search root one match");
+		eq(FileSearchRuntime.search(one, {query: "b.ts", type: FileSearchType.File}).length, 0, "file search root one isolated");
+		eq(FileSearchRuntime.search(two, {query: "b.ts", type: FileSearchType.File}).join(","), "b.ts", "file search root two match");
+		eq(FileSearchRuntime.search(two, {query: "a.ts", type: FileSearchType.File}).length, 0, "file search root two isolated");
+	}
+
 	static function pathSafety(root:String):Void {
 		final projectRoot = NodePath.join(root, "project");
 		write(projectRoot, "valid.txt", "valid content");
@@ -317,6 +369,31 @@ class FileSmoke {
 				return node;
 		}
 		throw 'missing node ${name}';
+	}
+
+	static function firstHiddenIndex(paths:Array<String>):Int {
+		for (i in 0...paths.length) {
+			if (hasHiddenSegment(paths[i]))
+				return i;
+		}
+		return -1;
+	}
+
+	static function lastVisibleIndex(paths:Array<String>):Int {
+		var result = -1;
+		for (i in 0...paths.length) {
+			if (!hasHiddenSegment(paths[i]))
+				result = i;
+		}
+		return result;
+	}
+
+	static function hasHiddenSegment(path:String):Bool {
+		for (part in path.split("/")) {
+			if (part.length > 1 && StringTools.startsWith(part, "."))
+				return true;
+		}
+		return false;
 	}
 
 	static function expectFailure(run:() -> Void, label:String):Void {
