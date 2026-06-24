@@ -205,7 +205,16 @@ function directEvidence(path) {
         m11Owners.foundation,
       ],
     ],
-    ["file/ripgrep.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "streaming and full ripgrep option matrix remain deferred", "FileSmoke.ripgrepFiles/ripgrepSearch"]],
+    [
+      "file/ripgrep.test.ts",
+      [
+        "partial",
+        "src/opencodehx/file/Ripgrep.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md",
+        "ripgrep command behavior is covered; Effect stream service shape and separate worker-mode implementation parity remain deferred",
+        "FileSmoke.ripgrepFiles/ripgrepSearch",
+        m11Owners.foundation,
+      ],
+    ],
     [
       "file/path-traversal.test.ts",
       [

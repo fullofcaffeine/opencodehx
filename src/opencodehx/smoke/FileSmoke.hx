@@ -6,6 +6,7 @@ import opencodehx.file.AppFileSystem;
 import opencodehx.file.AppFileSystem.AppFileContent;
 import opencodehx.file.FileIgnore;
 import opencodehx.file.FileSystem;
+import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
 
 class FileSmoke {
@@ -232,6 +233,27 @@ class FileSmoke {
 	}
 
 	static function ripgrepFiles(root:String):Void {
+		write(root, "rg/visible.txt", "hello");
+		write(root, "rg/.opencode/thing.json", "{}");
+		write(root, "rg/a.txt", "hello");
+		write(root, "rg/b.txt", "world");
+		write(root, "rg/keep.ts", "yes");
+		write(root, "rg/skip.txt", "no");
+		write(root, "rg/packages/console/package.json", "{}");
+
+		final defaultHidden = FileSystem.files(NodePath.join(root, "rg"));
+		eq(defaultHidden.indexOf("visible.txt") != -1, true, "rg files default visible");
+		eq(defaultHidden.indexOf(".opencode/thing.json") != -1, true, "rg files default hidden");
+		final hiddenFalse = FileSystem.files(NodePath.join(root, "rg"), null, false);
+		eq(hiddenFalse.indexOf("visible.txt") != -1, true, "rg files hidden false visible");
+		eq(hiddenFalse.indexOf(".opencode/thing.json") == -1, true, "rg files hidden false excludes hidden");
+		eq(FileSystem.files(NodePath.join(root, "rg"), ["packages/*"]).length, 0, "rg files glob no files");
+		final listed = FileSystem.files(NodePath.join(root, "rg"), ["*.txt"]);
+		listed.sort(Reflect.compare);
+		eq(listed.join(","), "a.txt,b.txt,skip.txt,visible.txt", "rg files sorted filenames");
+		eq(FileSystem.files(NodePath.join(root, "rg"), ["*.ts"]).join(","), "keep.ts", "rg files glob filter");
+		expectFailure(() -> FileSystem.files(NodePath.join(root, "missing-rg")), "rg files missing cwd");
+
 		final visible = FileSystem.files(root, ["*.ts"], false);
 		eq(visible.indexOf("src/main.ts") != -1, true, "rg files glob");
 		eq(visible.indexOf(".hidden/config") == -1, true, "hidden filtered");
@@ -241,7 +263,36 @@ class FileSmoke {
 	}
 
 	static function ripgrepSearch(root:String):Void {
-		final result = FileSystem.search(root, "needle", ["*.ts"], 5);
+		write(root, "rg-search/match.ts", "const value = 'needle'\n");
+		write(root, "rg-search/skip.ts", "const value = 'needle'\n");
+		write(root, "rg-search/skip.txt", "const value = 'other'\n");
+		final empty = FileSystem.search(NodePath.join(root, "rg-search"), "absent");
+		eq(empty.partial, false, "rg search empty not partial");
+		eq(empty.items.length, 0, "rg search empty items");
+		final globbed = FileSystem.search(NodePath.join(root, "rg-search"), "needle", ["*.ts"]);
+		eq(globbed.partial, false, "rg search glob not partial");
+		eq(globbed.items.length, 2, "rg search glob match count");
+		eq(globbed.items[0].path.indexOf(".ts") != -1, true, "rg search glob path");
+		eq(globbed.items[0].line.indexOf("needle") != -1, true, "rg search glob line");
+		final explicit = opencodehx.file.Ripgrep.search({
+			cwd: NodePath.join(root, "rg-search"),
+			pattern: "needle",
+			file: [NodePath.join(NodePath.join(root, "rg-search"), "match.ts")]
+		});
+		eq(explicit.partial, false, "rg search explicit file not partial");
+		eq(explicit.items.length, 1, "rg search explicit file count");
+		eq(explicit.items[0].path, NodePath.join(NodePath.join(root, "rg-search"), "match.ts"), "rg search explicit file path");
+		final originalConfig = NodeProcess.envValue("RIPGREP_CONFIG_PATH");
+		NodeProcess.setEnv("RIPGREP_CONFIG_PATH", NodePath.join(root, "missing-ripgreprc"));
+		try {
+			eq(FileSystem.search(NodePath.join(root, "rg-search"), "needle").items.length, 2, "rg search ignores config path");
+		} catch (error:Dynamic) {
+			restoreEnv("RIPGREP_CONFIG_PATH", originalConfig);
+			throw error;
+		}
+		restoreEnv("RIPGREP_CONFIG_PATH", originalConfig);
+
+		final result = FileSystem.search(root, "needle", ["src/*.ts"], 5);
 		eq(result.partial, false, "search not partial");
 		eq(result.items.length, 1, "search match count");
 		eq(result.items[0].path, "src/main.ts", "search path");
@@ -275,6 +326,13 @@ class FileSmoke {
 			return;
 		}
 		throw '${label}: expected failure';
+	}
+
+	static function restoreEnv(key:String, value:Null<String>):Void {
+		if (value == null)
+			NodeProcess.unsetEnv(key);
+		else
+			NodeProcess.setEnv(key, value);
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {
