@@ -68,6 +68,8 @@ class FileSmoke {
 		AppFileSystem.writeFileString(file, "hello");
 		eq(AppFileSystem.isFile(file), true, "appfs isFile file");
 		eq(AppFileSystem.isFile(tmp), false, "appfs isFile directory");
+		eq(AppFileSystem.size(file), 5, "appfs size file");
+		eq(AppFileSystem.size(NodePath.join(tmp, "missing-size.txt")), 0, "appfs size missing");
 
 		final jsonFile = NodePath.join(tmp, "data.json");
 		AppFileSystem.writeJson(jsonFile, {name: "test", count: 42});
@@ -108,6 +110,19 @@ class FileSmoke {
 		eq(up.indexOf(NodePath.join(child, "a.txt")) != -1, true, "appfs up child target");
 		eq(up.indexOf(NodePath.join(tmp, "a.txt")) != -1, true, "appfs up root target a");
 		eq(up.indexOf(NodePath.join(tmp, "b.txt")) != -1, true, "appfs up root target b");
+		AppFileSystem.writeFileString(NodePath.join(tmp, "cfg.json"), "{}");
+		AppFileSystem.writeFileString(NodePath.join(tmp, "cfg.jsonc"), "{}");
+		AppFileSystem.writeFileString(NodePath.join(child, "cfg.jsonc"), "{}");
+		eq(AppFileSystem.findUpMany(["cfg.json", "cfg.jsonc"], child, tmp).join("|"), [
+			NodePath.join(child, "cfg.jsonc"),
+			NodePath.join(tmp, "cfg.json"),
+			NodePath.join(tmp, "cfg.jsonc")
+		].join("|"), "appfs findUpMany nearest first");
+		eq(AppFileSystem.findUpMany(["cfg.json", "cfg.jsonc"], child, tmp, {rootFirst: true}).join("|"), [
+			NodePath.join(tmp, "cfg.json"),
+			NodePath.join(tmp, "cfg.jsonc"),
+			NodePath.join(child, "cfg.jsonc")
+		].join("|"), "appfs findUpMany root first");
 
 		AppFileSystem.writeFileString(NodePath.join(tmp, "one.ts"), "one");
 		AppFileSystem.writeFileString(NodePath.join(tmp, "two.ts"), "two");
@@ -139,6 +154,20 @@ class FileSmoke {
 		eq(AppFileSystem.overlaps("/a/b", "/a/b/c"), true, "appfs overlaps child");
 		eq(AppFileSystem.overlaps("/a/b/c", "/a/b"), true, "appfs overlaps parent");
 		eq(AppFileSystem.overlaps("/a", "/b"), false, "appfs overlaps false");
+		eq(AppFileSystem.windowsPath("/c/Users/test"), NodeProcess.platform() == "win32" ? "C:/Users/test" : "/c/Users/test", "appfs windowsPath git bash");
+		eq(AppFileSystem.windowsPath("/cygdrive/c/Users/test"), NodeProcess.platform() == "win32" ? "C:/Users/test" : "/cygdrive/c/Users/test",
+			"appfs windowsPath cygwin");
+		eq(AppFileSystem.windowsPath("/mnt/c/Users/test"), NodeProcess.platform() == "win32" ? "C:/Users/test" : "/mnt/c/Users/test", "appfs windowsPath wsl");
+		eq(AppFileSystem.windowsPath("C:/Users/test"), "C:/Users/test", "appfs windowsPath normal");
+		eq(AppFileSystem.normalizePathPattern("*"), "*", "appfs normalizePathPattern star");
+		if (NodeProcess.platform() != "win32") {
+			eq(AppFileSystem.normalizePath("/c/Users/test"), "/c/Users/test", "appfs normalizePath nonwindows");
+			eq(AppFileSystem.normalizePathPattern("/tmp/*"), "/tmp/*", "appfs normalizePathPattern nonwindows");
+		}
+		final resolvedTmp = AppFileSystem.resolve(tmp);
+		eq(resolvedTmp, AppFileSystem.normalizePath(Fs.realpathSync(tmp)), "appfs resolve existing");
+		final missing = NodePath.join(tmp, "does-not-exist-for-resolve");
+		eq(AppFileSystem.resolve(missing), AppFileSystem.normalizePath(NodePath.resolve(missing, ".")), "appfs resolve missing fallback");
 	}
 
 	static function readFiles(root:String):Void {

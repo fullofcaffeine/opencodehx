@@ -5,6 +5,7 @@ import js.lib.Uint8Array;
 import opencodehx.externs.node.Buffer.NodeBufferData;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
 
 class AppFileSystem {
 	public static function isDir(path:String):Bool {
@@ -21,6 +22,15 @@ class AppFileSystem {
 
 	public static function remove(path:String):Void {
 		Fs.rmSync(path, {recursive: true, force: true});
+	}
+
+	public static function size(path:String):Int {
+		try {
+			final stat = Fs.statSync(path);
+			return stat.size == null ? 0 : Std.int(stat.size);
+		} catch (_:Dynamic) {
+			return 0;
+		}
 	}
 
 	public static function ensureDir(path:String):Void {
@@ -63,22 +73,36 @@ class AppFileSystem {
 		return up({targets: [target], start: start, stop: stop});
 	}
 
+	public static function findUpMany(targets:Array<String>, start:String, ?stop:String, ?options:AppFileSystemFindUpOptions):Array<String> {
+		return up({
+			targets: targets,
+			start: start,
+			stop: stop,
+			rootFirst: options != null && options.rootFirst == true});
+	}
+
 	public static function up(input:AppFileSystemUpInput):Array<String> {
 		final out:Array<String> = [];
 		final stop = input.stop == null ? null : NodePath.resolve(input.stop, ".");
 		var current = NodePath.resolve(input.start, ".");
+		final dirs:Array<String> = [];
 		while (true) {
-			for (target in input.targets) {
-				final candidate = NodePath.join(current, target);
-				if (Fs.existsSync(candidate))
-					out.push(candidate);
-			}
+			dirs.push(current);
 			if (stop != null && current == stop)
 				break;
 			final parent = NodePath.dirname(current);
 			if (parent == current)
 				break;
 			current = parent;
+		}
+		if (input.rootFirst == true)
+			dirs.reverse();
+		for (dir in dirs) {
+			for (target in input.targets) {
+				final candidate = NodePath.join(dir, target);
+				if (Fs.existsSync(candidate))
+					out.push(candidate);
+			}
 		}
 		return out;
 	}
@@ -132,6 +156,42 @@ class AppFileSystem {
 		}
 	}
 
+	public static function windowsPath(path:String):String {
+		return NodeProcess.windowsPath(path);
+	}
+
+	public static function normalizePath(path:String):String {
+		if (NodeProcess.platform() != "win32")
+			return path;
+		final resolved = NodePath.normalize(NodePath.windowsResolve(windowsPath(path), "."));
+		try {
+			return NodePath.normalize(Fs.realpathSync(resolved));
+		} catch (_:Dynamic) {
+			return resolved;
+		}
+	}
+
+	public static function normalizePathPattern(path:String):String {
+		if (NodeProcess.platform() != "win32" || path == "*")
+			return path;
+		final pattern = ~/^(.*)[\\\/]\*$/;
+		if (!pattern.match(path))
+			return normalizePath(path);
+		final dir = driveRoot(pattern.matched(1));
+		return NodePath.windowsJoin(normalizePath(dir), "*");
+	}
+
+	public static function resolve(path:String):String {
+		final resolved = NodePath.resolve(windowsPath(path), ".");
+		try {
+			return normalizePath(Fs.realpathSync(resolved));
+		} catch (error:Dynamic) {
+			if (errorCode(error) == "ENOENT")
+				return normalizePath(resolved);
+			throw error;
+		}
+	}
+
 	public static function contains(root:String, target:String):Bool {
 		return FileSystem.contains(root, target);
 	}
@@ -166,6 +226,15 @@ class AppFileSystem {
 	static function normalize(path:String):String {
 		return StringTools.replace(path, "\\", "/");
 	}
+
+	static function driveRoot(path:String):String {
+		return ~/^[A-Za-z]:$/.match(path) ? path + "\\" : path;
+	}
+
+	static function errorCode(error:Dynamic):String {
+		final code = Reflect.field(error, "code");
+		return code == null ? "" : Std.string(code);
+	}
 }
 
 enum AppFileContent {
@@ -177,9 +246,14 @@ typedef AppFileSystemUpInput = {
 	final targets:Array<String>;
 	final start:String;
 	@:optional final stop:String;
+	@:optional final rootFirst:Bool;
 }
 
 typedef AppFileSystemGlobOptions = {
 	@:optional final cwd:String;
 	@:optional final absolute:Bool;
+}
+
+typedef AppFileSystemFindUpOptions = {
+	@:optional final rootFirst:Bool;
 }

@@ -8,7 +8,7 @@
 This slice adds the first Node-first file primitives needed by tool work:
 
 - `opencodehx.file.FileIgnore` ports OpenCode's default ignored folders/files, including upstream `node_modules` nested/non-nested matching, and supports extra/whitelist glob checks.
-- `opencodehx.file.AppFileSystem` covers the upstream shared filesystem helper surface used by the app: directory/file predicates, JSON round trips, recursive writes, ancestor search, simple glob helpers, exists/remove passthrough, MIME lookup, containment, and overlap checks.
+- `opencodehx.file.AppFileSystem` covers the upstream shared filesystem helper surface used by the app: directory/file predicates, size checks, JSON round trips, recursive writes, ancestor search with root-first ordering, simple glob helpers, exists/remove passthrough, MIME lookup, Windows path conversion, resolve fallback/canonicalization, containment, and overlap checks.
 - `opencodehx.file.Ripgrep` wraps local `rg` with upstream-style `--no-config`, hidden-file defaults, hidden-file exclusion, `.git` exclusion, glob/file filters, max-depth, missing-directory failure, JSON search metadata, and partial-result semantics.
 - `opencodehx.file.FileSearchRuntime` adds the upstream `File.Service.search()` filename/directory discovery subset: empty-query files, directory results with trailing slash, hidden-directory ordering, search-before-init behavior, simple fuzzy path matching, limits, dot/hidden query preference, refresh after file changes, and root isolation.
 - `opencodehx.file.FileSystem` adds project-contained path resolution, upstream-shaped `read()` results for text, image-base64, and known binary files, git-backed diff/patch metadata for changed text files, fsmonitor-disabled git reads/status checks, raw text reads, directory listing with `.gitignore`/`.ignore` flags, and file/text search helpers.
@@ -18,7 +18,7 @@ This slice adds the first Node-first file primitives needed by tool work:
 
 ## Deferred Parity
 
-This does not port the full OpenCode `File.Service`, cache/state machine, exact fuzzysort ranking, full watcher integration, protected file rules, exact `diff` package patch formatting, ripgrep download/bootstrap, ripgrep worker-mode split, or Effect streaming. Native Windows fsmonitor daemon assertions are conditional because non-Windows Git builds do not expose the same daemon lifecycle. `file/path-traversal.test.ts` also includes `Instance.containsPath` worktree/monorepo cases; those remain owned by the project runtime seam rather than the file primitive. The first tool slices should use these primitives directly, then promote repeated needs into a richer service facade.
+This does not port the full OpenCode `File.Service`, cache/state machine, exact fuzzysort ranking, full watcher integration, protected file rules, exact `diff` package patch formatting, ripgrep download/bootstrap, ripgrep worker-mode split, or Effect streaming. AppFileSystem still defers stream writes and OS-specific symlink error behavior from `util/filesystem.test.ts`. Native Windows fsmonitor daemon assertions are conditional because non-Windows Git builds do not expose the same daemon lifecycle. `file/path-traversal.test.ts` also includes `Instance.containsPath` worktree/monorepo cases; those remain owned by the project runtime seam rather than the file primitive. The first tool slices should use these primitives directly, then promote repeated needs into a richer service facade.
 
 ## Runtime Seam
 
