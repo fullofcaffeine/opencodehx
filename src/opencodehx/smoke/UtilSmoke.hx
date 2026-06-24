@@ -519,6 +519,7 @@ class UtilSmoke {
 		eq(dataString(nativeData, "type"), Reflect.field(util, "nativeType"), "native error type");
 		eq(dataString(nativeData, "message"), Reflect.field(util, "nativeMessage"), "native error data message");
 		eq(ErrorTools.format(nativeUnknown).indexOf("boom") != -1, true, "native error formatted");
+		eq(dataString(nativeData, "formatted").indexOf("boom") != -1, true, "native error data formatted");
 
 		final record = {message: "bad input", code: "E_BAD"};
 		final recordUnknown = Unknown.fromBoundary(record);
@@ -533,6 +534,7 @@ class UtilSmoke {
 		final opaqueUnknown = Unknown.fromBoundary(opaque);
 		eq(ErrorTools.message(opaqueUnknown), Reflect.field(util, "opaqueMessage"), "opaque error message");
 		eq(dataString(ErrorTools.data(opaqueUnknown), "message"), Reflect.field(util, "opaqueMessage"), "opaque error data message");
+		eq(dataString(ErrorTools.data(opaqueUnknown), "formatted").indexOf("ResolveMessage") != -1, true, "opaque error data formatted");
 	}
 
 	static function dataString(data:opencodehx.util.ErrorTools.ErrorData, field:String):String {
