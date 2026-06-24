@@ -158,6 +158,7 @@ function directEvidence(path) {
   const exact = new Map([
     ["util/format.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#formatDuration; docs/util-port.md", "none", "UtilSmoke.formatDuration"]],
     ["util/lazy.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#lazy; docs/util-port.md", "none", "UtilSmoke.lazy"]],
+    ["util/iife.test.ts", ["ported", "src/opencodehx/util/Iife.hx; src/opencodehx/smoke/UtilSmoke.hx#iife; docs/util-port.md", "none", "UtilSmoke.iife"]],
     ["util/data-url.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#dataUrl; docs/util-port.md", "none", "UtilSmoke.dataUrl"]],
     ["util/wildcard.test.ts", ["ported", "src/opencodehx/util/Wildcard.hx; src/opencodehx/smoke/UtilSmoke.hx#wildcard; docs/util-port.md", "none", "UtilSmoke.wildcard"]],
     ["util/which.test.ts", ["ported", "src/opencodehx/util/Which.hx; src/opencodehx/smoke/UtilSmoke.hx#which; docs/util-port.md", "none", "UtilSmoke.which"]],

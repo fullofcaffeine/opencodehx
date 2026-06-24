@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | `opencodehx.util.Format` | `src/util/format.ts`, `test/util/format.test.ts` | `UtilSmoke.formatDuration()` covers upstream duration boundaries. |
 | `opencodehx.util.Lazy` | `src/util/lazy.ts`, `test/util/lazy.test.ts` | `UtilSmoke.lazy()` covers single evaluation, cached value, and reset behavior. |
+| `opencodehx.util.Iife` | `src/util/iife.ts`, `test/util/iife.test.ts` | `UtilSmoke.iife()` covers immediate invocation, returned value passthrough, Promise passthrough for async functions, and void-return callbacks. |
 | `opencodehx.util.DataUrl` | `src/util/data-url.ts`, `test/util/data-url.test.ts` | `UtilSmoke.dataUrl()` covers base64, percent-decoding, missing comma, and `decodeURIComponent` plus-sign parity. |
 | `opencodehx.util.ErrorTools` | `src/util/error.ts`, `test/util/error.test.ts` | `UtilSmoke.errorTools()` covers native errors, record-like errors, opaque throwables, and `errorData` shape against `fixtures/resources/errors/diagnostics.golden.json`. |
 | `opencodehx.util.Wildcard` | `src/util/wildcard.ts`, `test/util/wildcard.test.ts` | `UtilSmoke.wildcard()` covers `*`/`?` glob tokens, regex escaping, trailing command ` *`, slash normalization, platform case sensitivity, most-specific rule selection, and structured command sequence matching. |
@@ -20,6 +21,7 @@
 ## Notes
 
 - `Lazy<T>` is modeled as a Haxe class with `get()` and `reset()` rather than a callable function with an attached `reset` property. This keeps Haxe source clearer while preserving the behavior OpenCode relies on.
+- `Iife.iife` intentionally stays as a tiny generic callback helper. Async parity is Promise passthrough: the helper returns the callback's Promise unchanged, so normal JavaScript `await` behavior remains owned by the host runtime.
 - `DataUrl.decode` intentionally uses JavaScript `decodeURIComponent` through `UriCodec` instead of Haxe `StringTools.urlDecode`, because upstream does not translate `+` into a space.
 - Base64 decoding is routed through `opencodehx.host.node.NodeBuffer`. A first attempt using Haxe `haxe.crypto.Base64` pulled in generated stdlib `Bytes.ts` that did not strict-check cleanly; the Node facade matches upstream behavior and keeps the host seam explicit.
 - `LogRuntime` intentionally ports the upstream test's init/cleanup contract without claiming the full logger surface yet. Logger creation, service-tag caching, log-level filtering, timers, write streams, and Effect logger bridging remain owned by later session/server/runtime slices.

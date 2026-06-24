@@ -5,6 +5,7 @@ import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.Json;
 import js.Syntax;
+import js.lib.Promise;
 import js.lib.Error as JsError;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
@@ -16,6 +17,7 @@ import opencodehx.util.Color;
 import opencodehx.util.DataUrl;
 import opencodehx.util.ErrorTools;
 import opencodehx.util.Format;
+import opencodehx.util.Iife;
 import opencodehx.util.Lazy;
 import opencodehx.util.LogRuntime;
 import opencodehx.util.ModuleResolver;
@@ -26,6 +28,7 @@ class UtilSmoke {
 	public static function run():Void {
 		formatDuration();
 		color();
+		iife();
 		errorTools();
 		lazy();
 		dataUrl();
@@ -58,6 +61,31 @@ class UtilSmoke {
 		eq(Color.hexToAnsiBold("FFA500"), null, "missing hash hex ansi bold");
 		eq(Color.hexToAnsiBold("#GGGGGG"), null, "invalid hex ansi bold");
 		eq(Color.hexToAnsiBold("primary"), null, "theme color is not hex ansi bold");
+	}
+
+	static function iife():Void {
+		var syncCalled = false;
+		final syncResult = Iife.iife(() -> {
+			syncCalled = true;
+			return 42;
+		});
+		eq(syncCalled, true, "iife sync called");
+		eq(syncResult, 42, "iife sync result");
+
+		var asyncCalled = false;
+		final promise = new Promise<String>((resolve, _) -> resolve("async result"));
+		final asyncResult = Iife.iife(() -> {
+			asyncCalled = true;
+			return promise;
+		});
+		eq(asyncCalled, true, "iife async called");
+		eq(asyncResult == promise, true, "iife async promise passthrough");
+
+		var voidCalled = false;
+		Iife.iife(() -> {
+			voidCalled = true;
+		});
+		eq(voidCalled, true, "iife void called");
 	}
 
 	static function lazy():Void {
