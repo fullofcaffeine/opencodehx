@@ -19,6 +19,8 @@ class BusSmoke {
 		unsubscribeStopsDelivery();
 		subscribeAllReceivesEveryType();
 		multipleSubscribers();
+		instanceIsolation();
+		instanceDisposal();
 		snapshotCopiesHistory();
 	}
 
@@ -83,6 +85,46 @@ class BusSmoke {
 		bus.publish(ping, {value: 7});
 		eq(a.join(","), "7", "bus first subscriber");
 		eq(b.join(","), "7", "bus second subscriber");
+	}
+
+	static function instanceIsolation():Void {
+		BusRuntime.disposeAllScopes();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.scoped.ping");
+		final busA = BusRuntime.scope("dir-a");
+		final busB = BusRuntime.scope("dir-b");
+		final receivedA:Array<Int> = [];
+		final receivedB:Array<Int> = [];
+		busA.subscribe(ping, event -> receivedA.push(event.properties.value));
+		busB.subscribe(ping, event -> receivedB.push(event.properties.value));
+		BusRuntime.scope("dir-a").publish(ping, {value: 1});
+		BusRuntime.scope("dir-b").publish(ping, {value: 2});
+		eq(receivedA.join(","), "1", "bus scoped instance a");
+		eq(receivedB.join(","), "2", "bus scoped instance b");
+		BusRuntime.disposeAllScopes();
+	}
+
+	static function instanceDisposal():Void {
+		BusRuntime.disposeAllScopes();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.dispose.ping");
+		final bus = BusRuntime.scope("disposable");
+		final received:Array<Int> = [];
+		final types:Array<String> = [];
+		var disposed = false;
+		bus.subscribeAll(event -> {
+			types.push(event.type);
+			if (event.type == BusRuntime.InstanceDisposed.type) {
+				disposed = true;
+				return;
+			}
+			received.push(event.properties.value);
+		});
+		bus.publish(ping, {value: 1});
+		eq(BusRuntime.disposeScope("disposable"), true, "bus scoped dispose result");
+		bus.publish(ping, {value: 2});
+		eq(received.join(","), "1", "bus scoped disposal stops delivery");
+		eq(disposed, true, "bus scoped disposal event");
+		eq(types.indexOf(BusRuntime.InstanceDisposed.type) != -1, true, "bus scoped disposal type");
+		eq(BusRuntime.disposeScope("disposable"), false, "bus scoped dispose missing");
 	}
 
 	static function snapshotCopiesHistory():Void {

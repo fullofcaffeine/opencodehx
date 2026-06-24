@@ -22,9 +22,11 @@ private typedef BusListenerEntry = {
 
 class BusRuntime {
 	public static final InstanceDisposed:BusEventDefinition<{}> = define("instance.disposed");
+	static final scoped:Map<String, BusRuntime> = new Map();
 
 	final history:Array<BusAnyEvent> = [];
 	final listeners:Array<BusListenerEntry> = [];
+	var disposed = false;
 
 	public function new() {}
 
@@ -32,7 +34,35 @@ class BusRuntime {
 		return {type: type};
 	}
 
+	public static function scope(key:String):BusRuntime {
+		final existing = scoped.get(key);
+		if (existing != null)
+			return existing;
+		final bus = new BusRuntime();
+		scoped.set(key, bus);
+		return bus;
+	}
+
+	public static function disposeScope(key:String):Bool {
+		final bus = scoped.get(key);
+		if (bus == null)
+			return false;
+		scoped.remove(key);
+		bus.dispose();
+		return true;
+	}
+
+	public static function disposeAllScopes():Void {
+		final keys:Array<String> = [];
+		for (key in scoped.keys())
+			keys.push(key);
+		for (key in keys)
+			disposeScope(key);
+	}
+
 	public function publish<TProperties>(definition:BusEventDefinition<TProperties>, properties:TProperties):Void {
+		if (disposed)
+			return;
 		// The bus is intentionally heterogeneous at runtime. Keep the Dynamic
 		// payload boxed inside BusAnyEvent, and restore typed properties only
 		// for listeners registered with the matching event definition.
@@ -63,7 +93,20 @@ class BusRuntime {
 		return history.copy();
 	}
 
+	public function dispose():Void {
+		if (disposed)
+			return;
+		// Upstream wildcard subscribers observe InstanceDisposed before the
+		// instance stream ends. Publish it while listeners are still active, then
+		// clear subscriptions so later publishes cannot leak across lifecycles.
+		publish(InstanceDisposed, {});
+		disposed = true;
+		listeners.resize(0);
+	}
+
 	function add(entry:BusListenerEntry):BusUnsubscribe {
+		if (disposed)
+			return () -> {};
 		listeners.push(entry);
 		var active = true;
 		return () -> {

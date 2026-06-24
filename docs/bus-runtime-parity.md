@@ -11,6 +11,9 @@ OpenCodeHX currently covers the callback-facing subset of upstream OpenCode's bu
 - idempotent unsubscribe
 - multiple subscribers per event type
 - copied history snapshots
+- portable scope-keyed bus instances
+- scope isolation by caller-provided instance key
+- disposal that publishes `instance.disposed` to wildcard subscribers before clearing listeners
 
 `opencodehx.smoke.BusSmoke` is the executable evidence for the callback cases from:
 
@@ -20,5 +23,4 @@ OpenCodeHX currently covers the callback-facing subset of upstream OpenCode's bu
 Remaining scope:
 
 - Effect-native stream delivery in `bus/bus-effect.test.ts`
-- instance-scoped isolation and disposal finalizer behavior
-- integration with the full upstream `Instance.provide` service context
+- full upstream `Instance.provide` service-context wiring beyond the portable scope-keyed bus registry
