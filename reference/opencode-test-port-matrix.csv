@@ -178,7 +178,7 @@ util/format.test.ts,test,util,P2,ported,src/opencodehx/smoke/UtilSmoke.hx#format
 util/glob.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
 util/iife.test.ts,test,util,P2,ported,src/opencodehx/util/Iife.hx; src/opencodehx/smoke/UtilSmoke.hx#iife; docs/util-port.md,none,UtilSmoke.iife,none
 util/lazy.test.ts,test,util,P2,ported,src/opencodehx/smoke/UtilSmoke.hx#lazy; docs/util-port.md,none,UtilSmoke.lazy,none
-util/lock.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
+util/lock.test.ts,test,util,P2,ported,src/opencodehx/util/Lock.hx; src/opencodehx/smoke/UtilSmoke.hx#lock; docs/util-port.md,none,UtilSmoke.lock,none
 util/log.test.ts,test,util,P2,ported,src/opencodehx/util/LogRuntime.hx; src/opencodehx/smoke/UtilSmoke.hx#logCleanup; docs/util-port.md,none,UtilSmoke.logCleanup,none
 util/module.test.ts,test,util,P2,ported,src/opencodehx/util/ModuleResolver.hx; src/opencodehx/smoke/UtilSmoke.hx#moduleResolver; docs/util-port.md,none,UtilSmoke.moduleResolver,none
 util/process.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11

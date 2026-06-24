@@ -21,6 +21,7 @@ import opencodehx.util.ErrorTools;
 import opencodehx.util.Format;
 import opencodehx.util.Iife;
 import opencodehx.util.Lazy;
+import opencodehx.util.Lock;
 import opencodehx.util.LogRuntime;
 import opencodehx.util.ModuleResolver;
 import opencodehx.util.Timeout;
@@ -44,6 +45,7 @@ class UtilSmoke {
 	@:async
 	public static function runAsync():Promise<Void> {
 		@:await timeout();
+		@:await lock();
 	}
 
 	static function formatDuration():Void {
@@ -302,6 +304,48 @@ class UtilSmoke {
 		eq(Std.string(Reflect.field(error, "message")), "Operation timed out after 50ms", "timeout rejection message");
 	}
 
+	@:async
+	static function lock():Promise<Void> {
+		final key = "lock:" + Std.random(1000000);
+		var writer2Acquired = false;
+		var readerAcquired = false;
+		var writers = 0;
+
+		final writer1 = @:await Lock.write(key);
+		writers++;
+		eq(writers, 1, "lock writer1 acquired");
+
+		final writer2Task = Lock.write(key).then(writer2 -> {
+			writers++;
+			eq(writers, 1, "lock writer2 exclusive");
+			writer2Acquired = true;
+			return tick().then(_ -> writer2);
+		});
+
+		final readerTask = Lock.read(key).then(reader -> {
+			readerAcquired = true;
+			return reader;
+		});
+
+		@:await flush();
+		eq(writer2Acquired, false, "lock writer2 blocked by writer1");
+		eq(readerAcquired, false, "lock reader blocked by writer1");
+
+		writer1.dispose();
+		writers--;
+		final writer2 = @:await writer2Task;
+		eq(writer2Acquired, true, "lock writer2 acquired after writer1");
+
+		@:await flush();
+		eq(readerAcquired, false, "lock reader waits behind writer2");
+
+		writer2.dispose();
+		writers--;
+		final reader = @:await readerTask;
+		eq(readerAcquired, true, "lock reader acquired after writer2");
+		reader.dispose();
+	}
+
 	static function errorTools():Void {
 		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
 		final util:Dynamic = Reflect.field(golden, "util");
@@ -373,6 +417,23 @@ class UtilSmoke {
 		return new Promise<String>((resolve, _) -> {
 			WebTimers.setTimeout(() -> resolve(value), ms);
 		});
+	}
+
+	static function tick():Promise<Void> {
+		return new Promise<Void>((resolve, _) -> {
+			final resolveVoid:Void->Void = cast resolve;
+			Promise.resolve(null).then(_ -> {
+				resolveVoid();
+				return null;
+			});
+		});
+	}
+
+	@:async
+	static function flush(?count:Int):Promise<Void> {
+		final total = count == null ? 5 : count;
+		for (_ in 0...total)
+			@:await tick();
 	}
 
 	static function pad2(value:Int):String {
