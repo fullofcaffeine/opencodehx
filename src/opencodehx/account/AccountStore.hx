@@ -9,8 +9,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.web.Fetch;
 import opencodehx.externs.web.Fetch.AccountConfigPayload;
 import opencodehx.host.node.BetterSqlite;
-import opencodehx.host.node.GlobalPaths;
-import opencodehx.host.node.NodePath;
+import opencodehx.storage.StorageDatabasePath;
 
 using StringTools;
 
@@ -108,13 +107,7 @@ class AccountStore {
 	}
 
 	static function databasePath(env:DynamicAccess<String>):String {
-		final configured = env.get("OPENCODE_DB");
-		if (configured != null && configured != "") {
-			if (configured == ":memory:" || NodePath.isAbsolute(configured))
-				return configured;
-			return NodePath.join(GlobalPaths.data(env), configured);
-		}
-		return NodePath.join(GlobalPaths.data(env), "opencode.db");
+		return StorageDatabasePath.path(env, "latest");
 	}
 
 	static function normalizeBaseUrl(value:String):String {

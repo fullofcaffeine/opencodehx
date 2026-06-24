@@ -12,9 +12,9 @@
 | --- | --- | ---: |
 | deferred | test | 57 |
 | direct | test | 20 |
-| partial | test | 66 |
+| partial | test | 65 |
 | ported | fixture | 1 |
-| ported | test | 16 |
+| ported | test | 17 |
 | reference-only | doc | 9 |
 | reference-only | fixture | 12 |
 | reference-only | helper | 4 |

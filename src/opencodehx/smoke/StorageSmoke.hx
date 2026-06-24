@@ -1,8 +1,10 @@
 package opencodehx.smoke;
 
+import haxe.DynamicAccess;
 import haxe.Json;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.host.node.GlobalPaths;
 import opencodehx.host.node.NodePath;
 import opencodehx.session.MessageCodec;
 import opencodehx.session.MessageID;
@@ -12,6 +14,7 @@ import opencodehx.session.PartID;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionInfo.SessionInfo;
 import opencodehx.storage.SqliteSessionStore;
+import opencodehx.storage.StorageDatabasePath;
 import opencodehx.storage.StorageError.StorageException;
 
 class StorageSmoke {
@@ -20,6 +23,7 @@ class StorageSmoke {
 		final dbPath = NodePath.join(root, "opencodehx.db");
 		final store = new SqliteSessionStore(dbPath);
 		try {
+			databasePath(root);
 			store.upsertProject({id: "proj_fixture", worktree: root, name: "Fixture"});
 			sessionCreateReadUpdate(store, root);
 			messagePageAndPartCrud(store);
@@ -30,6 +34,25 @@ class StorageSmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	static function databasePath(root:String):Void {
+		final env = new DynamicAccess<String>();
+		final dataRoot = NodePath.join(root, "xdg-data");
+		env.set("XDG_DATA_HOME", dataRoot);
+		final data = GlobalPaths.data(env);
+		eq(StorageDatabasePath.getChannelPath(env, "latest"), NodePath.join(data, "opencode.db"), "storage latest db path");
+		eq(StorageDatabasePath.getChannelPath(env, "beta"), NodePath.join(data, "opencode.db"), "storage beta db path");
+		eq(StorageDatabasePath.getChannelPath(env, "prod"), NodePath.join(data, "opencode.db"), "storage prod db path");
+		eq(StorageDatabasePath.getChannelPath(env, "dev/nightly"), NodePath.join(data, "opencode-dev-nightly.db"), "storage sanitized channel db path");
+		eq(StorageDatabasePath.getChannelPath(env, "dev/nightly", true), NodePath.join(data, "opencode.db"), "storage disable channel db path");
+
+		env.set("OPENCODE_DB", ":memory:");
+		eq(StorageDatabasePath.path(env, "dev"), ":memory:", "storage memory db override");
+		env.set("OPENCODE_DB", NodePath.join(root, "custom.db"));
+		eq(StorageDatabasePath.path(env, "dev"), NodePath.join(root, "custom.db"), "storage absolute db override");
+		env.set("OPENCODE_DB", "relative.db");
+		eq(StorageDatabasePath.path(env, "dev"), NodePath.join(data, "relative.db"), "storage relative db override");
 	}
 
 	static function sessionCreateReadUpdate(store:SqliteSessionStore, root:String):Void {

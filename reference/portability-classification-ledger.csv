@@ -184,6 +184,7 @@ path,primary_class,secondary_classes,retarget_blockers,notes
 "src/opencodehx/smoke/UtilSmoke.hx","harness","generated-ts-only;js-runtime;raw-js-boundary;resource;unknown-boundary","genes-ts-only type surface;raw JS expression;runtime unknown boundary","Executable parity/test harness; portability target is generated test intent, not product runtime."
 "src/opencodehx/storage/SessionStore.hx","portable","none","none","Haxe domain/model code; retarget after replacing any listed secondary seams."
 "src/opencodehx/storage/SqliteSessionStore.hx","node-host","sqlite;unknown-boundary","Node API adapter;runtime unknown boundary","Node-specific host or extern seam; retarget by replacing this adapter behind the existing Haxe-facing API."
+"src/opencodehx/storage/StorageDatabasePath.hx","node-host","node-api","Node API adapter","Node-specific host/path seam; retarget by replacing GlobalPaths/NodePath behind the storage path helper."
 "src/opencodehx/storage/StorageError.hx","portable","none","none","Haxe domain/model code; retarget after replacing any listed secondary seams."
 "src/opencodehx/sync/SyncEventStore.hx","portable","unknown-boundary","runtime unknown boundary","Haxe domain/model code; retarget after replacing any listed secondary seams."
 "src/opencodehx/sync/SyncRouteRuntime.hx","generated-ts-only","unknown-boundary","genes-ts-only type surface;runtime unknown boundary","Haxe domain/model code; retarget after replacing any listed secondary seams."
