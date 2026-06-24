@@ -148,6 +148,7 @@ class ProjectRuntimeSmoke {
 			noCommitGitProject(root);
 			committedProjectAndGit(root);
 			vcsDiffs(root);
+			fileStatusParity(root);
 			projectEdges(root);
 			projectGlobalMigration(root);
 			worktreeProject(root);
@@ -294,12 +295,85 @@ class ProjectRuntimeSmoke {
 		eq(hasVcsDiff(branchVcs.diff(Branch), "branch.txt", Added), true, "vcs branch diff");
 	}
 
+	static function fileStatusParity(root:String):Void {
+		ProjectRuntime.reset();
+		final modifiedDir = directory(root, "file-status-modified");
+		initCommittedRepo(modifiedDir);
+		write(modifiedDir, "file.txt", "original\n");
+		git(modifiedDir, ["add", "."]);
+		commit(modifiedDir, "add file");
+		write(modifiedDir, "file.txt", "modified\nextra line\n");
+		final modified = findVcsDiff(new VcsRuntime(modifiedDir).diff(WorkingTree), "file.txt");
+		eq(modified.status, Modified, "file status modified");
+		eq(modified.additions > 0, true, "file status modified additions");
+		eq(modified.deletions > 0, true, "file status modified deletions");
+
+		final addedDir = directory(root, "file-status-added");
+		initCommittedRepo(addedDir);
+		write(addedDir, "new.txt", "line1\nline2\nline3\n");
+		final added = findVcsDiff(new VcsRuntime(addedDir).diff(WorkingTree), "new.txt");
+		eq(added.status, Added, "file status added");
+		eq(added.additions, 3, "file status added line count");
+		eq(added.deletions, 0, "file status added deletions");
+
+		final deletedDir = directory(root, "file-status-deleted");
+		initCommittedRepo(deletedDir);
+		write(deletedDir, "gone.txt", "content\n");
+		git(deletedDir, ["add", "."]);
+		commit(deletedDir, "add file");
+		Fs.rmSync(NodePath.join(deletedDir, "gone.txt"));
+		eq(findVcsDiff(new VcsRuntime(deletedDir).diff(WorkingTree), "gone.txt").status, Deleted, "file status deleted");
+
+		final mixedDir = directory(root, "file-status-mixed");
+		initCommittedRepo(mixedDir);
+		write(mixedDir, "keep.txt", "keep\n");
+		write(mixedDir, "remove.txt", "remove\n");
+		git(mixedDir, ["add", "."]);
+		commit(mixedDir, "initial");
+		write(mixedDir, "keep.txt", "changed\n");
+		Fs.rmSync(NodePath.join(mixedDir, "remove.txt"));
+		write(mixedDir, "brand-new.txt", "hello\n");
+		final mixed = new VcsRuntime(mixedDir).diff(WorkingTree);
+		eq(hasVcsDiff(mixed, "keep.txt", Modified), true, "file status mixed modified");
+		eq(hasVcsDiff(mixed, "remove.txt", Deleted), true, "file status mixed deleted");
+		eq(hasVcsDiff(mixed, "brand-new.txt", Added), true, "file status mixed added");
+
+		final cleanDir = directory(root, "file-status-clean");
+		initCommittedRepo(cleanDir);
+		write(cleanDir, "clean.txt", "clean\n");
+		git(cleanDir, ["add", "."]);
+		commit(cleanDir, "clean file");
+		eq(new VcsRuntime(cleanDir).diff(WorkingTree).length, 0, "file status clean repo");
+
+		final nonGit = directory(root, "file-status-non-git");
+		eq(new VcsRuntime(nonGit).diff(WorkingTree).length, 0, "file status non-git empty");
+
+		final binaryDir = directory(root, "file-status-binary");
+		initCommittedRepo(binaryDir);
+		writeBytes(binaryDir, "data.bin", binaryBytes(256));
+		git(binaryDir, ["add", "."]);
+		commit(binaryDir, "add binary");
+		writeBytes(binaryDir, "data.bin", binaryBytes(512));
+		final binary = findVcsDiff(new VcsRuntime(binaryDir).diff(WorkingTree), "data.bin");
+		eq(binary.status, Modified, "file status binary modified");
+		eq(binary.additions, 0, "file status binary additions");
+		eq(binary.deletions, 0, "file status binary deletions");
+	}
+
 	static function hasVcsDiff(items:Array<VcsFileDiff>, file:String, kind:GitChangeKind):Bool {
 		for (item in items) {
 			if (item.file == file && item.status == kind)
 				return true;
 		}
 		return false;
+	}
+
+	static function findVcsDiff(items:Array<VcsFileDiff>, file:String):VcsFileDiff {
+		for (item in items) {
+			if (item.file == file)
+				return item;
+		}
+		throw 'missing vcs diff for ${file}';
 	}
 
 	static function projectGlobalMigration(root:String):Void {
@@ -1422,6 +1496,19 @@ class ProjectRuntimeSmoke {
 		final file = NodePath.join(dir, name);
 		Fs.mkdirSync(NodePath.dirname(file), {recursive: true});
 		Fs.writeFileSync(file, data, "utf8");
+	}
+
+	static function writeBytes(dir:String, name:String, bytes:Array<Int>):Void {
+		final file = NodePath.join(dir, name);
+		Fs.mkdirSync(NodePath.dirname(file), {recursive: true});
+		Fs.writeFileSync(file, js.lib.Uint8Array.from(bytes));
+	}
+
+	static function binaryBytes(length:Int):Array<Int> {
+		final out:Array<Int> = [];
+		for (index in 0...length)
+			out.push(index % 256);
+		return out;
 	}
 
 	static function writeFile(file:String, data:String):Void {

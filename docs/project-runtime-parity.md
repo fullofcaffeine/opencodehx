@@ -21,6 +21,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - `FileWatcherRuntime` subscribes to the git metadata directory and publishes typed HEAD events into the same bus,
   - `npm run file:watcher:smoke` exercises the real Node `fs.watch` backend against a temporary git repo outside normal CI,
   - working-tree diff mode for tracked and untracked changes,
+  - file status parity for modified, added, deleted, mixed, clean, non-git, and binary working-tree changes,
   - branch diff mode against the default branch merge base.
 - Project discovery:
   - no-commit git repositories remain the global project and do not write `.git/opencode`,
