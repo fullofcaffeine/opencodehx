@@ -21,7 +21,7 @@ Primary upstream evidence:
 - `$FILE` substitution happens immediately before process execution.
 - Command execution is behind an injectable `FormatterRunner`; the default runner uses Node `spawnSync` through the existing host process seam.
 
-Smoke coverage lives in `opencodehx.smoke.FormatterSmoke`. It covers status behavior, disabled/no-op file formatting, object config, linked `ruff`/`uv` disables, parallel enabled checks, sequential command ordering, command cwd/env forwarding, `$FILE` substitution, and a real Node-backed two-command file mutation from `x` to `xAB`.
+Smoke coverage lives in `opencodehx.smoke.FormatterSmoke`. It covers default/no-config status behavior, disabled/no-op file formatting, object config, linked `ruff`/`uv` disables, per-directory status isolation, parallel enabled checks, sequential command ordering, command cwd/env forwarding, `$FILE` substitution, and a real Node-backed two-command file mutation from `x` to `xAB`.
 
 ## Boundaries
 

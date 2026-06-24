@@ -35,6 +35,9 @@ class FormatterSmoke {
 
 	@:async
 	static function statusConfig(root:String):Promise<Void> {
+		final defaultConfig = new FormatRuntime(context(root, "default"), null);
+		eq((@:await defaultConfig.status()).length, 0, "formatter default status empty");
+
 		final none = new FormatRuntime(context(root, "none"), false);
 		eq((@:await none.status()).length, 0, "formatter disabled status empty");
 
@@ -61,6 +64,11 @@ class FormatterSmoke {
 		final uvDisabledStatus = @:await uvDisabled.status();
 		eq(findFormatter(uvDisabledStatus, "ruff") == null, true, "formatter uv disables ruff");
 		eq(findFormatter(uvDisabledStatus, "uv") == null, true, "formatter uv disables uv");
+
+		final isolatedA = new FormatRuntime(context(root, "isolated-a"), false);
+		final isolatedB = new FormatRuntime(context(root, "isolated-b"), true);
+		eq((@:await isolatedA.status()).length, 0, "formatter isolated disabled status");
+		eq(hasFormatter(@:await isolatedB.status(), "gofmt", ".go"), true, "formatter isolated enabled status");
 	}
 
 	@:async
