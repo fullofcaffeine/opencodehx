@@ -17,6 +17,7 @@ import opencodehx.util.DataUrl;
 import opencodehx.util.ErrorTools;
 import opencodehx.util.Format;
 import opencodehx.util.Lazy;
+import opencodehx.util.LogRuntime;
 import opencodehx.util.ModuleResolver;
 import opencodehx.util.Wildcard;
 import opencodehx.util.Which;
@@ -31,6 +32,7 @@ class UtilSmoke {
 		wildcard();
 		which();
 		moduleResolver();
+		logCleanup();
 	}
 
 	static function formatDuration():Void {
@@ -216,6 +218,39 @@ class UtilSmoke {
 		}
 	}
 
+	static function logCleanup():Void {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-log-"));
+		try {
+			final logs:Array<String> = [];
+			for (i in 0...12) {
+				final name = '2000-01-${pad2(i + 1)}T000000.log';
+				logs.push(name);
+				Fs.writeFileSync(NodePath.join(root, name), name);
+			}
+			Fs.writeFileSync(NodePath.join(root, "nested.log"), "not timestamped");
+
+			final path = LogRuntime.init(root, {print: false, dev: false});
+			if (path == null)
+				throw "log init path should be set when print is false";
+
+			final next = Fs.readdirNamesSync(root);
+			next.sort((a, b) -> Reflect.compare(a, b));
+			eq(next.indexOf(logs[0]), -1, "log cleanup removes oldest timestamped log");
+			eq(next.indexOf(logs[logs.length - 1]) != -1, true, "log cleanup keeps newest timestamped log");
+			eq(next.indexOf("nested.log") != -1, true, "log cleanup ignores non-timestamped log");
+			eq(next.filter((name) -> StringTools.endsWith(name, ".log")).length, 12, "log cleanup keeps ten plus current and non-timestamped");
+
+			final devRoot = Fs.mkdtempSync(NodePath.join(root, "dev-"));
+			final devPath = LogRuntime.init(devRoot, {print: false, dev: true});
+			eq(devPath, NodePath.join(devRoot, "dev.log"), "log dev path");
+			eq(LogRuntime.init(devRoot, {print: true}), null, "log print mode skips file");
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
 	static function errorTools():Void {
 		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
 		final util:Dynamic = Reflect.field(golden, "util");
@@ -281,6 +316,10 @@ class UtilSmoke {
 
 	static function pathDelimiter():String {
 		return NodeProcess.platform() == "win32" ? ";" : ":";
+	}
+
+	static function pad2(value:Int):String {
+		return value < 10 ? "0" + value : Std.string(value);
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {
