@@ -2,10 +2,21 @@ package opencodehx.smoke;
 
 import haxe.DynamicAccess;
 import opencodehx.effect.ObservabilityResource;
+import opencodehx.effect.RunServiceRuntime;
+import opencodehx.effect.RuntimeMemo;
+
+typedef SmokeSharedService = {
+	final id:Int;
+}
+
+typedef SmokeRuntimeService = {
+	final get:Void->Int;
+}
 
 class EffectSmoke {
 	public static function run():Void {
 		observabilityResource();
+		runServiceMemoMap();
 	}
 
 	static function observabilityResource():Void {
@@ -46,6 +57,30 @@ class EffectSmoke {
 		eq(collision.attributes.get("opencode.client"), "cli", "observability builtin client wins");
 		eq(collision.attributes.get("service.namespace"), "anomalyco", "observability env namespace kept");
 		eq(collision.attributes.get("service.instance.id"), "instance-collision", "observability builtin instance wins");
+	}
+
+	static function runServiceMemoMap():Void {
+		var initialized = 0;
+		final shared = new RuntimeMemo<SmokeSharedService>();
+		final sharedLayer = () -> shared.get(() -> {
+			initialized += 1;
+			return {id: initialized};
+		});
+
+		final one:RunServiceRuntime<SmokeRuntimeService> = RunServiceRuntime.make(() -> {
+			final svc = sharedLayer();
+			final get = () -> svc.id;
+			return {get: get};
+		});
+		final two:RunServiceRuntime<SmokeRuntimeService> = RunServiceRuntime.make(() -> {
+			final svc = sharedLayer();
+			final get = () -> svc.id;
+			return {get: get};
+		});
+
+		eq(one.run(svc -> svc.get()), 1, "run-service first runtime shared id");
+		eq(two.run(svc -> svc.get()), 1, "run-service second runtime shared id");
+		eq(initialized, 1, "run-service dependent layer initialized once");
 	}
 
 	static function env(values:Dynamic<String>):DynamicAccess<String> {
