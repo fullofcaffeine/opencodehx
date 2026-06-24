@@ -2,6 +2,8 @@ package opencodehx.smoke;
 
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.file.AppFileSystem;
+import opencodehx.file.AppFileSystem.AppFileContent;
 import opencodehx.file.FileIgnore;
 import opencodehx.file.FileSystem;
 import opencodehx.host.node.NodePath;
@@ -11,6 +13,7 @@ class FileSmoke {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-file-"));
 		try {
 			fixture(root);
+			appFileSystem(root);
 			readFiles(root);
 			ignoreRules();
 			listWithIgnore(root);
@@ -42,6 +45,88 @@ class FileSmoke {
 		eq(FileIgnore.match("src/app.log"), true, "log ignored");
 		eq(FileIgnore.match("src/app.log", {whitelist: ["src/app.log"]}), false, "whitelist wins");
 		eq(FileIgnore.match("src/app.ts", {extra: ["src/*.ts"]}), true, "extra glob");
+	}
+
+	static function appFileSystem(root:String):Void {
+		final tmp = NodePath.join(root, "appfs");
+		AppFileSystem.ensureDir(tmp);
+		eq(AppFileSystem.isDir(tmp), true, "appfs isDir directory");
+		eq(AppFileSystem.isDir(NodePath.join(tmp, "missing")), false, "appfs isDir missing");
+		final file = NodePath.join(tmp, "test.txt");
+		AppFileSystem.writeFileString(file, "hello");
+		eq(AppFileSystem.isFile(file), true, "appfs isFile file");
+		eq(AppFileSystem.isFile(tmp), false, "appfs isFile directory");
+
+		final jsonFile = NodePath.join(tmp, "data.json");
+		AppFileSystem.writeJson(jsonFile, {name: "test", count: 42});
+		final json:Dynamic = AppFileSystem.readJson(jsonFile);
+		eq(Reflect.field(json, "name"), "test", "appfs json name");
+		eq(Reflect.field(json, "count"), 42, "appfs json count");
+
+		final nested = NodePath.join(NodePath.join(NodePath.join(tmp, "a"), "b"), "c");
+		AppFileSystem.ensureDir(nested);
+		AppFileSystem.ensureDir(nested);
+		eq(AppFileSystem.isDir(nested), true, "appfs ensureDir nested idempotent");
+		final deepFile = NodePath.join(NodePath.join(NodePath.join(tmp, "deep"), "nested"), "file.txt");
+		AppFileSystem.writeWithDirs(deepFile, Text("hello"));
+		eq(AppFileSystem.readFileString(deepFile), "hello", "appfs writeWithDirs string");
+		final directFile = NodePath.join(tmp, "direct.txt");
+		AppFileSystem.writeWithDirs(directFile, Text("world"));
+		eq(AppFileSystem.readFileString(directFile), "world", "appfs writeWithDirs direct");
+		final binaryFile = NodePath.join(tmp, "binary.bin");
+		AppFileSystem.writeWithDirs(binaryFile, Bytes(js.lib.Uint8Array.from([0x00, 0x01, 0x02, 0x03])));
+		final binary = AppFileSystem.readFile(binaryFile).subarray(0);
+		eq(binary.length, 4, "appfs binary length");
+		eq(binary[0], 0, "appfs binary byte 0");
+		eq(binary[3], 3, "appfs binary byte 3");
+
+		final targetFile = NodePath.join(tmp, "target.txt");
+		AppFileSystem.writeFileString(targetFile, "found");
+		eq(AppFileSystem.findUp("target.txt", tmp).join("|"), targetFile, "appfs findUp start");
+		final marker = NodePath.join(tmp, "marker");
+		AppFileSystem.writeFileString(marker, "root");
+		final child = NodePath.join(NodePath.join(tmp, "walk"), "child");
+		AppFileSystem.ensureDir(child);
+		eq(AppFileSystem.findUp("marker", child, tmp).join("|"), marker, "appfs findUp parent");
+		eq(AppFileSystem.findUp("nonexistent", tmp, tmp).length, 0, "appfs findUp missing");
+		AppFileSystem.writeFileString(NodePath.join(tmp, "a.txt"), "a");
+		AppFileSystem.writeFileString(NodePath.join(tmp, "b.txt"), "b");
+		AppFileSystem.writeFileString(NodePath.join(child, "a.txt"), "a-child");
+		final up = AppFileSystem.up({targets: ["a.txt", "b.txt"], start: child, stop: tmp});
+		eq(up.indexOf(NodePath.join(child, "a.txt")) != -1, true, "appfs up child target");
+		eq(up.indexOf(NodePath.join(tmp, "a.txt")) != -1, true, "appfs up root target a");
+		eq(up.indexOf(NodePath.join(tmp, "b.txt")) != -1, true, "appfs up root target b");
+
+		AppFileSystem.writeFileString(NodePath.join(tmp, "one.ts"), "one");
+		AppFileSystem.writeFileString(NodePath.join(tmp, "two.ts"), "two");
+		AppFileSystem.writeFileString(NodePath.join(tmp, "three.json"), "three");
+		eq(AppFileSystem.glob("*.ts", {cwd: tmp}).join(","), "one.ts,two.ts", "appfs glob relative");
+		eq(AppFileSystem.glob("*.txt", {cwd: tmp, absolute: true}).indexOf(NodePath.join(tmp, "a.txt")) != -1, true, "appfs glob absolute");
+		eq(AppFileSystem.globMatch("*.ts", "foo.ts"), true, "appfs globMatch true");
+		eq(AppFileSystem.globMatch("*.ts", "foo.json"), false, "appfs globMatch false");
+		eq(AppFileSystem.globMatch("src/**", "src/a/b.ts"), true, "appfs globMatch nested");
+		AppFileSystem.writeFileString(NodePath.join(tmp, "root.md"), "root");
+		AppFileSystem.writeFileString(NodePath.join(child, "leaf.md"), "leaf");
+		final globUp = AppFileSystem.globUp("*.md", child, tmp);
+		eq(globUp.indexOf(NodePath.join(child, "leaf.md")) != -1, true, "appfs globUp child");
+		eq(globUp.indexOf(NodePath.join(tmp, "root.md")) != -1, true, "appfs globUp root");
+
+		final existsFile = NodePath.join(tmp, "exists.txt");
+		AppFileSystem.writeFileString(existsFile, "yes");
+		eq(AppFileSystem.exists(existsFile), true, "appfs exists true");
+		eq(AppFileSystem.exists(existsFile + ".nope"), false, "appfs exists false");
+		final removeFile = NodePath.join(tmp, "delete-me.txt");
+		AppFileSystem.writeFileString(removeFile, "bye");
+		AppFileSystem.remove(removeFile);
+		eq(AppFileSystem.exists(removeFile), false, "appfs remove");
+		eq(AppFileSystem.mimeType("file.json"), "application/json", "appfs mime json");
+		eq(AppFileSystem.mimeType("image.png"), "image/png", "appfs mime png");
+		eq(AppFileSystem.mimeType("unknown.qzx"), "application/octet-stream", "appfs mime unknown");
+		eq(AppFileSystem.contains("/a/b", "/a/b/c"), true, "appfs contains true");
+		eq(AppFileSystem.contains("/a/b", "/a/c"), false, "appfs contains false");
+		eq(AppFileSystem.overlaps("/a/b", "/a/b/c"), true, "appfs overlaps child");
+		eq(AppFileSystem.overlaps("/a/b/c", "/a/b"), true, "appfs overlaps parent");
+		eq(AppFileSystem.overlaps("/a", "/b"), false, "appfs overlaps false");
 	}
 
 	static function readFiles(root:String):Void {

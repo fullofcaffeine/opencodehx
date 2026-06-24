@@ -207,6 +207,16 @@ function directEvidence(path) {
         m11Owners.foundation,
       ],
     ],
+    [
+      "filesystem/filesystem.test.ts",
+      [
+        "direct",
+        "src/opencodehx/file/AppFileSystem.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md",
+        "AppFileSystem helper behavior is covered for directory/file predicates, JSON, recursive writes, ancestor search, glob helpers, passthrough exists/remove, MIME, contains, and overlaps",
+        "FileSmoke.appFileSystem",
+        "none",
+      ],
+    ],
     ["tool/glob.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core glob cases are covered; full Effect/tool context parity remains deferred", "ToolSmoke.globExec"]],
     ["tool/grep.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core grep cases are covered; full upstream option matrix remains deferred", "ToolSmoke.grepExec"]],
     ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior is covered; full output/error matrix remains deferred", "ToolSmoke.readExec"]],
