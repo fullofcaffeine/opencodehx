@@ -75,23 +75,27 @@ class Main {
 		log('${resource.name}:${resource.mode}');
 		UtilSmoke.run();
 		log("util-smoke:ok");
-		BusSmoke.run();
-		log("bus-smoke:ok");
-		CliSmoke.run();
-		log("cli-smoke:ok");
-		ConfigSmoke.run();
-		log("config-smoke:ok");
-		FileSmoke.run();
-		log("file-smoke:ok");
-		ResourceSmoke.run();
-		log("resource-smoke:ok");
-		MessageSmoke.run();
-		log("message-smoke:ok");
-		PermissionSmoke.run();
-		log("permission-smoke:ok");
-		StorageSmoke.run();
-		log("storage-smoke:ok");
-		ToolSmoke.run()
+		UtilSmoke.runAsync()
+			.then(_ -> {
+				log("util-async-smoke:ok");
+				BusSmoke.run();
+				log("bus-smoke:ok");
+				CliSmoke.run();
+				log("cli-smoke:ok");
+				ConfigSmoke.run();
+				log("config-smoke:ok");
+				FileSmoke.run();
+				log("file-smoke:ok");
+				ResourceSmoke.run();
+				log("resource-smoke:ok");
+				MessageSmoke.run();
+				log("message-smoke:ok");
+				PermissionSmoke.run();
+				log("permission-smoke:ok");
+				StorageSmoke.run();
+				log("storage-smoke:ok");
+				return ToolSmoke.run();
+			})
 			.then(_ -> {
 				log("tool-smoke:ok");
 				ProviderSmoke.run();

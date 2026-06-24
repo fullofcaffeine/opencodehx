@@ -1,5 +1,6 @@
 package opencodehx.smoke;
 
+import genes.js.Async.await;
 import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
@@ -9,6 +10,7 @@ import js.lib.Promise;
 import js.lib.Error as JsError;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.resource.Resources;
 import opencodehx.resource.Resources.ResourcePaths;
 import opencodehx.host.node.NodeProcess;
@@ -21,6 +23,7 @@ import opencodehx.util.Iife;
 import opencodehx.util.Lazy;
 import opencodehx.util.LogRuntime;
 import opencodehx.util.ModuleResolver;
+import opencodehx.util.Timeout;
 import opencodehx.util.Wildcard;
 import opencodehx.util.Which;
 
@@ -36,6 +39,11 @@ class UtilSmoke {
 		which();
 		moduleResolver();
 		logCleanup();
+	}
+
+	@:async
+	public static function runAsync():Promise<Void> {
+		@:await timeout();
 	}
 
 	static function formatDuration():Void {
@@ -279,6 +287,21 @@ class UtilSmoke {
 		}
 	}
 
+	@:async
+	static function timeout():Promise<Void> {
+		final fast = @:await Timeout.withTimeout(delayValue("fast", 10), 100);
+		eq(fast, "fast", "timeout fast result");
+
+		final error = @:await Timeout.withTimeout(delayValue("slow", 200), 50).then(_ -> {
+			return null;
+		}).catchError(error -> {
+			return error;
+		});
+		if (error == null)
+			throw "timeout slow promise should reject";
+		eq(Std.string(Reflect.field(error, "message")), "Operation timed out after 50ms", "timeout rejection message");
+	}
+
 	static function errorTools():Void {
 		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
 		final util:Dynamic = Reflect.field(golden, "util");
@@ -344,6 +367,12 @@ class UtilSmoke {
 
 	static function pathDelimiter():String {
 		return NodeProcess.platform() == "win32" ? ";" : ":";
+	}
+
+	static function delayValue(value:String, ms:Int):Promise<String> {
+		return new Promise<String>((resolve, _) -> {
+			WebTimers.setTimeout(() -> resolve(value), ms);
+		});
 	}
 
 	static function pad2(value:Int):String {
