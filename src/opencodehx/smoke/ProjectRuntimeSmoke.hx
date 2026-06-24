@@ -92,13 +92,16 @@ typedef SmokeNpmDeps = {
 
 class SmokeFileWatchHandle implements FileWatchHandle {
 	final backend:SmokeFileWatchBackend;
+	final directory:String;
 
-	public function new(backend:SmokeFileWatchBackend) {
+	public function new(backend:SmokeFileWatchBackend, directory:String) {
 		this.backend = backend;
+		this.directory = directory;
 	}
 
 	public function close():Void {
 		backend.closed = true;
+		backend.unwatch(directory);
 	}
 }
 
@@ -117,19 +120,24 @@ class SmokeFileWatchBackend implements FileWatchBackend {
 	public function watch(directory:String, callback:FileWatchCallback):FileWatchHandle {
 		watched.push(directory);
 		callbacks.set(directory, callback);
-		return new SmokeFileWatchHandle(this);
+		return new SmokeFileWatchHandle(this, directory);
 	}
 
-	public function emit(directory:String, file:String):Void {
+	public function unwatch(directory:String):Void {
+		callbacks.remove(directory);
+	}
+
+	public function emit(directory:String, file:String, ?event:FileWatchChangeKind = Change):Bool {
 		final callback = callbacks.get(directory);
 		if (callback == null)
-			throw 'missing watcher callback for ${directory}';
+			return false;
 		callback({
 			type: FileUpdated,
 			directory: directory,
 			file: file,
-			event: Change,
+			event: event,
 		});
+		return true;
 	}
 }
 
@@ -146,6 +154,7 @@ class ProjectRuntimeSmoke {
 			worktreeEdges(root);
 			worktreePlatformFailures(root);
 			instanceBootstrapGraph(root);
+			fileWatcherService(root);
 			npmSanitize();
 			npmRuntime(root);
 			installationRuntime();
@@ -722,6 +731,60 @@ class ProjectRuntimeSmoke {
 		watcher.dispose();
 		vcs.dispose();
 		eq(backend.closed, true, "native watcher handle closed");
+	}
+
+	static function fileWatcherService(root:String):Void {
+		final gitDir = directory(root, "file-watcher-git");
+		git(gitDir, ["init"]);
+		final fileBus = new EventBus<FileUpdatedEvent>();
+		final backend = new SmokeFileWatchBackend();
+		final watcher = new FileWatcherRuntime(gitDir, fileBus, backend);
+		try {
+			eq(watcher.init(true, true), true, "file watcher service subscribed roots");
+			final watchedGit = NodePath.join(gitDir, ".git");
+			eq(backend.watched.indexOf(gitDir) != -1, true, "file watcher watches root");
+			eq(backend.watched.indexOf(watchedGit) != -1, true, "file watcher watches git dir");
+			backend.emit(gitDir, "watch.txt", Add);
+			backend.emit(gitDir, "watch.txt", Change);
+			backend.emit(gitDir, "watch.txt", Unlink);
+			final rootEvents = fileBus.snapshot();
+			eq(rootEvents.length, 3, "file watcher root event count");
+			eq(rootEvents[0].file, NodePath.join(gitDir, "watch.txt"), "file watcher root add path");
+			eq(rootEvents[0].event, Add, "file watcher root add");
+			eq(rootEvents[1].event, Change, "file watcher root change");
+			eq(rootEvents[2].event, Unlink, "file watcher root unlink");
+			backend.emit(watchedGit, "index", Change);
+			eq(fileBus.snapshot().length, 3, "file watcher ignores git index");
+			backend.emit(watchedGit, "HEAD", Change);
+			final afterHead = fileBus.snapshot();
+			eq(afterHead.length, 4, "file watcher publishes git HEAD");
+			eq(afterHead[3].file, NodePath.join(watchedGit, "HEAD"), "file watcher HEAD path");
+			eq(afterHead[3].event, Change, "file watcher HEAD event");
+			watcher.dispose();
+			eq(backend.closed, true, "file watcher service closed handles");
+			eq(backend.emit(gitDir, "after-dispose.txt", Add), false, "file watcher cleanup stops root events");
+			eq(fileBus.snapshot().length, 4, "file watcher no event after dispose");
+		} catch (error:Dynamic) {
+			watcher.dispose();
+			throw error;
+		}
+
+		final plainDir = directory(root, "file-watcher-plain");
+		final plainBus = new EventBus<FileUpdatedEvent>();
+		final plainBackend = new SmokeFileWatchBackend();
+		final plainWatcher = new FileWatcherRuntime(plainDir, plainBus, plainBackend);
+		try {
+			eq(plainWatcher.init(true, true), true, "file watcher non-git root subscribed");
+			eq(plainBackend.watched.indexOf(plainDir) != -1, true, "file watcher non-git watches root");
+			plainBackend.emit(plainDir, "plain.txt", Add);
+			eq(plainBus.snapshot().length, 1, "file watcher non-git add count");
+			eq(plainBus.snapshot()[0].file, NodePath.join(plainDir, "plain.txt"), "file watcher non-git add path");
+			eq(plainBus.snapshot()[0].event, Add, "file watcher non-git add event");
+		} catch (error:Dynamic) {
+			plainWatcher.dispose();
+			throw error;
+		}
+		plainWatcher.dispose();
 	}
 
 	static function hasVcsEvent(events:Array<VcsEvent>, type:VcsEventType, branch:String):Bool {
