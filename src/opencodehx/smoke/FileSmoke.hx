@@ -41,6 +41,11 @@ class FileSmoke {
 	}
 
 	static function ignoreRules():Void {
+		eq(FileIgnore.match("node_modules/index.js"), true, "node_modules file ignored");
+		eq(FileIgnore.match("node_modules"), true, "node_modules bare ignored");
+		eq(FileIgnore.match("node_modules/"), true, "node_modules slash ignored");
+		eq(FileIgnore.match("node_modules/bar"), true, "node_modules child ignored");
+		eq(FileIgnore.match("node_modules/bar/"), true, "node_modules child slash ignored");
 		eq(FileIgnore.match("node_modules/pkg/index.js"), true, "node_modules ignored");
 		eq(FileIgnore.match("src/app.log"), true, "log ignored");
 		eq(FileIgnore.match("src/app.log", {whitelist: ["src/app.log"]}), false, "whitelist wins");

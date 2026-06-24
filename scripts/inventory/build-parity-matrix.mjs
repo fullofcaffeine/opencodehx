@@ -185,7 +185,16 @@ function directEvidence(path) {
     ["session/system.test.ts", ["partial", "src/opencodehx/smoke/SkillSmoke.hx; docs/skill-registry-port.md", "full SystemPrompt service integration remains deferred", "SkillRegistry sorted verbose and permission-filtered availability smoke"]],
     ["bus/bus.test.ts", ["partial", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx", "callback publish/subscribe, type filtering, subscribeAll, unsubscribe, multiple subscribers, no-subscriber publish, and history snapshot are covered; instance isolation/disposal finalizer behavior remains deferred", "BusSmoke callback fixtures", m11Owners.foundation]],
     ["bus/bus-integration.test.ts", ["partial", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx", "callback facade subscribe/unsubscribe and subscribeAll multi-type delivery are covered; instance-scoped cleanup/disposal interruption remains deferred", "BusSmoke callback fixtures", m11Owners.foundation]],
-    ["file/ignore.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "only initial ignore defaults/whitelist behavior is covered", "FileSmoke.ignoreRules"]],
+    [
+      "file/ignore.test.ts",
+      [
+        "direct",
+        "src/opencodehx/file/FileIgnore.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md",
+        "node_modules nested and non-nested match cases are covered",
+        "FileSmoke.ignoreRules",
+        "none",
+      ],
+    ],
     [
       "file/index.test.ts",
       [

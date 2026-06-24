@@ -7,7 +7,7 @@
 
 This slice adds the first Node-first file primitives needed by tool work:
 
-- `opencodehx.file.FileIgnore` ports OpenCode's default ignored folders/files and supports extra/whitelist glob checks.
+- `opencodehx.file.FileIgnore` ports OpenCode's default ignored folders/files, including upstream `node_modules` nested/non-nested matching, and supports extra/whitelist glob checks.
 - `opencodehx.file.AppFileSystem` covers the upstream shared filesystem helper surface used by the app: directory/file predicates, JSON round trips, recursive writes, ancestor search, simple glob helpers, exists/remove passthrough, MIME lookup, containment, and overlap checks.
 - `opencodehx.file.Ripgrep` wraps local `rg` with upstream-style `--no-config`, hidden-file, `.git` exclusion, glob, max-depth, JSON search, and partial-result semantics.
 - `opencodehx.file.FileSystem` adds project-contained path resolution, upstream-shaped `read()` results for text, image-base64, and known binary files, raw text reads, directory listing with `.gitignore`/`.ignore` flags, and file/text search helpers.
