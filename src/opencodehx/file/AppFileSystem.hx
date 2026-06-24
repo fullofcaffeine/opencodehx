@@ -1,9 +1,14 @@
 package opencodehx.file;
 
 import haxe.Json;
+import js.lib.Promise;
 import js.lib.Uint8Array;
+import opencodehx.externs.node.Buffer;
+import opencodehx.externs.node.ChildProcess.NodeReadableStream;
 import opencodehx.externs.node.Buffer.NodeBufferData;
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.web.WebStreams.WebReadableStream;
+import opencodehx.externs.web.WebStreams.WebReadableStreamReadResult;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 
@@ -37,23 +42,60 @@ class AppFileSystem {
 		Fs.mkdirSync(path, {recursive: true});
 	}
 
-	public static function writeFileString(path:String, content:String):Void {
+	public static function writeFileString(path:String, content:String, ?mode:Int):Void {
 		ensureDir(NodePath.dirname(path));
-		Fs.writeFileSync(path, content);
+		Fs.writeFileSync(path, content, writeOptions(mode));
 	}
 
 	public static function readFileString(path:String):String {
 		return Fs.readFileSync(path, "utf8");
 	}
 
-	public static function writeWithDirs(path:String, content:AppFileContent):Void {
+	public static function writeWithDirs(path:String, content:AppFileContent, ?mode:Int):Void {
 		ensureDir(NodePath.dirname(path));
+		final options = writeOptions(mode);
 		switch content {
 			case Text(value):
-				Fs.writeFileSync(path, value);
+				Fs.writeFileSync(path, value, options);
 			case Bytes(value):
-				Fs.writeFileSync(path, value);
+				Fs.writeFileSync(path, value, options);
 		}
+	}
+
+	@:async
+	public static function writeStream(path:String, stream:WebReadableStream<Uint8Array>, ?mode:Int):Promise<Void> {
+		final reader = stream.getReader();
+		final chunks:Array<Uint8Array> = [];
+		try {
+			while (true) {
+				final result:WebReadableStreamReadResult<Uint8Array> = @:await reader.read();
+				if (result.done)
+					break;
+				if (result.value != null)
+					chunks.push(result.value);
+			}
+		} catch (error:haxe.Exception) {
+			@:await reader.cancel();
+			throw error;
+		}
+		writeChunks(path, chunks, mode);
+	}
+
+	public static function writeNodeStream(path:String, stream:NodeReadableStream, ?mode:Int):Promise<Void> {
+		return new Promise<Void>((resolve, reject) -> {
+			final chunks:Array<Uint8Array> = [];
+			final resolveVoid:Void->Void = cast resolve;
+			stream.on("data", (chunk:Dynamic) -> chunks.push(nodeChunkBytes(chunk)));
+			stream.on("error", (error:Dynamic) -> reject(error));
+			stream.on("end", () -> {
+				try {
+					writeChunks(path, chunks, mode);
+					resolveVoid();
+				} catch (error:Dynamic) {
+					reject(error);
+				}
+			});
+		});
 	}
 
 	public static function readFile(path:String):NodeBufferData {
@@ -61,8 +103,8 @@ class AppFileSystem {
 	}
 
 	// JSON payloads are an untyped runtime boundary; callers own domain narrowing.
-	public static function writeJson(path:String, data:Dynamic):Void {
-		writeFileString(path, Json.stringify(data));
+	public static function writeJson(path:String, data:Dynamic, ?mode:Int):Void {
+		writeFileString(path, Json.stringify(data, null, "  "), mode);
 	}
 
 	public static function readJson(path:String):Dynamic {
@@ -145,6 +187,8 @@ class AppFileSystem {
 		final ext = extension(path);
 		return switch ext {
 			case "json": "application/json";
+			case "js": "text/javascript";
+			case "ts": "application/typescript";
 			case "png": "image/png";
 			case "jpg" | "jpeg": "image/jpeg";
 			case "gif": "image/gif";
@@ -216,6 +260,34 @@ class AppFileSystem {
 			}
 		}
 		return out;
+	}
+
+	static function writeChunks(path:String, chunks:Array<Uint8Array>, ?mode:Int):Void {
+		ensureDir(NodePath.dirname(path));
+		final options = writeOptions(mode);
+		if (chunks.length == 0) {
+			Fs.writeFileSync(path, Uint8Array.from([]), options);
+			return;
+		}
+		if (chunks.length == 1) {
+			Fs.writeFileSync(path, chunks[0], options);
+			return;
+		}
+		Fs.writeFileSync(path, Buffer.concat(chunks), options);
+	}
+
+	static function writeOptions(?mode:Int):Dynamic {
+		return mode == null ? null : {mode: mode};
+	}
+
+	static function nodeChunkBytes(chunk:Dynamic):Uint8Array {
+		if (Std.isOfType(chunk, String))
+			return Buffer.from(Std.string(chunk), "utf8").subarray(0);
+		// Node Readable streams can emit Buffer/Uint8Array-like chunks from
+		// third-party sources. Keep the cast at the stream boundary and store
+		// only copied bytes in the filesystem helper.
+		final data:NodeBufferData = cast chunk;
+		return data.subarray(0);
 	}
 
 	static function extension(path:String):String {

@@ -21,4 +21,5 @@ extern class NodeBufferData {
 extern class Buffer {
 	@:overload(function(data:Uint8Array):NodeBufferData {})
 	static function from(data:String, encoding:String):NodeBufferData;
+	static function concat(chunks:Array<Uint8Array>):NodeBufferData;
 }

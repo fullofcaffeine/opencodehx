@@ -1,7 +1,13 @@
 package opencodehx.smoke;
 
+import js.lib.Promise;
+import js.lib.Uint8Array;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.node.Stream.NodeReadable;
+import opencodehx.externs.web.WebStreams.WebReadableStream;
+import opencodehx.externs.web.WebStreams.WebReadableStreamDefaultController;
+import opencodehx.externs.web.WebStreams.WebTextEncoder;
 import opencodehx.file.AppFileSystem;
 import opencodehx.file.AppFileSystem.AppFileContent;
 import opencodehx.file.FileIgnore;
@@ -28,6 +34,18 @@ class FileSmoke {
 			pathSafety(root);
 			ripgrepFiles(root);
 			ripgrepSearch(root);
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
+	@:async
+	public static function runAsync():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-file-async-"));
+		try {
+			@:await appFileSystemAsync(root);
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			Fs.rmSync(root, {recursive: true, force: true});
@@ -68,14 +86,27 @@ class FileSmoke {
 		AppFileSystem.writeFileString(file, "hello");
 		eq(AppFileSystem.isFile(file), true, "appfs isFile file");
 		eq(AppFileSystem.isFile(tmp), false, "appfs isFile directory");
+		eq(AppFileSystem.isDir(file), false, "appfs isDir file");
 		eq(AppFileSystem.size(file), 5, "appfs size file");
+		eq(AppFileSystem.size(tmp) >= 0, true, "appfs size directory");
 		eq(AppFileSystem.size(NodePath.join(tmp, "missing-size.txt")), 0, "appfs size missing");
+		eq(AppFileSystem.readFileString(file), "hello", "appfs readText file");
+		expectFailure(() -> AppFileSystem.readFileString(NodePath.join(tmp, "missing-read.txt")), "appfs readText missing");
+		final unicodeFile = NodePath.join(tmp, "unicode.txt");
+		AppFileSystem.writeFileString(unicodeFile, "Hello 世界 🌍");
+		eq(AppFileSystem.readFileString(unicodeFile), "Hello 世界 🌍", "appfs readText utf8");
 
 		final jsonFile = NodePath.join(tmp, "data.json");
 		AppFileSystem.writeJson(jsonFile, {name: "test", count: 42});
 		final json:Dynamic = AppFileSystem.readJson(jsonFile);
 		eq(Reflect.field(json, "name"), "test", "appfs json name");
 		eq(Reflect.field(json, "count"), 42, "appfs json count");
+		eq(AppFileSystem.readFileString(jsonFile).indexOf("\n") != -1, true, "appfs writeJson formatted newline");
+		eq(AppFileSystem.readFileString(jsonFile).indexOf("  ") != -1, true, "appfs writeJson formatted spaces");
+		final invalidJson = NodePath.join(tmp, "invalid.json");
+		AppFileSystem.writeFileString(invalidJson, "{ invalid json");
+		expectFailure(() -> AppFileSystem.readJson(invalidJson), "appfs readJson invalid");
+		expectFailure(() -> AppFileSystem.readJson(NodePath.join(tmp, "missing.json")), "appfs readJson missing");
 
 		final nested = NodePath.join(NodePath.join(NodePath.join(tmp, "a"), "b"), "c");
 		AppFileSystem.ensureDir(nested);
@@ -87,12 +118,25 @@ class FileSmoke {
 		final directFile = NodePath.join(tmp, "direct.txt");
 		AppFileSystem.writeWithDirs(directFile, Text("world"));
 		eq(AppFileSystem.readFileString(directFile), "world", "appfs writeWithDirs direct");
+		final protectedText = NodePath.join(tmp, "protected.txt");
+		AppFileSystem.writeWithDirs(protectedText, Text("secret"), 0x180);
+		if (NodeProcess.platform() != "win32")
+			eq(Fs.statSync(protectedText).mode & 0x1ff, 0x180, "appfs writeWithDirs text mode");
 		final binaryFile = NodePath.join(tmp, "binary.bin");
 		AppFileSystem.writeWithDirs(binaryFile, Bytes(js.lib.Uint8Array.from([0x00, 0x01, 0x02, 0x03])));
 		final binary = AppFileSystem.readFile(binaryFile).subarray(0);
 		eq(binary.length, 4, "appfs binary length");
 		eq(binary[0], 0, "appfs binary byte 0");
 		eq(binary[3], 3, "appfs binary byte 3");
+		expectFailure(() -> AppFileSystem.readFile(NodePath.join(tmp, "missing.bin")), "appfs readBytes missing");
+		final protectedBinary = NodePath.join(tmp, "protected.bin");
+		AppFileSystem.writeWithDirs(protectedBinary, Bytes(js.lib.Uint8Array.from([0x00, 0x01])), 0x180);
+		if (NodeProcess.platform() != "win32")
+			eq(Fs.statSync(protectedBinary).mode & 0x1ff, 0x180, "appfs writeWithDirs binary mode");
+		final protectedJson = NodePath.join(tmp, "protected.json");
+		AppFileSystem.writeJson(protectedJson, {secret: "data"}, 0x180);
+		if (NodeProcess.platform() != "win32")
+			eq(Fs.statSync(protectedJson).mode & 0x1ff, 0x180, "appfs writeJson mode");
 
 		final targetFile = NodePath.join(tmp, "target.txt");
 		AppFileSystem.writeFileString(targetFile, "found");
@@ -147,18 +191,30 @@ class FileSmoke {
 		AppFileSystem.remove(removeFile);
 		eq(AppFileSystem.exists(removeFile), false, "appfs remove");
 		eq(AppFileSystem.mimeType("file.json"), "application/json", "appfs mime json");
+		eq(AppFileSystem.mimeType("file.js").indexOf("javascript") != -1, true, "appfs mime js");
+		final tsMime = AppFileSystem.mimeType("file.ts");
+		eq(tsMime == "video/mp2t" || tsMime == "application/typescript" || tsMime == "text/typescript", true, "appfs mime ts");
 		eq(AppFileSystem.mimeType("image.png"), "image/png", "appfs mime png");
+		eq(AppFileSystem.mimeType("image.jpg"), "image/jpeg", "appfs mime jpg");
 		eq(AppFileSystem.mimeType("unknown.qzx"), "application/octet-stream", "appfs mime unknown");
+		eq(AppFileSystem.mimeType("Makefile"), "application/octet-stream", "appfs mime no extension");
 		eq(AppFileSystem.contains("/a/b", "/a/b/c"), true, "appfs contains true");
 		eq(AppFileSystem.contains("/a/b", "/a/c"), false, "appfs contains false");
 		eq(AppFileSystem.overlaps("/a/b", "/a/b/c"), true, "appfs overlaps child");
 		eq(AppFileSystem.overlaps("/a/b/c", "/a/b"), true, "appfs overlaps parent");
 		eq(AppFileSystem.overlaps("/a", "/b"), false, "appfs overlaps false");
 		eq(AppFileSystem.windowsPath("/c/Users/test"), NodeProcess.platform() == "win32" ? "C:/Users/test" : "/c/Users/test", "appfs windowsPath git bash");
+		eq(AppFileSystem.windowsPath("/d/dev/project"), NodeProcess.platform() == "win32" ? "D:/dev/project" : "/d/dev/project",
+			"appfs windowsPath git bash d");
 		eq(AppFileSystem.windowsPath("/cygdrive/c/Users/test"), NodeProcess.platform() == "win32" ? "C:/Users/test" : "/cygdrive/c/Users/test",
 			"appfs windowsPath cygwin");
+		eq(AppFileSystem.windowsPath("/cygdrive/x/dev/project"), NodeProcess.platform() == "win32" ? "X:/dev/project" : "/cygdrive/x/dev/project",
+			"appfs windowsPath cygwin x");
 		eq(AppFileSystem.windowsPath("/mnt/c/Users/test"), NodeProcess.platform() == "win32" ? "C:/Users/test" : "/mnt/c/Users/test", "appfs windowsPath wsl");
+		eq(AppFileSystem.windowsPath("/mnt/z/dev/project"), NodeProcess.platform() == "win32" ? "Z:/dev/project" : "/mnt/z/dev/project",
+			"appfs windowsPath wsl z");
 		eq(AppFileSystem.windowsPath("C:/Users/test"), "C:/Users/test", "appfs windowsPath normal");
+		eq(AppFileSystem.windowsPath("D:\\dev\\project"), "D:\\dev\\project", "appfs windowsPath backslash normal");
 		eq(AppFileSystem.normalizePathPattern("*"), "*", "appfs normalizePathPattern star");
 		if (NodeProcess.platform() != "win32") {
 			eq(AppFileSystem.normalizePath("/c/Users/test"), "/c/Users/test", "appfs normalizePath nonwindows");
@@ -168,6 +224,76 @@ class FileSmoke {
 		eq(resolvedTmp, AppFileSystem.normalizePath(Fs.realpathSync(tmp)), "appfs resolve existing");
 		final missing = NodePath.join(tmp, "does-not-exist-for-resolve");
 		eq(AppFileSystem.resolve(missing), AppFileSystem.normalizePath(NodePath.resolve(missing, ".")), "appfs resolve missing fallback");
+	}
+
+	@:async
+	static function appFileSystemAsync(root:String):Promise<Void> {
+		final streamFile = NodePath.join(root, "streamed.txt");
+		@:await AppFileSystem.writeStream(streamFile, webStream(["Hello from stream!"]));
+		eq(AppFileSystem.readFileString(streamFile), "Hello from stream!", "appfs writeStream web text");
+
+		final nodeStreamFile = NodePath.join(root, "node-streamed.txt");
+		@:await AppFileSystem.writeNodeStream(nodeStreamFile, NodeReadable.from(["Hello from Node stream!"]));
+		eq(AppFileSystem.readFileString(nodeStreamFile), "Hello from Node stream!", "appfs writeStream node text");
+
+		final binaryFile = NodePath.join(root, "binary.dat");
+		@:await AppFileSystem.writeStream(binaryFile, webBinaryStream([Uint8Array.from([0x00, 0x01, 0x02, 0x03, 0xff])]));
+		final binary = AppFileSystem.readFile(binaryFile).subarray(0);
+		eq(binary.length, 5, "appfs writeStream binary length");
+		eq(binary[4], 0xff, "appfs writeStream binary byte");
+
+		final largeFile = NodePath.join(root, "large.txt");
+		@:await AppFileSystem.writeStream(largeFile, webStream(["chunk1", "chunk2", "chunk3", "chunk4", "chunk5"]));
+		eq(AppFileSystem.readFileString(largeFile), "chunk1chunk2chunk3chunk4chunk5", "appfs writeStream chunks");
+
+		final nested = NodePath.join(NodePath.join(NodePath.join(root, "nested"), "deep"), "streamed.txt");
+		@:await AppFileSystem.writeStream(nested, webStream(["nested stream content"]));
+		eq(AppFileSystem.readFileString(nested), "nested stream content", "appfs writeStream creates parents");
+
+		final protectedFile = NodePath.join(root, "protected-stream.txt");
+		@:await AppFileSystem.writeStream(protectedFile, webStream(["secret stream content"]), 0x180);
+		eq(AppFileSystem.readFileString(protectedFile), "secret stream content", "appfs writeStream protected content");
+		if (NodeProcess.platform() != "win32")
+			eq(Fs.statSync(protectedFile).mode & 0x1ff, 0x180, "appfs writeStream protected mode");
+
+		final executable = NodePath.join(root, "script.sh");
+		@:await AppFileSystem.writeStream(executable, webStream(["#!/bin/bash\necho hello"]), 0x1ed);
+		eq(AppFileSystem.readFileString(executable), "#!/bin/bash\necho hello", "appfs writeStream executable content");
+		if (NodeProcess.platform() != "win32")
+			eq(Fs.statSync(executable).mode & 0x1ff, 0x1ed, "appfs writeStream executable mode");
+
+		if (NodeProcess.platform() != "win32") {
+			final target = NodePath.join(root, "real");
+			AppFileSystem.ensureDir(target);
+			final link = NodePath.join(root, "link");
+			Fs.symlinkSync(target, link);
+			eq(AppFileSystem.resolve(link), AppFileSystem.resolve(target), "appfs resolve symlink canonical");
+
+			final cycleA = NodePath.join(root, "cycle-a");
+			final cycleB = NodePath.join(root, "cycle-b");
+			Fs.symlinkSync(cycleB, cycleA);
+			Fs.symlinkSync(cycleA, cycleB);
+			expectFailure(() -> AppFileSystem.resolve(cycleA), "appfs resolve symlink cycle");
+
+			if (NodeProcess.uid() != 0) {
+				final restricted = NodePath.join(root, "restricted");
+				AppFileSystem.ensureDir(restricted);
+				final restrictedLink = NodePath.join(root, "restricted-link");
+				Fs.symlinkSync(restricted, restrictedLink);
+				Fs.chmodSync(restricted, 0);
+				try {
+					expectFailure(() -> AppFileSystem.resolve(NodePath.join(restrictedLink, "child")), "appfs resolve permission denied symlink");
+				} catch (error:Dynamic) {
+					Fs.chmodSync(restricted, 0x1ed);
+					throw error;
+				}
+				Fs.chmodSync(restricted, 0x1ed);
+			}
+
+			final file = NodePath.join(root, "not-a-directory");
+			AppFileSystem.writeFileString(file, "x");
+			expectFailure(() -> AppFileSystem.resolve(NodePath.join(file, "child")), "appfs resolve non-ENOENT");
+		}
 	}
 
 	static function readFiles(root:String):Void {
@@ -507,6 +633,27 @@ class FileSmoke {
 				return true;
 		}
 		return false;
+	}
+
+	static function webStream(chunks:Array<String>):WebReadableStream<Uint8Array> {
+		final encoder = new WebTextEncoder();
+		return new WebReadableStream<Uint8Array>({
+			start: (controller:WebReadableStreamDefaultController<Uint8Array>) -> {
+				for (chunk in chunks)
+					controller.enqueue(encoder.encode(chunk));
+				controller.close();
+			}
+		});
+	}
+
+	static function webBinaryStream(chunks:Array<Uint8Array>):WebReadableStream<Uint8Array> {
+		return new WebReadableStream<Uint8Array>({
+			start: (controller:WebReadableStreamDefaultController<Uint8Array>) -> {
+				for (chunk in chunks)
+					controller.enqueue(chunk);
+				controller.close();
+			}
+		});
 	}
 
 	static function expectFailure(run:() -> Void, label:String):Void {

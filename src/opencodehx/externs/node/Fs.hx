@@ -28,6 +28,7 @@ extern class Fs {
 	static function existsSync(path:String):Bool;
 	static function readFileSync(path:String, encoding:String):String;
 	@:native("readFileSync") static function readFileBufferSync(path:String):NodeBufferData;
+	@:overload(function(path:String, data:NodeBufferData, ?options:Dynamic):Void {})
 	@:overload(function(path:String, data:Uint8Array, ?options:Dynamic):Void {})
 	static function writeFileSync(path:String, data:String, ?options:Dynamic):Void;
 	static function chmodSync(path:String, mode:Int):Void;

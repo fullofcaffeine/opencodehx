@@ -168,16 +168,7 @@ function directEvidence(path) {
     ["util/timeout.test.ts", ["ported", "src/opencodehx/util/Timeout.hx; src/opencodehx/smoke/UtilSmoke.hx#timeout; docs/util-port.md", "none", "UtilSmoke.timeout"]],
     ["util/lock.test.ts", ["ported", "src/opencodehx/util/Lock.hx; src/opencodehx/smoke/UtilSmoke.hx#lock; docs/util-port.md", "none", "UtilSmoke.lock"]],
     ["util/process.test.ts", ["ported", "src/opencodehx/util/ProcessRuntime.hx; src/opencodehx/smoke/UtilSmoke.hx#process; docs/util-port.md", "none", "UtilSmoke.process"]],
-    [
-      "util/filesystem.test.ts",
-      [
-        "partial",
-        "src/opencodehx/file/AppFileSystem.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md",
-        "directory/file predicates, size, JSON, recursive writes, ancestor/root-first search, glob helpers, MIME, Windows path conversion, resolve fallback/canonicalization, contains, and overlaps are covered; stream writes and OS-specific symlink error behavior remain deferred",
-        "FileSmoke.appFileSystem",
-        m11Owners.foundation,
-      ],
-    ],
+    ["util/filesystem.test.ts", ["ported", "src/opencodehx/file/AppFileSystem.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "none", "FileSmoke.appFileSystem/FileSmoke.runAsync"]],
     ["util/error.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#errorTools; docs/error-diagnostics-parity.md", "none", "UtilSmoke.errorTools golden"]],
     ["fake/provider.ts", ["ported", "src/opencodehx/provider/FakeProvider.hx; scripts/harness/transcript-parity.mjs; docs/fake-provider-transcript-harness.md", "none", "FakeProvider plus one-turn golden transcript"]],
     ["session/message-v2.test.ts", ["partial", "src/opencodehx/smoke/MessageSmoke.hx; docs/message-v2-port.md", "model-message conversion and provider-transform cases are not ported yet", "MessageSmoke codec/part/cursor fixtures"]],

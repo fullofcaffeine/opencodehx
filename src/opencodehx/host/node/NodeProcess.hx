@@ -2,6 +2,7 @@ package opencodehx.host.node;
 
 import genes.js.Async.await;
 import haxe.DynamicAccess;
+import js.Syntax;
 import js.lib.Error;
 import js.lib.Promise;
 import opencodehx.externs.node.ChildProcess;
@@ -93,6 +94,15 @@ class NodeProcess {
 
 	public static function platform():String {
 		return Process.platform;
+	}
+
+	public static function uid():Null<Int> {
+		if (platform() == "win32")
+			return null;
+		// Node's `process.getuid` is POSIX-only and typed as optional by
+		// @types/node. Keep the runtime guard at the Node host boundary so app
+		// code gets a nullable UID instead of calling an optional global.
+		return Syntax.code("typeof process.getuid === \"function\" ? process.getuid() : null");
 	}
 
 	public static function shell():String {

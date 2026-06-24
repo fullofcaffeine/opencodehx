@@ -86,6 +86,10 @@ class Main {
 				log("config-smoke:ok");
 				FileSmoke.run();
 				log("file-smoke:ok");
+				return FileSmoke.runAsync();
+			})
+			.then(_ -> {
+				log("file-async-smoke:ok");
 				ResourceSmoke.run();
 				log("resource-smoke:ok");
 				MessageSmoke.run();

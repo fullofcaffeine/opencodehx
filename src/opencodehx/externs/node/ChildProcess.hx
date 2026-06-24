@@ -61,6 +61,8 @@ typedef ChildProcessHandle = {
 @:ts.type("import('node:stream').Readable")
 extern class NodeReadableStream {
 	function setEncoding(encoding:String):Void;
+	@:overload(function(event:String, listener:Void->Void):NodeReadableStream {})
+	@:overload(function(event:String, listener:Dynamic->Void):NodeReadableStream {})
 	@:overload(function(event:String, listener:NodeBufferData->Void):NodeReadableStream {})
 	function on(event:String, listener:String->Void):NodeReadableStream;
 }
