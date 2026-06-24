@@ -11,8 +11,10 @@ class FileSmoke {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-file-"));
 		try {
 			fixture(root);
+			readFiles(root);
 			ignoreRules();
 			listWithIgnore(root);
+			listEdges(root);
 			pathSafety(root);
 			ripgrepFiles(root);
 			ripgrepSearch(root);
@@ -42,6 +44,44 @@ class FileSmoke {
 		eq(FileIgnore.match("src/app.ts", {extra: ["src/*.ts"]}), true, "extra glob");
 	}
 
+	static function readFiles(root:String):Void {
+		write(root, "read/test.txt", "  content with spaces  \n\n");
+		eq(FileSystem.read(root, "read/test.txt").content, "content with spaces", "read trims text");
+		write(root, "read/empty.txt", "");
+		eq(FileSystem.read(root, "read/empty.txt").content, "", "read empty text");
+		write(root, "read/multiline.txt", "line1\nline2\nline3");
+		eq(FileSystem.read(root, "read/multiline.txt").content, "line1\nline2\nline3", "read multiline text");
+		eq(FileSystem.read(root, "read/missing.txt").content, "", "read missing text");
+
+		write(root, "read/test.ts", "export const value = 1");
+		write(root, "read/test.mts", "export const value = 1");
+		write(root, "read/test.sh", "#!/usr/bin/env bash\necho hello");
+		write(root, "read/Dockerfile", "FROM alpine:3.20");
+		eq(FileSystem.read(root, "read/test.ts").content, "export const value = 1", "read ts as text");
+		eq(FileSystem.read(root, "read/test.mts").content, "export const value = 1", "read mts as text");
+		eq(FileSystem.read(root, "read/test.sh").content, "#!/usr/bin/env bash\necho hello", "read sh as text");
+		eq(FileSystem.read(root, "read/Dockerfile").content, "FROM alpine:3.20", "read Dockerfile as text");
+		eq(FileSystem.read(root, "read/test.txt").encoding, null, "read text has no encoding");
+
+		writeBytes(root, "read/image.png", [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+		final png = FileSystem.read(root, "read/image.png");
+		eq(png.type, "text", "read png type");
+		eq(png.encoding, "base64", "read png encoding");
+		eq(png.mimeType, "image/png", "read png mime");
+		eq(png.content, "iVBORw0KGgo=", "read png base64");
+
+		writeBytes(root, "read/test.jpg", [0xff, 0xd8, 0xff, 0xe0]);
+		final jpg = FileSystem.read(root, "read/test.jpg");
+		eq(jpg.encoding, "base64", "read jpg encoding");
+		eq(jpg.mimeType, "image/jpeg", "read jpg mime");
+
+		writeBytes(root, "read/binary.so", [0x7f, 0x45, 0x4c, 0x46]);
+		final binary = FileSystem.read(root, "read/binary.so");
+		eq(binary.type, "binary", "read binary type");
+		eq(binary.content, "", "read binary empty content");
+		expectFailure(() -> FileSystem.read(root, "../outside.txt"), "read escaped via read");
+	}
+
 	static function listWithIgnore(root:String):Void {
 		final nodes = FileSystem.list(root);
 		eq(nodes[0].type, "directory", "directories first");
@@ -51,6 +91,26 @@ class FileSmoke {
 		eq(tmp.ignored, true, "gitignore file");
 		final local = findNode(nodes, "local-only.txt");
 		eq(local.ignored, true, ".ignore file");
+	}
+
+	static function listEdges(root:String):Void {
+		write(root, "sub/a.txt", "");
+		write(root, "sub/b.txt", "");
+		final sub = FileSystem.list(root, "sub");
+		eq(sub.length, 2, "list subdirectory count");
+		eq(StringTools.startsWith(sub[0].path, "sub/"), true, "list subdirectory relative path");
+		expectFailure(() -> FileSystem.list(root, "../outside"), "list escaped");
+
+		final plain = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-file-plain-"));
+		try {
+			write(plain, "file.txt", "hi");
+			for (node in FileSystem.list(plain))
+				eq(node.ignored, false, "list without ignore marks false");
+			Fs.rmSync(plain, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(plain, {recursive: true, force: true});
+			throw error;
+		}
 	}
 
 	static function pathSafety(root:String):Void {
@@ -81,6 +141,12 @@ class FileSmoke {
 		final path = NodePath.join(root, relative);
 		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
 		Fs.writeFileSync(path, content);
+	}
+
+	static function writeBytes(root:String, relative:String, bytes:Array<Int>):Void {
+		final path = NodePath.join(root, relative);
+		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
+		Fs.writeFileSync(path, js.lib.Uint8Array.from(bytes));
 	}
 
 	static function findNode(nodes:Array<opencodehx.file.FileSystem.FileNode>, name:String):opencodehx.file.FileSystem.FileNode {

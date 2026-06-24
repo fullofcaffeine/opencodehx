@@ -12,10 +12,65 @@ typedef FileNode = {
 	final ignored:Bool;
 }
 
+typedef FileReadResult = {
+	final type:String;
+	final content:String;
+	@:optional final encoding:String;
+	@:optional final mimeType:String;
+}
+
 class FileSystem {
+	static final TEXT_EXTENSIONS = [
+		"ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs", "json", "jsonc", "md", "txt", "sh", "bash", "zsh", "fish", "py", "rb", "go", "rs", "java", "c",
+		"cpp", "h", "hpp", "css", "scss", "html", "xml", "yaml", "yml", "toml", "env", "cfg", "conf"
+	];
+	static final TEXT_NAMES = [
+		"dockerfile",
+		"makefile",
+		".gitignore",
+		".gitattributes",
+		".editorconfig",
+		".npmrc",
+		".nvmrc",
+		".prettierrc",
+		".eslintrc"
+	];
+	static final BINARY_EXTENSIONS = ["bin", "so", "dylib", "dll", "exe", "class", "jar", "zip", "gz", "tar", "pdf"];
+	static final IMAGE_MIME = [
+		"png" => "image/png",
+		"jpg" => "image/jpeg",
+		"jpeg" => "image/jpeg",
+		"gif" => "image/gif",
+		"webp" => "image/webp",
+		"bmp" => "image/bmp",
+		"ico" => "image/x-icon",
+		"svg" => "image/svg+xml",
+		"svgz" => "image/svg+xml",
+	];
+
 	public static function contains(root:String, target:String):Bool {
 		final relative = normalize(NodePath.relative(NodePath.resolve(root, "."), NodePath.resolve(target, ".")));
 		return relative == "" || (!StringTools.startsWith(relative, "..") && !NodePath.isAbsolute(relative));
+	}
+
+	public static function read(root:String, file:String):FileReadResult {
+		final absolute = resolveInside(root, file);
+		if (isImageByExtension(file)) {
+			if (!Fs.existsSync(absolute) || !Fs.statSync(absolute).isFile())
+				return {type: "text", content: ""};
+			return {
+				type: "text",
+				content: Fs.readFileBufferSync(absolute).toString("base64"),
+				mimeType: imageMime(file),
+				encoding: "base64",
+			};
+		}
+		final knownText = isTextByExtension(file) || isTextByName(file);
+		if (isBinaryByExtension(file) && !knownText)
+			return {type: "binary", content: ""};
+		if (!Fs.existsSync(absolute) || !Fs.statSync(absolute).isFile())
+			return {type: "text", content: ""};
+		return {type: "text", content: StringTools.trim(Fs.readFileSync(absolute, "utf8"))};
 	}
 
 	public static function readText(root:String, file:String):String {
@@ -86,6 +141,32 @@ class FileSystem {
 		if (a.type != b.type)
 			return a.type == "directory" ? -1 : 1;
 		return Reflect.compare(a.name, b.name);
+	}
+
+	static function isImageByExtension(file:String):Bool {
+		return IMAGE_MIME.exists(extension(file));
+	}
+
+	static function isTextByExtension(file:String):Bool {
+		return TEXT_EXTENSIONS.indexOf(extension(file)) != -1;
+	}
+
+	static function isTextByName(file:String):Bool {
+		return TEXT_NAMES.indexOf(NodePath.basename(file).toLowerCase()) != -1;
+	}
+
+	static function isBinaryByExtension(file:String):Bool {
+		return BINARY_EXTENSIONS.indexOf(extension(file)) != -1;
+	}
+
+	static function imageMime(file:String):String {
+		final mime = IMAGE_MIME.get(extension(file));
+		return mime == null ? "image/" + extension(file) : mime;
+	}
+
+	static function extension(file:String):String {
+		final ext = NodePath.extname(file).toLowerCase();
+		return StringTools.startsWith(ext, ".") ? ext.substr(1) : ext;
 	}
 
 	static function normalize(path:String):String {

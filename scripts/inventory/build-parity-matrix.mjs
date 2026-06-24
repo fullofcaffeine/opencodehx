@@ -186,6 +186,16 @@ function directEvidence(path) {
     ["bus/bus.test.ts", ["partial", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx", "callback publish/subscribe, type filtering, subscribeAll, unsubscribe, multiple subscribers, no-subscriber publish, and history snapshot are covered; instance isolation/disposal finalizer behavior remains deferred", "BusSmoke callback fixtures", m11Owners.foundation]],
     ["bus/bus-integration.test.ts", ["partial", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx", "callback facade subscribe/unsubscribe and subscribeAll multi-type delivery are covered; instance-scoped cleanup/disposal interruption remains deferred", "BusSmoke callback fixtures", m11Owners.foundation]],
     ["file/ignore.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "only initial ignore defaults/whitelist behavior is covered", "FileSmoke.ignoreRules"]],
+    [
+      "file/index.test.ts",
+      [
+        "partial",
+        "src/opencodehx/file/FileSystem.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md",
+        "File.Service init/status/cache/search/fuzzysort/watcher/diff behavior and full Effect integration remain deferred",
+        "FileSmoke.readFiles covers upstream-shaped text/missing/image-base64/binary-known-extension/path-security read cases; FileSmoke.listEdges covers subdirectory paths and non-git ignored=false behavior",
+        m11Owners.foundation,
+      ],
+    ],
     ["file/ripgrep.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "streaming and full ripgrep option matrix remain deferred", "FileSmoke.ripgrepFiles/ripgrepSearch"]],
     ["file/path-traversal.test.ts", ["partial", "src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "representative escape checks are covered; full upstream error shape remains deferred", "FileSmoke.pathSafety"]],
     ["tool/glob.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core glob cases are covered; full Effect/tool context parity remains deferred", "ToolSmoke.globExec"]],

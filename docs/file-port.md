@@ -9,9 +9,9 @@ This slice adds the first Node-first file primitives needed by tool work:
 
 - `opencodehx.file.FileIgnore` ports OpenCode's default ignored folders/files and supports extra/whitelist glob checks.
 - `opencodehx.file.Ripgrep` wraps local `rg` with upstream-style `--no-config`, hidden-file, `.git` exclusion, glob, max-depth, JSON search, and partial-result semantics.
-- `opencodehx.file.FileSystem` adds project-contained path resolution, text reads, directory listing with `.gitignore`/`.ignore` flags, and file/text search helpers.
+- `opencodehx.file.FileSystem` adds project-contained path resolution, upstream-shaped `read()` results for text, image-base64, and known binary files, raw text reads, directory listing with `.gitignore`/`.ignore` flags, and file/text search helpers.
 - `opencodehx.file.FileWatcherRuntime` adds a narrow Node `fs.watch` seam for typed file-update events, currently used to publish `.git/HEAD` updates for VCS branch refresh.
-- `FileSmoke` builds a fixture workspace and covers ignore defaults, extra/whitelist rules, path traversal rejection, list sorting, hidden handling, glob file search, and JSON grep parsing.
+- `FileSmoke` builds a fixture workspace and covers ignore defaults, extra/whitelist rules, path traversal rejection, `read()` text trimming, missing files, image base64 metadata, known binary empty content, list sorting/subdirectory paths, hidden handling, glob file search, and JSON grep parsing.
 
 ## Deferred Parity
 
