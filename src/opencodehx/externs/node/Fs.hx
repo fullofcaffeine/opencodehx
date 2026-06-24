@@ -32,6 +32,7 @@ extern class Fs {
 	static function writeFileSync(path:String, data:String, ?options:Dynamic):Void;
 	static function chmodSync(path:String, mode:Int):Void;
 	static function unlinkSync(path:String):Void;
+	static function symlinkSync(target:String, path:String):Void;
 	static function mkdirSync(path:String, ?options:Dynamic):Void;
 	static function mkdtempSync(prefix:String):String;
 	static function rmSync(path:String, ?options:Dynamic):Void;

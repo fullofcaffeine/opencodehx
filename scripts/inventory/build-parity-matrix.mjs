@@ -160,6 +160,7 @@ function directEvidence(path) {
     ["util/lazy.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#lazy; docs/util-port.md", "none", "UtilSmoke.lazy"]],
     ["util/iife.test.ts", ["ported", "src/opencodehx/util/Iife.hx; src/opencodehx/smoke/UtilSmoke.hx#iife; docs/util-port.md", "none", "UtilSmoke.iife"]],
     ["util/data-url.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#dataUrl; docs/util-port.md", "none", "UtilSmoke.dataUrl"]],
+    ["util/glob.test.ts", ["ported", "src/opencodehx/util/GlobRuntime.hx; src/opencodehx/smoke/UtilSmoke.hx#glob; docs/util-port.md", "none", "UtilSmoke.glob"]],
     ["util/wildcard.test.ts", ["ported", "src/opencodehx/util/Wildcard.hx; src/opencodehx/smoke/UtilSmoke.hx#wildcard; docs/util-port.md", "none", "UtilSmoke.wildcard"]],
     ["util/which.test.ts", ["ported", "src/opencodehx/util/Which.hx; src/opencodehx/smoke/UtilSmoke.hx#which; docs/util-port.md", "none", "UtilSmoke.which"]],
     ["util/module.test.ts", ["ported", "src/opencodehx/util/ModuleResolver.hx; src/opencodehx/smoke/UtilSmoke.hx#moduleResolver; docs/util-port.md", "none", "UtilSmoke.moduleResolver"]],

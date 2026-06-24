@@ -21,6 +21,7 @@ import opencodehx.util.Color;
 import opencodehx.util.DataUrl;
 import opencodehx.util.ErrorTools;
 import opencodehx.util.Format;
+import opencodehx.util.GlobRuntime;
 import opencodehx.util.Iife;
 import opencodehx.util.Lazy;
 import opencodehx.util.Lock;
@@ -50,6 +51,7 @@ class UtilSmoke {
 		@:await timeout();
 		@:await lock();
 		@:await process();
+		@:await glob();
 	}
 
 	static function formatDuration():Void {
@@ -422,6 +424,90 @@ class UtilSmoke {
 		}
 	}
 
+	@:async
+	static function glob():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-glob-"));
+		try {
+			write(NodePath.join(root, "a.txt"), "");
+			write(NodePath.join(root, "b.txt"), "");
+			write(NodePath.join(root, "c.md"), "");
+			write(NodePath.join(root, "nested/deep.txt"), "");
+
+			final txt = @:await GlobRuntime.scan("*.txt", {cwd: root});
+			txt.sort(Reflect.compare);
+			eq(txt.join(","), "a.txt,b.txt", "glob scan txt");
+
+			final absolute = @:await GlobRuntime.scan("*.txt", {cwd: root, absolute: true});
+			absolute.sort(Reflect.compare);
+			eq(absolute.indexOf(NodePath.join(root, "a.txt")) != -1, true, "glob scan absolute");
+
+			Fs.mkdirSync(NodePath.join(root, "subdir"), {recursive: true});
+			final starFiles = @:await GlobRuntime.scan("*", {cwd: root});
+			starFiles.sort(Reflect.compare);
+			eq(starFiles.indexOf("subdir"), -1, "glob excludes directories by default");
+			eq(starFiles.indexOf("a.txt") != -1, true, "glob includes files by default");
+
+			final starAll = @:await GlobRuntime.scan("*", {cwd: root, include: "all"});
+			starAll.sort(Reflect.compare);
+			eq(starAll.indexOf("subdir") != -1, true, "glob include all directory");
+
+			final nested = @:await GlobRuntime.scan("**/*.txt", {cwd: root});
+			nested.sort(Reflect.compare);
+			eq(nested.indexOf(NodePath.join("nested", "deep.txt")) != -1, true, "glob nested txt");
+			eq((@:await GlobRuntime.scan("*.nonexistent", {cwd: root})).length, 0, "glob no matches");
+
+			final symlinkRoot = NodePath.join(root, "symlink");
+			Fs.mkdirSync(NodePath.join(symlinkRoot, "realdir"), {recursive: true});
+			write(NodePath.join(symlinkRoot, "realdir/file.txt"), "");
+			var symlinkCreated = true;
+			try {
+				Fs.symlinkSync(NodePath.join(symlinkRoot, "realdir"), NodePath.join(symlinkRoot, "linkdir"));
+			} catch (_:Dynamic) {
+				symlinkCreated = false;
+			}
+			if (symlinkCreated) {
+				final noFollow = @:await GlobRuntime.scan("**/*.txt", {cwd: symlinkRoot});
+				noFollow.sort(Reflect.compare);
+				eq(noFollow.join(","), normalizePath(NodePath.join("realdir", "file.txt")), "glob skips symlink directories");
+				final follow = @:await GlobRuntime.scan("**/*.txt", {cwd: symlinkRoot, symlink: true});
+				follow.sort(Reflect.compare);
+				eq(follow.join(","), [
+					normalizePath(NodePath.join("linkdir", "file.txt")),
+					normalizePath(NodePath.join("realdir", "file.txt"))
+				].join(","), "glob follows symlink directories");
+			}
+
+			write(NodePath.join(root, ".hidden"), "");
+			write(NodePath.join(root, "visible"), "");
+			final dot = @:await GlobRuntime.scan("*", {cwd: root, dot: true});
+			dot.sort(Reflect.compare);
+			eq(dot.indexOf(".hidden") != -1, true, "glob dot includes hidden");
+			final noDot = @:await GlobRuntime.scan("*", {cwd: root, dot: false});
+			eq(noDot.indexOf(".hidden"), -1, "glob dot false excludes hidden");
+
+			final syncTxt = GlobRuntime.scanSync("*.txt", {cwd: root});
+			syncTxt.sort(Reflect.compare);
+			eq(syncTxt.join(","), "a.txt,b.txt", "glob scanSync txt");
+			final syncAll = GlobRuntime.scanSync("*", {cwd: root, include: "all"});
+			eq(syncAll.indexOf("subdir") != -1, true, "glob scanSync include all");
+
+			eq(GlobRuntime.match("*.txt", "file.txt"), true, "glob match simple");
+			eq(GlobRuntime.match("*.txt", "file.js"), false, "glob match simple miss");
+			eq(GlobRuntime.match("**/*.js", "src/index.js"), true, "glob match directory");
+			eq(GlobRuntime.match("**/*.js", "src/index.ts"), false, "glob match directory miss");
+			eq(GlobRuntime.match(".*", ".gitignore"), true, "glob match dot");
+			eq(GlobRuntime.match("**/*.md", ".github/README.md"), true, "glob match nested dot");
+			eq(GlobRuntime.match("*.{js,ts}", "file.js"), true, "glob brace js");
+			eq(GlobRuntime.match("*.{js,ts}", "file.ts"), true, "glob brace ts");
+			eq(GlobRuntime.match("*.{js,ts}", "file.py"), false, "glob brace miss");
+
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
 	static function errorTools():Void {
 		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
 		final util:Dynamic = Reflect.field(golden, "util");
@@ -468,6 +554,10 @@ class UtilSmoke {
 
 	static function nowMillis():Float {
 		return new js.lib.Date().getTime();
+	}
+
+	static function normalizePath(path:String):String {
+		return StringTools.replace(path, "\\", "/");
 	}
 
 	static function write(path:String, content:String):Void {
