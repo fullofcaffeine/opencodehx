@@ -186,6 +186,16 @@ function directEvidence(path) {
     ["bus/bus.test.ts", ["partial", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx", "callback publish/subscribe, type filtering, subscribeAll, unsubscribe, multiple subscribers, no-subscriber publish, and history snapshot are covered; instance isolation/disposal finalizer behavior remains deferred", "BusSmoke callback fixtures", m11Owners.foundation]],
     ["bus/bus-integration.test.ts", ["partial", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx", "callback facade subscribe/unsubscribe and subscribeAll multi-type delivery are covered; instance-scoped cleanup/disposal interruption remains deferred", "BusSmoke callback fixtures", m11Owners.foundation]],
     [
+      "file/fsmonitor.test.ts",
+      [
+        "partial",
+        "src/opencodehx/git/Git.hx; src/opencodehx/file/FileSystem.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md",
+        "status/read command paths disable Git fsmonitor and are smoke-tested with repo core.fsmonitor=true; native Windows daemon lifecycle remains host-conditional",
+        "FileSmoke.fsmonitorGuard",
+        m11Owners.foundation,
+      ],
+    ],
+    [
       "file/ignore.test.ts",
       [
         "direct",

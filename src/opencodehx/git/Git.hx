@@ -48,8 +48,12 @@ class Git {
 		"core.quotepath=false",
 	];
 
+	public static function baseArgs():Array<String> {
+		return BASE_ARGS.copy();
+	}
+
 	public static function run(cwd:String, args:Array<String>):GitRunResult {
-		final result = ChildProcess.spawnSync("git", BASE_ARGS.concat(args), {
+		final result = ChildProcess.spawnSync("git", baseArgs().concat(args), {
 			cwd: cwd,
 			encoding: "utf8",
 			windowsHide: true,

@@ -20,6 +20,7 @@ class FileSmoke {
 			appFileSystem(root);
 			readFiles(root);
 			readDiffs(root);
+			fsmonitorGuard(root);
 			ignoreRules();
 			listWithIgnore(root);
 			listEdges(root);
@@ -219,6 +220,32 @@ class FileSmoke {
 		eq(binary.patch, null, "read diff binary no patch");
 	}
 
+	static function fsmonitorGuard(root:String):Void {
+		eq(hasGitConfigArg(Git.baseArgs(), "core.fsmonitor=false"), true, "git fsmonitor disabled base arg");
+
+		final repo = NodePath.join(root, "fsmonitor");
+		Fs.mkdirSync(repo, {recursive: true});
+		git(repo, ["init"], "fsmonitor init");
+		git(repo, ["config", "user.email", "opencodehx@example.invalid"], "fsmonitor git email");
+		git(repo, ["config", "user.name", "OpenCodeHX Smoke"], "fsmonitor git name");
+		write(repo, "tracked.txt", "base\n");
+		git(repo, ["add", "."], "fsmonitor add initial");
+		git(repo, ["commit", "-m", "initial"], "fsmonitor commit initial");
+		git(repo, ["config", "core.fsmonitor", "true"], "fsmonitor enable config");
+		Git.run(repo, ["fsmonitor--daemon", "stop"]);
+		write(repo, "tracked.txt", "next\n");
+		write(repo, "new.txt", "new\n");
+
+		final before = Git.run(repo, ["fsmonitor--daemon", "status"]);
+		eq(Git.status(repo).length > 0, true, "fsmonitor status works");
+		final read = FileSystem.read(repo, "tracked.txt");
+		eq(read.content, "next", "fsmonitor read works");
+		eq(read.diff.indexOf("base") != -1, true, "fsmonitor read diff");
+		final after = Git.run(repo, ["fsmonitor--daemon", "status"]);
+		if (NodeProcess.platform() == "win32" && before.code != 0)
+			neq(after.code, 0, "fsmonitor daemon remains stopped");
+	}
+
 	static function listWithIgnore(root:String):Void {
 		final nodes = FileSystem.list(root);
 		eq(nodes[0].type, "directory", "directories first");
@@ -412,6 +439,14 @@ class FileSmoke {
 			throw '${label}: ${result.stderr}';
 	}
 
+	static function hasGitConfigArg(args:Array<String>, value:String):Bool {
+		for (i in 0...args.length - 1) {
+			if (args[i] == "-c" && args[i + 1] == value)
+				return true;
+		}
+		return false;
+	}
+
 	static function findNode(nodes:Array<opencodehx.file.FileSystem.FileNode>, name:String):opencodehx.file.FileSystem.FileNode {
 		for (node in nodes) {
 			if (node.name == name)
@@ -464,6 +499,12 @@ class FileSmoke {
 	static function eq<T>(actual:T, expected:T, label:String):Void {
 		if (actual != expected) {
 			throw '$label: expected ${expected}, got ${actual}';
+		}
+	}
+
+	static function neq<T>(actual:T, expected:T, label:String):Void {
+		if (actual == expected) {
+			throw '$label: expected value other than ${expected}';
 		}
 	}
 }
