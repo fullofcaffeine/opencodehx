@@ -17,6 +17,7 @@ import opencodehx.resource.Resources;
 import opencodehx.resource.Resources.ResourcePaths;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
+import opencodehx.util.Abort;
 import opencodehx.util.Color;
 import opencodehx.util.DataUrl;
 import opencodehx.util.ErrorTools;
@@ -49,6 +50,7 @@ class UtilSmoke {
 	@:async
 	public static function runAsync():Promise<Void> {
 		@:await timeout();
+		@:await abort();
 		@:await lock();
 		@:await process();
 		@:await glob();
@@ -308,6 +310,28 @@ class UtilSmoke {
 		if (error == null)
 			throw "timeout slow promise should reject";
 		eq(Std.string(Reflect.field(error, "message")), "Operation timed out after 50ms", "timeout rejection message");
+	}
+
+	@:async
+	static function abort():Promise<Void> {
+		final timed = Abort.abortAfter(5);
+		eq(timed.signal.aborted, false, "abort after starts active");
+		@:await delayValue("aborted", 20);
+		eq(timed.signal.aborted, true, "abort after timeout aborts");
+		timed.clearTimeout();
+
+		final cleared = Abort.abortAfter(30);
+		cleared.clearTimeout();
+		@:await delayValue("cleared", 50);
+		eq(cleared.signal.aborted, false, "abort after clear prevents abort");
+
+		final controller = new AbortControllerWithReason();
+		final combined = Abort.abortAfterAny(1000, [controller.signal]);
+		eq(combined.signal.aborted, false, "abort any starts active");
+		controller.abort();
+		@:await flush();
+		eq(combined.signal.aborted, true, "abort any input aborts combined signal");
+		combined.clearTimeout();
 	}
 
 	@:async

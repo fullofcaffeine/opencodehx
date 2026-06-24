@@ -14,5 +14,12 @@ extern class AbortControllerWithReason {
 	public final signal:AbortSignal;
 
 	function new();
+	@:native("abort")
+	function abortNow():Void;
 	function abort(?reason:String):Void;
+}
+
+@:native("AbortSignal")
+extern class AbortSignalRuntime {
+	static function any(signals:Array<AbortSignal>):AbortSignal;
 }
