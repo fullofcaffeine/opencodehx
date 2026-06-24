@@ -10,6 +10,7 @@
 | `opencodehx.util.Lazy` | `src/util/lazy.ts`, `test/util/lazy.test.ts` | `UtilSmoke.lazy()` covers single evaluation, cached value, and reset behavior. |
 | `opencodehx.util.DataUrl` | `src/util/data-url.ts`, `test/util/data-url.test.ts` | `UtilSmoke.dataUrl()` covers base64, percent-decoding, missing comma, and `decodeURIComponent` plus-sign parity. |
 | `opencodehx.util.ErrorTools` | `src/util/error.ts`, `test/util/error.test.ts` | `UtilSmoke.errorTools()` covers native errors, record-like errors, opaque throwables, and `errorData` shape against `fixtures/resources/errors/diagnostics.golden.json`. |
+| `opencodehx.util.Wildcard` | `src/util/wildcard.ts`, `test/util/wildcard.test.ts` | `UtilSmoke.wildcard()` covers `*`/`?` glob tokens, regex escaping, trailing command ` *`, slash normalization, platform case sensitivity, most-specific rule selection, and structured command sequence matching. |
 | `opencodehx.host.node.NodeBuffer` | Node `Buffer` usage in upstream `decodeDataUrl` | Generated TS imports `node:buffer` only through the host facade. |
 | `opencodehx.externs.web.UriCodec` | JavaScript global `decodeURIComponent` | Keeps percent-decoding behind a named typed boundary so utility code does not embed raw `js.Syntax.code`. |
 

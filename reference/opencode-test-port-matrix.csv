@@ -184,5 +184,5 @@ util/module.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk util
 util/process.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
 util/timeout.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
 util/which.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
-util/wildcard.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
+util/wildcard.test.ts,test,util,P2,ported,src/opencodehx/util/Wildcard.hx; src/opencodehx/smoke/UtilSmoke.hx#wildcard; docs/util-port.md,none,UtilSmoke.wildcard,none
 workspace/workspace-restore.test.ts,test,workspace,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.11
