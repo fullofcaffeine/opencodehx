@@ -180,7 +180,7 @@ util/iife.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilit
 util/lazy.test.ts,test,util,P2,ported,src/opencodehx/smoke/UtilSmoke.hx#lazy; docs/util-port.md,none,UtilSmoke.lazy,none
 util/lock.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
 util/log.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
-util/module.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
+util/module.test.ts,test,util,P2,ported,src/opencodehx/util/ModuleResolver.hx; src/opencodehx/smoke/UtilSmoke.hx#moduleResolver; docs/util-port.md,none,UtilSmoke.moduleResolver,none
 util/process.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
 util/timeout.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
 util/which.test.ts,test,util,P2,ported,src/opencodehx/util/Which.hx; src/opencodehx/smoke/UtilSmoke.hx#which; docs/util-port.md,none,UtilSmoke.which,none

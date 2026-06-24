@@ -12,6 +12,7 @@
 | `opencodehx.util.ErrorTools` | `src/util/error.ts`, `test/util/error.test.ts` | `UtilSmoke.errorTools()` covers native errors, record-like errors, opaque throwables, and `errorData` shape against `fixtures/resources/errors/diagnostics.golden.json`. |
 | `opencodehx.util.Wildcard` | `src/util/wildcard.ts`, `test/util/wildcard.test.ts` | `UtilSmoke.wildcard()` covers `*`/`?` glob tokens, regex escaping, trailing command ` *`, slash normalization, platform case sensitivity, most-specific rule selection, and structured command sequence matching. |
 | `opencodehx.util.Which` | `src/util/which.ts`, `test/util/which.test.ts` | `UtilSmoke.which()` covers missing commands, PATH overrides, first PATH match, Unix executable-bit filtering, Windows PATHEXT, and Windows Path casing fallback. |
+| `opencodehx.util.ModuleResolver` | `packages/shared/src/util/module.ts`, `test/util/module.test.ts` | `UtilSmoke.moduleResolver()` covers package subpath resolution, ancestor `node_modules`, per-root isolation, package `main`, and missing-package null behavior. |
 | `opencodehx.host.node.NodeBuffer` | Node `Buffer` usage in upstream `decodeDataUrl` | Generated TS imports `node:buffer` only through the host facade. |
 | `opencodehx.externs.web.UriCodec` | JavaScript global `decodeURIComponent` | Keeps percent-decoding behind a named typed boundary so utility code does not embed raw `js.Syntax.code`. |
 

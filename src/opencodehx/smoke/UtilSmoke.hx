@@ -17,6 +17,7 @@ import opencodehx.util.DataUrl;
 import opencodehx.util.ErrorTools;
 import opencodehx.util.Format;
 import opencodehx.util.Lazy;
+import opencodehx.util.ModuleResolver;
 import opencodehx.util.Wildcard;
 import opencodehx.util.Which;
 
@@ -29,6 +30,7 @@ class UtilSmoke {
 		dataUrl();
 		wildcard();
 		which();
+		moduleResolver();
 	}
 
 	static function formatDuration():Void {
@@ -179,6 +181,41 @@ class UtilSmoke {
 		}
 	}
 
+	static function moduleResolver():Void {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-module-"));
+		try {
+			final project = NodePath.join(root, "proj");
+			final tsserver = NodePath.join(project, "node_modules/typescript/lib/tsserver.js");
+			write(tsserver, "export {}\n");
+			write(NodePath.join(project, "node_modules/typescript/package.json"), '{"name":"typescript"}');
+			eq(ModuleResolver.resolve("typescript/lib/tsserver.js", project), tsserver, "module resolver subpath");
+
+			final cwd = NodePath.join(project, "apps/web");
+			final eslint = NodePath.join(project, "node_modules/eslint/lib/api.js");
+			write(eslint, "export {}\n");
+			write(NodePath.join(project, "node_modules/eslint/package.json"), '{"name":"eslint","main":"lib/api.js"}');
+			write(NodePath.join(cwd, ".keep"), "");
+			eq(ModuleResolver.resolve("eslint", cwd), eslint, "module resolver ancestor package");
+
+			final leftRoot = NodePath.join(root, "a");
+			final rightRoot = NodePath.join(root, "b");
+			final left = NodePath.join(leftRoot, "node_modules/biome/index.js");
+			final right = NodePath.join(rightRoot, "node_modules/biome/index.js");
+			write(left, "export {}\n");
+			write(right, "export {}\n");
+			write(NodePath.join(leftRoot, "node_modules/biome/package.json"), '{"name":"biome","main":"index.js"}');
+			write(NodePath.join(rightRoot, "node_modules/biome/package.json"), '{"name":"biome","main":"index.js"}');
+			eq(ModuleResolver.resolve("biome", leftRoot), left, "module resolver left root");
+			eq(ModuleResolver.resolve("biome", rightRoot), right, "module resolver right root");
+			eq(ModuleResolver.resolve("biome", leftRoot) != ModuleResolver.resolve("biome", rightRoot), true, "module resolver roots distinct");
+			eq(ModuleResolver.resolve("missing-package", root), null, "module resolver missing");
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
 	static function errorTools():Void {
 		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
 		final util:Dynamic = Reflect.field(golden, "util");
@@ -217,6 +254,11 @@ class UtilSmoke {
 		if (NodeProcess.platform() != "win32")
 			Fs.chmodSync(file, exec ? 0x1ed : 0x1a4);
 		return file;
+	}
+
+	static function write(path:String, content:String):Void {
+		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
+		Fs.writeFileSync(path, content);
 	}
 
 	static function envPath(path:String, ?pathExt:String):DynamicAccess<String> {

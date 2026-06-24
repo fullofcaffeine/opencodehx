@@ -161,6 +161,7 @@ function directEvidence(path) {
     ["util/data-url.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#dataUrl; docs/util-port.md", "none", "UtilSmoke.dataUrl"]],
     ["util/wildcard.test.ts", ["ported", "src/opencodehx/util/Wildcard.hx; src/opencodehx/smoke/UtilSmoke.hx#wildcard; docs/util-port.md", "none", "UtilSmoke.wildcard"]],
     ["util/which.test.ts", ["ported", "src/opencodehx/util/Which.hx; src/opencodehx/smoke/UtilSmoke.hx#which; docs/util-port.md", "none", "UtilSmoke.which"]],
+    ["util/module.test.ts", ["ported", "src/opencodehx/util/ModuleResolver.hx; src/opencodehx/smoke/UtilSmoke.hx#moduleResolver; docs/util-port.md", "none", "UtilSmoke.moduleResolver"]],
     [
       "util/filesystem.test.ts",
       [
