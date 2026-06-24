@@ -10,6 +10,8 @@ import js.lib.Promise;
 import js.lib.Error as JsError;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.node.Process;
+import opencodehx.externs.web.AbortControllerWithReason;
 import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.resource.Resources;
 import opencodehx.resource.Resources.ResourcePaths;
@@ -24,6 +26,7 @@ import opencodehx.util.Lazy;
 import opencodehx.util.Lock;
 import opencodehx.util.LogRuntime;
 import opencodehx.util.ModuleResolver;
+import opencodehx.util.ProcessRuntime;
 import opencodehx.util.Timeout;
 import opencodehx.util.Wildcard;
 import opencodehx.util.Which;
@@ -46,6 +49,7 @@ class UtilSmoke {
 	public static function runAsync():Promise<Void> {
 		@:await timeout();
 		@:await lock();
+		@:await process();
 	}
 
 	static function formatDuration():Void {
@@ -346,6 +350,78 @@ class UtilSmoke {
 		reader.dispose();
 	}
 
+	@:async
+	static function process():Promise<Void> {
+		final out = @:await ProcessRuntime.run(node('process.stdout.write("out");process.stderr.write("err")'));
+		eq(out.code, 0, "process run code");
+		eq(out.stdout, "out", "process stdout");
+		eq(out.stderr, "err", "process stderr");
+
+		final nonzero = @:await ProcessRuntime.run(node("process.exit(7)"), {nothrow: true});
+		eq(nonzero.code, 7, "process nothrow code");
+
+		final failed:Dynamic = @:await ProcessRuntime.run(node('process.stderr.write("bad");process.exit(3)')).then(_ -> null).catchError(error -> error);
+		if (Reflect.field(failed, "name") != "ProcessRunFailedError")
+			throw "process failure should reject with ProcessRunFailedError";
+		eq(Reflect.field(failed, "code"), 3, "process failed code");
+		eq(Reflect.field(failed, "stderr"), "bad", "process failed stderr");
+
+		final abort = new AbortControllerWithReason();
+		WebTimers.setTimeout(() -> abort.abort(), 25);
+		final started = nowMillis();
+		final aborted = @:await ProcessRuntime.run(node("setInterval(() => {}, 1000)"), {abort: abort.signal, nothrow: true});
+		eq(aborted.code != 0, true, "process abort code");
+		eq(nowMillis() - started < 1000, true, "process abort duration");
+
+		if (NodeProcess.platform() != "win32") {
+			final stubborn = new AbortControllerWithReason();
+			WebTimers.setTimeout(() -> stubborn.abort(), 25);
+			final stubbornStarted = nowMillis();
+			final killed = @:await ProcessRuntime.run(node('process.on("SIGTERM", () => {}); setInterval(() => {}, 1000)'), {
+				abort: stubborn.signal,
+				nothrow: true,
+				timeout: 25,
+			});
+			eq(killed.code != 0, true, "process abort sigkill code");
+			eq(nowMillis() - stubbornStarted < 1000, true, "process abort sigkill duration");
+		}
+
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-process-"));
+		try {
+			final cwdOut = @:await ProcessRuntime.run(node("process.stdout.write(process.cwd())"), {cwd: root});
+			eq(NodePath.normalize(Fs.realpathSync(cwdOut.stdout)), NodePath.normalize(Fs.realpathSync(root)), "process cwd");
+
+			final env = new DynamicAccess<String>();
+			env.set("OPENCODE_TEST", "set");
+			final envOut = @:await ProcessRuntime.run(node('process.stdout.write(process.env.OPENCODE_TEST ?? "")'), {env: env});
+			eq(envOut.stdout, "set", "process env");
+
+			if (NodeProcess.platform() == "win32") {
+				final shellEnv = new DynamicAccess<String>();
+				shellEnv.set("OPENCODE_TEST_SHELL", "ok");
+				final shellOut = @:await ProcessRuntime.run(["set", "OPENCODE_TEST_SHELL"], {shell: true, env: shellEnv});
+				eq(shellOut.stdout.indexOf("OPENCODE_TEST_SHELL=ok") != -1, true, "process windows shell");
+
+				final dir = NodePath.join(root, "with space");
+				final file = NodePath.join(dir, "echo cmd.cmd");
+				Fs.mkdirSync(dir, {recursive: true});
+				Fs.writeFileSync(file, "@echo off\r\nif %~1==--stdio exit /b 0\r\nexit /b 7\r\n");
+				final proc = ProcessRuntime.spawn([file, "--stdio"], {stdin: "pipe", stdout: "pipe", stderr: "pipe"});
+				eq(@:await proc.exited, 0, "process windows cmd with spaces");
+			}
+
+			final missing = NodePath.join(root, "missing" + (NodeProcess.platform() == "win32" ? ".cmd" : ""));
+			final missingError:Dynamic = @:await ProcessRuntime.spawn([missing], {stdin: "pipe", stdout: "pipe", stderr: "pipe"})
+				.exited.catchError(error -> error);
+			eq(Reflect.field(missingError, "code"), "ENOENT", "process missing command error");
+
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
 	static function errorTools():Void {
 		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
 		final util:Dynamic = Reflect.field(golden, "util");
@@ -384,6 +460,14 @@ class UtilSmoke {
 		if (NodeProcess.platform() != "win32")
 			Fs.chmodSync(file, exec ? 0x1ed : 0x1a4);
 		return file;
+	}
+
+	static function node(script:String):Array<String> {
+		return [Process.argv[0], "-e", script];
+	}
+
+	static function nowMillis():Float {
+		return new js.lib.Date().getTime();
 	}
 
 	static function write(path:String, content:String):Void {

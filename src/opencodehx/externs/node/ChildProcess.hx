@@ -1,10 +1,12 @@
 package opencodehx.externs.node;
 
 import haxe.DynamicAccess;
+import opencodehx.externs.node.Buffer.NodeBufferData;
 
 @:ts.type("NodeJS.Signals")
 abstract NodeSignal(String) from String to String {}
 
+@:ts.type("import('node:child_process').SpawnOptions")
 typedef SpawnOptions = {
 	@:optional final cwd:String;
 	@:optional final env:DynamicAccess<String>;
@@ -47,9 +49,20 @@ typedef SpawnSyncResult = {
 
 typedef ChildProcessHandle = {
 	@:optional final pid:Int;
+	@:optional final stdout:NodeReadableStream;
+	@:optional final stderr:NodeReadableStream;
+	@:optional final exitCode:Null<Int>;
+	@:optional final signalCode:Null<String>;
 	function kill(?signal:NodeSignal):Bool;
 	function once(event:String, listener:Dynamic->Void):ChildProcessHandle;
 	function unref():Void;
+}
+
+@:ts.type("import('node:stream').Readable")
+extern class NodeReadableStream {
+	function setEncoding(encoding:String):Void;
+	@:overload(function(event:String, listener:NodeBufferData->Void):NodeReadableStream {})
+	function on(event:String, listener:String->Void):NodeReadableStream;
 }
 
 @:jsRequire("node:child_process")

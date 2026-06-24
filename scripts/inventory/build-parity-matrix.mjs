@@ -166,6 +166,7 @@ function directEvidence(path) {
     ["util/log.test.ts", ["ported", "src/opencodehx/util/LogRuntime.hx; src/opencodehx/smoke/UtilSmoke.hx#logCleanup; docs/util-port.md", "none", "UtilSmoke.logCleanup"]],
     ["util/timeout.test.ts", ["ported", "src/opencodehx/util/Timeout.hx; src/opencodehx/smoke/UtilSmoke.hx#timeout; docs/util-port.md", "none", "UtilSmoke.timeout"]],
     ["util/lock.test.ts", ["ported", "src/opencodehx/util/Lock.hx; src/opencodehx/smoke/UtilSmoke.hx#lock; docs/util-port.md", "none", "UtilSmoke.lock"]],
+    ["util/process.test.ts", ["ported", "src/opencodehx/util/ProcessRuntime.hx; src/opencodehx/smoke/UtilSmoke.hx#process; docs/util-port.md", "none", "UtilSmoke.process"]],
     [
       "util/filesystem.test.ts",
       [

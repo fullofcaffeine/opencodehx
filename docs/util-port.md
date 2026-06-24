@@ -17,6 +17,7 @@
 | `opencodehx.util.LogRuntime` | `src/util/log.ts`, `test/util/log.test.ts` | `UtilSmoke.logCleanup()` covers `Log.init` retention parity: only basename timestamped logs matching `????-??-??T??????.log` are candidates, the oldest entries are deleted until the newest ten remain, non-matching files are ignored, `dev.log` is used in dev mode, and print mode skips file creation. |
 | `opencodehx.util.Timeout` | `src/util/timeout.ts`, `test/util/timeout.test.ts` | `UtilSmoke.timeout()` covers fast Promise resolution before the timeout and rejection with the upstream timeout message after the deadline. |
 | `opencodehx.util.Lock` | `src/util/lock.ts`, `test/util/lock.test.ts` | `UtilSmoke.lock()` covers writer exclusivity, blocked readers while a writer is held, writer-priority wakeup, and reader acquisition after the queued writer releases. |
+| `opencodehx.util.ProcessRuntime` | `src/util/process.ts`, `test/util/process.test.ts` | `UtilSmoke.process()` covers stdout/stderr capture, nothrow exit codes, `RunFailedError`, abort and SIGKILL timeout behavior, cwd/env options, Windows shell/cmd-script cases when on Windows, and missing-command rejection. |
 | `opencodehx.host.node.NodeBuffer` | Node `Buffer` usage in upstream `decodeDataUrl` | Generated TS imports `node:buffer` only through the host facade. |
 | `opencodehx.externs.web.UriCodec` | JavaScript global `decodeURIComponent` | Keeps percent-decoding behind a named typed boundary so utility code does not embed raw `js.Syntax.code`. |
 
@@ -29,4 +30,5 @@
 - `LogRuntime` intentionally ports the upstream test's init/cleanup contract without claiming the full logger surface yet. Logger creation, service-tag caching, log-level filtering, timers, write streams, and Effect logger bridging remain owned by later session/server/runtime slices.
 - `Timeout.withTimeout` mirrors upstream's Promise/timer shape and uses the existing `WebTimers` facade for `setTimeout`/`clearTimeout`.
 - `Lock` exposes a Haxe-native `dispose()` token while preserving upstream's runtime ordering semantics. A future TypeScript-facing facade can add `[Symbol.dispose]` if this utility becomes a public generated-TS API.
+- `ProcessRuntime` is a Node host seam with string stdout/stderr instead of exposing Node `Buffer` to Haxe callers. The smoke still covers the upstream behavioral contract, including platform-conditional Windows cases.
 - `npm run build` now cleans `src-gen` and `dist` first so stale generated files cannot poison `tsc` after a failed experiment.

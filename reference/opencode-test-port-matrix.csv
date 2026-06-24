@@ -181,7 +181,7 @@ util/lazy.test.ts,test,util,P2,ported,src/opencodehx/smoke/UtilSmoke.hx#lazy; do
 util/lock.test.ts,test,util,P2,ported,src/opencodehx/util/Lock.hx; src/opencodehx/smoke/UtilSmoke.hx#lock; docs/util-port.md,none,UtilSmoke.lock,none
 util/log.test.ts,test,util,P2,ported,src/opencodehx/util/LogRuntime.hx; src/opencodehx/smoke/UtilSmoke.hx#logCleanup; docs/util-port.md,none,UtilSmoke.logCleanup,none
 util/module.test.ts,test,util,P2,ported,src/opencodehx/util/ModuleResolver.hx; src/opencodehx/smoke/UtilSmoke.hx#moduleResolver; docs/util-port.md,none,UtilSmoke.moduleResolver,none
-util/process.test.ts,test,util,P2,partial,UtilSmoke covers selected low-risk utilities,upstream test file has behavior outside the current narrow smoke slice,current smoke/golden fixture plus pending owning Bead,opencodehx-000.11
+util/process.test.ts,test,util,P2,ported,src/opencodehx/util/ProcessRuntime.hx; src/opencodehx/smoke/UtilSmoke.hx#process; docs/util-port.md,none,UtilSmoke.process,none
 util/timeout.test.ts,test,util,P2,ported,src/opencodehx/util/Timeout.hx; src/opencodehx/smoke/UtilSmoke.hx#timeout; docs/util-port.md,none,UtilSmoke.timeout,none
 util/which.test.ts,test,util,P2,ported,src/opencodehx/util/Which.hx; src/opencodehx/smoke/UtilSmoke.hx#which; docs/util-port.md,none,UtilSmoke.which,none
 util/wildcard.test.ts,test,util,P2,ported,src/opencodehx/util/Wildcard.hx; src/opencodehx/smoke/UtilSmoke.hx#wildcard; docs/util-port.md,none,UtilSmoke.wildcard,none
