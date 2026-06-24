@@ -2,18 +2,23 @@ package opencodehx.smoke;
 
 import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
+import haxe.DynamicAccess;
 import haxe.Json;
 import js.Syntax;
 import js.lib.Error as JsError;
+import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Os;
 import opencodehx.resource.Resources;
 import opencodehx.resource.Resources.ResourcePaths;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.host.node.NodePath;
 import opencodehx.util.Color;
 import opencodehx.util.DataUrl;
 import opencodehx.util.ErrorTools;
 import opencodehx.util.Format;
 import opencodehx.util.Lazy;
 import opencodehx.util.Wildcard;
+import opencodehx.util.Which;
 
 class UtilSmoke {
 	public static function run():Void {
@@ -23,6 +28,7 @@ class UtilSmoke {
 		lazy();
 		dataUrl();
 		wildcard();
+		which();
 	}
 
 	static function formatDuration():Void {
@@ -132,6 +138,47 @@ class UtilSmoke {
 		}
 	}
 
+	static function which():Void {
+		eq(Which.which("opencode-missing-command-for-test"), null, "which missing command");
+
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-which-"));
+		try {
+			final bin = NodePath.join(root, "bin");
+			Fs.mkdirSync(bin, {recursive: true});
+			final tool = command(bin, "tool", true);
+			samePath(Which.which("tool", envPath(bin)), tool, "which path override");
+
+			final firstDir = NodePath.join(root, "a");
+			final secondDir = NodePath.join(root, "b");
+			Fs.mkdirSync(firstDir, {recursive: true});
+			Fs.mkdirSync(secondDir, {recursive: true});
+			final first = command(firstDir, "dupe", true);
+			command(secondDir, "dupe", true);
+			samePath(Which.which("dupe", envPath(firstDir + pathDelimiter() + secondDir)), first, "which first path match");
+
+			if (NodeProcess.platform() != "win32") {
+				final noexec = command(bin, "noexec", false);
+				eq(Fs.existsSync(noexec), true, "which noexec fixture exists");
+				eq(Which.which("noexec", envPath(bin)), null, "which rejects unix noexec");
+			} else {
+				final pathext = NodePath.join(bin, "pathext.CMD");
+				Fs.writeFileSync(pathext, "@echo off\r\n");
+				samePath(Which.which("pathext", envPath(bin, ".CMD")), pathext, "which windows pathext");
+
+				final mixed = command(bin, "mixed", true);
+				final mixedEnv = new DynamicAccess<String>();
+				mixedEnv.set("Path", bin);
+				final pathExt = NodeProcess.envValue("PathExt");
+				mixedEnv.set("PathExt", pathExt == null ? ".CMD;.EXE;.BAT;.COM" : pathExt);
+				samePath(Which.which("mixed", mixedEnv), mixed, "which windows path casing");
+			}
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
 	static function errorTools():Void {
 		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
 		final util:Dynamic = Reflect.field(golden, "util");
@@ -162,6 +209,36 @@ class UtilSmoke {
 	static function dataString(data:opencodehx.util.ErrorTools.ErrorData, field:String):String {
 		final value = UnknownNarrow.string(data.get(field));
 		return value == null ? "" : value;
+	}
+
+	static function command(dir:String, name:String, exec:Bool):String {
+		final file = NodePath.join(dir, name + (NodeProcess.platform() == "win32" ? ".cmd" : ""));
+		Fs.writeFileSync(file, NodeProcess.platform() == "win32" ? "@echo off\r\n" : "#!/bin/sh\n");
+		if (NodeProcess.platform() != "win32")
+			Fs.chmodSync(file, exec ? 0x1ed : 0x1a4);
+		return file;
+	}
+
+	static function envPath(path:String, ?pathExt:String):DynamicAccess<String> {
+		final env = new DynamicAccess<String>();
+		env.set("PATH", path);
+		final ext = pathExt == null ? NodeProcess.envValue("PATHEXT") : pathExt;
+		if (ext != null)
+			env.set("PATHEXT", ext);
+		return env;
+	}
+
+	static function samePath(actual:Null<String>, expected:String, label:String):Void {
+		if (actual == null)
+			throw '$label: expected ${expected}, got null';
+		if (NodeProcess.platform() == "win32")
+			eq(actual.toLowerCase(), expected.toLowerCase(), label);
+		else
+			eq(actual, expected, label);
+	}
+
+	static function pathDelimiter():String {
+		return NodeProcess.platform() == "win32" ? ";" : ":";
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

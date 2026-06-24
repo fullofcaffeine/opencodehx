@@ -160,6 +160,7 @@ function directEvidence(path) {
     ["util/lazy.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#lazy; docs/util-port.md", "none", "UtilSmoke.lazy"]],
     ["util/data-url.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#dataUrl; docs/util-port.md", "none", "UtilSmoke.dataUrl"]],
     ["util/wildcard.test.ts", ["ported", "src/opencodehx/util/Wildcard.hx; src/opencodehx/smoke/UtilSmoke.hx#wildcard; docs/util-port.md", "none", "UtilSmoke.wildcard"]],
+    ["util/which.test.ts", ["ported", "src/opencodehx/util/Which.hx; src/opencodehx/smoke/UtilSmoke.hx#which; docs/util-port.md", "none", "UtilSmoke.which"]],
     ["util/error.test.ts", ["partial", "src/opencodehx/smoke/UtilSmoke.hx#errorTools; docs/error-diagnostics-parity.md", "representative native, record-like, and opaque throwable shapes are covered; full upstream arbitrary object edge cases remain deferred", "UtilSmoke.errorTools golden", m11Owners.foundation]],
     ["fake/provider.ts", ["ported", "src/opencodehx/provider/FakeProvider.hx; scripts/harness/transcript-parity.mjs; docs/fake-provider-transcript-harness.md", "none", "FakeProvider plus one-turn golden transcript"]],
     ["session/message-v2.test.ts", ["partial", "src/opencodehx/smoke/MessageSmoke.hx; docs/message-v2-port.md", "model-message conversion and provider-transform cases are not ported yet", "MessageSmoke codec/part/cursor fixtures"]],

@@ -6,6 +6,7 @@ import js.lib.Uint8Array;
 extern typedef FsStats = {
 	function isDirectory():Bool;
 	function isFile():Bool;
+	@:optional final mode:Int;
 	@:optional final mtimeMs:Float;
 }
 

@@ -12,6 +12,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Process;
 import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.host.node.NodePath;
+import opencodehx.util.Which;
 
 using StringTools;
 
@@ -176,7 +177,7 @@ class NodeProcess {
 		final configured = envValue("OPENCODE_GIT_BASH_PATH");
 		if (configured != null && configured != "")
 			return configured;
-		final git = which("git");
+		final git = Which.which("git");
 		if (git == null)
 			return null;
 		final file = NodePath.join(git, "../../bin/bash.exe");
@@ -242,7 +243,7 @@ class NodeProcess {
 			gitBash: gitBash(),
 			pwsh: firstWhich(["pwsh.exe", "pwsh"]),
 			powershell: firstWhich(["powershell.exe", "powershell"]),
-			bash: which("bash"),
+			bash: Which.which("bash"),
 		};
 	}
 
@@ -340,42 +341,11 @@ class NodeProcess {
 
 	static function firstWhich(names:Array<String>):Null<String> {
 		for (name in names) {
-			final found = which(name);
+			final found = Which.which(name);
 			if (found != null)
 				return found;
 		}
 		return null;
-	}
-
-	static function which(command:String):Null<String> {
-		final pathValue = envValue("PATH");
-		if (pathValue == null || pathValue == "")
-			return null;
-		final isWin = platform() == "win32";
-		final separator = isWin ? ";" : ":";
-		final extensions = command.indexOf(".") == -1 && isWin ? pathExtensions() : [""];
-		for (dir in pathValue.split(separator)) {
-			if (dir == "")
-				continue;
-			for (ext in extensions) {
-				final candidate = NodePath.join(dir, command + ext);
-				if (existsFile(candidate))
-					return candidate;
-			}
-		}
-		return null;
-	}
-
-	static function pathExtensions():Array<String> {
-		final raw = envValue("PATHEXT");
-		if (raw == null || raw == "")
-			return [".EXE", ".CMD", ".BAT", ".COM"];
-		final out:Array<String> = [];
-		for (ext in raw.split(";")) {
-			if (ext != "")
-				out.push(ext);
-		}
-		return out.length == 0 ? [".EXE", ".CMD", ".BAT", ".COM"] : out;
 	}
 
 	static function existsFile(file:String):Bool {
