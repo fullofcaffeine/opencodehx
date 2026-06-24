@@ -174,6 +174,7 @@ function directEvidence(path) {
     ["format/format.test.ts", ["ported", "src/opencodehx/format/FormatRuntime.hx; src/opencodehx/smoke/FormatterSmoke.hx; docs/formatter-port.md", "none", "FormatterSmoke"]],
     ["effect/observability.test.ts", ["partial", "src/opencodehx/effect/ObservabilityResource.hx; src/opencodehx/smoke/EffectSmoke.hx; docs/effect-runtime-parity.md", "OTLP logger/layer and trace exporter wiring remain deferred", "EffectSmoke.observabilityResource"]],
     ["fake/provider.ts", ["ported", "src/opencodehx/provider/FakeProvider.hx; scripts/harness/transcript-parity.mjs; docs/fake-provider-transcript-harness.md", "none", "FakeProvider plus one-turn golden transcript"]],
+    ["fixture/fixture.test.ts", ["ported", "src/opencodehx/smoke/SmokeTmpDir.hx; src/opencodehx/smoke/FixtureSmoke.hx; docs/fixture-smoke-parity.md", "none", "FixtureSmoke.tmpdir"]],
     ["session/message-v2.test.ts", ["partial", "src/opencodehx/smoke/MessageSmoke.hx; docs/message-v2-port.md", "model-message conversion and provider-transform cases are not ported yet", "MessageSmoke codec/part/cursor fixtures"]],
     ["session/processor-effect.test.ts", ["partial", "src/opencodehx/smoke/SessionProcessorSmoke.hx; docs/session-processor-one-turn.md", "current processor is one-turn and synchronous; upstream Effect streaming lifecycle remains deferred", "SessionProcessorSmoke"]],
     [

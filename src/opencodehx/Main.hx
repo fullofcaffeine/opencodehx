@@ -26,6 +26,7 @@ import opencodehx.smoke.CopilotResponsesLanguageModelSmoke;
 import opencodehx.smoke.ControlPlaneSmoke;
 import opencodehx.smoke.EffectSmoke;
 import opencodehx.smoke.FileSmoke;
+import opencodehx.smoke.FixtureSmoke;
 import opencodehx.smoke.FormatterSmoke;
 import opencodehx.smoke.LspSmoke;
 import opencodehx.smoke.MessageSmoke;
@@ -83,6 +84,8 @@ class Main {
 				log("bus-smoke:ok");
 				EffectSmoke.run();
 				log("effect-smoke:ok");
+				FixtureSmoke.run();
+				log("fixture-smoke:ok");
 				CliSmoke.run();
 				log("cli-smoke:ok");
 				ConfigSmoke.run();
