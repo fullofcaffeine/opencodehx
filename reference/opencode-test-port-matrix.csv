@@ -46,7 +46,7 @@ control-plane/sse.test.ts,test,control-plane,P2,direct,src/opencodehx/smoke/Serv
 effect/app-runtime-logger.test.ts,test,effect,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.11
 effect/cross-spawn-spawner.test.ts,test,effect,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.11
 effect/instance-state.test.ts,test,effect,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.11
-effect/observability.test.ts,test,effect,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.11
+effect/observability.test.ts,test,effect,P2,partial,src/opencodehx/effect/ObservabilityResource.hx; src/opencodehx/smoke/EffectSmoke.hx; docs/effect-runtime-parity.md,OTLP logger/layer and trace exporter wiring remain deferred,EffectSmoke.observabilityResource,opencodehx-000.11
 effect/run-service.test.ts,test,effect,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.11
 effect/runner.test.ts,test,effect,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.11
 fake/provider.ts,fixture,fake,P2,ported,src/opencodehx/provider/FakeProvider.hx; scripts/harness/transcript-parity.mjs; docs/fake-provider-transcript-harness.md,none,FakeProvider plus one-turn golden transcript,none
