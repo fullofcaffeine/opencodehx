@@ -16,6 +16,7 @@ import opencodehx.tool.ToolTypes.ToolIDs;
 class PermissionSmoke {
 	public static function run():Void {
 		fromConfigAndEvaluate();
+		taskPermissionRules();
 		bashArityPrefix();
 		disabledTools();
 		runtimeAskReply();
@@ -53,6 +54,72 @@ class PermissionSmoke {
 
 		final reversed = PermissionRules.fromConfig(cast {bash: "allow", "*": "deny"});
 		eq(PermissionRules.evaluate("bash", "ls", [reversed]).action, "allow", "specific beats wildcard");
+	}
+
+	static function taskPermissionRules():Void {
+		eq(PermissionRules.evaluate("task", "code-reviewer", []).action, "ask", "task default ask");
+		eq(PermissionRules.evaluate("task", "code-reviewer", [taskRules(cast {"code-reviewer": "deny"})]).action, "deny", "task explicit deny");
+		eq(PermissionRules.evaluate("task", "code-reviewer", [taskRules(cast {"code-reviewer": "allow"})]).action, "allow", "task explicit allow");
+		eq(PermissionRules.evaluate("task", "code-reviewer", [taskRules(cast {"code-reviewer": "ask"})]).action, "ask", "task explicit ask");
+
+		final wildcardDeny = taskRules(cast {"orchestrator-*": "deny"});
+		eq(PermissionRules.evaluate("task", "orchestrator-fast", [wildcardDeny]).action, "deny", "task wildcard deny fast");
+		eq(PermissionRules.evaluate("task", "orchestrator-slow", [wildcardDeny]).action, "deny", "task wildcard deny slow");
+		eq(PermissionRules.evaluate("task", "general", [wildcardDeny]).action, "ask", "task wildcard deny misses");
+
+		final wildcardAllow = taskRules(cast {"orchestrator-*": "allow"});
+		eq(PermissionRules.evaluate("task", "orchestrator-fast", [wildcardAllow]).action, "allow", "task wildcard allow fast");
+		eq(PermissionRules.evaluate("task", "orchestrator-slow", [wildcardAllow]).action, "allow", "task wildcard allow slow");
+		eq(PermissionRules.evaluate("task", "any-agent", [taskRules(cast {"*": "allow"})]).action, "allow", "task global allow");
+		eq(PermissionRules.evaluate("task", "any-agent", [taskRules(cast {"*": "deny"})]).action, "deny", "task global deny");
+		eq(PermissionRules.evaluate("task", "any-agent", [taskRules(cast {"*": "ask"})]).action, "ask", "task global ask");
+
+		final laterSpecific = taskRules(cast {"orchestrator-*": "deny", "orchestrator-fast": "allow"});
+		eq(PermissionRules.evaluate("task", "orchestrator-fast", [laterSpecific]).action, "allow", "task later specific wins");
+		eq(PermissionRules.evaluate("task", "orchestrator-slow", [laterSpecific]).action, "deny", "task earlier wildcard remains");
+
+		eq(PermissionRules.disabled(["task"], taskRules(cast {"*": "deny"})).join(","), "task", "task disabled global deny");
+		eq(PermissionRules.disabled(["task"], taskRules(cast {"orchestrator-*": "deny", general: "deny"})).length, 0, "task not disabled by specific denies");
+		eq(PermissionRules.disabled(["task"], taskRules(cast {"*": "deny", "orchestrator-coder": "allow"})).length, 0,
+			"task not disabled when later specific rule wins");
+
+		final configAllowSpecificDeny = PermissionRules.fromConfig(cast {
+			task: {"*": "allow", "code-reviewer": "deny"}
+		});
+		eq(PermissionRules.evaluate("task", "general", [configAllowSpecificDeny]).action, "allow", "task config global allow");
+		eq(PermissionRules.evaluate("task", "orchestrator-fast", [configAllowSpecificDeny]).action, "allow", "task config wildcard allow");
+		eq(PermissionRules.evaluate("task", "code-reviewer", [configAllowSpecificDeny]).action, "deny", "task config specific deny");
+
+		final mixed = PermissionRules.fromConfig(cast {
+			bash: "allow",
+			edit: "ask",
+			task: {"*": "deny", general: "allow"}
+		});
+		eq(PermissionRules.evaluate("task", "general", [mixed]).action, "allow", "task mixed general allow");
+		eq(PermissionRules.evaluate("task", "code-reviewer", [mixed]).action, "deny", "task mixed default deny");
+		eq(PermissionRules.evaluate("bash", "*", [mixed]).action, "allow", "task mixed bash allow");
+		eq(PermissionRules.evaluate("edit", "*", [mixed]).action, "ask", "task mixed edit ask");
+		eq(PermissionRules.disabled(["bash", "edit", "task"], mixed).length, 0, "task mixed disabled respects last match");
+
+		final denyLast = PermissionRules.fromConfig(cast {
+			task: {general: "allow", "code-reviewer": "allow", "*": "deny"}
+		});
+		eq(PermissionRules.evaluate("task", "general", [denyLast]).action, "deny", "task config deny last general");
+		eq(PermissionRules.evaluate("task", "code-reviewer", [denyLast]).action, "deny", "task config deny last reviewer");
+		eq(PermissionRules.evaluate("task", "unknown", [denyLast]).action, "deny", "task config deny last unknown");
+		eq(PermissionRules.disabled(["task"], denyLast).join(","), "task", "task disabled when deny wildcard last");
+	}
+
+	static function taskRules(rules:Dynamic<String>):Array<PermissionRule> {
+		final result:Array<PermissionRule> = [];
+		for (pattern in Reflect.fields(rules)) {
+			result.push({
+				permission: "task",
+				pattern: pattern,
+				action: Std.string(Reflect.field(rules, pattern)),
+			});
+		}
+		return result;
 	}
 
 	static function disabledTools():Void {

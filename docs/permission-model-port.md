@@ -1,7 +1,7 @@
 # Permission Model Port
 
 **Bead:** `opencodehx-019`  
-**Upstream oracle:** `../opencode/packages/opencode/src/permission/{index,evaluate,arity,schema}.ts`, `../opencode/packages/opencode/test/permission/next.test.ts`, and permission assertions in tool tests.
+**Upstream oracle:** `../opencode/packages/opencode/src/permission/{index,evaluate,arity,schema}.ts`, `../opencode/packages/opencode/test/permission/{next.test.ts,arity.test.ts}`, `../opencode/packages/opencode/test/permission-task.test.ts`, and permission assertions in tool tests.
 
 ## Slice
 
@@ -17,7 +17,7 @@ This slice adds the first Haxe-owned permission model:
 
 ## Evidence
 
-`PermissionSmoke` covers config conversion, wildcard evaluation, specific-over-wildcard precedence, bash arity prefixing, disabled tools, ask/always/reject behavior, and read/bash tool integration.
+`PermissionSmoke` covers config conversion, wildcard evaluation, specific-over-wildcard precedence, task-tool permission rules, task disabled-tool wildcard edge cases, bash arity prefixing, disabled tools, ask/always/reject behavior, and read/bash tool integration.
 
 Gates used for this slice:
 
