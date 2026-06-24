@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import opencodehx.bus.BusRuntime;
 import opencodehx.bus.BusRuntime.BusEventDefinition;
+import opencodehx.bus.BusStreamRuntime;
 
 typedef PingPayload = {
 	final value:Int;
@@ -19,6 +20,7 @@ class BusSmoke {
 		unsubscribeStopsDelivery();
 		subscribeAllReceivesEveryType();
 		multipleSubscribers();
+		streamDelivery();
 		instanceIsolation();
 		instanceDisposal();
 		snapshotCopiesHistory();
@@ -85,6 +87,30 @@ class BusSmoke {
 		bus.publish(ping, {value: 7});
 		eq(a.join(","), "7", "bus first subscriber");
 		eq(b.join(","), "7", "bus second subscriber");
+	}
+
+	static function streamDelivery():Void {
+		final bus = new BusRuntime();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.stream.ping");
+		final pong:BusEventDefinition<PongPayload> = BusRuntime.define("test.stream.pong");
+		final pings:Array<Int> = [];
+		final all:Array<String> = [];
+		final a:Array<Int> = [];
+		final b:Array<Int> = [];
+
+		BusStreamRuntime.subscribe(bus, ping).runForEach(event -> pings.push(event.properties.value));
+		BusStreamRuntime.subscribeAll(bus).runForEach(event -> all.push(event.type));
+		BusStreamRuntime.subscribe(bus, ping).runForEach(event -> a.push(event.properties.value));
+		BusStreamRuntime.subscribe(bus, ping).runForEach(event -> b.push(event.properties.value));
+
+		bus.publish(pong, {message: "ignored"});
+		bus.publish(ping, {value: 1});
+		bus.publish(ping, {value: 2});
+
+		eq(pings.join(","), "1,2", "bus stream receives matching events");
+		eq(all.join(","), "test.stream.pong,test.stream.ping,test.stream.ping", "bus stream subscribeAll receives all types");
+		eq(a.join(","), "1,2", "bus stream first subscriber");
+		eq(b.join(","), "1,2", "bus stream second subscriber");
 	}
 
 	static function instanceIsolation():Void {
