@@ -51,6 +51,15 @@ class SqliteSessionStore implements SessionStore {
 		return sessionFromRow(row);
 	}
 
+	public function listSessions(limit:Int):Array<SessionInfo> {
+		final rows = sql.all("select * from session order by time_updated desc, id desc limit ?", [limit]);
+		final sessions:Array<SessionInfo> = [];
+		for (row in rows) {
+			sessions.push(sessionFromRow(row));
+		}
+		return sessions;
+	}
+
 	public function updateSession(info:SessionInfo):Void {
 		final changed = insertOrReplaceSession(info);
 		if (changed == 0)

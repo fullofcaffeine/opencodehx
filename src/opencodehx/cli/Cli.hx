@@ -269,11 +269,10 @@ class Cli {
 	static function runSessionSelection(args:Array<String>, fallbackDirectory:String):RunSessionSelection {
 		if (has(args, "--fork") && !has(args, "--continue") && option(args, "--session", option(args, "-s", "")) == "")
 			return {directory: fallbackDirectory, sessionID: null, error: "--fork requires --continue or --session"};
-		if (has(args, "--continue"))
-			return {directory: fallbackDirectory, sessionID: null, error: "--continue is not wired in the non-interactive scaffold yet; pass --session <id>."};
 
-		final sessionIDText = option(args, "--session", option(args, "-s", ""));
-		if (sessionIDText == "")
+		var sessionIDText = option(args, "--session", option(args, "-s", ""));
+		final shouldContinue = has(args, "--continue");
+		if (sessionIDText == "" && !shouldContinue)
 			return {directory: fallbackDirectory, sessionID: null, error: null};
 
 		var store:Null<SessionStore> = null;
@@ -282,6 +281,23 @@ class Cli {
 			final dbPath = StorageDatabasePath.path(env, "latest");
 			Fs.mkdirSync(NodePath.dirname(dbPath), {recursive: true});
 			store = new SqliteSessionStore(dbPath);
+			if (sessionIDText == "") {
+				final sessions = store.listSessions(50);
+				for (session in sessions) {
+					if (session.parentID == null) {
+						sessionIDText = session.id.toString();
+						break;
+					}
+				}
+				if (sessionIDText == "") {
+					store.close();
+					return {directory: fallbackDirectory, sessionID: null, error: "No sessions found to continue."};
+				}
+			}
+			if (has(args, "--fork")) {
+				store.close();
+				return {directory: fallbackDirectory, sessionID: null, error: "--fork is not wired in the non-interactive scaffold yet."};
+			}
 			final recovered = SessionProcessor.recover(store, sessionIDText, 1);
 			store.close();
 			final explicitDirectory = option(args, "--dir", "") != "";

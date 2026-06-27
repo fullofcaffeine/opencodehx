@@ -65,6 +65,13 @@ class StorageSmoke {
 		final found = store.getSession(info.id);
 		eq(found.title, "Updated title", "updated session title");
 		eq(found.time.updated, 20, "updated session time");
+
+		store.createSession(session("ses_store_old", root, "Old title", 1, 2));
+		store.createSession(session("ses_store_new", root, "New title", 3, 30));
+		final sessions = store.listSessions(3);
+		eq(sessions.length, 3, "session list length");
+		eq(sessions[0].id.toString(), "ses_store_new", "session list newest first");
+		eq(sessions[1].id.toString(), "ses_store", "session list second newest");
 	}
 
 	static function messagePageAndPartCrud(store:SqliteSessionStore):Void {

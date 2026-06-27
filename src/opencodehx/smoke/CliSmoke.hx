@@ -118,6 +118,19 @@ class CliSmoke {
 				updated: 20,
 			},
 		});
+		store.createSession({
+			id: SessionID.make("ses_cli_export_child"),
+			slug: "cli-export-child",
+			projectID: "proj_cli_export",
+			parentID: SessionID.make("ses_cli_export"),
+			directory: NodePath.join(root, "child"),
+			title: "CLI export child fixture",
+			version: "0.0.0-test",
+			time: {
+				created: 30,
+				updated: 50,
+			},
+		});
 		store.upsertMessage(MessageCodec.decodeInfoRecord({
 			id: "msg_cli_export_user",
 			sessionID: "ses_cli_export",
@@ -195,13 +208,19 @@ class CliSmoke {
 			eq(missingRun.exitCode, 1, "cli run missing session exit");
 			eq(missingRun.stderr.indexOf("Session not found: ses_cli_missing") != -1, true, "cli run missing session message");
 
-			final continueRun = Cli.run(["run", "--continue", "Hello"]);
-			eq(continueRun.exitCode, 1, "cli run continue unsupported exit");
-			eq(continueRun.stderr.indexOf("--continue is not wired") != -1, true, "cli run continue unsupported message");
+			final continueRun = Cli.run(["run", "--continue", "--format", "json", "Hello"]);
+			eq(continueRun.exitCode, 0, "cli run continue exit");
+			final continueParsed:Dynamic = Json.parse(continueRun.stdout);
+			eq(Reflect.field(Reflect.field(continueParsed, "request"), "sessionID"), "ses_cli_export", "cli run continue root session");
+			eq(assistantPath(continueParsed), NodePath.normalize(root), "cli run continue recovered directory");
 
 			final invalidFork = Cli.run(["run", "--fork", "Hello"]);
 			eq(invalidFork.exitCode, 1, "cli run invalid fork exit");
 			eq(invalidFork.stderr.indexOf("--fork requires --continue or --session") != -1, true, "cli run invalid fork message");
+
+			final unsupportedFork = Cli.run(["run", "--session", "ses_cli_export", "--fork", "Hello"]);
+			eq(unsupportedFork.exitCode, 1, "cli run fork unsupported exit");
+			eq(unsupportedFork.stderr.indexOf("--fork is not wired") != -1, true, "cli run fork unsupported message");
 			restoreEnv("OPENCODE_DB", originalDb);
 		} catch (error:Dynamic) {
 			restoreEnv("OPENCODE_DB", originalDb);

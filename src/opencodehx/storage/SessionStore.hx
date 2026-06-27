@@ -21,6 +21,7 @@ interface SessionStore {
 	function migrateGlobalSessions(worktree:String, projectID:String):Int;
 	function createSession(info:SessionInfo):Void;
 	function getSession(id:SessionID):SessionInfo;
+	function listSessions(limit:Int):Array<SessionInfo>;
 	function updateSession(info:SessionInfo):Void;
 	function deleteSession(id:SessionID):Void;
 	function upsertMessage(info:Info):Void;

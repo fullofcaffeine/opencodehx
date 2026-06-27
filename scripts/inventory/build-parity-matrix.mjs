@@ -348,7 +348,7 @@ function portRecord(path) {
     storage: "StorageSmoke covers the initial SQLite session store",
     permission: "PermissionSmoke covers the first rule/runtime/tool integration slice",
     util: "UtilSmoke covers selected low-risk utilities",
-    cli: "CliSmoke and cli-smoke.mjs cover the headless run scaffold, non-interactive export <sessionID> JSON/sanitize behavior, and first run --session recovery validation",
+    cli: "CliSmoke and cli-smoke.mjs cover the headless run scaffold, non-interactive export <sessionID> JSON/sanitize behavior, first run --session recovery validation, and run --continue latest-root selection",
   }
   if (areaEvidence[area]) {
     return {
