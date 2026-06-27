@@ -9,6 +9,7 @@ import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPartType;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptRole;
+import opencodehx.externs.ai.AiSdk.AiModelMessages;
 import opencodehx.externs.ai.AiSdk.AiSdk;
 import opencodehx.externs.ai.AiSdk.AiTool;
 import opencodehx.permission.PermissionRules;
@@ -240,6 +241,10 @@ class SessionLlm {
 		for (message in messages)
 			out.push(message);
 		return out;
+	}
+
+	public static function requestModelMessages(system:Array<String>, userPrompt:String, isOpenaiOauth:Bool, isWorkflow:Bool):AiModelMessages {
+		return AiModelMessages.systemUser(isOpenaiOauth || isWorkflow ? [] : system, userPrompt);
 	}
 
 	public static function activeToolNames(tools:DynamicAccess<AiTool>):Array<String> {

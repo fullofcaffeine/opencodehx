@@ -105,7 +105,7 @@ typedef AiJsonSchemaObject = {
 
 typedef AiStreamTextOptions = {
 	final model:AiLanguageModel;
-	final prompt:String;
+	final prompt:EitherType<String, AiModelMessages>;
 	final tools:Undefinable<DynamicAccess<AiTool>>;
 	final maxRetries:Int;
 	final abortSignal:Undefinable<AbortSignal>;
@@ -404,6 +404,39 @@ typedef AiLanguageModelPromptMessage = {
 	final role:AiLanguageModelPromptRole;
 	final content:AiLanguageModelPromptMessageContent;
 	@:optional final providerOptions:AiProviderOptions;
+}
+
+typedef AiModelMessageShape = {
+	final role:String;
+	final content:String;
+}
+
+@:forward(role, content)
+@:ts.type("import('ai').ModelMessage")
+abstract AiModelMessage(AiModelMessageShape) from AiModelMessageShape to AiModelMessageShape {}
+
+/**
+ * Public AI SDK message input accepted by `streamText`.
+ *
+ * The provider call surface records the converted LanguageModelV3 prompt,
+ * while `streamText` accepts its own `ModelMessage[]` union at the boundary.
+ */
+@:ts.type("import('ai').ModelMessage[]")
+abstract AiModelMessages(Array<AiModelMessage>) from Array<AiModelMessage> to Array<AiModelMessage> {
+	public static function systemUser(system:Array<String>, user:String):AiModelMessages {
+		final out:Array<AiModelMessage> = [];
+		for (item in system) {
+			out.push({
+				role: "system",
+				content: item,
+			});
+		}
+		out.push({
+			role: "user",
+			content: user,
+		});
+		return out;
+	}
 }
 
 typedef AiLanguageModelPromptPart = {

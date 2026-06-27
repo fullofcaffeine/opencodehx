@@ -5,6 +5,7 @@ import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPart;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPartType;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptRole;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelTool;
@@ -816,6 +817,13 @@ class SessionProcessorSmoke {
 			});
 			eq(hasLanguageTool(runtime.mock.doStreamCalls[0].tools, "read"), true, "ai sdk session advertises read tool");
 			eq(hasLanguageTool(runtime.mock.doStreamCalls[1].tools, "read"), true, "ai sdk continuation advertises read tool");
+			assertSdkPrompt(runtime.mock.doStreamCalls[0].prompt, "Read the AI SDK fixture.", "ai sdk first call prompt");
+			assertSdkPromptContains(runtime.mock.doStreamCalls[1].prompt, [
+				"User request:\nRead the AI SDK fixture.",
+				"Tool read returned:",
+				"ai sdk tool fixture",
+				"Answer the user using the tool result."
+			], "ai sdk continuation prompt");
 			eq(runtime.mock.doStreamCalls.length, 2, "ai sdk continuation call count");
 			eq(toolResult.events[1].type, "tool-call", "ai sdk tool model event");
 			eq(toolResult.events[3].type, "tool-call-start", "ai sdk tool execute start");
@@ -1021,6 +1029,34 @@ class SessionProcessorSmoke {
 				return true;
 		}
 		return false;
+	}
+
+	static function assertSdkPrompt(prompt:Array<AiLanguageModelPromptMessage>, userText:String, label:String):Void {
+		eq(prompt.length, 2, label + " count");
+		eq(prompt[0].role, AiLanguageModelPromptRole.System, label + " system role");
+		eq(promptContentText(prompt[0]), "You are an AI SDK provider runtime.", label + " system text");
+		eq(prompt[1].role, AiLanguageModelPromptRole.User, label + " user role");
+		eq(promptContentText(prompt[1]), userText, label + " user text");
+	}
+
+	static function assertSdkPromptContains(prompt:Array<AiLanguageModelPromptMessage>, fragments:Array<String>, label:String):Void {
+		eq(prompt.length, 2, label + " count");
+		eq(prompt[0].role, AiLanguageModelPromptRole.System, label + " system role");
+		eq(prompt[1].role, AiLanguageModelPromptRole.User, label + " user role");
+		final text = promptContentText(prompt[1]);
+		for (fragment in fragments) {
+			if (text.indexOf(fragment) == -1)
+				throw label + ': missing ${fragment}';
+		}
+	}
+
+	static function promptContentText(message:AiLanguageModelPromptMessage):String {
+		if (Std.isOfType(message.content, String))
+			return cast message.content;
+		final parts:Array<AiLanguageModelPromptPart> = message.content;
+		if (parts.length == 1 && parts[0].type == AiLanguageModelPromptPartType.Text)
+			return parts[0].text;
+		throw "session processor: expected text prompt content";
 	}
 
 	static function assertCompactionPart(parts:Array<Part>, label:String):Void {

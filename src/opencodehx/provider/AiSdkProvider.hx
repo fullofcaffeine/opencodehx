@@ -4,12 +4,14 @@ import genes.js.Async.await;
 import genes.ts.Unknown;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
+import haxe.extern.EitherType;
 import js.lib.Promise;
 import js.lib.Error as JsError;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelUsage;
+import opencodehx.externs.ai.AiSdk.AiModelMessages;
 import opencodehx.externs.ai.AiSdk.AiProviderFinishReason;
 import opencodehx.externs.ai.AiSdk.AiProviderStreamPart;
 import opencodehx.externs.ai.AiSdk.AiProviderStreamResult;
@@ -37,6 +39,7 @@ typedef AiSdkStreamInput = {
 	final model:AiLanguageModel;
 	final prompt:String;
 	@:optional final tools:DynamicAccess<AiTool>;
+	@:optional final messages:AiModelMessages;
 	@:optional final abortImmediately:Bool;
 }
 
@@ -66,32 +69,16 @@ class AiSdkProvider {
 		final events:Array<AiSdkStreamEvent> = [];
 		final errors:Array<String> = [];
 		final controller = input.abortImmediately == true ? new AbortControllerWithReason() : null;
+		final prompt:EitherType<String, AiModelMessages> = input.messages == null ? input.prompt : input.messages;
 		final options:AiStreamTextOptions = {
 			model: input.model,
-			prompt: input.prompt,
+			prompt: prompt,
 			tools: toolsOrAbsent(input.tools),
 			maxRetries: 0,
 			abortSignal: controller == null ? Undefinable.absent() : controller.signal,
-			onChunk: event -> {
-				final chunk = event.chunk;
-				switch chunk.type {
-					case "text-delta":
-						if (chunk.text != null) events.push(TextDelta(chunk.text));
-					case "tool-call":
-						events.push(ToolCall(chunk.toolCallId, chunk.toolName, optionalUnknown(chunk.input)));
-					case "tool-result":
-						events.push(ToolResult(chunk.toolCallId, chunk.toolName, optionalUnknown(chunk.output)));
-					case _:
-				}
-			},
-			onError: event -> {
-				final message = messageFromUnknown(event.error);
-				errors.push(message);
-				events.push(StreamError(message));
-			},
-			onAbort: _ -> {
-				events.push(StreamAbort(ABORT_REASON));
-			},
+			onChunk: streamChunkHandler(events),
+			onError: streamErrorHandler(events, errors),
+			onAbort: streamAbortHandler(events),
 		};
 
 		final result = AiSdk.streamText(options);
@@ -169,6 +156,35 @@ class AiSdkProvider {
 
 	static function toolsOrAbsent(tools:Null<DynamicAccess<AiTool>>):Undefinable<DynamicAccess<AiTool>> {
 		return tools == null ? Undefinable.absent() : tools;
+	}
+
+	static function streamChunkHandler(events:Array<AiSdkStreamEvent>):opencodehx.externs.ai.AiSdk.AiStreamChunkEvent->Void {
+		return event -> {
+			final chunk = event.chunk;
+			switch chunk.type {
+				case "text-delta":
+					if (chunk.text != null) events.push(TextDelta(chunk.text));
+				case "tool-call":
+					events.push(ToolCall(chunk.toolCallId, chunk.toolName, optionalUnknown(chunk.input)));
+				case "tool-result":
+					events.push(ToolResult(chunk.toolCallId, chunk.toolName, optionalUnknown(chunk.output)));
+				case _:
+			}
+		};
+	}
+
+	static function streamErrorHandler(events:Array<AiSdkStreamEvent>, errors:Array<String>):opencodehx.externs.ai.AiSdk.AiStreamErrorEvent->Void {
+		return event -> {
+			final message = messageFromUnknown(event.error);
+			errors.push(message);
+			events.push(StreamError(message));
+		};
+	}
+
+	static function streamAbortHandler(events:Array<AiSdkStreamEvent>):opencodehx.externs.ai.AiSdk.AiStreamAbortEvent->Void {
+		return _ -> {
+			events.push(StreamAbort(ABORT_REASON));
+		};
 	}
 
 	static function optionalUnknown(value:Null<Unknown>):Unknown {

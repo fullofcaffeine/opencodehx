@@ -248,9 +248,11 @@ class SessionProcessor {
 			events.push({type: "abort", message: "User aborted the request"});
 		} else {
 			events.push({type: "start"});
+			final requestMessages = SessionLlm.requestModelMessages(provider.system, prompt, false, false);
 			final stream = @:await AiSdkProvider.stream({
 				model: input.language,
 				prompt: prompt,
+				messages: requestMessages,
 				tools: AiSdkProvider.toolsFromRegistry(registry),
 			});
 			tokens = tokenUsageFromAiSdk(stream.totalUsage);
@@ -281,9 +283,12 @@ class SessionProcessor {
 			if (!currentOutcome.success || currentOutcome.result == null)
 				break;
 			continuations++;
+			final continuationText = continuationPrompt(prompt, currentOutcome);
+			final continuationMessages = SessionLlm.requestModelMessages(provider.system, continuationText, false, false);
 			final continuation = @:await AiSdkProvider.stream({
 				model: input.language,
-				prompt: continuationPrompt(prompt, currentOutcome),
+				prompt: continuationText,
+				messages: continuationMessages,
 				tools: AiSdkProvider.toolsFromRegistry(registry),
 			});
 			final continuationEvents = encodeAiSdkEvents(continuation.events);
