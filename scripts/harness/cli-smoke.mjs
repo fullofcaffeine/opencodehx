@@ -677,6 +677,52 @@ try {
 			assert.equal(editExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "edit"), true);
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "apply_patch",
+			callId: "call_apply_patch_1",
+			arguments: {
+				patchText: [
+					"*** Begin Patch",
+					"*** Update File: live-patch.txt",
+					"@@",
+					"-old patch line",
+					"+patched line",
+					"*** End Patch",
+				].join("\n"),
+			},
+			finalText: "Apply patch tool completed.",
+			usage: { prompt_tokens: 17, completion_tokens: 4, total_tokens: 21 },
+		},
+		async (localUrl, observed) => {
+			writeFileSync(path.join(project, "opencode.json"), configFor("local-patch", `${localUrl}/v1`));
+			writeFileSync(path.join(project, "live-patch.txt"), "alpha\nold patch line\nomega\n");
+			const patchEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "patch-live-data") };
+			const patchRun = await runAsync(["run", "--format", "json", "--dir", project, "Patch", "the", "tool", "fixture."], {
+				env: patchEnv,
+			});
+			assert.equal(patchRun.status, 0);
+			const patchJson = JSON.parse(patchRun.stdout);
+			assert.equal(patchJson.provider.id, "local-patch");
+			assert.equal(patchJson.messages[1].parts.find((part) => part.type === "text").text, "Apply patch tool completed.");
+			assert.equal(patchJson.events.some((event) => event.type === "tool-call" && event.tool === "apply_patch"), true);
+			assert.equal(patchJson.events.some((event) => event.type === "tool-call-start" && event.tool === "apply_patch"), true);
+			assert.equal(
+				patchJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "apply_patch" && event.status === "completed"),
+				true,
+			);
+			assert.equal(patchJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "apply_patch"), true);
+			assert.equal(readFileSync(path.join(project, "live-patch.txt"), "utf8"), "alpha\npatched line\nomega\n");
+			assert.equal(observed.auth, "Bearer test-key");
+			assert.equal(observed.paths.length, 2);
+			assert.equal(observed.bodies[0].stream, true);
+			assert.equal(observed.bodies[1].stream, true);
+			const patchExport = run(["export", patchJson.request.sessionID], { env: patchEnv });
+			assert.equal(patchExport.status, 0);
+			const patchExportJson = JSON.parse(patchExport.stdout);
+			assert.equal(patchExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "apply_patch"), true);
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		writeFileSync(path.join(project, "opencode.json"), configFor("local-fail", `${localUrl}/v1`));
 		const liveFailureEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "live-sdk-failure.sqlite") };

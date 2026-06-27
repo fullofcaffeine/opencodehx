@@ -713,6 +713,82 @@ try {
 			assert.equal(liveEditExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "edit"), true, "installed live edit export part");
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "apply_patch",
+			callId: "call_apply_patch_1",
+			arguments: {
+				patchText: [
+					"*** Begin Patch",
+					"*** Update File: installed-patch.txt",
+					"@@",
+					"-old installed patch line",
+					"+patched installed line",
+					"*** End Patch",
+				].join("\n"),
+			},
+			finalText: "Installed apply patch tool completed.",
+			usage: { prompt_tokens: 17, completion_tokens: 5, total_tokens: 22 },
+		},
+		async (localUrl, observed) => {
+			const livePatchConfigRoot = path.join(tempRoot, "installed-live-patch-config");
+			const livePatchDataRoot = path.join(tempRoot, "installed-live-patch-data");
+			mkdirSync(path.join(livePatchConfigRoot, "opencode"), { recursive: true });
+			mkdirSync(path.join(livePatchDataRoot, "opencode"), { recursive: true });
+			writeFileSync(
+				path.join(livePatchConfigRoot, "opencode", "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "installed-patch/chat",
+					provider: {
+						"installed-patch": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "Installed Patch",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "installed-patch-key" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				}),
+			);
+			writeFileSync(path.join(projectDir, "installed-patch.txt"), "alpha\nold installed patch line\nomega\n");
+			const livePatchEnv = {
+				...process.env,
+				XDG_CONFIG_HOME: livePatchConfigRoot,
+				XDG_DATA_HOME: livePatchDataRoot,
+			};
+			const livePatch = await expectOkAsync(
+				runAsync(bin, ["run", "--format", "json", "--dir", projectDir, "Patch", "installed", "tool", "fixture."], { env: livePatchEnv }),
+				"installed live AI SDK apply_patch tool run",
+			);
+			const livePatchJson = JSON.parse(livePatch.stdout);
+			assert.equal(livePatchJson.provider.id, "installed-patch", "installed live apply_patch provider");
+			assert.equal(
+				livePatchJson.messages[1].parts.find((part) => part.type === "text").text,
+				"Installed apply patch tool completed.",
+				"installed live apply_patch final text",
+			);
+			assert.equal(livePatchJson.events.some((event) => event.type === "tool-call" && event.tool === "apply_patch"), true, "installed live apply_patch tool-call event");
+			assert.equal(livePatchJson.events.some((event) => event.type === "tool-call-start" && event.tool === "apply_patch"), true, "installed live apply_patch start event");
+			assert.equal(
+				livePatchJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "apply_patch" && event.status === "completed"),
+				true,
+				"installed live apply_patch finish event",
+			);
+			assert.equal(livePatchJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "apply_patch"), true, "installed live apply_patch tool part");
+			assert.equal(readFileSync(path.join(projectDir, "installed-patch.txt"), "utf8"), "alpha\npatched installed line\nomega\n", "installed live apply_patch file content");
+			assert.equal(observed.auth, "Bearer installed-patch-key", "installed live apply_patch auth header");
+			assert.equal(observed.paths.length, 2, "installed live apply_patch continuation request");
+			assert.equal(observed.bodies[0].stream, true, "installed live apply_patch first stream flag");
+			assert.equal(observed.bodies[1].stream, true, "installed live apply_patch continuation stream flag");
+			const livePatchExport = expectOk(run(bin, ["export", livePatchJson.request.sessionID], { env: livePatchEnv }), "installed live AI SDK apply_patch export");
+			const livePatchExportJson = JSON.parse(livePatchExport.stdout);
+			assert.equal(
+				livePatchExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "apply_patch"),
+				true,
+				"installed live apply_patch export part",
+			);
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");
 		const liveFailureDataRoot = path.join(tempRoot, "installed-live-failure-data");
