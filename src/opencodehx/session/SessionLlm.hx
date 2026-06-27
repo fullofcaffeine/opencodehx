@@ -20,6 +20,7 @@ import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.ProviderTransform;
 import opencodehx.util.ErrorTools;
 import opencodehx.util.Wildcard;
+import js.lib.Error as JsError;
 
 typedef LlmRequestHeaderInput = {
 	final model:ProviderModel;
@@ -363,6 +364,15 @@ class SessionLlm {
 				sessionId: input.sessionID,
 			},
 		};
+	}
+
+	public static function streamFailureError(error:Unknown):JsError {
+		if (Std.isOfType(error, JsError))
+			// Haxe cannot carry the Std.isOfType proof into the return type, but
+			// the generated JavaScript is the upstream `error instanceof Error`
+			// branch and immediately returns the narrowed native Error.
+			return cast error;
+		return new JsError(Std.string(error));
 	}
 
 	public static function requiresNoopTool(model:ProviderModel):Bool {

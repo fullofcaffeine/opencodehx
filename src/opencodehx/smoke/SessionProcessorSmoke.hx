@@ -46,6 +46,7 @@ class SessionProcessorSmoke {
 		llmWorkflowToolExecutor();
 		llmTransformStreamPrompt();
 		llmTelemetryOptions();
+		llmStreamFailureError();
 		llmCompatibilityTools();
 		llmRequestHeaders();
 		llmSystemMessages();
@@ -421,6 +422,19 @@ class SessionProcessorSmoke {
 		eq(enabled.isEnabled.orNull(), true, "llm telemetry enabled");
 		eq(enabled.metadata.userId, "fixture-user", "llm telemetry username");
 		eq(enabled.tracer.orNull() == null, false, "llm telemetry tracer passthrough");
+	}
+
+	static function llmStreamFailureError():Void {
+		final native = new js.lib.Error("native failure");
+		final same = SessionLlm.streamFailureError(Unknown.fromBoundary(native));
+		eq(same == native, true, "llm stream failure keeps native error");
+		eq(same.message, "native failure", "llm stream failure native message");
+
+		final text = SessionLlm.streamFailureError(Unknown.fromBoundary("string failure"));
+		eq(text.message, "string failure", "llm stream failure string message");
+
+		final number = SessionLlm.streamFailureError(Unknown.fromBoundary(42));
+		eq(number.message, "42", "llm stream failure number message");
 	}
 
 	static function llmCompatibilityTools():Void {
