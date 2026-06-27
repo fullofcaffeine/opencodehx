@@ -72,6 +72,27 @@ typedef LlmRequestParams = {
 	final options:ProviderOptions;
 }
 
+typedef LlmStreamTextOptionsInput = {
+	final model:ProviderModel;
+	final params:LlmRequestParams;
+	final tools:DynamicAccess<AiTool>;
+	final headers:ProviderHeaders;
+	@:optional final retries:Int;
+	@:optional final toolChoice:String;
+}
+
+typedef LlmStreamTextOptions = {
+	final temperature:Undefinable<Float>;
+	final topP:Undefinable<Float>;
+	final topK:Undefinable<Float>;
+	final providerOptions:ProviderOptions;
+	final activeTools:Array<String>;
+	@:optional var toolChoice:String;
+	final maxOutputTokens:Float;
+	final headers:ProviderHeaders;
+	final maxRetries:Int;
+}
+
 typedef LlmWorkflowApprovalTool = {
 	final name:String;
 	final args:String;
@@ -352,6 +373,22 @@ class SessionLlm {
 	public static function transformStreamPrompt(type:String, prompt:Array<ProviderMessage>, model:ProviderModel,
 			options:ProviderOptions):Array<ProviderMessage> {
 		return type == "stream" ? ProviderTransform.message(prompt, model, options) : prompt;
+	}
+
+	public static function streamTextOptions(input:LlmStreamTextOptionsInput):LlmStreamTextOptions {
+		final out:LlmStreamTextOptions = {
+			temperature: input.params.temperature,
+			topP: input.params.topP,
+			topK: input.params.topK,
+			providerOptions: ProviderTransform.providerOptions(input.model, input.params.options),
+			activeTools: activeToolNames(input.tools),
+			maxOutputTokens: input.params.maxOutputTokens,
+			headers: input.headers,
+			maxRetries: input.retries == null ? 0 : input.retries,
+		};
+		if (input.toolChoice != null)
+			out.toolChoice = input.toolChoice;
+		return out;
 	}
 
 	public static function telemetryOptions(input:LlmTelemetryInput):LlmTelemetryOptions {

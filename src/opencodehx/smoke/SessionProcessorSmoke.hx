@@ -42,6 +42,7 @@ class SessionProcessorSmoke {
 		llmRepairToolCall();
 		llmRequestOptions();
 		llmRequestParams();
+		llmStreamTextOptions();
 		llmWorkflowApproval();
 		llmWorkflowToolExecutor();
 		llmTransformStreamPrompt();
@@ -335,6 +336,42 @@ class SessionProcessorSmoke {
 		eq(disabledParams.temperature.orNull(), null, "llm params temperature capability disabled");
 		eq(disabledParams.topP.orNull(), 0.95, "llm params topP still applies");
 		eq(disabledParams.topK.orNull(), 64.0, "llm params topK fallback");
+	}
+
+	static function llmStreamTextOptions():Void {
+		final tools = new DynamicAccess<AiTool>();
+		tools.set("read", AiSdkProvider.readTool());
+		tools.set(SessionLlm.INVALID_TOOL_ID, AiSdkProvider.readTool());
+		final headers = new DynamicAccess<String>();
+		headers.set("x-session-affinity", "ses_stream_options");
+		final model = modelWithOptionsVariants("vercel", "claude-sonnet-4", "@ai-sdk/gateway", optionMap(), new DynamicAccess<ProviderOptions>());
+		final params = SessionLlm.requestParams({
+			model: model,
+			options: record1("reasoningEffort", "high"),
+		});
+		final options = SessionLlm.streamTextOptions({
+			model: model,
+			params: params,
+			tools: tools,
+			headers: headers,
+			retries: 2,
+			toolChoice: "required",
+		});
+		eq(options.temperature.orNull(), params.temperature.orNull(), "llm stream options temperature");
+		eq(options.providerOptions.exists("gateway"), true, "llm stream options provider routing");
+		eq(options.activeTools.join(","), "read", "llm stream options active tools");
+		eq(options.toolChoice, "required", "llm stream options tool choice");
+		eq(options.maxRetries, 2, "llm stream options explicit retries");
+		eq(options.headers.get("x-session-affinity"), "ses_stream_options", "llm stream options headers");
+
+		final defaults = SessionLlm.streamTextOptions({
+			model: model,
+			params: params,
+			tools: tools,
+			headers: headers,
+		});
+		eq(defaults.maxRetries, 0, "llm stream options retry default");
+		eq(Reflect.field(defaults, "toolChoice"), null, "llm stream options absent tool choice");
 	}
 
 	static function llmWorkflowApproval():Void {
