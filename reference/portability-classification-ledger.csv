@@ -156,7 +156,7 @@ path,primary_class,secondary_classes,retarget_blockers,notes
 "src/opencodehx/session/SessionExport.hx","portable","unknown-boundary","runtime unknown boundary","Haxe domain/model code; retarget after replacing any listed secondary seams."
 "src/opencodehx/session/SessionID.hx","portable","none","none","Haxe domain/model code; retarget after replacing any listed secondary seams."
 "src/opencodehx/session/SessionInfo.hx","portable","unknown-boundary","runtime unknown boundary","Haxe domain/model code; retarget after replacing any listed secondary seams."
-"src/opencodehx/session/SessionLlm.hx","npm-extern","ai-sdk;js-runtime","Promise/async lowering;npm package adapter","Haxe domain/model code; retarget after replacing any listed secondary seams."
+"src/opencodehx/session/SessionLlm.hx","npm-extern","ai-sdk;js-runtime;unknown-boundary","Promise/async lowering;npm package adapter;runtime unknown boundary","Haxe domain/model code; retarget after replacing any listed secondary seams."
 "src/opencodehx/session/SessionProcessor.hx","npm-extern","ai-sdk;generated-ts-only;js-runtime;unknown-boundary","Promise/async lowering;npm package adapter;genes-ts-only type surface;runtime unknown boundary","Haxe domain/model code; retarget after replacing any listed secondary seams."
 "src/opencodehx/session/SessionRetry.hx","portable","raw-js-boundary;unknown-boundary","raw JS expression;runtime unknown boundary","Haxe domain/model code; retarget after replacing any listed secondary seams."
 "src/opencodehx/skill/SkillRegistry.hx","node-host","js-runtime;node-api","Promise/async lowering;Node API adapter","Haxe domain/model code; retarget after replacing any listed secondary seams."

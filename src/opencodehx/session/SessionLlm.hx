@@ -12,6 +12,8 @@ import opencodehx.permission.PermissionRules;
 import opencodehx.permission.PermissionTypes.PermissionRule;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
+import opencodehx.provider.ProviderTransform;
 import opencodehx.util.Wildcard;
 
 typedef LlmRequestHeaderInput = {
@@ -36,6 +38,17 @@ typedef LlmToolCallRepairInput = {
 	@:optional var toolCallId:String;
 	final toolName:String;
 	@:optional var input:String;
+}
+
+typedef LlmRequestOptionsInput = {
+	final model:ProviderModel;
+	final sessionID:String;
+	final small:Bool;
+	final isOpenaiOauth:Bool;
+	final system:Array<String>;
+	@:optional final providerOptions:ProviderOptions;
+	@:optional final agentOptions:ProviderOptions;
+	@:optional final variant:String;
 }
 
 /**
@@ -175,6 +188,24 @@ class SessionLlm {
 		}));
 	}
 
+	public static function requestOptions(input:LlmRequestOptionsInput):ProviderOptions {
+		final base = input.small ? ProviderTransform.smallOptions(input.model) : ProviderTransform.options({
+			model: input.model,
+			sessionID: input.sessionID,
+			providerOptions: input.providerOptions,
+		});
+		final out = cloneOptions(base);
+		mergeOptionsInto(out, input.model.options);
+		mergeOptionsInto(out, input.agentOptions);
+		if (!input.small && input.variant != null) {
+			final variant = input.model.variants.get(input.variant);
+			mergeOptionsInto(out, variant);
+		}
+		if (input.isOpenaiOauth)
+			out.set("instructions", input.system.join("\n"));
+		return out;
+	}
+
 	public static function requiresNoopTool(model:ProviderModel):Bool {
 		final providerID = model.providerID.toString().toLowerCase();
 		final apiID = model.api.id.toLowerCase();
@@ -209,6 +240,59 @@ class SessionLlm {
 		if (input != null)
 			out.input = input;
 		return out;
+	}
+
+	static function cloneOptions(options:Null<ProviderOptions>):ProviderOptions {
+		final out = optionMap();
+		mergeOptionsInto(out, options);
+		return out;
+	}
+
+	static function mergeOptionsInto(target:ProviderOptions, source:Null<ProviderOptions>):Void {
+		if (source == null)
+			return;
+		for (key in source.keys()) {
+			// ProviderOptions is an SDK-owned passthrough record. These Dynamic
+			// reads are contained to guarded deep-merge semantics for request
+			// assembly and do not escape as app-facing domain data.
+			final incoming:Dynamic = source.get(key);
+			final current:Dynamic = target.get(key);
+			if (isOptionRecord(current) && isOptionRecord(incoming)) {
+				target.set(key, mergeOptionRecords(current, incoming));
+			} else {
+				target.set(key, incoming);
+			}
+		}
+	}
+
+	static function mergeOptionRecords(current:Dynamic, incoming:Dynamic):ProviderOptions {
+		final out = optionMap();
+		// ProviderOptions is the documented provider-SDK passthrough boundary.
+		// Reflection is guarded to plain option records and the merged record is
+		// immediately returned as provider options, not app-facing domain data.
+		for (field in Reflect.fields(current))
+			out.set(field, Reflect.field(current, field));
+		for (field in Reflect.fields(incoming)) {
+			final next:Dynamic = Reflect.field(incoming, field);
+			final previous:Dynamic = out.get(field);
+			if (isOptionRecord(previous) && isOptionRecord(next))
+				out.set(field, mergeOptionRecords(previous, next));
+			else
+				out.set(field, next);
+		}
+		return out;
+	}
+
+	static function isOptionRecord(value:Dynamic):Bool {
+		if (value == null)
+			return false;
+		if (Std.isOfType(value, Array) || Std.isOfType(value, String) || Std.isOfType(value, Bool) || Std.isOfType(value, Float) || Std.isOfType(value, Int))
+			return false;
+		return Reflect.isObject(value);
+	}
+
+	static function optionMap():ProviderOptions {
+		return new DynamicAccess<Dynamic>();
 	}
 
 	static function copyHeaders(source:ProviderHeaders, target:ProviderHeaders):Void {

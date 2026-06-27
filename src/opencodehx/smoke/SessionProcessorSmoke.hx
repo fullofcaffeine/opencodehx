@@ -20,6 +20,7 @@ import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderModel;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.session.MessageTypes.Info;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TokenUsage;
@@ -36,6 +37,7 @@ class SessionProcessorSmoke {
 		llmHasToolCalls();
 		llmResolveTools();
 		llmRepairToolCall();
+		llmRequestOptions();
 		llmCompatibilityTools();
 		llmRequestHeaders();
 		llmSystemMessages();
@@ -236,6 +238,61 @@ class SessionProcessorSmoke {
 		}, tools, "Already lower-case failure");
 		eq(lowerKnown.toolName, SessionLlm.INVALID_TOOL_ID, "llm repair lower-case failed call stays invalid");
 		eq(lowerKnown.input, '{"tool":"read","error":"Already lower-case failure"}', "llm repair lower-case invalid input");
+	}
+
+	static function llmRequestOptions():Void {
+		final modelOptions = optionMap();
+		modelOptions.set("store", true);
+		modelOptions.set("nested", record2("fromBase", "model", "keepModel", true));
+		final variants = new DynamicAccess<ProviderOptions>();
+		variants.set("high", record2("reasoningEffort", "high", "nested", record2("fromVariant", true, "keepModel", false)));
+		final model = modelWithOptionsVariants("openai", "gpt-5.2", "@ai-sdk/openai", modelOptions, variants);
+		final agentOptions = record2("textVerbosity", "high", "nested", record2("fromAgent", "yes", "fromBase", "agent"));
+		final options = SessionLlm.requestOptions({
+			model: model,
+			sessionID: "ses_options",
+			small: false,
+			isOpenaiOauth: true,
+			system: ["system header", "plugin tail"],
+			providerOptions: record1("setCacheKey", true),
+			agentOptions: agentOptions,
+			variant: "high",
+		});
+		eq(options.get("promptCacheKey"), "ses_options", "llm options provider base");
+		eq(options.get("store"), true, "llm options model overrides base");
+		eq(options.get("reasoningEffort"), "high", "llm options variant overrides generated");
+		eq(options.get("textVerbosity"), "high", "llm options agent applied");
+		eq(options.get("instructions"), "system header\nplugin tail", "llm options oauth instructions");
+		final nested:Dynamic = options.get("nested");
+		eq(Reflect.field(nested, "fromBase"), "agent", "llm options nested agent overrides model");
+		eq(Reflect.field(nested, "fromAgent"), "yes", "llm options nested agent key");
+		eq(Reflect.field(nested, "fromVariant"), true, "llm options nested variant key");
+		eq(Reflect.field(nested, "keepModel"), false, "llm options nested variant overrides model");
+
+		final small = SessionLlm.requestOptions({
+			model: model,
+			sessionID: "ses_small",
+			small: true,
+			isOpenaiOauth: false,
+			system: ["ignored"],
+			agentOptions: record1("agentSmall", true),
+			variant: "high",
+		});
+		eq(small.get("reasoningEffort"), "low", "llm options small base effort");
+		eq(small.get("agentSmall"), true, "llm options small agent option");
+		eq(small.get("instructions"), null, "llm options non-oauth omits instructions");
+		final smallNested:Dynamic = small.get("nested");
+		eq(Reflect.field(smallNested, "fromVariant"), null, "llm options small skips variant");
+
+		final missingVariant = SessionLlm.requestOptions({
+			model: model,
+			sessionID: "ses_missing_variant",
+			small: false,
+			isOpenaiOauth: false,
+			system: [],
+			variant: "missing",
+		});
+		eq(missingVariant.get("reasoningEffort"), "medium", "llm options missing variant keeps base");
 	}
 
 	static function llmCompatibilityTools():Void {
@@ -451,6 +508,46 @@ class SessionProcessorSmoke {
 			release_date: source.release_date,
 			variants: source.variants,
 		};
+	}
+
+	static function modelWithOptionsVariants(providerID:String, apiID:String, npm:String, options:ProviderOptions,
+			variants:DynamicAccess<ProviderOptions>):ProviderModel {
+		final source = new FakeProvider().model;
+		return {
+			id: source.id,
+			providerID: ProviderID.make(providerID),
+			name: source.name,
+			capabilities: source.capabilities,
+			api: {
+				id: apiID,
+				url: source.api.url,
+				npm: npm,
+			},
+			cost: source.cost,
+			limit: source.limit,
+			status: source.status,
+			options: options,
+			headers: source.headers,
+			release_date: source.release_date,
+			variants: variants,
+		};
+	}
+
+	static function optionMap():ProviderOptions {
+		return new DynamicAccess<Dynamic>();
+	}
+
+	static function record1<T>(key:String, value:T):ProviderOptions {
+		final out = optionMap();
+		out.set(key, value);
+		return out;
+	}
+
+	static function record2<A, B>(keyA:String, valueA:A, keyB:String, valueB:B):ProviderOptions {
+		final out = optionMap();
+		out.set(keyA, valueA);
+		out.set(keyB, valueB);
+		return out;
 	}
 
 	@:async
