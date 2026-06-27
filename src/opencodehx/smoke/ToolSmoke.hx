@@ -210,6 +210,13 @@ class ToolSmoke {
 			}
 		}, "invalid args");
 
+		expectToolFailure(() -> registry.execute(ToolIDs.known("grep"), "not an object", ctx), function(failure) {
+			return switch failure {
+				case InvalidArguments(id, issues): id == "grep" && issues.join("\n").indexOf("arguments: expected object") != -1;
+				case _: false;
+			}
+		}, "non-object args");
+
 		final invalid = registry.execute(ToolIDs.known("invalid"), {tool: ToolIDs.known("grep"), error: "bad pattern"}, ctx);
 		eq(invalid.title, "Invalid Tool", "invalid title");
 		eq(invalid.output.indexOf("bad pattern") != -1, true, "invalid output");

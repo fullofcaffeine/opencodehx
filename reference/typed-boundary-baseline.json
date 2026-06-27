@@ -1,0 +1,727 @@
+{
+  "generatedBy": "scripts/ci/typed-boundary-scan.mjs --update-baseline",
+  "note": "Budgets are maximum accepted weak-type marker counts. Reductions pass; increases require narrowing or a deliberate baseline update with documentation.",
+  "patterns": [
+    "Dynamic",
+    "DynamicAccess",
+    "cast",
+    "untyped",
+    "Syntax.code",
+    "@:ts.type",
+    "Reflect.field",
+    "Reflect.hasField",
+    "Reflect.setField",
+    "Any"
+  ],
+  "sourceRoots": [
+    "src/opencodehx"
+  ],
+  "totals": {
+    "Dynamic": 778,
+    "DynamicAccess": 560,
+    "cast": 253,
+    "untyped": 6,
+    "Syntax.code": 27,
+    "@:ts.type": 77,
+    "Reflect.field": 528,
+    "Reflect.hasField": 47,
+    "Reflect.setField": 72,
+    "Any": 0
+  },
+  "files": {
+    "src/opencodehx/account/AccountStore.hx": {
+      "Dynamic": 7,
+      "DynamicAccess": 6,
+      "cast": 6,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/auth/AuthStore.hx": {
+      "Dynamic": 9,
+      "DynamicAccess": 6,
+      "cast": 11,
+      "Reflect.field": 3
+    },
+    "src/opencodehx/bus/BusRuntime.hx": {
+      "Dynamic": 2,
+      "cast": 2
+    },
+    "src/opencodehx/cli/Cli.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/cli/ErrorFormatter.hx": {
+      "cast": 2
+    },
+    "src/opencodehx/config/ConfigAgent.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 19,
+      "cast": 12,
+      "Reflect.field": 4
+    },
+    "src/opencodehx/config/ConfigCommand.hx": {
+      "DynamicAccess": 4,
+      "cast": 2
+    },
+    "src/opencodehx/config/ConfigDependencyRuntime.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/config/ConfigInfo.hx": {
+      "Dynamic": 12,
+      "DynamicAccess": 10,
+      "cast": 6,
+      "Reflect.field": 5,
+      "Reflect.setField": 2
+    },
+    "src/opencodehx/config/ConfigLoader.hx": {
+      "Dynamic": 33,
+      "DynamicAccess": 6,
+      "cast": 9,
+      "@:ts.type": 1,
+      "Reflect.field": 22,
+      "Reflect.hasField": 17,
+      "Reflect.setField": 1
+    },
+    "src/opencodehx/config/ConfigLsp.hx": {
+      "Dynamic": 4,
+      "cast": 1,
+      "Reflect.field": 4,
+      "Reflect.hasField": 1
+    },
+    "src/opencodehx/config/ConfigManaged.hx": {
+      "Dynamic": 1,
+      "untyped": 1,
+      "Reflect.hasField": 1
+    },
+    "src/opencodehx/config/ConfigMarkdown.hx": {
+      "DynamicAccess": 6
+    },
+    "src/opencodehx/config/ConfigPlugin.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 2
+    },
+    "src/opencodehx/config/ConfigVariable.hx": {
+      "Dynamic": 2,
+      "Reflect.field": 1,
+      "Reflect.hasField": 1
+    },
+    "src/opencodehx/config/ConfigWriter.hx": {
+      "Dynamic": 3,
+      "DynamicAccess": 2,
+      "cast": 5,
+      "Reflect.field": 6
+    },
+    "src/opencodehx/config/Jsonc.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/controlplane/WorkspaceAdaptors.hx": {
+      "DynamicAccess": 4
+    },
+    "src/opencodehx/effect/ObservabilityResource.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 6
+    },
+    "src/opencodehx/externs/ai/AiGatewayProvider.hx": {
+      "Dynamic": 3,
+      "cast": 2,
+      "@:ts.type": 3
+    },
+    "src/opencodehx/externs/ai/AiSdk.hx": {
+      "Dynamic": 6,
+      "DynamicAccess": 26,
+      "@:ts.type": 55
+    },
+    "src/opencodehx/externs/aws/AwsCredentialProviders.hx": {
+      "@:ts.type": 1
+    },
+    "src/opencodehx/externs/better_sqlite3/Database.hx": {
+      "Dynamic": 10,
+      "@:ts.type": 3
+    },
+    "src/opencodehx/externs/effect/EffectApi.hx": {
+      "Dynamic": 3
+    },
+    "src/opencodehx/externs/hono/Hono.hx": {
+      "Dynamic": 4,
+      "@:ts.type": 1
+    },
+    "src/opencodehx/externs/hono/NodeServer.hx": {
+      "Syntax.code": 1,
+      "@:ts.type": 1
+    },
+    "src/opencodehx/externs/js/EsmModule.hx": {
+      "Syntax.code": 1
+    },
+    "src/opencodehx/externs/jsonc/JsoncParser.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/externs/node/Buffer.hx": {
+      "Syntax.code": 1,
+      "@:ts.type": 1
+    },
+    "src/opencodehx/externs/node/ChildProcess.hx": {
+      "Dynamic": 2,
+      "DynamicAccess": 3,
+      "@:ts.type": 5
+    },
+    "src/opencodehx/externs/node/Console.hx": {
+      "Dynamic": 1,
+      "Syntax.code": 1
+    },
+    "src/opencodehx/externs/node/Fs.hx": {
+      "Dynamic": 7
+    },
+    "src/opencodehx/externs/node/NodePty.hx": {
+      "DynamicAccess": 1
+    },
+    "src/opencodehx/externs/node/Process.hx": {
+      "DynamicAccess": 2
+    },
+    "src/opencodehx/externs/toml/TomlObject.hx": {
+      "DynamicAccess": 4
+    },
+    "src/opencodehx/externs/treesitter/WebTreeSitter.hx": {
+      "@:ts.type": 2
+    },
+    "src/opencodehx/externs/web/AbortControllerWithReason.hx": {
+      "Syntax.code": 1
+    },
+    "src/opencodehx/externs/web/Fetch.hx": {
+      "DynamicAccess": 3
+    },
+    "src/opencodehx/externs/web/GlobalFetch.hx": {
+      "DynamicAccess": 2,
+      "@:ts.type": 1
+    },
+    "src/opencodehx/externs/web/WebStreams.hx": {
+      "Dynamic": 2,
+      "DynamicAccess": 4,
+      "cast": 10,
+      "Syntax.code": 2,
+      "@:ts.type": 2
+    },
+    "src/opencodehx/file/AppFileSystem.hx": {
+      "Dynamic": 11,
+      "cast": 3,
+      "untyped": 1,
+      "Reflect.field": 3
+    },
+    "src/opencodehx/file/FileIgnore.hx": {
+      "Dynamic": 1,
+      "cast": 1,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/file/FileSearchRuntime.hx": {
+      "Reflect.field": 2
+    },
+    "src/opencodehx/file/FileSystem.hx": {
+      "Dynamic": 1,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/file/FileWatcherRuntime.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/file/Ripgrep.hx": {
+      "Dynamic": 4,
+      "cast": 2,
+      "Reflect.field": 12
+    },
+    "src/opencodehx/format/FormatRuntime.hx": {
+      "Dynamic": 8,
+      "DynamicAccess": 14,
+      "cast": 1,
+      "Reflect.field": 10
+    },
+    "src/opencodehx/fx/Task.hx": {
+      "Dynamic": 3
+    },
+    "src/opencodehx/harness/TranscriptHarness.hx": {
+      "Dynamic": 2,
+      "cast": 1
+    },
+    "src/opencodehx/host/Clock.hx": {
+      "Syntax.code": 1
+    },
+    "src/opencodehx/host/node/BetterSqlite.hx": {
+      "Dynamic": 8
+    },
+    "src/opencodehx/host/node/GlobalPaths.hx": {
+      "DynamicAccess": 4
+    },
+    "src/opencodehx/host/node/NodeProcess.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 4,
+      "cast": 2,
+      "Syntax.code": 1
+    },
+    "src/opencodehx/installation/InstallationRuntime.hx": {
+      "DynamicAccess": 11
+    },
+    "src/opencodehx/interop/JsIdentityKey.hx": {
+      "Syntax.code": 2
+    },
+    "src/opencodehx/lsp/LspClient.hx": {
+      "DynamicAccess": 2
+    },
+    "src/opencodehx/lsp/LspRuntime.hx": {
+      "DynamicAccess": 3
+    },
+    "src/opencodehx/mcp/McpRuntime.hx": {
+      "Dynamic": 2,
+      "DynamicAccess": 12,
+      "cast": 1,
+      "Reflect.setField": 2
+    },
+    "src/opencodehx/npm/Npm.hx": {
+      "Dynamic": 10
+    },
+    "src/opencodehx/patch/PatchRuntime.hx": {
+      "Dynamic": 7,
+      "untyped": 1
+    },
+    "src/opencodehx/permission/PermissionRules.hx": {
+      "Dynamic": 2,
+      "DynamicAccess": 2,
+      "cast": 1,
+      "Reflect.field": 1
+    },
+    "src/opencodehx/permission/PermissionRuntime.hx": {
+      "Dynamic": 1,
+      "cast": 1,
+      "Reflect.setField": 1
+    },
+    "src/opencodehx/plugin/PluginCodex.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/plugin/PluginConfigHooks.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/plugin/PluginMeta.hx": {
+      "Dynamic": 12,
+      "DynamicAccess": 5,
+      "cast": 6,
+      "Syntax.code": 4,
+      "Reflect.field": 7
+    },
+    "src/opencodehx/plugin/PluginRuntime.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 1
+    },
+    "src/opencodehx/plugin/PluginShared.hx": {
+      "Dynamic": 6,
+      "DynamicAccess": 3,
+      "cast": 6,
+      "Syntax.code": 2,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/provider/AiSdkLanguageLoader.hx": {
+      "DynamicAccess": 11
+    },
+    "src/opencodehx/provider/AiSdkProvider.hx": {
+      "Dynamic": 3,
+      "DynamicAccess": 10,
+      "cast": 4
+    },
+    "src/opencodehx/provider/CloudflareAiGatewayLoader.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/provider/CopilotLanguageLoader.hx": {
+      "DynamicAccess": 4
+    },
+    "src/opencodehx/provider/ProviderModelsDev.hx": {
+      "Dynamic": 4,
+      "DynamicAccess": 12
+    },
+    "src/opencodehx/provider/ProviderOpenRecords.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 4
+    },
+    "src/opencodehx/provider/ProviderOptionAccess.hx": {
+      "Dynamic": 4,
+      "DynamicAccess": 15,
+      "Reflect.field": 6
+    },
+    "src/opencodehx/provider/ProviderRegistry.hx": {
+      "Dynamic": 36,
+      "DynamicAccess": 6,
+      "cast": 14,
+      "Reflect.field": 43,
+      "Reflect.hasField": 3,
+      "Reflect.setField": 7
+    },
+    "src/opencodehx/provider/ProviderTransform.hx": {
+      "Dynamic": 7,
+      "DynamicAccess": 5,
+      "cast": 6,
+      "Reflect.field": 4,
+      "Reflect.hasField": 3
+    },
+    "src/opencodehx/provider/ProviderTypes.hx": {
+      "Dynamic": 3,
+      "DynamicAccess": 10
+    },
+    "src/opencodehx/provider/copilot/CopilotAiSdkLanguageModel.hx": {
+      "DynamicAccess": 10
+    },
+    "src/opencodehx/provider/copilot/CopilotChatHttpClient.hx": {
+      "DynamicAccess": 13
+    },
+    "src/opencodehx/provider/copilot/CopilotChatLanguageModel.hx": {
+      "DynamicAccess": 10
+    },
+    "src/opencodehx/provider/copilot/CopilotChatMessages.hx": {
+      "cast": 1
+    },
+    "src/opencodehx/provider/copilot/CopilotChatSseDecoder.hx": {
+      "Dynamic": 25,
+      "cast": 3,
+      "Reflect.field": 1
+    },
+    "src/opencodehx/provider/copilot/CopilotChatStream.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/provider/copilot/CopilotOpenAICompatibleProvider.hx": {
+      "DynamicAccess": 12
+    },
+    "src/opencodehx/provider/copilot/CopilotResponsesCompletion.hx": {
+      "DynamicAccess": 3,
+      "cast": 1
+    },
+    "src/opencodehx/provider/copilot/CopilotResponsesHttpClient.hx": {
+      "DynamicAccess": 12
+    },
+    "src/opencodehx/provider/copilot/CopilotResponsesLanguageModel.hx": {
+      "DynamicAccess": 10
+    },
+    "src/opencodehx/provider/copilot/CopilotResponsesRequest.hx": {
+      "DynamicAccess": 1,
+      "cast": 1
+    },
+    "src/opencodehx/provider/copilot/CopilotResponsesResponseDecoder.hx": {
+      "Dynamic": 30,
+      "Reflect.field": 1
+    },
+    "src/opencodehx/provider/copilot/CopilotResponsesStream.hx": {
+      "Dynamic": 12,
+      "DynamicAccess": 5,
+      "untyped": 1,
+      "Reflect.field": 1
+    },
+    "src/opencodehx/pty/PtyService.hx": {
+      "DynamicAccess": 3,
+      "cast": 2
+    },
+    "src/opencodehx/pty/PtyTypes.hx": {
+      "DynamicAccess": 2
+    },
+    "src/opencodehx/question/QuestionRuntime.hx": {
+      "cast": 1
+    },
+    "src/opencodehx/sdk/OpenCodeCompatClient.hx": {
+      "Dynamic": 2,
+      "DynamicAccess": 6,
+      "cast": 2,
+      "Reflect.setField": 2
+    },
+    "src/opencodehx/server/NodeHonoAdapter.hx": {
+      "cast": 3
+    },
+    "src/opencodehx/server/OpenCodeServer.hx": {
+      "Dynamic": 4
+    },
+    "src/opencodehx/server/PtyRouteProtocol.hx": {
+      "Dynamic": 16,
+      "DynamicAccess": 3,
+      "cast": 1,
+      "Reflect.field": 12,
+      "Reflect.hasField": 5
+    },
+    "src/opencodehx/server/ServerEventStream.hx": {
+      "DynamicAccess": 2,
+      "cast": 2
+    },
+    "src/opencodehx/server/ServerProtocol.hx": {
+      "Dynamic": 9,
+      "cast": 3,
+      "Reflect.field": 6,
+      "Reflect.hasField": 3
+    },
+    "src/opencodehx/server/ServerTrace.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 4
+    },
+    "src/opencodehx/server/WorkspaceProxy.hx": {
+      "Dynamic": 3,
+      "DynamicAccess": 4,
+      "cast": 2,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/session/MessageCodec.hx": {
+      "Dynamic": 89,
+      "cast": 15,
+      "Reflect.field": 19,
+      "Reflect.hasField": 1,
+      "Reflect.setField": 19
+    },
+    "src/opencodehx/session/MessageTypes.hx": {
+      "Dynamic": 17
+    },
+    "src/opencodehx/session/SessionExport.hx": {
+      "Dynamic": 8,
+      "Reflect.field": 1,
+      "Reflect.setField": 19
+    },
+    "src/opencodehx/session/SessionInfo.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/session/SessionLlm.hx": {
+      "Dynamic": 11,
+      "DynamicAccess": 18,
+      "cast": 1,
+      "Reflect.field": 5
+    },
+    "src/opencodehx/session/SessionProcessor.hx": {
+      "Dynamic": 6,
+      "cast": 2,
+      "Reflect.setField": 1
+    },
+    "src/opencodehx/session/SessionRetry.hx": {
+      "Dynamic": 7,
+      "DynamicAccess": 2,
+      "cast": 2,
+      "untyped": 1,
+      "Reflect.field": 1,
+      "Reflect.hasField": 1
+    },
+    "src/opencodehx/skill/SkillRegistry.hx": {
+      "DynamicAccess": 4,
+      "cast": 1
+    },
+    "src/opencodehx/skill/SkillRemoteDiscovery.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/smoke/AiSdkProviderSmoke.hx": {
+      "Dynamic": 15,
+      "DynamicAccess": 32
+    },
+    "src/opencodehx/smoke/CliSmoke.hx": {
+      "Dynamic": 69,
+      "Reflect.field": 112
+    },
+    "src/opencodehx/smoke/ConfigSmoke.hx": {
+      "Dynamic": 4,
+      "DynamicAccess": 6,
+      "cast": 5,
+      "Reflect.field": 14,
+      "Reflect.hasField": 2
+    },
+    "src/opencodehx/smoke/ControlPlaneSmoke.hx": {
+      "cast": 1
+    },
+    "src/opencodehx/smoke/CopilotChatHttpClientSmoke.hx": {
+      "DynamicAccess": 4
+    },
+    "src/opencodehx/smoke/CopilotChatLanguageModelSmoke.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 11
+    },
+    "src/opencodehx/smoke/CopilotChatMessagesSmoke.hx": {
+      "cast": 2
+    },
+    "src/opencodehx/smoke/CopilotChatStreamAdapterSmoke.hx": {
+      "DynamicAccess": 2
+    },
+    "src/opencodehx/smoke/CopilotProviderFactorySmoke.hx": {
+      "DynamicAccess": 3
+    },
+    "src/opencodehx/smoke/CopilotResponsesLanguageModelSmoke.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 10
+    },
+    "src/opencodehx/smoke/EffectSmoke.hx": {
+      "Dynamic": 2,
+      "DynamicAccess": 3,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/smoke/FileSmoke.hx": {
+      "Dynamic": 7,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/smoke/FixtureSmoke.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/smoke/FormatterSmoke.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 2
+    },
+    "src/opencodehx/smoke/LspSmoke.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 2,
+      "Reflect.field": 1
+    },
+    "src/opencodehx/smoke/McpAcpSmoke.hx": {
+      "DynamicAccess": 2,
+      "Reflect.hasField": 3
+    },
+    "src/opencodehx/smoke/MessageSmoke.hx": {
+      "Dynamic": 4,
+      "cast": 1,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/smoke/PatchSmoke.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/smoke/PermissionSmoke.hx": {
+      "Dynamic": 2,
+      "cast": 17,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/smoke/PluginSmoke.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/smoke/ProjectRuntimeSmoke.hx": {
+      "Dynamic": 22
+    },
+    "src/opencodehx/smoke/ProviderSmoke.hx": {
+      "Dynamic": 8,
+      "DynamicAccess": 20,
+      "cast": 3,
+      "Reflect.field": 43,
+      "Reflect.hasField": 5
+    },
+    "src/opencodehx/smoke/ProviderTransformSmoke.hx": {
+      "Dynamic": 5,
+      "DynamicAccess": 9,
+      "cast": 7
+    },
+    "src/opencodehx/smoke/PtySmoke.hx": {
+      "Dynamic": 5,
+      "cast": 6,
+      "untyped": 1,
+      "Reflect.field": 1
+    },
+    "src/opencodehx/smoke/SdkCompatSmoke.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/smoke/ServerSmoke.hx": {
+      "Dynamic": 36,
+      "DynamicAccess": 9,
+      "cast": 17,
+      "Reflect.field": 67
+    },
+    "src/opencodehx/smoke/SessionPersistenceSmoke.hx": {
+      "Dynamic": 7,
+      "cast": 13,
+      "Reflect.field": 39
+    },
+    "src/opencodehx/smoke/SessionProcessorSmoke.hx": {
+      "Dynamic": 6,
+      "DynamicAccess": 25,
+      "cast": 1,
+      "Reflect.field": 11
+    },
+    "src/opencodehx/smoke/SkillSmoke.hx": {
+      "Dynamic": 2,
+      "DynamicAccess": 3,
+      "cast": 1
+    },
+    "src/opencodehx/smoke/SmokeFetchStub.hx": {
+      "Dynamic": 2,
+      "DynamicAccess": 4,
+      "cast": 4,
+      "Syntax.code": 2,
+      "@:ts.type": 1
+    },
+    "src/opencodehx/smoke/SmokeTmpDir.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/smoke/StorageSmoke.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 2
+    },
+    "src/opencodehx/smoke/ToolSmoke.hx": {
+      "Dynamic": 5,
+      "cast": 3,
+      "Reflect.field": 9
+    },
+    "src/opencodehx/smoke/UtilSmoke.hx": {
+      "Dynamic": 11,
+      "DynamicAccess": 6,
+      "cast": 1,
+      "Syntax.code": 1,
+      "Reflect.field": 14
+    },
+    "src/opencodehx/storage/SqliteSessionStore.hx": {
+      "Dynamic": 23,
+      "cast": 4,
+      "Reflect.field": 4,
+      "Reflect.hasField": 1,
+      "Reflect.setField": 15
+    },
+    "src/opencodehx/storage/StorageDatabasePath.hx": {
+      "DynamicAccess": 3
+    },
+    "src/opencodehx/sync/SyncSqliteEventPersistence.hx": {
+      "Dynamic": 3,
+      "Reflect.field": 2
+    },
+    "src/opencodehx/sync/WorkspaceSyncRemoteHttp.hx": {
+      "DynamicAccess": 10
+    },
+    "src/opencodehx/sync/WorkspaceSyncRuntime.hx": {
+      "DynamicAccess": 2
+    },
+    "src/opencodehx/sync/WorkspaceSyncSse.hx": {
+      "Dynamic": 2
+    },
+    "src/opencodehx/tool/ApplyPatchTool.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/tool/BashTool.hx": {
+      "Reflect.field": 1
+    },
+    "src/opencodehx/tool/EditTool.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/tool/GlobTool.hx": {
+      "Dynamic": 1,
+      "Reflect.field": 1
+    },
+    "src/opencodehx/tool/GrepTool.hx": {
+      "Dynamic": 1,
+      "Reflect.field": 1
+    },
+    "src/opencodehx/tool/ReadTool.hx": {
+      "Dynamic": 3,
+      "Reflect.field": 3
+    },
+    "src/opencodehx/tool/WriteTool.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/util/ErrorTools.hx": {
+      "Dynamic": 1,
+      "DynamicAccess": 3,
+      "cast": 6,
+      "Syntax.code": 7
+    },
+    "src/opencodehx/util/GlobRuntime.hx": {
+      "Dynamic": 1,
+      "Reflect.field": 5
+    },
+    "src/opencodehx/util/LogRuntime.hx": {
+      "Dynamic": 1
+    },
+    "src/opencodehx/util/ModuleResolver.hx": {
+      "Dynamic": 1,
+      "Reflect.field": 1
+    },
+    "src/opencodehx/util/ProcessRuntime.hx": {
+      "Dynamic": 3,
+      "DynamicAccess": 5,
+      "cast": 1,
+      "Reflect.field": 1,
+      "Reflect.setField": 3
+    },
+    "src/opencodehx/util/Which.hx": {
+      "DynamicAccess": 4
+    }
+  }
+}

@@ -6,9 +6,18 @@ import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolTypes.KnownToolID;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+
+typedef BashToolInput = {
+	final command:String;
+	final description:String;
+	final timeout:Null<Int>;
+	final workdir:Null<String>;
+}
 
 class BashTool {
 	static inline final DEFAULT_TIMEOUT = 120000;
@@ -17,58 +26,60 @@ class BashTool {
 	static inline final MAX_BUFFER = 1024 * 1024;
 
 	public static function define():ToolDef {
-		return {
-			id: KnownToolID.Bash,
-			description: "Execute a shell command through the Node host seam.",
-			schema: {
-				parameters: [
-					{
-						name: "command",
-						type: "string",
-						required: true,
-						description: "Command to execute"
-					},
-					{
-						name: "description",
-						type: "string",
-						required: true,
-						description: "Short description of the command"
-					},
-					{
-						name: "timeout",
-						type: "integer",
-						required: false,
-						description: "Timeout in milliseconds"
-					},
-					{
-						name: "workdir",
-						type: "string",
-						required: false,
-						description: "Working directory"
-					},
-				],
-			},
-			execute: execute,
-		};
+		return ToolDefinition.typed(KnownToolID.Bash, "Execute a shell command through the Node host seam.", {
+			parameters: [
+				{
+					name: "command",
+					type: "string",
+					required: true,
+					description: "Command to execute"
+				},
+				{
+					name: "description",
+					type: "string",
+					required: true,
+					description: "Short description of the command"
+				},
+				{
+					name: "timeout",
+					type: "integer",
+					required: false,
+					description: "Timeout in milliseconds"
+				},
+				{
+					name: "workdir",
+					type: "string",
+					required: false,
+					description: "Working directory"
+				},
+			],
+		}, decode, execute);
 	}
 
-	static function execute(args:Dynamic, ctx:ToolContext):ToolResult {
-		// Dynamic is contained at the tool-call JSON boundary; ToolValidation
-		// immediately narrows the fields before application logic uses them.
+	static function decode(raw:ToolCallInput):ToolInputDecode<BashToolInput> {
 		final issues:Array<String> = [];
+		final args = ToolValidation.record(raw.unknown(), issues);
+		if (args == null)
+			return Invalid(issues);
 		final command = ToolValidation.requireString(args, "command", issues);
 		final description = ToolValidation.requireString(args, "description", issues);
 		final timeoutArg = ToolValidation.optionalInt(args, "timeout", issues);
 		final workdirArg = ToolValidation.optionalString(args, "workdir", issues);
-		if (issues.length > 0)
-			throw new ToolException(InvalidArguments(KnownToolID.Bash, issues));
+		return ToolValidation.finish(issues, {
+			command: command,
+			description: description,
+			timeout: timeoutArg,
+			workdir: workdirArg
+		});
+	}
 
-		final timeout = timeoutArg == null ? DEFAULT_TIMEOUT : timeoutArg;
+	static function execute(input:BashToolInput, ctx:ToolContext):ToolResult {
+		final timeout = input.timeout == null ? DEFAULT_TIMEOUT : input.timeout;
 		if (timeout < 0)
 			throw new ToolException(ExecutionFailed(KnownToolID.Bash, 'Invalid timeout value: ${timeout}. Timeout must be a positive number.'));
-		final cwd = resolveWorkdir(ctx, workdirArg);
+		final cwd = resolveWorkdir(ctx, input.workdir);
 		final shell = NodeProcess.acceptableShell();
-		final scan = BashCommandScanner.scan(ctx.directory, command, cwd, shell);
+		final scan = BashCommandScanner.scan(ctx.directory, input.command, cwd, shell);
 		final externalDirs = scan.externalDirs.copy();
 		if (!opencodehx.file.FileSystem.contains(ctx.directory, cwd) && externalDirs.indexOf(cwd) == -1)
 			externalDirs.push(cwd);
@@ -93,13 +104,13 @@ class BashTool {
 		}
 
 		final shellRun = NodeProcess.runShell({
-			command: command,
+			command: input.command,
 			cwd: cwd,
 			env: NodeProcess.env(),
 			timeout: timeout,
 			maxBuffer: MAX_BUFFER
 		});
-		return formatResult(description, shellRun.stdout, shellRun.stderr, shellRun.status, shellRun.signal, shellRun.error, timeout);
+		return formatResult(input.description, shellRun.stdout, shellRun.stderr, shellRun.status, shellRun.signal, shellRun.error, timeout);
 	}
 
 	static function resolveWorkdir(ctx:ToolContext, value:Null<String>):String {

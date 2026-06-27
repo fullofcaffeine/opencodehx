@@ -9,9 +9,18 @@ import opencodehx.lsp.LspTypes.LspLocationInput;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolTypes.KnownToolID;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+
+typedef LspToolInput = {
+	final operation:String;
+	final filePath:String;
+	final line:Int;
+	final character:Int;
+}
 
 class LspTool {
 	static final OPERATIONS = [
@@ -27,31 +36,39 @@ class LspTool {
 	];
 
 	public static function define(runtime:LspRuntime):ToolDef {
-		return {
-			id: KnownToolID.Lsp,
-			description: "Query language server protocol features for a source file.",
-			schema: {
-				parameters: [
-					{name: "operation", type: "string", required: true},
-					{name: "filePath", type: "string", required: true},
-					{name: "line", type: "number", required: true},
-					{name: "character", type: "number", required: true}
-				]
-			},
-			execute: (args, ctx) -> execute(runtime, args, ctx),
-		};
+		return ToolDefinition.typed(KnownToolID.Lsp, "Query language server protocol features for a source file.", {
+			parameters: [
+				{name: "operation", type: "string", required: true},
+				{name: "filePath", type: "string", required: true},
+				{name: "line", type: "number", required: true},
+				{name: "character", type: "number", required: true}
+			]
+		}, decode, (input, ctx) -> execute(runtime, input, ctx));
 	}
 
-	static function execute(runtime:LspRuntime, args:Dynamic, ctx:ToolContext):ToolResult {
-		// Tool arguments arrive from the registry's JSON/tool-call boundary.
-		// Keep Dynamic local to field validation and return typed values below.
-		final operation = stringField(args, "operation");
-		final filePath = stringField(args, "filePath");
-		final line = intField(args, "line");
-		final character = intField(args, "character");
-		if (OPERATIONS.indexOf(operation) == -1)
+	static function decode(raw:ToolCallInput):ToolInputDecode<LspToolInput> {
+		final issues:Array<String> = [];
+		final args = ToolValidation.record(raw.unknown(), issues);
+		if (args == null)
+			return Invalid(issues);
+		final operation = ToolValidation.requireString(args, "operation", issues);
+		final filePath = ToolValidation.requireString(args, "filePath", issues);
+		final line = ToolValidation.requiredInt(args, "line", issues);
+		final character = ToolValidation.requiredInt(args, "character", issues);
+		if (issues.length == 0 && OPERATIONS.indexOf(operation) == -1)
+			issues.push('operation must be one of ${OPERATIONS.join(", ")}');
+		return ToolValidation.finish(issues, {
+			operation: operation,
+			filePath: filePath,
+			line: line,
+			character: character
+		});
+	}
+
+	static function execute(runtime:LspRuntime, input:LspToolInput, ctx:ToolContext):ToolResult {
+		if (OPERATIONS.indexOf(input.operation) == -1)
 			throw new ToolException(InvalidArguments(KnownToolID.Lsp, ['operation must be one of ${OPERATIONS.join(", ")}']));
-		final file = NodePath.isAbsolute(filePath) ? filePath : NodePath.join(ctx.directory, filePath);
+		final file = NodePath.isAbsolute(input.filePath) ? input.filePath : NodePath.join(ctx.directory, input.filePath);
 		if (ctx.ask != null) {
 			final decision = ctx.ask({
 				permission: "lsp",
@@ -67,8 +84,8 @@ class LspTool {
 		if (!runtime.hasClients(file))
 			throw new ToolException(ExecutionFailed(KnownToolID.Lsp, "No LSP server available for this file type."));
 		runtime.touchFile(file, true);
-		final position:LspLocationInput = {file: file, line: line - 1, character: character - 1};
-		final result:Array<Unknown> = switch operation {
+		final position:LspLocationInput = {file: file, line: input.line - 1, character: input.character - 1};
+		final result:Array<Unknown> = switch input.operation {
 			case "goToDefinition": runtime.definition(position);
 			case "findReferences": runtime.references(position);
 			case "hover": runtime.hover(position);
@@ -82,27 +99,11 @@ class LspTool {
 		}
 		final rel = ctx.worktree == null ? NodePath.relative(ctx.directory, file) : NodePath.relative(ctx.worktree, file);
 		return {
-			title: '${operation} ${rel}:${line}:${character}',
-			output: result.length == 0 ? 'No results found for ${operation}' : Std.string(result),
+			title: '${input.operation} ${rel}:${input.line}:${input.character}',
+			output: result.length == 0 ? 'No results found for ${input.operation}' : Std.string(result),
 			metadata: {
 				result: result
 			},
 		};
-	}
-
-	static function stringField(args:Dynamic, name:String):String {
-		// See execute: raw field reads are contained to argument decoding.
-		final value = Reflect.field(args, name);
-		if (!Std.isOfType(value, String))
-			throw new ToolException(InvalidArguments(KnownToolID.Lsp, ['${name} must be a string']));
-		return value;
-	}
-
-	static function intField(args:Dynamic, name:String):Int {
-		// See execute: raw field reads are contained to argument decoding.
-		final value = Reflect.field(args, name);
-		if (!Std.isOfType(value, Int))
-			throw new ToolException(InvalidArguments(KnownToolID.Lsp, ['${name} must be an integer']));
-		return value;
 	}
 }

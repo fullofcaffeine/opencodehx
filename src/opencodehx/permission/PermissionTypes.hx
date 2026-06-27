@@ -1,6 +1,7 @@
 package opencodehx.permission;
 
 import opencodehx.tool.ToolTypes.ToolPermissionRequest;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
 
 typedef PermissionRule = {
 	final permission:String;
@@ -13,7 +14,7 @@ typedef PermissionAskRecord = {
 	final sessionID:String;
 	final permission:String;
 	final patterns:Array<String>;
-	final metadata:Dynamic;
+	final metadata:ToolPermissionMetadata;
 	final always:Array<String>;
 	@:optional final tool:{
 		final messageID:String;

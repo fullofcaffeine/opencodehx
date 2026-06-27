@@ -33,7 +33,7 @@ Protocol, plugin, and UI foundations:
 
 Quality and planning references:
 
-- `compiler-output-profiles.md`, `generated-ts-readability-gate.md`, `syntax-code-audit.md`, `checked-artifact-constructors.md`, `tool-registry-port.md`, `performance-ux-benchmark.md`, and `portability-classification-ledger.md` capture generated output, raw-boundary, checked-artifact, tool-ID, benchmark, and portability evidence.
+- `compiler-output-profiles.md`, `generated-ts-readability-gate.md`, `syntax-code-audit.md`, `typed-boundary-audit.md`, `checked-artifact-constructors.md`, `tool-registry-port.md`, `performance-ux-benchmark.md`, and `portability-classification-ledger.md` capture generated output, raw-boundary, typed-boundary, checked-artifact, tool-ID, benchmark, and portability evidence.
 
 The top-level `README.md` carries the public-facing ASCII progress bar. Refresh it from Beads when closing meaningful port slices so newcomers see a current completion snapshot without digging through issue history.
 

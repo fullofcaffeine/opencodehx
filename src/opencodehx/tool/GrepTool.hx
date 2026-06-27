@@ -6,69 +6,75 @@ import opencodehx.file.Ripgrep.SearchMatch;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolTypes.KnownToolID;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolValidation;
+
+typedef GrepToolInput = {
+	final pattern:String;
+	final path:Null<String>;
+	final include:Null<String>;
+}
 
 class GrepTool {
 	static inline final MAX_LINE_LENGTH = 2000;
 
 	public static function define():ToolDef {
-		return {
-			id: KnownToolID.Grep,
-			description: "Search file contents by regex pattern.",
-			schema: {
-				parameters: [
-					{
-						name: "pattern",
-						type: "string",
-						required: true,
-						description: "Regex pattern to search for"
-					},
-					{
-						name: "path",
-						type: "string",
-						required: false,
-						description: "Directory or file path to search"
-					},
-					{
-						name: "include",
-						type: "string",
-						required: false,
-						description: "File glob to include"
-					},
-				],
-			},
-			execute: execute,
-		};
+		return ToolDefinition.typed(KnownToolID.Grep, "Search file contents by regex pattern.", {
+			parameters: [
+				{
+					name: "pattern",
+					type: "string",
+					required: true,
+					description: "Regex pattern to search for"
+				},
+				{
+					name: "path",
+					type: "string",
+					required: false,
+					description: "Directory or file path to search"
+				},
+				{
+					name: "include",
+					type: "string",
+					required: false,
+					description: "File glob to include"
+				},
+			],
+		}, decode, execute);
 	}
 
-	static function execute(args:Dynamic, ctx:ToolContext):ToolResult {
+	static function decode(raw:ToolCallInput):ToolInputDecode<GrepToolInput> {
 		final issues:Array<String> = [];
+		final args = ToolValidation.record(raw.unknown(), issues);
+		if (args == null)
+			return Invalid(issues);
 		final pattern = ToolValidation.requireString(args, "pattern", issues);
 		final rawPath = ToolValidation.optionalString(args, "path", issues);
 		final include = ToolValidation.optionalString(args, "include", issues);
-		if (issues.length > 0)
-			throw new ToolException(InvalidArguments(KnownToolID.Grep, issues));
+		return ToolValidation.finish(issues, {pattern: pattern, path: rawPath, include: include});
+	}
 
+	static function execute(input:GrepToolInput, ctx:ToolContext):ToolResult {
 		final root = ctx.directory;
-		final search = rawPath == null ? root : resolvePath(root, rawPath);
+		final search = input.path == null ? root : resolvePath(root, input.path);
 		if (!Fs.existsSync(search))
 			throw new ToolException(ExecutionFailed(KnownToolID.Grep, 'No such file or directory: ${search}'));
 		final stat:Dynamic = Fs.statSync(search);
 		final cwd = stat.isDirectory() ? search : NodePath.dirname(search);
 		final files:Null<Array<String>> = stat.isDirectory() ? null : [NodePath.relative(cwd, search)];
-		final globs = singleton(include);
 		final result = Ripgrep.search({
 			cwd: cwd,
-			pattern: pattern,
-			glob: globs,
+			pattern: input.pattern,
+			glob: singleton(input.include),
 			file: files
 		});
 		if (result.items.length == 0) {
 			return {
-				title: pattern,
+				title: input.pattern,
 				metadata: {matches: 0, truncated: false},
 				output: "No files found",
 			};
@@ -122,7 +128,7 @@ class GrepTool {
 		}
 
 		return {
-			title: pattern,
+			title: input.pattern,
 			metadata: {
 				matches: rows.length,
 				truncated: truncated,

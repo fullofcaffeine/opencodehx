@@ -4,71 +4,85 @@ import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolTypes.KnownToolID;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+
+typedef EditToolInput = {
+	final filePath:String;
+	final oldString:String;
+	final newString:String;
+	final replaceAll:Null<Bool>;
+}
 
 class EditTool {
 	public static function define():ToolDef {
-		return {
-			id: KnownToolID.Edit,
-			description: "Replace text in a file or create a file when oldString is empty.",
-			schema: {
-				parameters: [
-					{
-						name: "filePath",
-						type: "string",
-						required: true,
-						description: "File path to modify"
-					},
-					{
-						name: "oldString",
-						type: "string",
-						required: true,
-						description: "Text to replace"
-					},
-					{
-						name: "newString",
-						type: "string",
-						required: true,
-						description: "Replacement text"
-					},
-					{
-						name: "replaceAll",
-						type: "boolean",
-						required: false,
-						description: "Replace every occurrence"
-					},
-				],
-			},
-			execute: execute,
-		};
+		return ToolDefinition.typed(KnownToolID.Edit, "Replace text in a file or create a file when oldString is empty.", {
+			parameters: [
+				{
+					name: "filePath",
+					type: "string",
+					required: true,
+					description: "File path to modify"
+				},
+				{
+					name: "oldString",
+					type: "string",
+					required: true,
+					description: "Text to replace"
+				},
+				{
+					name: "newString",
+					type: "string",
+					required: true,
+					description: "Replacement text"
+				},
+				{
+					name: "replaceAll",
+					type: "boolean",
+					required: false,
+					description: "Replace every occurrence"
+				},
+			],
+		}, decode, execute);
 	}
 
-	static function execute(args:Dynamic, ctx:ToolContext):ToolResult {
+	static function decode(raw:ToolCallInput):ToolInputDecode<EditToolInput> {
 		final issues:Array<String> = [];
+		final args = ToolValidation.record(raw.unknown(), issues);
+		if (args == null)
+			return Invalid(issues);
 		final rawPath = ToolValidation.requireString(args, "filePath", issues);
-		final oldString = readRequiredString(args, "oldString", issues);
-		final newString = readRequiredString(args, "newString", issues);
+		final oldString = ToolValidation.requireStringAllowEmpty(args, "oldString", issues);
+		final newString = ToolValidation.requireStringAllowEmpty(args, "newString", issues);
 		final replaceAllArg = ToolValidation.optionalBool(args, "replaceAll", issues);
-		if (issues.length > 0)
-			throw new ToolException(InvalidArguments(KnownToolID.Edit, issues));
-		if (oldString == newString)
+		return ToolValidation.finish(issues, {
+			filePath: rawPath,
+			oldString: oldString,
+			newString: newString,
+			replaceAll: replaceAllArg
+		});
+	}
+
+	static function execute(input:EditToolInput, ctx:ToolContext):ToolResult {
+		if (input.oldString == input.newString)
 			throw new ToolException(ExecutionFailed(KnownToolID.Edit, "No changes to apply: oldString and newString are identical."));
 
-		final absolute = resolve(KnownToolID.Edit, ctx, rawPath);
+		final absolute = resolve(KnownToolID.Edit, ctx, input.filePath);
 		final existed = Fs.existsSync(absolute);
 		if (existed && Fs.statSync(absolute).isDirectory())
 			throw new ToolException(ExecutionFailed(KnownToolID.Edit, 'Path is a directory, not a file: ${absolute}'));
-		if (!existed && oldString != "")
+		if (!existed && input.oldString != "")
 			throw new ToolException(ExecutionFailed(KnownToolID.Edit, 'File ${absolute} not found'));
 
 		final oldContent = existed ? Fs.readFileSync(absolute, "utf8") : "";
 		final ending = detectLineEnding(oldContent);
-		final normalizedOld = convertToLineEnding(normalizeLineEndings(oldString), ending);
-		final normalizedNew = convertToLineEnding(normalizeLineEndings(newString), ending);
-		final replaceAll = replaceAllArg == null ? false : replaceAllArg;
-		final nextContent = oldString == "" ? normalizedNew : replace(oldContent, normalizedOld, normalizedNew, replaceAll);
+		final normalizedOld = convertToLineEnding(normalizeLineEndings(input.oldString), ending);
+		final normalizedNew = convertToLineEnding(normalizeLineEndings(input.newString), ending);
+		final replaceAll = input.replaceAll == null ? false : input.replaceAll;
+		final nextContent = input.oldString == "" ? normalizedNew : replace(oldContent, normalizedOld, normalizedNew, replaceAll);
 		final diff = TextDiff.unified(absolute, oldContent, nextContent);
 		final relative = ToolPaths.relative(ctx, absolute);
 		ToolPermission.require(KnownToolID.Edit, ctx, {
@@ -427,19 +441,6 @@ class EditTool {
 			}
 		}
 		return out;
-	}
-
-	static function readRequiredString(args:Dynamic, field:String, issues:Array<String>):String {
-		if (!Reflect.hasField(args, field) || Reflect.field(args, field) == null) {
-			issues.push('${field}: expected string');
-			return "";
-		}
-		final value = Reflect.field(args, field);
-		if (!Std.isOfType(value, String)) {
-			issues.push('${field}: expected string');
-			return "";
-		}
-		return value;
 	}
 
 	static function normalizeLineEndings(text:String):String {

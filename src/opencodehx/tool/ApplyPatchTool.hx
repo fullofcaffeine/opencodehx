@@ -4,8 +4,10 @@ import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolTypes.KnownToolID;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
 
 typedef PatchChunk = {
@@ -33,34 +35,37 @@ typedef PatchChange = {
 	@:optional final movePath:String;
 }
 
+typedef ApplyPatchToolInput = {
+	final patchText:String;
+}
+
 class ApplyPatchTool {
 	public static function define():ToolDef {
-		return {
-			id: KnownToolID.ApplyPatch,
-			description: "Apply an OpenAI-style patch envelope to project files.",
-			schema: {
-				parameters: [
-					{
-						name: "patchText",
-						type: "string",
-						required: true,
-						description: "Full patch text to apply"
-					},
-				],
-			},
-			execute: execute,
-		};
+		return ToolDefinition.typed(KnownToolID.ApplyPatch, "Apply an OpenAI-style patch envelope to project files.", {
+			parameters: [
+				{
+					name: "patchText",
+					type: "string",
+					required: true,
+					description: "Full patch text to apply"
+				},
+			],
+		}, decode, execute);
 	}
 
-	static function execute(args:Dynamic, ctx:ToolContext):ToolResult {
+	static function decode(raw:ToolCallInput):ToolInputDecode<ApplyPatchToolInput> {
 		final issues:Array<String> = [];
+		final args = ToolValidation.record(raw.unknown(), issues);
+		if (args == null)
+			return Invalid(issues);
 		final patchText = ToolValidation.requireString(args, "patchText", issues);
-		if (issues.length > 0)
-			throw new ToolException(InvalidArguments(KnownToolID.ApplyPatch, issues));
+		return ToolValidation.finish(issues, {patchText: patchText});
+	}
 
-		final hunks = parse(patchText);
+	static function execute(input:ApplyPatchToolInput, ctx:ToolContext):ToolResult {
+		final hunks = parse(input.patchText);
 		if (hunks.length == 0) {
-			final normalized = StringTools.trim(StringTools.replace(StringTools.replace(patchText, "\r\n", "\n"), "\r", "\n"));
+			final normalized = StringTools.trim(StringTools.replace(StringTools.replace(input.patchText, "\r\n", "\n"), "\r", "\n"));
 			if (normalized == "*** Begin Patch\n*** End Patch")
 				throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch, "patch rejected: empty patch"));
 			throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch, "apply_patch verification failed: no hunks found"));

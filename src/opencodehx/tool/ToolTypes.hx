@@ -1,5 +1,6 @@
 package opencodehx.tool;
 
+import genes.ts.Unknown;
 #if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
@@ -20,7 +21,7 @@ typedef ToolPermissionRequest = {
 	final permission:String;
 	final patterns:Array<String>;
 	final always:Array<String>;
-	final metadata:Dynamic;
+	final metadata:ToolPermissionMetadata;
 }
 
 typedef ToolPermissionDecision = {
@@ -31,8 +32,8 @@ typedef ToolPermissionDecision = {
 typedef ToolResult = {
 	final title:String;
 	final output:String;
-	final metadata:Dynamic;
-	@:optional final attachments:Array<Dynamic>;
+	final metadata:ToolResultMetadata;
+	@:optional final attachments:Array<ToolResultAttachment>;
 }
 
 typedef ToolParameter = {
@@ -50,12 +51,69 @@ typedef ToolDef = {
 	final id:String;
 	final description:String;
 	final schema:ToolSchema;
-	final execute:(Dynamic, ToolContext) -> ToolResult;
+	final execute:(ToolCallInput, ToolContext) -> ToolResult;
 }
 
 typedef ToolInfo = {
 	final id:String;
 	final init:Void->ToolDef;
+}
+
+abstract ToolCallInput(Unknown) from Unknown to Unknown {
+	inline function new(value:Unknown) {
+		this = value;
+	}
+
+	@:from public static inline function fromBoundary<T>(value:T):ToolCallInput {
+		return new ToolCallInput(Unknown.fromBoundary(value));
+	}
+
+	public inline function unknown():Unknown {
+		return this;
+	}
+}
+
+abstract ToolResultMetadata(Unknown) from Unknown to Unknown {
+	inline function new(value:Unknown) {
+		this = value;
+	}
+
+	@:from public static inline function fromBoundary<T>(value:T):ToolResultMetadata {
+		return new ToolResultMetadata(Unknown.fromBoundary(value));
+	}
+
+	public static inline function empty():ToolResultMetadata {
+		return fromBoundary({});
+	}
+}
+
+abstract ToolPermissionMetadata(Unknown) from Unknown to Unknown {
+	inline function new(value:Unknown) {
+		this = value;
+	}
+
+	@:from public static inline function fromBoundary<T>(value:T):ToolPermissionMetadata {
+		return new ToolPermissionMetadata(Unknown.fromBoundary(value));
+	}
+
+	public static inline function empty():ToolPermissionMetadata {
+		return fromBoundary({});
+	}
+}
+
+abstract ToolResultAttachment(Unknown) from Unknown to Unknown {
+	inline function new(value:Unknown) {
+		this = value;
+	}
+
+	@:from public static inline function fromBoundary<T>(value:T):ToolResultAttachment {
+		return new ToolResultAttachment(Unknown.fromBoundary(value));
+	}
+}
+
+enum ToolInputDecode<T> {
+	Decoded(input:T);
+	Invalid(issues:Array<String>);
 }
 
 enum abstract KnownToolID(String) to String {

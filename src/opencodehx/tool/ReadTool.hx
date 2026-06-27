@@ -4,9 +4,17 @@ import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolTypes.KnownToolID;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+
+typedef ReadToolInput = {
+	final filePath:String;
+	final offset:Null<Int>;
+	final limit:Null<Int>;
+}
 
 class ReadTool {
 	static inline final DEFAULT_READ_LIMIT = 2000;
@@ -14,44 +22,43 @@ class ReadTool {
 	static inline final MAX_BYTES = 50 * 1024;
 
 	public static function define():ToolDef {
-		return {
-			id: KnownToolID.Read,
-			description: "Read a file or list a directory.",
-			schema: {
-				parameters: [
-					{
-						name: "filePath",
-						type: "string",
-						required: true,
-						description: "File or directory path to read"
-					},
-					{
-						name: "offset",
-						type: "integer",
-						required: false,
-						description: "1-based line offset"
-					},
-					{
-						name: "limit",
-						type: "integer",
-						required: false,
-						description: "Maximum lines to read"
-					},
-				],
-			},
-			execute: execute,
-		};
+		return ToolDefinition.typed(KnownToolID.Read, "Read a file or list a directory.", {
+			parameters: [
+				{
+					name: "filePath",
+					type: "string",
+					required: true,
+					description: "File or directory path to read"
+				},
+				{
+					name: "offset",
+					type: "integer",
+					required: false,
+					description: "1-based line offset"
+				},
+				{
+					name: "limit",
+					type: "integer",
+					required: false,
+					description: "Maximum lines to read"
+				},
+			],
+		}, decode, execute);
 	}
 
-	static function execute(args:Dynamic, ctx:ToolContext):ToolResult {
+	static function decode(raw:ToolCallInput):ToolInputDecode<ReadToolInput> {
 		final issues:Array<String> = [];
+		final args = ToolValidation.record(raw.unknown(), issues);
+		if (args == null)
+			return Invalid(issues);
 		final rawPath = ToolValidation.requireString(args, "filePath", issues);
 		final offsetArg = ToolValidation.optionalInt(args, "offset", issues);
 		final limitArg = ToolValidation.optionalInt(args, "limit", issues);
-		if (issues.length > 0)
-			throw new ToolException(InvalidArguments(KnownToolID.Read, issues));
+		return ToolValidation.finish(issues, {filePath: rawPath, offset: offsetArg, limit: limitArg});
+	}
 
-		final absolute = resolve(KnownToolID.Read, ctx, rawPath);
+	static function execute(input:ReadToolInput, ctx:ToolContext):ToolResult {
+		final absolute = resolve(KnownToolID.Read, ctx, input.filePath);
 		final relative = ToolPaths.relative(ctx, absolute);
 		ToolPermission.require(KnownToolID.Read, ctx, {
 			permission: "read",
@@ -69,7 +76,7 @@ class ReadTool {
 		if (!stat.isFile())
 			throw new ToolException(ExecutionFailed(KnownToolID.Read, 'Path is not a file: ${absolute}'));
 
-		return readFile(ctx, absolute, offsetArg, limitArg);
+		return readFile(ctx, absolute, input.offset, input.limit);
 	}
 
 	static function readDirectory(ctx:ToolContext, absolute:String):ToolResult {

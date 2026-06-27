@@ -4,48 +4,54 @@ import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolTypes.KnownToolID;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+
+typedef WriteToolInput = {
+	final filePath:String;
+	final content:String;
+}
 
 class WriteTool {
 	public static function define():ToolDef {
-		return {
-			id: KnownToolID.Write,
-			description: "Write file contents, creating parent directories when needed.",
-			schema: {
-				parameters: [
-					{
-						name: "filePath",
-						type: "string",
-						required: true,
-						description: "Path to write"
-					},
-					{
-						name: "content",
-						type: "string",
-						required: true,
-						description: "New file content"
-					},
-				],
-			},
-			execute: execute,
-		};
+		return ToolDefinition.typed(KnownToolID.Write, "Write file contents, creating parent directories when needed.", {
+			parameters: [
+				{
+					name: "filePath",
+					type: "string",
+					required: true,
+					description: "Path to write"
+				},
+				{
+					name: "content",
+					type: "string",
+					required: true,
+					description: "New file content"
+				},
+			],
+		}, decode, execute);
 	}
 
-	static function execute(args:Dynamic, ctx:ToolContext):ToolResult {
+	static function decode(raw:ToolCallInput):ToolInputDecode<WriteToolInput> {
 		final issues:Array<String> = [];
+		final args = ToolValidation.record(raw.unknown(), issues);
+		if (args == null)
+			return Invalid(issues);
 		final rawPath = ToolValidation.requireString(args, "filePath", issues);
-		final content = readRequiredString(args, "content", issues);
-		if (issues.length > 0)
-			throw new ToolException(InvalidArguments(KnownToolID.Write, issues));
+		final content = ToolValidation.requireStringAllowEmpty(args, "content", issues);
+		return ToolValidation.finish(issues, {filePath: rawPath, content: content});
+	}
 
-		final absolute = resolve(KnownToolID.Write, ctx, rawPath);
+	static function execute(input:WriteToolInput, ctx:ToolContext):ToolResult {
+		final absolute = resolve(KnownToolID.Write, ctx, input.filePath);
 		final existed = Fs.existsSync(absolute);
 		final oldContent = existed && Fs.statSync(absolute).isFile() ? Fs.readFileSync(absolute, "utf8") : "";
 		if (existed && Fs.statSync(absolute).isDirectory())
 			throw new ToolException(ExecutionFailed(KnownToolID.Write, 'Path is a directory, not a file: ${absolute}'));
-		final diff = TextDiff.unified(absolute, oldContent, content);
+		final diff = TextDiff.unified(absolute, oldContent, input.content);
 		final relative = ToolPaths.relative(ctx, absolute);
 		ToolPermission.require(KnownToolID.Write, ctx, {
 			permission: "edit",
@@ -54,7 +60,7 @@ class WriteTool {
 			metadata: {filepath: absolute, diff: diff}
 		});
 		Fs.mkdirSync(NodePath.dirname(absolute), {recursive: true});
-		Fs.writeFileSync(absolute, content, "utf8");
+		Fs.writeFileSync(absolute, input.content, "utf8");
 		return {
 			title: relative,
 			metadata: {
@@ -64,8 +70,8 @@ class WriteTool {
 				filediff: {
 					file: absolute,
 					patch: diff,
-					additions: TextDiff.countAdditions(oldContent, content),
-					deletions: TextDiff.countDeletions(oldContent, content),
+					additions: TextDiff.countAdditions(oldContent, input.content),
+					deletions: TextDiff.countDeletions(oldContent, input.content),
 				},
 				diagnostics: {}
 			},
@@ -79,18 +85,5 @@ class WriteTool {
 		} catch (error:Dynamic) {
 			throw new ToolException(ExecutionFailed(id, Std.string(error)));
 		}
-	}
-
-	static function readRequiredString(args:Dynamic, field:String, issues:Array<String>):String {
-		if (!Reflect.hasField(args, field) || Reflect.field(args, field) == null) {
-			issues.push('${field}: expected string');
-			return "";
-		}
-		final value = Reflect.field(args, field);
-		if (!Std.isOfType(value, String)) {
-			issues.push('${field}: expected string');
-			return "";
-		}
-		return value;
 	}
 }

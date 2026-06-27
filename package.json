@@ -40,6 +40,8 @@
     "public:precommit": "npm run format:haxe:check && npm run security:gitleaks",
     "ci:version-sync": "node scripts/ci/version-sync-check.mjs",
     "ci:release-contracts": "node scripts/ci/release-contracts-check.mjs",
+    "typed-boundary:scan": "node scripts/ci/typed-boundary-scan.mjs",
+    "typed-boundary:update": "node scripts/ci/typed-boundary-scan.mjs --update-baseline",
     "ci:full": "npm run ci:version-sync && npm run ci:release-contracts && npm run format:haxe:check && npm run build && npm run test:haxe:unit && npm run macro:diagnostics && npm run smoke && npm run package:smoke && npm run tui:scaffold",
     "test": "npm run ci:version-sync && npm run ci:release-contracts && npm run format:haxe:check",
     "release:sync-versions": "node scripts/release/sync-versions.mjs",

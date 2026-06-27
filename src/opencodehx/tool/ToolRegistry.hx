@@ -1,6 +1,7 @@
 package opencodehx.tool;
 
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -61,7 +62,7 @@ class ToolRegistry {
 		return byId.get(id);
 	}
 
-	public function execute(id:String, args:Dynamic, ctx:ToolContext, ?filter:ToolFilter):ToolResult {
+	public function execute(id:String, args:ToolCallInput, ctx:ToolContext, ?filter:ToolFilter):ToolResult {
 		final def = get(id, filter);
 		return def.execute(args, ctx);
 	}

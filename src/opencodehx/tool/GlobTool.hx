@@ -5,45 +5,51 @@ import opencodehx.file.Ripgrep;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolTypes.KnownToolID;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolValidation;
 
+typedef GlobToolInput = {
+	final pattern:String;
+	final path:Null<String>;
+}
+
 class GlobTool {
 	public static function define():ToolDef {
-		return {
-			id: KnownToolID.Glob,
-			description: "Find files by glob pattern.",
-			schema: {
-				parameters: [
-					{
-						name: "pattern",
-						type: "string",
-						required: true,
-						description: "The glob pattern to match files against"
-					},
-					{
-						name: "path",
-						type: "string",
-						required: false,
-						description: "Directory to search; defaults to current directory"
-					},
-				],
-			},
-			execute: execute,
-		};
+		return ToolDefinition.typed(KnownToolID.Glob, "Find files by glob pattern.", {
+			parameters: [
+				{
+					name: "pattern",
+					type: "string",
+					required: true,
+					description: "The glob pattern to match files against"
+				},
+				{
+					name: "path",
+					type: "string",
+					required: false,
+					description: "Directory to search; defaults to current directory"
+				},
+			],
+		}, decode, execute);
 	}
 
-	static function execute(args:Dynamic, ctx:ToolContext):ToolResult {
+	static function decode(raw:ToolCallInput):ToolInputDecode<GlobToolInput> {
 		final issues:Array<String> = [];
+		final args = ToolValidation.record(raw.unknown(), issues);
+		if (args == null)
+			return Invalid(issues);
 		final pattern = ToolValidation.requireString(args, "pattern", issues);
 		final rawPath = ToolValidation.optionalString(args, "path", issues);
-		if (issues.length > 0)
-			throw new ToolException(InvalidArguments(KnownToolID.Glob, issues));
+		return ToolValidation.finish(issues, {pattern: pattern, path: rawPath});
+	}
 
+	static function execute(input:GlobToolInput, ctx:ToolContext):ToolResult {
 		final root = ctx.directory;
-		final search = rawPath == null ? root : resolvePath(root, rawPath);
+		final search = input.path == null ? root : resolvePath(root, input.path);
 		if (Fs.existsSync(search) && Fs.statSync(search).isFile())
 			throw new ToolException(ExecutionFailed(KnownToolID.Glob, 'glob path must be a directory: ${search}'));
 		if (!Fs.existsSync(search) || !Fs.statSync(search).isDirectory())
@@ -51,7 +57,7 @@ class GlobTool {
 
 		final limit = 100;
 		final rows:Array<{path:String, mtime:Float}> = [];
-		for (file in Ripgrep.files({cwd: search, glob: [pattern]})) {
+		for (file in Ripgrep.files({cwd: search, glob: [input.pattern]})) {
 			final absolute = NodePath.resolve(search, file);
 			final stat:Dynamic = Fs.statSync(absolute);
 			final mtime:Float = Reflect.field(stat, "mtimeMs");
