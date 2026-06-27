@@ -61,6 +61,11 @@ typedef RunFilesResult = {
 	final error:Null<String>;
 }
 
+typedef LiveDispatch = {
+	final live:Bool;
+	final error:Null<String>;
+}
+
 class Cli {
 	static inline final FAKE_MODEL = "openai/gpt-5.2";
 	static final runningServers:Array<OpenCodeServer> = [];
@@ -159,12 +164,15 @@ class Cli {
 
 	@:async
 	static function runCommandAsync(args:Array<String>):Promise<CliResult> {
-		if (shouldUseLiveAiSdk(args))
+		if (has(args, "--help") || has(args, "-h"))
+			return ok(runHelp());
+		final liveDispatch = shouldUseLiveAiSdk(args);
+		if (liveDispatch.error != null)
+			return fail(liveDispatch.error);
+		if (liveDispatch.live)
 			return @:await runLiveAiSdk(args);
 		if (!has(args, "--mock-ai-sdk"))
 			return runCommand(args);
-		if (has(args, "--help") || has(args, "-h"))
-			return ok(runHelp());
 		final format = option(args, "--format", "default");
 		final model = option(args, "--model", option(args, "-m", FAKE_MODEL));
 		if (format != "default" && format != "json")
@@ -237,14 +245,7 @@ class Cli {
 		var persistence:Null<RunPersistence> = null;
 		try {
 			final env = NodeProcess.env();
-			final config = ConfigInfo.empty("cli");
-			config.merge(ConfigWriter.loadGlobal(GlobalPaths.config(env), {env: env}));
-			config.merge(ConfigLoader.loadProject(resume.directory, {
-				defaultUsername: config.username == null ? "cli" : config.username,
-				worktree: resume.directory,
-				env: env,
-				includeDefaultUsername: false,
-			}));
+			final config = loadLocalRunConfig(resume.directory, env);
 			final auth = AuthStore.load(env);
 			final remote = @:await ConfigLoader.loadRemoteWellKnown(AuthStore.wellKnown(auth), {
 				env: env,
@@ -625,6 +626,18 @@ class Cli {
 		return fallback;
 	}
 
+	static function loadLocalRunConfig(directory:String, env:Dynamic):ConfigInfo {
+		final config = ConfigInfo.empty("cli");
+		config.merge(ConfigWriter.loadGlobal(GlobalPaths.config(env), {env: env}));
+		config.merge(ConfigLoader.loadProject(directory, {
+			defaultUsername: config.username == null ? "cli" : config.username,
+			worktree: directory,
+			env: env,
+			includeDefaultUsername: false,
+		}));
+		return config;
+	}
+
 	static function optionMaybe(args:Array<String>, name:String):Null<String> {
 		if (args.length < 2)
 			return null;
@@ -635,14 +648,24 @@ class Cli {
 		return null;
 	}
 
-	static function shouldUseLiveAiSdk(args:Array<String>):Bool {
+	static function shouldUseLiveAiSdk(args:Array<String>):LiveDispatch {
 		if (has(args, "--live-ai-sdk"))
-			return true;
+			return {live: true, error: null};
 		if (has(args, "--mock-ai-sdk"))
-			return false;
+			return {live: false, error: null};
 		final model = optionMaybe(args, "--model");
 		final shortModel = model == null ? optionMaybe(args, "-m") : model;
-		return shortModel != null && shortModel != FAKE_MODEL;
+		if (shortModel != null)
+			return {live: shortModel != FAKE_MODEL, error: null};
+		final directoryResult = liveDirectory(args);
+		if (directoryResult.error != null)
+			return {live: false, error: null};
+		try {
+			final config = loadLocalRunConfig(directoryResult.directory, NodeProcess.env());
+			return {live: config.model != null && config.model != "" && config.model != FAKE_MODEL, error: null};
+		} catch (error:haxe.Exception) {
+			return {live: false, error: ErrorFormatter.format(Unknown.fromBoundary(error))};
+		}
 	}
 
 	static function has(args:Array<String>, flag:String):Bool {

@@ -491,7 +491,7 @@ try {
 		assert.equal(liveForkExportJson.messages.length, 2);
 		assert.equal(liveForkExportJson.messages[0].parts[0].text, "Fork live.");
 		const configuredLiveEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "configured-live-data") };
-		const configuredLive = await runAsync(["run", "--live-ai-sdk", "--format", "json", "--dir", project, "Hello", "configured", "live."], {
+		const configuredLive = await runAsync(["run", "--format", "json", "--dir", project, "Hello", "configured", "live."], {
 			env: configuredLiveEnv,
 		});
 		assert.equal(configuredLive.status, 0);

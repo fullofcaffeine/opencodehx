@@ -439,7 +439,7 @@ try {
 		const configuredLive = await expectOkAsync(
 			runAsync(
 				bin,
-				["run", "--live-ai-sdk", "--format", "json", "--dir", projectDir, "Hello", "configured", "installed", "live."],
+				["run", "--format", "json", "--dir", projectDir, "Hello", "configured", "installed", "live."],
 				{ env: configuredLiveEnv },
 			),
 			"installed configured live AI SDK run",

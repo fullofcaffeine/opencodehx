@@ -595,22 +595,12 @@ class CliSmoke {
 			final liveConfiguredRoot = NodePath.join(liveRoot, "configured-data");
 			NodeProcess.setEnv("XDG_DATA_HOME", liveConfiguredRoot);
 			NodeProcess.unsetEnv("OPENCODE_DB");
-			final liveConfigured = @:await Cli.runAsync([
-				"run",
-				"--live-ai-sdk",
-				"--format",
-				"json",
-				"--dir",
-				liveDir,
-				"Hello",
-				"configured",
-				"live."
-			]);
-			eq(liveConfigured.exitCode, 0, "live cli config model exit");
+			final liveConfigured = @:await Cli.runAsync(["run", "--format", "json", "--dir", liveDir, "Hello", "configured", "live."]);
+			eq(liveConfigured.exitCode, 0, "live cli plain config model exit");
 			final liveConfiguredParsed:Dynamic = Json.parse(liveConfigured.stdout);
-			eq(Reflect.field(Reflect.field(liveConfiguredParsed, "provider"), "id"), "local-live", "live cli config model provider");
-			eq(Reflect.field(Reflect.field(liveConfiguredParsed, "request"), "prompt"), "Hello configured live.", "live cli config model prompt");
-			eq(assistantText(liveConfiguredParsed), "Hello from local live.", "live cli config model assistant text");
+			eq(Reflect.field(Reflect.field(liveConfiguredParsed, "provider"), "id"), "local-live", "live cli plain config model provider");
+			eq(Reflect.field(Reflect.field(liveConfiguredParsed, "request"), "prompt"), "Hello configured live.", "live cli plain config model prompt");
+			eq(assistantText(liveConfiguredParsed), "Hello from local live.", "live cli plain config model assistant text");
 			SmokeFetchStub.restore(originalLiveFetch);
 			restoreEnv("XDG_CONFIG_HOME", originalLiveXdg);
 			restoreEnv("XDG_DATA_HOME", originalLiveXdgData);
