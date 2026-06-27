@@ -15,7 +15,7 @@ This slice extends the Haxe-owned tool registry with the first mutating filesyst
 
 ## Evidence
 
-`ToolSmoke` now covers registry surface, unknown/disabled/invalid failures, read file and directory output, path escape rejection, read permission denial, glob/grep parity smoke cases, write creation, edit exact/replace-all/multiple-match failures, tolerant edit fallbacks for line-trimmed, block-anchor, whitespace, indentation, and escape-normalized matches, plus apply_patch add/update/delete/move execution, EOF anchors, heredoc parsing, Unicode-normalized matching, malformed headers, and no-side-effect verification failures.
+`ToolSmoke` now covers registry surface, unknown/disabled/invalid failures, read file and directory output, path escape rejection, read permission denial, read/bash truncation metadata, glob/grep parity smoke cases, write creation, edit exact/replace-all/multiple-match failures, tolerant edit fallbacks for line-trimmed, block-anchor, whitespace, indentation, and escape-normalized matches, plus apply_patch add/update/delete/move execution, EOF anchors, heredoc parsing, Unicode-normalized matching, malformed headers, and no-side-effect verification failures. Full upstream `Truncate` service behavior, including file-spill, cleanup, direction, byte/line defaults, and Task-tool hints, remains deferred.
 
 Gates used for this slice:
 

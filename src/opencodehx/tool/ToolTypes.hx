@@ -53,6 +53,11 @@ typedef ToolDef = {
 	final execute:(Dynamic, ToolContext) -> ToolResult;
 }
 
+typedef ToolInfo = {
+	final id:String;
+	final init:Void->ToolDef;
+}
+
 enum abstract KnownToolID(String) to String {
 	var ApplyPatch = "apply_patch";
 	var Bash = "bash";

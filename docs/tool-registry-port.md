@@ -12,11 +12,12 @@ This slice adds the first Haxe-owned tool surface:
 - `ToolRegistry` with builtin ids, lookup, disabled filtering, and invocation.
 - `KnownToolID` plus `ToolIDs.known("...")` for source-authored fixed tool references. The registry still accepts raw `String` values at runtime so model-emitted, plugin, config, and unknown-tool failure paths remain boundary data.
 - Initial `invalid`, `glob`, and `grep` tool definitions.
-- `ToolSmoke` coverage for builtin ids, schema fields, unknown/disabled failures, invalid argument text, glob directory rejection, glob file matching, grep directory/file search, and no-match output.
+- `ToolDefinition` coverage for fresh object/factory init snapshots without mutating source-authored definitions.
+- `ToolSmoke` coverage for builtin ids, schema fields, unknown/disabled failures, invalid argument text, glob directory rejection, glob file matching, grep directory/file search, no-match output, and `ToolDefinition` fresh-init behavior.
 
 ## Deliberate Boundaries
 
-This is not the full upstream Effect/Zod/plugin registry. Dynamic description hooks, provider/model filtering, plugin-defined tools, truncation integration, LSP/MCP tools, bash/PTY, and task/subagent descriptions are deferred to their owning beads. Core file tool permissions and read/write/edit/apply_patch scaffolding live in `docs/core-file-tools-port.md`.
+This is not the full upstream Effect/Zod/plugin registry. Dynamic description hooks, provider/model filtering, plugin-defined tools, full `Tool.define` Effect/Zod wrapping, truncation service file-spill/cleanup behavior, LSP/MCP tools, bash/PTY, and task/subagent descriptions are deferred to their owning beads. Core file tool permissions and read/write/edit/apply_patch scaffolding live in `docs/core-file-tools-port.md`.
 
 The registry keeps validation explicit rather than depending on Zod externs. If more tools repeat schema boilerplate, derive simple validators with a macro instead of expanding broad `Dynamic` usage.
 

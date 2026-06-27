@@ -12,11 +12,13 @@ import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.tool.BashCommandScanner;
 import opencodehx.tool.BashCommandScanner.BashScan;
+import opencodehx.tool.ToolDefinition;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolPaths;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
+import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolIDs;
 import opencodehx.tool.ToolTypes.ToolPermissionDecision;
 import opencodehx.tool.ToolTypes.ToolPermissionRequest;
@@ -29,6 +31,7 @@ class ToolSmoke {
 			await(BashCommandScanner.preload());
 			fixture(root);
 			final registry = new ToolRegistry();
+			toolDefinitionFresh();
 			registrySurface(registry);
 			shellSelectionParity();
 			await(killTreeParity(root));
@@ -61,6 +64,55 @@ class ToolSmoke {
 		eq(registry.all().length, 8, "builtin count");
 		eq(registry.all({disabled: [ToolIDs.known("grep")]}).length, 7, "filtered count");
 		eq(registry.get(ToolIDs.known("glob")).schema.parameters[0].name, "pattern", "glob schema");
+	}
+
+	static function toolDefinitionFresh():Void {
+		final original = simpleTool("source");
+		final originalExecute = original.execute;
+		final objectInfo = ToolDefinition.fromObject("object-tool", original);
+		final first = objectInfo.init();
+		final second = objectInfo.init();
+		eq(objectInfo.id, "object-tool", "object-defined tool info id");
+		eq(first.id, "object-tool", "object-defined tool clone id");
+		eq(original.id, "source", "object-defined source id preserved");
+		eq(original.execute == originalExecute, true, "object-defined source execute preserved");
+		eq(first == second, false, "object-defined fresh tool objects");
+		eq(first.schema == second.schema, false, "object-defined fresh schemas");
+		eq(first.schema.parameters == second.schema.parameters, false, "object-defined fresh parameter arrays");
+
+		var factoryCalls = 0;
+		final factoryInfo = ToolDefinition.fromFactory("factory-tool", () -> {
+			factoryCalls++;
+			return simpleTool('factory-${factoryCalls}');
+		});
+		final factoryFirst = factoryInfo.init();
+		final factorySecond = factoryInfo.init();
+		eq(factoryInfo.id, "factory-tool", "factory-defined tool info id");
+		eq(factoryFirst == factorySecond, false, "factory-defined fresh tool objects");
+		eq(factoryFirst.id, "factory-1", "factory-defined first id");
+		eq(factorySecond.id, "factory-2", "factory-defined second id");
+	}
+
+	static function simpleTool(id:String):ToolDef {
+		return {
+			id: id,
+			description: "test tool",
+			schema: {
+				parameters: [
+					{
+						name: "input",
+						type: "string",
+						required: true,
+						description: "Test input",
+					}
+				],
+			},
+			execute: (_, _) -> {
+				title: "test",
+				output: "ok",
+				metadata: {},
+			},
+		};
 	}
 
 	static function shellSelectionParity():Void {
