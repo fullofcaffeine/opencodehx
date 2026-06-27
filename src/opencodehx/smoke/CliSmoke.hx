@@ -419,18 +419,24 @@ class CliSmoke {
 		final liveRoot = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-live-"));
 		final originalLiveXdg = NodeProcess.envValue("XDG_CONFIG_HOME");
 		final originalLiveXdgData = NodeProcess.envValue("XDG_DATA_HOME");
+		final originalLiveDb = NodeProcess.envValue("OPENCODE_DB");
 		final originalLiveFetch = SmokeFetchStub.installCliLiveSuccess();
 		try {
 			final liveXdg = NodePath.join(liveRoot, "xdg");
 			final liveXdgData = NodePath.join(liveRoot, "data");
+			final liveDir = NodePath.join(liveRoot, "project");
+			final liveAttachment = NodePath.join(liveDir, "live-attached.txt");
 			final liveConfig = NodePath.join(liveXdg, "opencode");
 			Fs.mkdirSync(liveConfig, {recursive: true});
 			Fs.mkdirSync(NodePath.join(liveXdgData, "opencode"), {recursive: true});
+			Fs.mkdirSync(liveDir, {recursive: true});
+			Fs.writeFileSync(liveAttachment, "live attached\n");
 			Fs.writeFileSync(NodePath.join(liveConfig, "opencode.json"),
 				'{"' + "$" +
 				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","provider":{"local-live":{"npm":"@ai-sdk/openai-compatible","name":"Local Live","options":{"baseURL":"https://local-live.example.com/v1","apiKey":"local-key"},"models":{"chat":{"name":"Chat"}}}}}');
 			NodeProcess.setEnv("XDG_CONFIG_HOME", liveXdg);
 			NodeProcess.setEnv("XDG_DATA_HOME", liveXdgData);
+			NodeProcess.setEnv("OPENCODE_DB", NodePath.join(liveRoot, "live.sqlite"));
 			final liveRun = @:await Cli.runAsync([
 				"run",
 				"--live-ai-sdk",
@@ -438,6 +444,10 @@ class CliSmoke {
 				"local-live/chat",
 				"--format",
 				"json",
+				"--dir",
+				liveDir,
+				"--file",
+				"live-attached.txt",
 				"Hello",
 				"live."
 			]);
@@ -450,14 +460,49 @@ class CliSmoke {
 			eq(SmokeFetchStub.liveAuth(), "Bearer local-key", "live cli local auth header");
 			final liveBody = SmokeFetchStub.liveRequestBody();
 			eq(liveBody != null && liveBody.indexOf('"stream":true') != -1, true, "live cli local streaming request");
+			eq(assistantPath(liveParsed), NodePath.normalize(liveDir), "live cli local assistant path");
+			final liveUserParts = messageParts(liveParsed, 0);
+			eq(Reflect.field(liveUserParts[0], "type"), "file", "live cli local file part type");
+			eq(Reflect.field(liveUserParts[0], "filename"), "live-attached.txt", "live cli local file filename");
+			final liveSessionID = Std.string(Reflect.field(Reflect.field(liveParsed, "request"), "sessionID"));
+			eq(liveSessionID.indexOf("ses_"), 0, "live cli local persisted session id");
+			final liveExport = @:await Cli.runAsync(["export", liveSessionID]);
+			eq(liveExport.exitCode, 0, "live cli local export exit");
+			final liveExportMessages:Array<Dynamic> = Reflect.field(Json.parse(liveExport.stdout), "messages");
+			eq(liveExportMessages.length, 2, "live cli local export message count");
+			final liveExportParts:Array<Dynamic> = Reflect.field(liveExportMessages[0], "parts");
+			eq(Reflect.field(liveExportParts[0], "filename"), "live-attached.txt", "live cli local export file");
+			final liveAppend = @:await Cli.runAsync([
+				"run",
+				"--live-ai-sdk",
+				"--model",
+				"local-live/chat",
+				"--format",
+				"json",
+				"--session",
+				liveSessionID,
+				"Append",
+				"live."
+			]);
+			eq(liveAppend.exitCode, 0, "live cli local append exit");
+			final liveAppendParsed:Dynamic = Json.parse(liveAppend.stdout);
+			eq(Reflect.field(Reflect.field(liveAppendParsed, "request"), "sessionID"), liveSessionID, "live cli local append session");
+			final liveAppendExport = @:await Cli.runAsync(["export", liveSessionID]);
+			eq(liveAppendExport.exitCode, 0, "live cli local append export exit");
+			final liveAppendMessages:Array<Dynamic> = Reflect.field(Json.parse(liveAppendExport.stdout), "messages");
+			eq(liveAppendMessages.length, 4, "live cli local append export message count");
+			final liveAppendParts:Array<Dynamic> = Reflect.field(liveAppendMessages[2], "parts");
+			eq(Reflect.field(liveAppendParts[0], "text"), "Append live.", "live cli local appended prompt");
 			SmokeFetchStub.restore(originalLiveFetch);
 			restoreEnv("XDG_CONFIG_HOME", originalLiveXdg);
 			restoreEnv("XDG_DATA_HOME", originalLiveXdgData);
+			restoreEnv("OPENCODE_DB", originalLiveDb);
 			Fs.rmSync(liveRoot, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			SmokeFetchStub.restore(originalLiveFetch);
 			restoreEnv("XDG_CONFIG_HOME", originalLiveXdg);
 			restoreEnv("XDG_DATA_HOME", originalLiveXdgData);
+			restoreEnv("OPENCODE_DB", originalLiveDb);
 			Fs.rmSync(liveRoot, {recursive: true, force: true});
 			throw error;
 		}

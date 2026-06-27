@@ -393,17 +393,35 @@ try {
 	assert.match(authLoaded.stderr, /Model not found: cloudflare-ai-gateway\/missing/);
 	await withLiveOpenAICompatibleServer(async (localUrl, observed) => {
 		writeFileSync(path.join(project, "opencode.json"), configFor("local-live", `${localUrl}/v1`));
-		const liveRun = await runAsync(["run", "--live-ai-sdk", "--model", "local-live/chat", "--format", "json", "--dir", project, "Hello", "live."], {
-			env,
+		const liveEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "live-sdk-run.sqlite") };
+		const liveRun = await runAsync(["run", "--live-ai-sdk", "--model", "local-live/chat", "--format", "json", "--dir", project, "--file", "attached.txt", "Hello", "live."], {
+			env: liveEnv,
 		});
 		assert.equal(liveRun.status, 0);
 		const liveJson = JSON.parse(liveRun.stdout);
 		assert.equal(liveJson.provider.id, "local-live");
 		assert.equal(liveJson.request.prompt, "Hello live.");
+		assert.match(liveJson.request.sessionID, /^ses_/);
+		assert.equal(liveJson.messages[0].parts[0].filename, "attached.txt");
 		assert.equal(liveJson.messages[1].parts.find((part) => part.type === "text").text, "Hello from local live.");
 		assert.equal(observed.path, "/v1/chat/completions");
 		assert.equal(observed.auth, "Bearer test-key");
 		assert.equal(observed.body.stream, true);
+		const liveExport = run(["export", liveJson.request.sessionID], { env: liveEnv });
+		assert.equal(liveExport.status, 0);
+		const liveExportJson = JSON.parse(liveExport.stdout);
+		assert.equal(liveExportJson.messages.length, 2);
+		assert.equal(liveExportJson.messages[0].parts[0].filename, "attached.txt");
+		const liveAppend = await runAsync(["run", "--live-ai-sdk", "--model", "local-live/chat", "--format", "json", "--session", liveJson.request.sessionID, "Append", "live."], {
+			env: liveEnv,
+		});
+		assert.equal(liveAppend.status, 0);
+		assert.equal(JSON.parse(liveAppend.stdout).request.sessionID, liveJson.request.sessionID);
+		const liveAppendExport = run(["export", liveJson.request.sessionID], { env: liveEnv });
+		assert.equal(liveAppendExport.status, 0);
+		const liveAppendExportJson = JSON.parse(liveAppendExport.stdout);
+		assert.equal(liveAppendExportJson.messages.length, 4);
+		assert.equal(liveAppendExportJson.messages[2].parts[0].text, "Append live.");
 	});
 	await withRemoteConfigServer(async (remoteUrl, observed) => {
 		writeFileSync(

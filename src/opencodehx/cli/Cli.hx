@@ -224,17 +224,25 @@ class Cli {
 		final directoryError = directoryResult.error;
 		if (directoryError != null)
 			return fail(directoryError);
-		final directory = directoryResult.directory;
+		final filesResult = runFiles(args, runFileBaseDirectory(args, directoryResult.directory));
+		final filesError = filesResult.error;
+		if (filesError != null)
+			return fail(filesError);
 		final prompt = message(args);
 		if (StringTools.trim(prompt) == "")
 			return fail("You must provide a message or a command");
+		final resume = runSessionSelection(args, directoryResult.directory);
+		final resumeError = resume.error;
+		if (resumeError != null)
+			return fail(resumeError);
+		var persistence:Null<RunPersistence> = null;
 		try {
 			final env = NodeProcess.env();
 			final config = ConfigInfo.empty("cli");
 			config.merge(ConfigWriter.loadGlobal(GlobalPaths.config(env), {env: env}));
-			config.merge(ConfigLoader.loadProject(directory, {
+			config.merge(ConfigLoader.loadProject(resume.directory, {
 				defaultUsername: config.username == null ? "cli" : config.username,
-				worktree: directory,
+				worktree: resume.directory,
 				env: env,
 				includeDefaultUsername: false,
 			}));
@@ -259,15 +267,26 @@ class Cli {
 				return fail('Provider not available for live AI SDK run: ${parsed.providerID.toString()}');
 			final model = registry.getModel(parsed.providerID, parsed.modelID);
 			final language = registry.getLanguage(model);
+			persistence = runPersistence(resume.sessionID, resume.forkParentID);
 			final processed = @:await SessionProcessor.runAiSdk({
 				prompt: prompt,
-				directory: directory,
+				directory: resume.directory,
+				sessionID: resume.sessionID == null ? persistence.sessionID : resume.sessionID,
+				turnID: persistence.turnID,
+				turnTime: persistence.turnTime,
+				parentSessionID: resume.forkParentID,
+				store: persistence.store,
 				provider: provider,
 				model: model,
 				language: language,
+				files: filesResult.files,
+				history: resume.history,
 			});
+			closeStore(persistence.store);
 			return formatRunResult(processed, format);
 		} catch (error:haxe.Exception) {
+			if (persistence != null)
+				closeStore(persistence.store);
 			return fail(ErrorFormatter.format(Unknown.fromBoundary(error)));
 		}
 	}
@@ -544,10 +563,11 @@ class Cli {
 			return {directory: NodeProcess.cwd(), error: null};
 		try {
 			final resolved = NodePath.isAbsolute(raw) ? raw : NodePath.resolve(NodeProcess.cwd(), raw);
-			NodeProcess.chdir(resolved);
-			return {directory: NodeProcess.cwd(), error: null};
+			if (!Fs.statSync(resolved).isDirectory())
+				return {directory: NodeProcess.cwd(), error: 'Run directory is not a directory: ${raw}'};
+			return {directory: NodePath.normalize(resolved), error: null};
 		} catch (error:haxe.Exception) {
-			return {directory: NodeProcess.cwd(), error: 'Failed to change directory to ${raw}'};
+			return {directory: NodeProcess.cwd(), error: 'Failed to resolve run directory: ${raw}'};
 		}
 	}
 

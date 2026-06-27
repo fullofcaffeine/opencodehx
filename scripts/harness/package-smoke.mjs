@@ -264,6 +264,7 @@ try {
 			...process.env,
 			XDG_CONFIG_HOME: liveConfigRoot,
 			XDG_DATA_HOME: liveDataRoot,
+			OPENCODE_DB: path.join(tempRoot, "installed-live-run.sqlite"),
 		};
 		const liveRun = await expectOkAsync(
 			runAsync(
@@ -289,10 +290,40 @@ try {
 		assert.equal(liveTranscript.provider.id, "installed-live", "installed live AI SDK provider");
 		assert.equal(liveTranscript.request.prompt, "Hello installed live.", "installed live AI SDK prompt");
 		assert.equal(liveTranscript.messages[1].parts.find((part) => part.type === "text").text, "Hello from installed live.");
-		assert.equal(assistantCwd(liveTranscript), realpathSync(projectDir), "installed live AI SDK assistant cwd");
+		assert.equal(realpathSync(assistantCwd(liveTranscript)), realpathSync(projectDir), "installed live AI SDK assistant cwd");
 		assert.equal(observed.path, "/v1/chat/completions", "installed live AI SDK request path");
 		assert.equal(observed.auth, "Bearer installed-live-key", "installed live AI SDK auth header");
 		assert.equal(observed.body.stream, true, "installed live AI SDK stream flag");
+		assert.match(liveTranscript.request.sessionID, /^ses_/, "installed live AI SDK session id");
+		const liveExport = expectOk(run(bin, ["export", liveTranscript.request.sessionID], { env: liveEnv }), "installed live AI SDK export");
+		const liveExportJson = JSON.parse(liveExport.stdout);
+		assert.equal(liveExportJson.messages.length, 2, "installed live AI SDK export messages");
+		assert.equal(liveExportJson.messages[0].parts[0].text, "Hello installed live.", "installed live AI SDK export prompt");
+		const liveAppend = await expectOkAsync(
+			runAsync(
+				bin,
+				[
+					"run",
+					"--live-ai-sdk",
+					"--model",
+					"installed-live/chat",
+					"--format",
+					"json",
+					"--session",
+					liveTranscript.request.sessionID,
+					"Append",
+					"installed",
+					"live.",
+				],
+				{ env: liveEnv },
+			),
+			"installed resumed live AI SDK run",
+		);
+		assert.equal(JSON.parse(liveAppend.stdout).request.sessionID, liveTranscript.request.sessionID, "installed resumed live AI SDK session id");
+		const liveAppendExport = expectOk(run(bin, ["export", liveTranscript.request.sessionID], { env: liveEnv }), "installed resumed live AI SDK export");
+		const liveAppendExportJson = JSON.parse(liveAppendExport.stdout);
+		assert.equal(liveAppendExportJson.messages.length, 4, "installed resumed live AI SDK export messages");
+		assert.equal(liveAppendExportJson.messages[2].parts[0].text, "Append installed live.", "installed resumed live AI SDK export prompt");
 	});
 	const installedDbEnv = {
 		...process.env,
