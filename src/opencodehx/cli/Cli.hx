@@ -23,7 +23,7 @@ import opencodehx.provider.FakeProvider;
 import opencodehx.provider.ProviderRegistry;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
-import opencodehx.session.MessageTypes.Part;
+import opencodehx.session.MessageTypes.WithParts;
 import opencodehx.session.SessionExport;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionProcessor;
@@ -44,6 +44,7 @@ typedef CliResult = {
 typedef RunSessionSelection = {
 	final directory:String;
 	final sessionID:Null<String>;
+	final history:Array<WithParts>;
 	final error:Null<String>;
 }
 
@@ -196,6 +197,7 @@ class Cli {
 				model: fixture.model,
 				language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
 				files: filesResult.files,
+				history: resume.history,
 			});
 			closeStore(persistence.store);
 			return formatRunResult(processed, format);
@@ -363,12 +365,22 @@ class Cli {
 
 	static function runSessionSelection(args:Array<String>, fallbackDirectory:String):RunSessionSelection {
 		if (has(args, "--fork") && !has(args, "--continue") && option(args, "--session", option(args, "-s", "")) == "")
-			return {directory: fallbackDirectory, sessionID: null, error: "--fork requires --continue or --session"};
+			return {
+				directory: fallbackDirectory,
+				sessionID: null,
+				history: [],
+				error: "--fork requires --continue or --session"
+			};
 
 		var sessionIDText = option(args, "--session", option(args, "-s", ""));
 		final shouldContinue = has(args, "--continue");
 		if (sessionIDText == "" && !shouldContinue)
-			return {directory: fallbackDirectory, sessionID: null, error: null};
+			return {
+				directory: fallbackDirectory,
+				sessionID: null,
+				history: [],
+				error: null
+			};
 
 		var store:Null<SessionStore> = null;
 		try {
@@ -386,29 +398,50 @@ class Cli {
 				}
 				if (sessionIDText == "") {
 					store.close();
-					return {directory: fallbackDirectory, sessionID: null, error: "No sessions found to continue."};
+					return {
+						directory: fallbackDirectory,
+						sessionID: null,
+						history: [],
+						error: "No sessions found to continue."
+					};
 				}
 			}
 			if (has(args, "--fork")) {
 				store.close();
-				return {directory: fallbackDirectory, sessionID: null, error: "--fork is not wired in the non-interactive scaffold yet."};
+				return {
+					directory: fallbackDirectory,
+					sessionID: null,
+					history: [],
+					error: "--fork is not wired in the non-interactive scaffold yet."
+				};
 			}
-			final recovered = SessionProcessor.recover(store, sessionIDText, 1);
+			final recovered = SessionProcessor.recover(store, sessionIDText, 40);
 			store.close();
 			final explicitDirectory = option(args, "--dir", "") != "";
 			return {
 				directory: explicitDirectory ? fallbackDirectory : recovered.session.directory,
 				sessionID: recovered.session.id.toString(),
+				history: recovered.messages,
 				error: null,
 			};
 		} catch (error:StorageException) {
 			if (store != null)
 				store.close();
-			return {directory: fallbackDirectory, sessionID: null, error: 'Session not found: ${sessionIDText}'};
+			return {
+				directory: fallbackDirectory,
+				sessionID: null,
+				history: [],
+				error: 'Session not found: ${sessionIDText}'
+			};
 		} catch (error:haxe.Exception) {
 			if (store != null)
 				store.close();
-			return {directory: fallbackDirectory, sessionID: null, error: ErrorFormatter.format(Unknown.fromBoundary(error))};
+			return {
+				directory: fallbackDirectory,
+				sessionID: null,
+				history: [],
+				error: ErrorFormatter.format(Unknown.fromBoundary(error))
+			};
 		}
 	}
 

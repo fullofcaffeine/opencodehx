@@ -247,12 +247,16 @@ class AiSdkProvider {
 
 class AiSdkMockModel {
 	public static function text(chunks:Array<String>):AiLanguageModel {
+		return inspectableText(chunks).language;
+	}
+
+	public static function inspectableText(chunks:Array<String>):AiSdkInspectableMock {
 		final parts:Array<AiProviderStreamPart> = [AiProviderStreamPart.streamStart(), AiProviderStreamPart.textStart("txt_1")];
 		for (chunk in chunks)
 			parts.push(AiProviderStreamPart.textDelta("txt_1", chunk));
 		parts.push(AiProviderStreamPart.textEnd("txt_1"));
 		parts.push(AiProviderStreamPart.finish(finishReason(AiFinishReason.Stop, "stop"), usage(3, 4)));
-		return model("mock-text", parts, null, null);
+		return inspectableModel("mock-text", parts, null, null);
 	}
 
 	public static function toolCall(?toolName:String, ?input:String):AiLanguageModel {

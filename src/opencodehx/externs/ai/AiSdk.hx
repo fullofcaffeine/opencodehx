@@ -464,13 +464,7 @@ abstract AiModelMessage(AiModelMessageShape) from AiModelMessageShape to AiModel
 @:ts.type("import('ai').ModelMessage[]")
 abstract AiModelMessages(Array<AiModelMessage>) from Array<AiModelMessage> to Array<AiModelMessage> {
 	public static function systemUser(system:Array<String>, user:String):AiModelMessages {
-		final out:Array<AiModelMessage> = [];
-		pushSystem(out, system);
-		out.push({
-			role: "user",
-			content: user,
-		});
-		return out;
+		return systemHistoryUser(system, [], user);
 	}
 
 	public static function systemUserToolResult(system:Array<String>, user:String, toolCallId:String, toolName:String, input:Unknown,
@@ -486,12 +480,24 @@ abstract AiModelMessages(Array<AiModelMessage>) from Array<AiModelMessage> to Ar
 	}
 
 	public static function systemUserToolResults(system:Array<String>, user:String, turns:Array<AiModelToolResultTurn>):AiModelMessages {
+		return systemHistoryUserToolResults(system, [], user, turns);
+	}
+
+	public static function systemHistoryUser(system:Array<String>, history:Array<AiModelMessage>, user:String):AiModelMessages {
 		final out:Array<AiModelMessage> = [];
 		pushSystem(out, system);
+		for (message in history)
+			out.push(message);
 		out.push({
 			role: "user",
 			content: user,
 		});
+		return out;
+	}
+
+	public static function systemHistoryUserToolResults(system:Array<String>, history:Array<AiModelMessage>, user:String,
+			turns:Array<AiModelToolResultTurn>):AiModelMessages {
+		final out:Array<AiModelMessage> = systemHistoryUser(system, history, user);
 		for (turn in turns) {
 			out.push({
 				role: "assistant",

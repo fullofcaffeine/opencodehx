@@ -835,6 +835,22 @@ class SessionProcessorSmoke {
 				case _:
 					throw "session processor async: expected recovered assistant text";
 			}
+			final historyRuntime = AiSdkMockModel.inspectableText(["History aware."]);
+			final historyRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_history",
+				prompt: "Continue with recovered context.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: historyRuntime.language,
+				history: recoveredAiSdk.messages,
+			});
+			eq(historyRun.messages.length, 2, "ai sdk history message count");
+			assertSdkTextHistoryPrompt(historyRuntime.mock.doStreamCalls[0].prompt, [
+				"Persist this AI SDK turn.",
+				"Persisted through AI SDK.",
+				"Continue with recovered context."
+			], "ai sdk recovered text history prompt");
 
 			final persistedToolRuntime = AiSdkMockModel.inspectableToolThenText("Recovered file says: ai sdk tool fixture.", "read",
 				"{\"filePath\":\"src/input.txt\"}");
@@ -1185,6 +1201,18 @@ class SessionProcessorSmoke {
 		eq(promptContentText(prompt[0]), "You are an AI SDK provider runtime.", label + " system text");
 		eq(prompt[1].role, AiLanguageModelPromptRole.User, label + " user role");
 		eq(promptContentText(prompt[1]), userText, label + " user text");
+	}
+
+	static function assertSdkTextHistoryPrompt(prompt:Array<AiLanguageModelPromptMessage>, expectedTexts:Array<String>, label:String):Void {
+		eq(prompt.length, expectedTexts.length + 1, label + " count");
+		eq(prompt[0].role, AiLanguageModelPromptRole.System, label + " system role");
+		eq(promptContentText(prompt[0]), "You are an AI SDK provider runtime.", label + " system text");
+		for (index in 0...expectedTexts.length) {
+			final message = prompt[index + 1];
+			final expectedRole = index % 2 == 0 ? AiLanguageModelPromptRole.User : AiLanguageModelPromptRole.Assistant;
+			eq(message.role, expectedRole, label + " role " + index);
+			eq(promptContentText(message), expectedTexts[index], label + " text " + index);
+		}
 	}
 
 	static function assertSdkToolResultPrompt(prompt:Array<AiLanguageModelPromptMessage>, userText:String, callID:String, toolName:String,

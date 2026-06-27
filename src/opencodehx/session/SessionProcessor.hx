@@ -8,6 +8,7 @@ import opencodehx.BuildInfo;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelUsage;
+import opencodehx.externs.ai.AiSdk.AiModelMessage;
 import opencodehx.externs.ai.AiSdk.AiModelToolResultTurn;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
@@ -120,6 +121,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final maxToolContinuations:Int;
 	@:optional final abortStreamImmediately:Bool;
 	@:optional final files:Array<SessionFileInput>;
+	@:optional final history:Array<WithParts>;
 }
 
 typedef SessionProcessorResult = {
@@ -261,12 +263,13 @@ class SessionProcessor {
 		var tokens = tokenUsage();
 		var modelToolCall:Null<SessionToolCall> = null;
 		var toolOutcome:Null<SessionToolOutcome> = null;
+		final messageHistory = textModelHistory(input.history);
 		if (aborted) {
 			events.push({type: "start"});
 			events.push({type: "abort", message: "User aborted the request"});
 		} else {
 			events.push({type: "start"});
-			final requestMessages = SessionLlm.requestModelMessages(provider.system, prompt, false, false);
+			final requestMessages = SessionLlm.requestModelMessages(provider.system, prompt, false, false, messageHistory);
 			final stream = @:await AiSdkProvider.stream({
 				model: input.language,
 				prompt: prompt,
@@ -310,7 +313,7 @@ class SessionProcessor {
 				break;
 			continuations++;
 			toolHistory.push(toolHistoryTurn(currentOutcome));
-			final continuationMessages = SessionLlm.requestToolHistoryModelMessages(provider.system, prompt, toolHistory, false, false);
+			final continuationMessages = SessionLlm.requestToolHistoryModelMessages(provider.system, prompt, toolHistory, false, false, messageHistory);
 			final continuation = @:await AiSdkProvider.stream({
 				model: input.language,
 				prompt: prompt,
@@ -434,6 +437,41 @@ class SessionProcessor {
 		};
 		parts.push(TextPart(text));
 		return {info: UserInfo(info), parts: parts};
+	}
+
+	static function textModelHistory(history:Null<Array<WithParts>>):Array<AiModelMessage> {
+		final out:Array<AiModelMessage> = [];
+		if (history == null)
+			return out;
+		for (message in history) {
+			final text = firstText(message.parts);
+			if (StringTools.trim(text) == "")
+				continue;
+			switch message.info {
+				case UserInfo(_):
+					out.push({
+						role: "user",
+						content: text,
+					});
+				case AssistantInfo(_):
+					out.push({
+						role: "assistant",
+						content: text,
+					});
+			}
+		}
+		return out;
+	}
+
+	static function firstText(parts:Array<Part>):String {
+		for (part in parts) {
+			switch part {
+				case TextPart(text):
+					return text.text;
+				case _:
+			}
+		}
+		return "";
 	}
 
 	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:SessionProviderIdentity,

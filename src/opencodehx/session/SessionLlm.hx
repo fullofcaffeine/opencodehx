@@ -9,6 +9,7 @@ import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPartType;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptRole;
+import opencodehx.externs.ai.AiSdk.AiModelMessage;
 import opencodehx.externs.ai.AiSdk.AiModelMessages;
 import opencodehx.externs.ai.AiSdk.AiModelToolResultTurn;
 import opencodehx.externs.ai.AiSdk.AiSdk;
@@ -244,8 +245,9 @@ class SessionLlm {
 		return out;
 	}
 
-	public static function requestModelMessages(system:Array<String>, userPrompt:String, isOpenaiOauth:Bool, isWorkflow:Bool):AiModelMessages {
-		return AiModelMessages.systemUser(isOpenaiOauth || isWorkflow ? [] : system, userPrompt);
+	public static function requestModelMessages(system:Array<String>, userPrompt:String, isOpenaiOauth:Bool, isWorkflow:Bool,
+			?history:Array<AiModelMessage>):AiModelMessages {
+		return AiModelMessages.systemHistoryUser(isOpenaiOauth || isWorkflow ? [] : system, historyOrEmpty(history), userPrompt);
 	}
 
 	public static function requestToolResultModelMessages(system:Array<String>, userPrompt:String, toolCallId:String, toolName:String, toolInput:Unknown,
@@ -254,8 +256,8 @@ class SessionLlm {
 	}
 
 	public static function requestToolHistoryModelMessages(system:Array<String>, userPrompt:String, history:Array<AiModelToolResultTurn>, isOpenaiOauth:Bool,
-			isWorkflow:Bool):AiModelMessages {
-		return AiModelMessages.systemUserToolResults(isOpenaiOauth || isWorkflow ? [] : system, userPrompt, history);
+			isWorkflow:Bool, ?messageHistory:Array<AiModelMessage>):AiModelMessages {
+		return AiModelMessages.systemHistoryUserToolResults(isOpenaiOauth || isWorkflow ? [] : system, historyOrEmpty(messageHistory), userPrompt, history);
 	}
 
 	public static function activeToolNames(tools:DynamicAccess<AiTool>):Array<String> {
@@ -643,6 +645,10 @@ class SessionLlm {
 
 	static function textOrEmpty(value:Null<String>):String {
 		return value == null ? "" : value;
+	}
+
+	static function historyOrEmpty(history:Null<Array<AiModelMessage>>):Array<AiModelMessage> {
+		return history == null ? [] : history;
 	}
 
 	static function textOr(value:Null<String>, fallback:String):String {
