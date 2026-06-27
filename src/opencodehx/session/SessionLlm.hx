@@ -1,6 +1,8 @@
 package opencodehx.session;
 
 import genes.ts.Undefinable;
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.Json;
 import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
@@ -65,6 +67,16 @@ typedef LlmRequestParams = {
 	final topK:Undefinable<Float>;
 	final maxOutputTokens:Float;
 	final options:ProviderOptions;
+}
+
+typedef LlmWorkflowApprovalTool = {
+	final name:String;
+	final args:String;
+}
+
+typedef LlmWorkflowApprovalUpdate = {
+	final approved:Array<String>;
+	final preapproved:Array<String>;
 }
 
 /**
@@ -194,6 +206,44 @@ class SessionLlm {
 		return out;
 	}
 
+	public static function workflowApprovalNames(tools:Array<LlmWorkflowApprovalTool>):Array<String> {
+		final out:Array<String> = [];
+		for (tool in tools)
+			pushUnique(out, tool.name);
+		return out;
+	}
+
+	public static function workflowAlreadyApproved(tools:Array<LlmWorkflowApprovalTool>, approved:Array<String>):Bool {
+		final names = workflowApprovalNames(tools);
+		for (name in names) {
+			if (!hasString(approved, name))
+				return false;
+		}
+		return true;
+	}
+
+	public static function workflowApprovalPatterns(tools:Array<LlmWorkflowApprovalTool>):Array<String> {
+		final out:Array<String> = [];
+		for (tool in tools)
+			pushUnique(out, workflowApprovalPattern(tool));
+		return out;
+	}
+
+	public static function rememberWorkflowApproval(preapproved:Array<String>, approved:Array<String>,
+			tools:Array<LlmWorkflowApprovalTool>):LlmWorkflowApprovalUpdate {
+		final names = workflowApprovalNames(tools);
+		final nextApproved = approved.copy();
+		for (name in names)
+			pushUnique(nextApproved, name);
+		final nextPreapproved = preapproved.copy();
+		for (name in names)
+			nextPreapproved.push(name);
+		return {
+			approved: nextApproved,
+			preapproved: nextPreapproved,
+		};
+	}
+
 	public static function repairToolCall(toolCall:LlmToolCallRepairInput, tools:DynamicAccess<AiTool>, errorMessage:String):LlmToolCallRepairInput {
 		final lower = toolCall.toolName.toLowerCase();
 		if (lower != toolCall.toolName && tools.exists(lower))
@@ -259,6 +309,57 @@ class SessionLlm {
 				found = rule.action;
 		}
 		return found;
+	}
+
+	static function workflowApprovalPattern(tool:LlmWorkflowApprovalTool):String {
+		final title = workflowApprovalTitle(tool.args);
+		return title == "" ? tool.name : '${tool.name}: ${title}';
+	}
+
+	static function workflowApprovalTitle(args:String):String {
+		try {
+			// Workflow tool args arrive as JSON strings from the provider. This is
+			// the boundary where upstream reads optional title/name fields through
+			// JavaScript nullish-coalescing and truthiness.
+			final parsed = UnknownNarrow.record(Unknown.fromBoundary(Json.parse(args)));
+			if (parsed == null)
+				return "";
+			final title = workflowTitleValue(parsed.get("title"));
+			if (title != null)
+				return title;
+			final name = workflowTitleValue(parsed.get("name"));
+			return name == null ? "" : name;
+		} catch (_:Dynamic) {
+			return "";
+		}
+	}
+
+	static function workflowTitleValue(value:Unknown):Null<String> {
+		if (UnknownNarrow.isNull(value) || UnknownNarrow.isUndefined(value))
+			return null;
+		final text = UnknownNarrow.string(value);
+		if (text != null)
+			return text;
+		final bool = UnknownNarrow.bool(value);
+		if (bool != null)
+			return bool == true ? "true" : "";
+		final number = UnknownNarrow.number(value);
+		if (number != null)
+			return number == 0 ? "" : Std.string(number);
+		return "";
+	}
+
+	static function pushUnique(out:Array<String>, value:String):Void {
+		if (!hasString(out, value))
+			out.push(value);
+	}
+
+	static function hasString(items:Array<String>, value:String):Bool {
+		for (item in items) {
+			if (item == value)
+				return true;
+		}
+		return false;
 	}
 
 	static function copyToolCall(source:LlmToolCallRepairInput, toolName:String, input:Null<String>):LlmToolCallRepairInput {

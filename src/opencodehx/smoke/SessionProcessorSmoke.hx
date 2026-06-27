@@ -39,6 +39,7 @@ class SessionProcessorSmoke {
 		llmRepairToolCall();
 		llmRequestOptions();
 		llmRequestParams();
+		llmWorkflowApproval();
 		llmCompatibilityTools();
 		llmRequestHeaders();
 		llmSystemMessages();
@@ -327,6 +328,31 @@ class SessionProcessorSmoke {
 		eq(disabledParams.temperature.orNull(), null, "llm params temperature capability disabled");
 		eq(disabledParams.topP.orNull(), 0.95, "llm params topP still applies");
 		eq(disabledParams.topK.orNull(), 64.0, "llm params topK fallback");
+	}
+
+	static function llmWorkflowApproval():Void {
+		final tools = [
+			{name: "read", args: '{"title":"README.md"}'},
+			{name: "bash", args: '{"name":"npm test"}'},
+			{name: "read", args: '{"title":"README.md"}'},
+			{name: "grep", args: "{not json}"},
+			{name: "write", args: '{"title":null,"name":"output.txt"}'},
+			{name: "edit", args: '{"title":true}'},
+			{name: "noop", args: '{"title":0,"name":"ignored"}'},
+		];
+		final names = SessionLlm.workflowApprovalNames(tools);
+		eq(names.join(","), "read,bash,grep,write,edit,noop", "llm workflow approval unique names");
+
+		final patterns = SessionLlm.workflowApprovalPatterns(tools);
+		eq(patterns.join("|"), "read: README.md|bash: npm test|grep|write: output.txt|edit: true|noop", "llm workflow approval patterns");
+
+		eq(SessionLlm.workflowAlreadyApproved([{name: "read", args: "{}"}, {name: "read", args: "{}"}], ["read"]), true,
+			"llm workflow already approved duplicate");
+		eq(SessionLlm.workflowAlreadyApproved([{name: "read", args: "{}"}, {name: "bash", args: "{}"}], ["read"]), false, "llm workflow missing approval");
+
+		final remembered = SessionLlm.rememberWorkflowApproval(["read"], ["read"], [{name: "read", args: "{}"}, {name: "bash", args: "{}"}]);
+		eq(remembered.approved.join(","), "read,bash", "llm workflow approval set update");
+		eq(remembered.preapproved.join(","), "read,read,bash", "llm workflow preapproved appends upstream names");
 	}
 
 	static function llmCompatibilityTools():Void {
