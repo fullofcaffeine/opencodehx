@@ -150,6 +150,29 @@ try {
 	const continuedMessages = JSON.parse(continuedExport.stdout).messages;
 	assert.equal(continuedMessages.length, 6, "installed continue export messages");
 	assert.equal(continuedMessages[4].parts[0].text, "Continue from installed package.", "installed continue export prompt");
+	const installedMockDbEnv = {
+		...process.env,
+		OPENCODE_DB: path.join(tempRoot, "installed-mock-run.sqlite"),
+	};
+	const persistedMockRun = expectOk(
+		run(bin, ["run", "--mock-ai-sdk", "--format", "json", "Persist", "from", "installed", "mock", "SDK."], { env: installedMockDbEnv }),
+		"installed persisted mock AI SDK run",
+	);
+	const persistedMockSessionID = JSON.parse(persistedMockRun.stdout).request.sessionID;
+	assert.match(persistedMockSessionID, /^ses_/, "installed persisted mock AI SDK session id");
+	const persistedMockExport = expectOk(run(bin, ["export", persistedMockSessionID], { env: installedMockDbEnv }), "installed persisted mock AI SDK export");
+	assert.equal(JSON.parse(persistedMockExport.stdout).messages.length, 2, "installed persisted mock AI SDK export messages");
+	const resumedMockRun = expectOk(
+		run(bin, ["run", "--mock-ai-sdk", "--format", "json", "--session", persistedMockSessionID, "Append", "from", "installed", "mock", "SDK."], {
+			env: installedMockDbEnv,
+		}),
+		"installed resumed mock AI SDK run",
+	);
+	assert.equal(JSON.parse(resumedMockRun.stdout).request.sessionID, persistedMockSessionID, "installed resumed mock AI SDK session id");
+	const resumedMockExport = expectOk(run(bin, ["export", persistedMockSessionID], { env: installedMockDbEnv }), "installed resumed mock AI SDK export");
+	const resumedMockMessages = JSON.parse(resumedMockExport.stdout).messages;
+	assert.equal(resumedMockMessages.length, 4, "installed resumed mock AI SDK export messages");
+	assert.equal(resumedMockMessages[2].parts[0].text, "Append from installed mock SDK.", "installed resumed mock AI SDK export prompt");
 	const tui = expectOk(
 		run(
 			installedBun,
