@@ -1,5 +1,6 @@
 package opencodehx.session;
 
+import genes.ts.Undefinable;
 import haxe.DynamicAccess;
 import haxe.Json;
 import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
@@ -49,6 +50,21 @@ typedef LlmRequestOptionsInput = {
 	@:optional final providerOptions:ProviderOptions;
 	@:optional final agentOptions:ProviderOptions;
 	@:optional final variant:String;
+}
+
+typedef LlmRequestParamsInput = {
+	final model:ProviderModel;
+	final options:ProviderOptions;
+	@:optional final agentTemperature:Float;
+	@:optional final agentTopP:Float;
+}
+
+typedef LlmRequestParams = {
+	final temperature:Undefinable<Float>;
+	final topP:Undefinable<Float>;
+	final topK:Undefinable<Float>;
+	final maxOutputTokens:Float;
+	final options:ProviderOptions;
 }
 
 /**
@@ -206,6 +222,20 @@ class SessionLlm {
 		return out;
 	}
 
+	public static function requestParams(input:LlmRequestParamsInput):LlmRequestParams {
+		var temperature:Null<Float> = null;
+		if (input.model.capabilities.temperature)
+			temperature = firstNumber(input.agentTemperature, ProviderTransform.temperature(input.model));
+		final topK = ProviderTransform.topK(input.model);
+		return {
+			temperature: numberOrAbsent(temperature),
+			topP: numberOrAbsent(firstNumber(input.agentTopP, ProviderTransform.topP(input.model))),
+			topK: topK == null ? Undefinable.absent() : topK * 1.0,
+			maxOutputTokens: ProviderTransform.maxOutputTokens(input.model),
+			options: input.options,
+		};
+	}
+
 	public static function requiresNoopTool(model:ProviderModel):Bool {
 		final providerID = model.providerID.toString().toLowerCase();
 		final apiID = model.api.id.toLowerCase();
@@ -293,6 +323,14 @@ class SessionLlm {
 
 	static function optionMap():ProviderOptions {
 		return new DynamicAccess<Dynamic>();
+	}
+
+	static function firstNumber(first:Null<Float>, fallback:Null<Float>):Null<Float> {
+		return first == null ? fallback : first;
+	}
+
+	static function numberOrAbsent(value:Null<Float>):Undefinable<Float> {
+		return value == null ? Undefinable.absent() : value;
 	}
 
 	static function copyHeaders(source:ProviderHeaders, target:ProviderHeaders):Void {

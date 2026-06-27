@@ -38,6 +38,7 @@ class SessionProcessorSmoke {
 		llmResolveTools();
 		llmRepairToolCall();
 		llmRequestOptions();
+		llmRequestParams();
 		llmCompatibilityTools();
 		llmRequestHeaders();
 		llmSystemMessages();
@@ -295,6 +296,39 @@ class SessionProcessorSmoke {
 		eq(missingVariant.get("reasoningEffort"), "medium", "llm options missing variant keeps base");
 	}
 
+	static function llmRequestParams():Void {
+		final options = record1("requestOption", true);
+		final overrideModel = modelWithOptionsVariants("openai", "gpt-5.2", "@ai-sdk/openai", optionMap(), new DynamicAccess<ProviderOptions>());
+		final overrideParams = SessionLlm.requestParams({
+			model: overrideModel,
+			options: options,
+			agentTemperature: 0.2,
+			agentTopP: 0.8,
+		});
+		eq(overrideParams.temperature.orNull(), 0.2, "llm params agent temperature override");
+		eq(overrideParams.topP.orNull(), 0.8, "llm params agent topP override");
+		eq(overrideParams.topK.orNull(), null, "llm params absent topK");
+		eq(overrideParams.maxOutputTokens, 10000.0, "llm params max output");
+		eq(overrideParams.options.get("requestOption"), true, "llm params preserves options");
+
+		final fallbackModel = modelWithOptionsVariants("qwen", "qwen3-coder", "@ai-sdk/openai-compatible", optionMap(), new DynamicAccess<ProviderOptions>());
+		final fallbackParams = SessionLlm.requestParams({
+			model: fallbackModel,
+			options: optionMap(),
+		});
+		eq(fallbackParams.temperature.orNull(), 0.55, "llm params provider temperature fallback");
+		eq(fallbackParams.topP.orNull(), 1.0, "llm params provider topP fallback");
+
+		final disabledTemp = modelWithTemperatureCapability("google", "gemini-3-pro", "@ai-sdk/google", false);
+		final disabledParams = SessionLlm.requestParams({
+			model: disabledTemp,
+			options: optionMap(),
+		});
+		eq(disabledParams.temperature.orNull(), null, "llm params temperature capability disabled");
+		eq(disabledParams.topP.orNull(), 0.95, "llm params topP still applies");
+		eq(disabledParams.topK.orNull(), 64.0, "llm params topK fallback");
+	}
+
 	static function llmCompatibilityTools():Void {
 		final empty = new DynamicAccess<AiTool>();
 		final withHistoryToolCall:Array<AiLanguageModelPromptMessage> = [
@@ -514,7 +548,7 @@ class SessionProcessorSmoke {
 			variants:DynamicAccess<ProviderOptions>):ProviderModel {
 		final source = new FakeProvider().model;
 		return {
-			id: source.id,
+			id: apiID,
 			providerID: ProviderID.make(providerID),
 			name: source.name,
 			capabilities: source.capabilities,
@@ -530,6 +564,36 @@ class SessionProcessorSmoke {
 			headers: source.headers,
 			release_date: source.release_date,
 			variants: variants,
+		};
+	}
+
+	static function modelWithTemperatureCapability(providerID:String, apiID:String, npm:String, temperature:Bool):ProviderModel {
+		final source = new FakeProvider().model;
+		return {
+			id: apiID,
+			providerID: ProviderID.make(providerID),
+			name: source.name,
+			capabilities: {
+				toolcall: source.capabilities.toolcall,
+				attachment: source.capabilities.attachment,
+				reasoning: source.capabilities.reasoning,
+				temperature: temperature,
+				interleaved: source.capabilities.interleaved,
+				input: source.capabilities.input,
+				output: source.capabilities.output,
+			},
+			api: {
+				id: apiID,
+				url: source.api.url,
+				npm: npm,
+			},
+			cost: source.cost,
+			limit: source.limit,
+			status: source.status,
+			options: optionMap(),
+			headers: source.headers,
+			release_date: source.release_date,
+			variants: new DynamicAccess<ProviderOptions>(),
 		};
 	}
 
