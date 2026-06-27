@@ -69,6 +69,31 @@ class SessionPersistenceSmoke {
 				"session export sanitized tool title");
 			eq(Reflect.field(sanitizedToolParts[2], "text"), "[redacted:text:prt_assistant_text_ses_export_tool]", "session export sanitized tool text");
 
+			SessionProcessor.run({
+				prompt: "Export a failed tool turn",
+				directory: root,
+				sessionID: "ses_export_tool_error",
+				projectID: "proj_export",
+				store: store,
+				toolCall: {
+					id: "call_read_missing_export",
+					tool: "read",
+					input: {filePath: "src/missing.txt"},
+				},
+			});
+			final failedToolExport = SessionExport.exportData(store, SessionID.make("ses_export_tool_error"));
+			final failedToolParts = cast(Reflect.field(cast failedToolExport.messages[1], "parts"), Array<Dynamic>);
+			final failedToolState = Reflect.field(failedToolParts[1], "state");
+			eq(Reflect.field(failedToolState, "status"), "error", "session export failed tool status");
+			eq(Std.string(Reflect.field(failedToolState, "error")).indexOf("File not found") != -1, true, "session export failed tool error");
+			final sanitizedFailedTool = SessionExport.exportData(store, SessionID.make("ses_export_tool_error"), true);
+			final sanitizedFailedToolParts = cast(Reflect.field(cast sanitizedFailedTool.messages[1], "parts"), Array<Dynamic>);
+			eq(Reflect.field(sanitizedFailedToolParts[1], "callID"), "call_read_missing_export", "session export sanitized failed call id");
+			final sanitizedFailedToolState = Reflect.field(sanitizedFailedToolParts[1], "state");
+			eq(Reflect.field(sanitizedFailedToolState, "status"), "error", "session export sanitized failed tool status");
+			eq(Reflect.field(sanitizedFailedToolState, "error"), "[redacted:tool-error:prt_tool_call_call_read_missing_export_ses_export_tool_error]",
+				"session export sanitized failed tool error");
+
 			store.close();
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
