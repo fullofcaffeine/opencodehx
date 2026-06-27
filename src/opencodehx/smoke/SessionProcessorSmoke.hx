@@ -836,6 +836,23 @@ class SessionProcessorSmoke {
 					throw "session processor async: expected recovered assistant text";
 			}
 
+			final persistedToolRuntime = AiSdkMockModel.inspectableToolThenText("Recovered file says: ai sdk tool fixture.", "read",
+				"{\"filePath\":\"src/input.txt\"}");
+			final persistedTool = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_tool_persisted",
+				prompt: "Persist this AI SDK tool turn.",
+				directory: root,
+				store: store,
+				provider: fixture.info,
+				model: fixture.model,
+				language: persistedToolRuntime.language,
+			});
+			eq(persistedTool.messages.length, 2, "ai sdk persisted tool message count");
+			assertToolOutcome(persistedTool.tool);
+			final recoveredAiSdkTool = SessionProcessor.recover(store, "ses_ai_sdk_tool_persisted", 10);
+			eq(recoveredAiSdkTool.messages.length, 2, "ai sdk recovered tool message count");
+			assertAssistantParts(recoveredAiSdkTool.messages[1].parts, "ai sdk recovered tool", "tool_1", "Recovered file says: ai sdk tool fixture.");
+
 			final errorResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_error",
 				prompt: "Fail through the SDK runtime.",

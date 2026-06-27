@@ -143,7 +143,7 @@ class SqliteSessionStore implements SessionStore {
 
 		final ids = rows.map(row -> requiredString(row, "id"));
 		final placeholders = ids.map(_ -> "?").join(",");
-		final partRows = sql.all('select * from part where message_id in (${placeholders}) order by message_id, id', cast ids);
+		final partRows = sql.all('select * from part where message_id in (${placeholders}) order by message_id, time_created, id', cast ids);
 		final partByMessage = new Map<String, Array<Part>>();
 		for (row in partRows) {
 			final messageID = requiredString(row, "message_id");
