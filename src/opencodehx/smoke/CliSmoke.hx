@@ -464,7 +464,7 @@ class CliSmoke {
 
 		final liveMissingModel = @:await Cli.runAsync(["run", "--live-ai-sdk", "Hello"]);
 		eq(liveMissingModel.exitCode, 1, "live cli missing model exit");
-		eq(liveMissingModel.stderr.indexOf("require --model") != -1, true, "live cli missing model message");
+		eq(liveMissingModel.stderr.indexOf("require --model provider/model or config model") != -1, true, "live cli missing model message");
 
 		final liveMissingProvider = @:await Cli.runAsync(["run", "--live-ai-sdk", "--model", "missing-provider/model", "Hello"]);
 		eq(liveMissingProvider.exitCode, 1, "live cli missing provider exit");
@@ -487,13 +487,12 @@ class CliSmoke {
 			Fs.writeFileSync(liveAttachment, "live attached\n");
 			Fs.writeFileSync(NodePath.join(liveConfig, "opencode.json"),
 				'{"' + "$" +
-				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","provider":{"local-live":{"npm":"@ai-sdk/openai-compatible","name":"Local Live","options":{"baseURL":"https://local-live.example.com/v1","apiKey":"local-key"},"models":{"chat":{"name":"Chat"}}}}}');
+				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","model":"local-live/chat","provider":{"local-live":{"npm":"@ai-sdk/openai-compatible","name":"Local Live","options":{"baseURL":"https://local-live.example.com/v1","apiKey":"local-key"},"models":{"chat":{"name":"Chat"}}}}}');
 			NodeProcess.setEnv("XDG_CONFIG_HOME", liveXdg);
 			NodeProcess.setEnv("XDG_DATA_HOME", liveXdgData);
 			NodeProcess.setEnv("OPENCODE_DB", NodePath.join(liveRoot, "live.sqlite"));
 			final liveRun = @:await Cli.runAsync([
 				"run",
-				"--live-ai-sdk",
 				"--model",
 				"local-live/chat",
 				"--format",
@@ -592,6 +591,26 @@ class CliSmoke {
 			eq(liveForkMessages.length, 2, "live cli local fork export message count");
 			final liveForkParts:Array<Dynamic> = Reflect.field(liveForkMessages[0], "parts");
 			eq(Reflect.field(liveForkParts[0], "text"), "Fork live.", "live cli local fork prompt");
+
+			final liveConfiguredRoot = NodePath.join(liveRoot, "configured-data");
+			NodeProcess.setEnv("XDG_DATA_HOME", liveConfiguredRoot);
+			NodeProcess.unsetEnv("OPENCODE_DB");
+			final liveConfigured = @:await Cli.runAsync([
+				"run",
+				"--live-ai-sdk",
+				"--format",
+				"json",
+				"--dir",
+				liveDir,
+				"Hello",
+				"configured",
+				"live."
+			]);
+			eq(liveConfigured.exitCode, 0, "live cli config model exit");
+			final liveConfiguredParsed:Dynamic = Json.parse(liveConfigured.stdout);
+			eq(Reflect.field(Reflect.field(liveConfiguredParsed, "provider"), "id"), "local-live", "live cli config model provider");
+			eq(Reflect.field(Reflect.field(liveConfiguredParsed, "request"), "prompt"), "Hello configured live.", "live cli config model prompt");
+			eq(assistantText(liveConfiguredParsed), "Hello from local live.", "live cli config model assistant text");
 			SmokeFetchStub.restore(originalLiveFetch);
 			restoreEnv("XDG_CONFIG_HOME", originalLiveXdg);
 			restoreEnv("XDG_DATA_HOME", originalLiveXdgData);

@@ -348,7 +348,7 @@ function portRecord(path) {
     storage: "StorageSmoke covers the initial SQLite session store",
     permission: "PermissionSmoke covers the first rule/runtime/tool integration slice",
     util: "UtilSmoke covers selected low-risk utilities",
-    cli: "CliSmoke and cli-smoke.mjs cover the headless run scaffold, run --file local file/directory attachment parts, default/OPENCODE_DB-backed deterministic/mock/live AI SDK run persistence/export/resume append/continue/fork, non-interactive export <sessionID> JSON/sanitize behavior, first run --session recovery validation, run --continue latest-root selection, and local no-network run --live-ai-sdk OpenAI-compatible streaming success/provider-error persistence",
+    cli: "CliSmoke and cli-smoke.mjs cover the headless run scaffold, run --file local file/directory attachment parts, default/OPENCODE_DB-backed deterministic/mock/live AI SDK run persistence/export/resume append/continue/fork, non-interactive export <sessionID> JSON/sanitize behavior, first run --session recovery validation, run --continue latest-root selection, and local no-network live run --model provider/model plus config-model run --live-ai-sdk OpenAI-compatible streaming success/provider-error persistence",
   }
   if (areaEvidence[area]) {
     return {

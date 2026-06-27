@@ -327,6 +327,7 @@ try {
 	const configFor = (provider, baseURL) =>
 		JSON.stringify({
 			$schema: "https://opencode.ai/config.json",
+			model: `${provider}/chat`,
 			provider: {
 				[provider]: {
 					npm: "@ai-sdk/openai-compatible",
@@ -438,7 +439,7 @@ try {
 	await withLiveOpenAICompatibleServer(async (localUrl, observed) => {
 		writeFileSync(path.join(project, "opencode.json"), configFor("local-live", `${localUrl}/v1`));
 		const liveEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "live-sdk-run.sqlite") };
-		const liveRun = await runAsync(["run", "--live-ai-sdk", "--model", "local-live/chat", "--format", "json", "--dir", project, "--file", "attached.txt", "Hello", "live."], {
+		const liveRun = await runAsync(["run", "--model", "local-live/chat", "--format", "json", "--dir", project, "--file", "attached.txt", "Hello", "live."], {
 			env: liveEnv,
 		});
 		assert.equal(liveRun.status, 0);
@@ -489,6 +490,15 @@ try {
 		assert.equal(liveForkExportJson.info.parentID, liveJson.request.sessionID);
 		assert.equal(liveForkExportJson.messages.length, 2);
 		assert.equal(liveForkExportJson.messages[0].parts[0].text, "Fork live.");
+		const configuredLiveEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "configured-live-data") };
+		const configuredLive = await runAsync(["run", "--live-ai-sdk", "--format", "json", "--dir", project, "Hello", "configured", "live."], {
+			env: configuredLiveEnv,
+		});
+		assert.equal(configuredLive.status, 0);
+		const configuredLiveJson = JSON.parse(configuredLive.stdout);
+		assert.equal(configuredLiveJson.provider.id, "local-live");
+		assert.equal(configuredLiveJson.request.prompt, "Hello configured live.");
+		assert.equal(configuredLiveJson.messages[1].parts.find((part) => part.type === "text").text, "Hello from local live.");
 	});
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		writeFileSync(path.join(project, "opencode.json"), configFor("local-fail", `${localUrl}/v1`));

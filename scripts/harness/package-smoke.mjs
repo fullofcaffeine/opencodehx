@@ -307,6 +307,7 @@ try {
 			path.join(liveConfigRoot, "opencode", "opencode.json"),
 			JSON.stringify({
 				$schema: "https://opencode.ai/config.json",
+				model: "installed-live/chat",
 				provider: {
 					"installed-live": {
 						npm: "@ai-sdk/openai-compatible",
@@ -327,7 +328,6 @@ try {
 				bin,
 				[
 					"run",
-					"--live-ai-sdk",
 					"--model",
 					"installed-live/chat",
 					"--format",
@@ -432,6 +432,26 @@ try {
 		assert.equal(liveForkExportJson.info.parentID, liveTranscript.request.sessionID, "installed forked live AI SDK parent id");
 		assert.equal(liveForkExportJson.messages.length, 2, "installed forked live AI SDK export messages");
 		assert.equal(liveForkExportJson.messages[0].parts[0].text, "Fork installed live.", "installed forked live AI SDK export prompt");
+		const configuredLiveEnv = {
+			...liveEnv,
+			XDG_DATA_HOME: path.join(tempRoot, "installed-live-configured-data"),
+		};
+		const configuredLive = await expectOkAsync(
+			runAsync(
+				bin,
+				["run", "--live-ai-sdk", "--format", "json", "--dir", projectDir, "Hello", "configured", "installed", "live."],
+				{ env: configuredLiveEnv },
+			),
+			"installed configured live AI SDK run",
+		);
+		const configuredLiveTranscript = JSON.parse(configuredLive.stdout);
+		assert.equal(configuredLiveTranscript.provider.id, "installed-live", "installed configured live AI SDK provider");
+		assert.equal(configuredLiveTranscript.request.prompt, "Hello configured installed live.", "installed configured live AI SDK prompt");
+		assert.equal(
+			configuredLiveTranscript.messages[1].parts.find((part) => part.type === "text").text,
+			"Hello from installed live.",
+			"installed configured live AI SDK assistant text",
+		);
 	});
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");

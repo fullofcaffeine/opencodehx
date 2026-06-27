@@ -62,6 +62,7 @@ typedef RunFilesResult = {
 }
 
 class Cli {
+	static inline final FAKE_MODEL = "openai/gpt-5.2";
 	static final runningServers:Array<OpenCodeServer> = [];
 	static final runningListeners:Array<ServerListener> = [];
 
@@ -116,11 +117,11 @@ class Cli {
 		if (has(args, "--help") || has(args, "-h"))
 			return ok(runHelp());
 		final format = option(args, "--format", "default");
-		final model = option(args, "--model", option(args, "-m", "openai/gpt-5.2"));
+		final model = option(args, "--model", option(args, "-m", FAKE_MODEL));
 		if (format != "default" && format != "json")
 			return fail('Invalid --format "${format}". Expected "default" or "json".');
-		if (model != "openai/gpt-5.2")
-			return fail('Only the fake provider model is available in this scaffold: openai/gpt-5.2');
+		if (model != FAKE_MODEL)
+			return fail('Only the fake provider model is available in this scaffold: ${FAKE_MODEL}');
 		final directoryResult = runDirectory(args);
 		final directoryError = directoryResult.error;
 		if (directoryError != null)
@@ -158,18 +159,18 @@ class Cli {
 
 	@:async
 	static function runCommandAsync(args:Array<String>):Promise<CliResult> {
-		if (has(args, "--live-ai-sdk"))
+		if (shouldUseLiveAiSdk(args))
 			return @:await runLiveAiSdk(args);
 		if (!has(args, "--mock-ai-sdk"))
 			return runCommand(args);
 		if (has(args, "--help") || has(args, "-h"))
 			return ok(runHelp());
 		final format = option(args, "--format", "default");
-		final model = option(args, "--model", option(args, "-m", "openai/gpt-5.2"));
+		final model = option(args, "--model", option(args, "-m", FAKE_MODEL));
 		if (format != "default" && format != "json")
 			return fail('Invalid --format "${format}". Expected "default" or "json".');
-		if (model != "openai/gpt-5.2")
-			return fail('The mock AI SDK harness currently provides only: openai/gpt-5.2');
+		if (model != FAKE_MODEL)
+			return fail('The mock AI SDK harness currently provides only: ${FAKE_MODEL}');
 		final directoryResult = runDirectory(args);
 		final directoryError = directoryResult.error;
 		if (directoryError != null)
@@ -218,8 +219,6 @@ class Cli {
 		final modelText = option(args, "--model", option(args, "-m", ""));
 		if (format != "default" && format != "json")
 			return fail('Invalid --format "${format}". Expected "default" or "json".');
-		if (modelText == "")
-			return fail("Live AI SDK runs require --model provider/model for now.");
 		final directoryResult = liveDirectory(args);
 		final directoryError = directoryResult.error;
 		if (directoryError != null)
@@ -261,7 +260,10 @@ class Cli {
 				env: env,
 				auth: auth,
 			});
-			final parsed = ProviderRegistry.parseModel(modelText);
+			final resolvedModelText = modelText != "" ? modelText : mergedConfig.model;
+			if (resolvedModelText == null || resolvedModelText == "")
+				return fail("Live AI SDK runs require --model provider/model or config model for now.");
+			final parsed = ProviderRegistry.parseModel(resolvedModelText);
 			final provider = registry.getProvider(parsed.providerID);
 			if (provider == null)
 				return fail('Provider not available for live AI SDK run: ${parsed.providerID.toString()}');
@@ -623,6 +625,26 @@ class Cli {
 		return fallback;
 	}
 
+	static function optionMaybe(args:Array<String>, name:String):Null<String> {
+		if (args.length < 2)
+			return null;
+		for (i in 0...args.length - 1) {
+			if (args[i] == name)
+				return args[i + 1];
+		}
+		return null;
+	}
+
+	static function shouldUseLiveAiSdk(args:Array<String>):Bool {
+		if (has(args, "--live-ai-sdk"))
+			return true;
+		if (has(args, "--mock-ai-sdk"))
+			return false;
+		final model = optionMaybe(args, "--model");
+		final shortModel = model == null ? optionMaybe(args, "-m") : model;
+		return shortModel != null && shortModel != FAKE_MODEL;
+	}
+
 	static function has(args:Array<String>, flag:String):Bool {
 		return args.indexOf(flag) != -1;
 	}
@@ -644,7 +666,7 @@ class Cli {
 		lines.push("");
 		lines.push("OpenCodeHX harness options:");
 		lines.push("  --mock-ai-sdk   run through the credential-free AI SDK session harness");
-		lines.push("  --live-ai-sdk   run through the provider registry and real AI SDK model");
+		lines.push("  --live-ai-sdk   force the provider registry and real AI SDK model path");
 		return lines.join("\n");
 	}
 

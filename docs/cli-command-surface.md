@@ -16,7 +16,7 @@
 - new headless `run` invocations persist a generated session into the configured SQLite store by default, making the result immediately exportable/resumable while preserving `OPENCODE_DB` as an override;
 - an explicit "known but not implemented yet" error for commands outside the current runnable `run`/non-interactive `export` paths.
 
-The executable runtime remains intentionally narrow. `run` still owns the deterministic fake-provider path, `--mock-ai-sdk`, and the opt-in `--live-ai-sdk` provider-registry path. `export <sessionID>` owns the first non-interactive session export side effect. Other commands are recognized for help and surface parity but do not perform side effects yet.
+The executable runtime remains intentionally narrow. `run` still owns the deterministic fake-provider path and `--mock-ai-sdk`; the generated CLI now routes explicit non-fake `--model provider/model` values to the provider-registry live path, and `--live-ai-sdk` remains as a harness flag that can use merged config `model`. `export <sessionID>` owns the first non-interactive session export side effect. Other commands are recognized for help and surface parity but do not perform side effects yet.
 
 ## Evidence
 
