@@ -939,6 +939,58 @@ try {
 			assert.match(deniedExportTool.state.error, /write tool was denied permission/);
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "write",
+			callId: "call_skip_write_1",
+			arguments: { filePath: "live-skip.txt", content: "skip permission write\n" },
+			finalText: "Permission skip write completed.",
+			usage: { prompt_tokens: 9, completion_tokens: 3, total_tokens: 12 },
+		},
+		async (localUrl, observed) => {
+			writeFileSync(
+				path.join(project, "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "local-skip/chat",
+					permission: { edit: "ask" },
+					provider: {
+						"local-skip": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "local-skip",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "test-key" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				}),
+			);
+			const skipEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "skip-live-data") };
+			const skipRun = await runAsync(["run", "--format", "json", "--dir", project, "--dangerously-skip-permissions", "Write", "with", "permission", "skip."], {
+				env: skipEnv,
+			});
+			assert.equal(skipRun.status, 0);
+			const skipJson = JSON.parse(skipRun.stdout);
+			assert.equal(skipJson.provider.id, "local-skip");
+			assert.equal(skipJson.messages[1].parts.find((part) => part.type === "text").text, "Permission skip write completed.");
+			assert.equal(skipJson.events.some((event) => event.type === "tool-call" && event.tool === "write"), true);
+			assert.equal(skipJson.events.some((event) => event.type === "tool-call-start" && event.tool === "write"), true);
+			assert.equal(skipJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "write" && event.status === "completed"), true);
+			const skipTool = skipJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(skipTool.state.status, "completed");
+			assert.equal(readFileSync(path.join(project, "live-skip.txt"), "utf8"), "skip permission write\n");
+			assert.equal(observed.auth, "Bearer test-key");
+			assert.equal(observed.paths.length, 2);
+			assert.equal(observed.bodies[0].stream, true);
+			assert.equal(observed.bodies[1].stream, true);
+			assert.match(JSON.stringify(observed.bodies[1]), /call_skip_write_1/);
+			assert.match(JSON.stringify(observed.bodies[1]), /skip permission write/);
+			const skipExport = run(["export", skipJson.request.sessionID], { env: skipEnv });
+			assert.equal(skipExport.status, 0);
+			const skipExportJson = JSON.parse(skipExport.stdout);
+			const skipExportTool = skipExportJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(skipExportTool.state.status, "completed");
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		writeFileSync(path.join(project, "opencode.json"), configFor("local-fail", `${localUrl}/v1`));
 		const liveFailureEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "live-sdk-failure.sqlite") };

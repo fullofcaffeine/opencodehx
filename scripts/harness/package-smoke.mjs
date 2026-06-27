@@ -1074,6 +1074,75 @@ try {
 			assert.match(liveDeniedExportTool.state.error, /write tool was denied permission/, "installed live denied export tool error");
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "write",
+			callId: "call_installed_skip_write_1",
+			arguments: { filePath: "installed-skip.txt", content: "skip permission installed write\n" },
+			finalText: "Installed permission skip write completed.",
+			usage: { prompt_tokens: 9, completion_tokens: 3, total_tokens: 12 },
+		},
+		async (localUrl, observed) => {
+			const liveSkipConfigRoot = path.join(tempRoot, "installed-live-skip-config");
+			const liveSkipDataRoot = path.join(tempRoot, "installed-live-skip-data");
+			mkdirSync(path.join(liveSkipConfigRoot, "opencode"), { recursive: true });
+			mkdirSync(path.join(liveSkipDataRoot, "opencode"), { recursive: true });
+			writeFileSync(
+				path.join(liveSkipConfigRoot, "opencode", "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "installed-skip/chat",
+					permission: { edit: "ask" },
+					provider: {
+						"installed-skip": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "Installed Skip",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "installed-skip-key" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				}),
+			);
+			const liveSkipEnv = {
+				...process.env,
+				XDG_CONFIG_HOME: liveSkipConfigRoot,
+				XDG_DATA_HOME: liveSkipDataRoot,
+			};
+			const liveSkip = await expectOkAsync(
+				runAsync(bin, ["run", "--format", "json", "--dir", projectDir, "--dangerously-skip-permissions", "Write", "with", "installed", "permission", "skip."], {
+					env: liveSkipEnv,
+				}),
+				"installed live AI SDK permission skip write run",
+			);
+			const liveSkipJson = JSON.parse(liveSkip.stdout);
+			assert.equal(liveSkipJson.provider.id, "installed-skip", "installed live skip provider");
+			assert.equal(
+				liveSkipJson.messages[1].parts.find((part) => part.type === "text").text,
+				"Installed permission skip write completed.",
+				"installed live skip final text",
+			);
+			assert.equal(liveSkipJson.events.some((event) => event.type === "tool-call" && event.tool === "write"), true, "installed live skip write call");
+			assert.equal(liveSkipJson.events.some((event) => event.type === "tool-call-start" && event.tool === "write"), true, "installed live skip write start");
+			assert.equal(
+				liveSkipJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "write" && event.status === "completed"),
+				true,
+				"installed live skip write finish",
+			);
+			const liveSkipTool = liveSkipJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(liveSkipTool.state.status, "completed", "installed live skip write tool state");
+			assert.equal(readFileSync(path.join(projectDir, "installed-skip.txt"), "utf8"), "skip permission installed write\n", "installed live skip write file");
+			assert.equal(observed.auth, "Bearer installed-skip-key", "installed live skip auth header");
+			assert.equal(observed.paths.length, 2, "installed live skip continuation request");
+			assert.equal(observed.bodies[0].stream, true, "installed live skip first stream flag");
+			assert.equal(observed.bodies[1].stream, true, "installed live skip continuation stream flag");
+			assert.match(JSON.stringify(observed.bodies[1]), /call_installed_skip_write_1/, "installed live skip history call ID");
+			assert.match(JSON.stringify(observed.bodies[1]), /skip permission installed write/, "installed live skip tool-result history");
+			const liveSkipExport = expectOk(run(bin, ["export", liveSkipJson.request.sessionID], { env: liveSkipEnv }), "installed live AI SDK permission skip write export");
+			const liveSkipExportJson = JSON.parse(liveSkipExport.stdout);
+			const liveSkipExportTool = liveSkipExportJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(liveSkipExportTool.state.status, "completed", "installed live skip export tool state");
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");
 		const liveFailureDataRoot = path.join(tempRoot, "installed-live-failure-data");

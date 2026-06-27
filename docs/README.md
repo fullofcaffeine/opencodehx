@@ -9,12 +9,12 @@ Prefer checked-in evidence over transient notes. If a lesson changes how agents 
 CLI and session evidence:
 
 - `headless-run-scaffold.md` covers deterministic, mock AI SDK, and local live AI SDK `run`, plus `run --dir`, `run --file`, `run --session`, `run --continue`, `run --fork`, and non-interactive `export <sessionID>`.
-- `session-processor-one-turn.md` covers the one-turn and async AI SDK-backed session processor, store-backed export/recovery, model-emitted tool dispatch, accumulated tool-result history, and live config-denied write enforcement.
+- `session-processor-one-turn.md` covers the one-turn and async AI SDK-backed session processor, store-backed export/recovery, model-emitted tool dispatch, accumulated tool-result history, live config-denied write enforcement, and permission-skip approval for config-asked writes.
 - `fake-provider-transcript-harness.md` keeps the credential-free transcript oracle for deterministic parity.
 
 Live CLI and packaging evidence:
 
-- Local no-network OpenAI-compatible fixtures prove streaming success, provider-error transcript/export, live `read`/`write`/`edit`/`apply_patch`/`bash` tool calls, write-then-read tool chains, and config-denied write calls.
+- Local no-network OpenAI-compatible fixtures prove streaming success, provider-error transcript/export, live `read`/`write`/`edit`/`apply_patch`/`bash` tool calls, write-then-read tool chains, config-denied write calls, and `--dangerously-skip-permissions` approval for config-asked writes.
 - `npm-global-packaging.md` proves the packed binary through installed `run`, mock/live runs, persistence/export/resume/continue/fork, TUI scaffold execution, and installed `serve` health/SSE/session/PTY workflows.
 - `cli-command-surface.md` tracks upstream command aliases, help text, known-command errors, and the first side-effecting export path.
 
