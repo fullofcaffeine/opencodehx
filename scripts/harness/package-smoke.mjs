@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import os from "node:os";
@@ -126,7 +126,7 @@ async function withLiveOpenAICompatibleServer(fn) {
 	}
 }
 
-async function withToolOpenAICompatibleServer(fn) {
+async function withToolOpenAICompatibleServer(toolSpec, fn) {
 	const observed = { auth: null, bodies: [], paths: [] };
 	const server = createServer((req, res) => {
 		observed.auth = req.headers.authorization ?? null;
@@ -158,9 +158,9 @@ async function withToolOpenAICompatibleServer(fn) {
 										tool_calls: [
 											{
 												index: 0,
-												id: "call_read_1",
+												id: toolSpec.callId,
 												type: "function",
-												function: { name: "read", arguments: JSON.stringify({ filePath: "installed-tool.txt" }) },
+												function: { name: toolSpec.tool, arguments: JSON.stringify(toolSpec.arguments) },
 											},
 										],
 									},
@@ -174,14 +174,14 @@ async function withToolOpenAICompatibleServer(fn) {
 							id: "chatcmpl-installed-tool",
 							created: 1,
 							model: "chat",
-							choices: [{ delta: { role: "assistant", content: "Installed read tool completed." } }],
+							choices: [{ delta: { role: "assistant", content: toolSpec.finalText } }],
 						},
 						{
 							id: "chatcmpl-installed-tool",
 							created: 1,
 							model: "chat",
 							choices: [{ delta: {}, finish_reason: "stop" }],
-							usage: { prompt_tokens: 11, completion_tokens: 4, total_tokens: 15 },
+							usage: toolSpec.usage,
 						},
 					];
 			res.end(chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") + "data: [DONE]\n\n");
@@ -530,55 +530,126 @@ try {
 			"installed configured live AI SDK assistant text",
 		);
 	});
-	await withToolOpenAICompatibleServer(async (localUrl, observed) => {
-		const liveToolConfigRoot = path.join(tempRoot, "installed-live-tool-config");
-		const liveToolDataRoot = path.join(tempRoot, "installed-live-tool-data");
-		mkdirSync(path.join(liveToolConfigRoot, "opencode"), { recursive: true });
-		mkdirSync(path.join(liveToolDataRoot, "opencode"), { recursive: true });
-		writeFileSync(
-			path.join(liveToolConfigRoot, "opencode", "opencode.json"),
-			JSON.stringify({
-				$schema: "https://opencode.ai/config.json",
-				model: "installed-tool/chat",
-				provider: {
-					"installed-tool": {
-						npm: "@ai-sdk/openai-compatible",
-						name: "Installed Tool",
-						options: { baseURL: `${localUrl}/v1`, apiKey: "installed-tool-key" },
-						models: { chat: { name: "Chat" } },
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "read",
+			callId: "call_read_1",
+			arguments: { filePath: "installed-tool.txt" },
+			finalText: "Installed read tool completed.",
+			usage: { prompt_tokens: 11, completion_tokens: 4, total_tokens: 15 },
+		},
+		async (localUrl, observed) => {
+			const liveToolConfigRoot = path.join(tempRoot, "installed-live-tool-config");
+			const liveToolDataRoot = path.join(tempRoot, "installed-live-tool-data");
+			mkdirSync(path.join(liveToolConfigRoot, "opencode"), { recursive: true });
+			mkdirSync(path.join(liveToolDataRoot, "opencode"), { recursive: true });
+			writeFileSync(
+				path.join(liveToolConfigRoot, "opencode", "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "installed-tool/chat",
+					provider: {
+						"installed-tool": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "Installed Tool",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "installed-tool-key" },
+							models: { chat: { name: "Chat" } },
+						},
 					},
-				},
-			}),
-		);
-		writeFileSync(path.join(projectDir, "installed-tool.txt"), "installed tool fixture contents\n");
-		const liveToolEnv = {
-			...process.env,
-			XDG_CONFIG_HOME: liveToolConfigRoot,
-			XDG_DATA_HOME: liveToolDataRoot,
-		};
-		const liveTool = await expectOkAsync(
-			runAsync(bin, ["run", "--format", "json", "--dir", projectDir, "Read", "installed", "tool", "fixture."], { env: liveToolEnv }),
-			"installed live AI SDK tool run",
-		);
-		const liveToolJson = JSON.parse(liveTool.stdout);
-		assert.equal(liveToolJson.provider.id, "installed-tool", "installed live tool provider");
-		assert.equal(liveToolJson.messages[1].parts.find((part) => part.type === "text").text, "Installed read tool completed.", "installed live tool final text");
-		assert.equal(liveToolJson.events.some((event) => event.type === "tool-call" && event.tool === "read"), true, "installed live tool-call event");
-		assert.equal(liveToolJson.events.some((event) => event.type === "tool-call-start" && event.tool === "read"), true, "installed live tool start event");
-		assert.equal(
-			liveToolJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "read" && event.status === "completed"),
-			true,
-			"installed live tool finish event",
-		);
-		assert.equal(liveToolJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "read"), true, "installed live tool part");
-		assert.equal(observed.auth, "Bearer installed-tool-key", "installed live tool auth header");
-		assert.equal(observed.paths.length, 2, "installed live tool continuation request");
-		assert.equal(observed.bodies[0].stream, true, "installed live tool first stream flag");
-		assert.equal(observed.bodies[1].stream, true, "installed live tool continuation stream flag");
-		const liveToolExport = expectOk(run(bin, ["export", liveToolJson.request.sessionID], { env: liveToolEnv }), "installed live AI SDK tool export");
-		const liveToolExportJson = JSON.parse(liveToolExport.stdout);
-		assert.equal(liveToolExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "read"), true, "installed live tool export part");
-	});
+				}),
+			);
+			writeFileSync(path.join(projectDir, "installed-tool.txt"), "installed tool fixture contents\n");
+			const liveToolEnv = {
+				...process.env,
+				XDG_CONFIG_HOME: liveToolConfigRoot,
+				XDG_DATA_HOME: liveToolDataRoot,
+			};
+			const liveTool = await expectOkAsync(
+				runAsync(bin, ["run", "--format", "json", "--dir", projectDir, "Read", "installed", "tool", "fixture."], { env: liveToolEnv }),
+				"installed live AI SDK tool run",
+			);
+			const liveToolJson = JSON.parse(liveTool.stdout);
+			assert.equal(liveToolJson.provider.id, "installed-tool", "installed live tool provider");
+			assert.equal(liveToolJson.messages[1].parts.find((part) => part.type === "text").text, "Installed read tool completed.", "installed live tool final text");
+			assert.equal(liveToolJson.events.some((event) => event.type === "tool-call" && event.tool === "read"), true, "installed live tool-call event");
+			assert.equal(liveToolJson.events.some((event) => event.type === "tool-call-start" && event.tool === "read"), true, "installed live tool start event");
+			assert.equal(
+				liveToolJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "read" && event.status === "completed"),
+				true,
+				"installed live tool finish event",
+			);
+			assert.equal(liveToolJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "read"), true, "installed live tool part");
+			assert.equal(observed.auth, "Bearer installed-tool-key", "installed live tool auth header");
+			assert.equal(observed.paths.length, 2, "installed live tool continuation request");
+			assert.equal(observed.bodies[0].stream, true, "installed live tool first stream flag");
+			assert.equal(observed.bodies[1].stream, true, "installed live tool continuation stream flag");
+			const liveToolExport = expectOk(run(bin, ["export", liveToolJson.request.sessionID], { env: liveToolEnv }), "installed live AI SDK tool export");
+			const liveToolExportJson = JSON.parse(liveToolExport.stdout);
+			assert.equal(liveToolExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "read"), true, "installed live tool export part");
+		},
+	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "write",
+			callId: "call_write_1",
+			arguments: { filePath: "installed-written.txt", content: "written by installed live tool\n" },
+			finalText: "Installed write tool completed.",
+			usage: { prompt_tokens: 13, completion_tokens: 4, total_tokens: 17 },
+		},
+		async (localUrl, observed) => {
+			const liveWriteConfigRoot = path.join(tempRoot, "installed-live-write-config");
+			const liveWriteDataRoot = path.join(tempRoot, "installed-live-write-data");
+			mkdirSync(path.join(liveWriteConfigRoot, "opencode"), { recursive: true });
+			mkdirSync(path.join(liveWriteDataRoot, "opencode"), { recursive: true });
+			writeFileSync(
+				path.join(liveWriteConfigRoot, "opencode", "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "installed-write/chat",
+					provider: {
+						"installed-write": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "Installed Write",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "installed-write-key" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				}),
+			);
+			const liveWriteEnv = {
+				...process.env,
+				XDG_CONFIG_HOME: liveWriteConfigRoot,
+				XDG_DATA_HOME: liveWriteDataRoot,
+			};
+			const liveWrite = await expectOkAsync(
+				runAsync(bin, ["run", "--format", "json", "--dir", projectDir, "Write", "installed", "tool", "fixture."], { env: liveWriteEnv }),
+				"installed live AI SDK write tool run",
+			);
+			const liveWriteJson = JSON.parse(liveWrite.stdout);
+			assert.equal(liveWriteJson.provider.id, "installed-write", "installed live write provider");
+			assert.equal(
+				liveWriteJson.messages[1].parts.find((part) => part.type === "text").text,
+				"Installed write tool completed.",
+				"installed live write final text",
+			);
+			assert.equal(liveWriteJson.events.some((event) => event.type === "tool-call" && event.tool === "write"), true, "installed live write tool-call event");
+			assert.equal(liveWriteJson.events.some((event) => event.type === "tool-call-start" && event.tool === "write"), true, "installed live write start event");
+			assert.equal(
+				liveWriteJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "write" && event.status === "completed"),
+				true,
+				"installed live write finish event",
+			);
+			assert.equal(liveWriteJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "write"), true, "installed live write tool part");
+			assert.equal(readFileSync(path.join(projectDir, "installed-written.txt"), "utf8"), "written by installed live tool\n", "installed live write file content");
+			assert.equal(observed.auth, "Bearer installed-write-key", "installed live write auth header");
+			assert.equal(observed.paths.length, 2, "installed live write continuation request");
+			assert.equal(observed.bodies[0].stream, true, "installed live write first stream flag");
+			assert.equal(observed.bodies[1].stream, true, "installed live write continuation stream flag");
+			const liveWriteExport = expectOk(run(bin, ["export", liveWriteJson.request.sessionID], { env: liveWriteEnv }), "installed live AI SDK write export");
+			const liveWriteExportJson = JSON.parse(liveWriteExport.stdout);
+			assert.equal(liveWriteExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "write"), true, "installed live write export part");
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");
 		const liveFailureDataRoot = path.join(tempRoot, "installed-live-failure-data");
