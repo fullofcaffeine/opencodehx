@@ -13,6 +13,7 @@ import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigWriter;
 import opencodehx.externs.node.Crypto;
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Url;
 import opencodehx.host.node.GlobalPaths;
 import opencodehx.harness.TranscriptHarness;
 import opencodehx.host.node.NodeProcess;
@@ -26,6 +27,7 @@ import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.SessionExport;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionProcessor;
+import opencodehx.session.SessionProcessor.SessionFileInput;
 import opencodehx.session.SessionProcessor.SessionProcessorResult;
 import opencodehx.storage.SessionStore;
 import opencodehx.storage.SqliteSessionStore;
@@ -50,6 +52,11 @@ typedef RunPersistence = {
 	final sessionID:Null<String>;
 	final turnID:Null<String>;
 	final turnTime:Null<Float>;
+}
+
+typedef RunFilesResult = {
+	final files:Array<SessionFileInput>;
+	final error:Null<String>;
 }
 
 class Cli {
@@ -116,6 +123,10 @@ class Cli {
 		final directoryError = directoryResult.error;
 		if (directoryError != null)
 			return fail(directoryError);
+		final filesResult = runFiles(args, runFileBaseDirectory(args, directoryResult.directory));
+		final filesError = filesResult.error;
+		if (filesError != null)
+			return fail(filesError);
 		final prompt = message(args);
 		if (StringTools.trim(prompt) == "")
 			return fail("You must provide a message or a command");
@@ -132,6 +143,7 @@ class Cli {
 				turnID: persistence.turnID,
 				turnTime: persistence.turnTime,
 				store: persistence.store,
+				files: filesResult.files,
 			});
 			closeStore(persistence.store);
 			return formatRunResult(processed, format);
@@ -159,6 +171,10 @@ class Cli {
 		final directoryError = directoryResult.error;
 		if (directoryError != null)
 			return fail(directoryError);
+		final filesResult = runFiles(args, runFileBaseDirectory(args, directoryResult.directory));
+		final filesError = filesResult.error;
+		if (filesError != null)
+			return fail(filesError);
 		final prompt = message(args);
 		if (StringTools.trim(prompt) == "")
 			return fail("You must provide a message or a command");
@@ -179,6 +195,7 @@ class Cli {
 				provider: fixture.info,
 				model: fixture.model,
 				language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
+				files: filesResult.files,
 			});
 			closeStore(persistence.store);
 			return formatRunResult(processed, format);
@@ -435,6 +452,40 @@ class Cli {
 		} catch (error:haxe.Exception) {
 			return {directory: SessionProcessor.FIXTURE_DIRECTORY, error: 'Failed to resolve run directory: ${raw}'};
 		}
+	}
+
+	static function runFileBaseDirectory(args:Array<String>, runDirectory:String):String {
+		return option(args, "--dir", "") == "" ? NodeProcess.cwd() : runDirectory;
+	}
+
+	static function runFiles(args:Array<String>, baseDirectory:String):RunFilesResult {
+		final files:Array<SessionFileInput> = [];
+		var i = 0;
+		while (i < args.length) {
+			final item = args[i];
+			if (item == "--file" || item == "-f") {
+				if (i + 1 >= args.length)
+					return {files: files, error: 'Missing value for ${item}'};
+				final raw = args[i + 1];
+				final resolved = NodePath.isAbsolute(raw) ? raw : NodePath.resolve(baseDirectory, raw);
+				try {
+					if (!Fs.existsSync(resolved))
+						return {files: files, error: 'File not found: ${raw}'};
+					final stat = Fs.statSync(resolved);
+					files.push({
+						mime: stat.isDirectory() ? "application/x-directory" : "text/plain",
+						url: Url.pathToFileURL(resolved).href,
+						filename: NodePath.basename(resolved),
+					});
+				} catch (error:haxe.Exception) {
+					return {files: files, error: 'File not found: ${raw}'};
+				}
+				i += 2;
+				continue;
+			}
+			i++;
+		}
+		return {files: files, error: null};
 	}
 
 	static function liveDirectory(args:Array<String>):{final directory:String; final error:Null<String>;} {

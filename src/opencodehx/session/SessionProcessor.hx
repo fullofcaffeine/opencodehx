@@ -16,6 +16,7 @@ import opencodehx.provider.FakeProvider.FakeProviderEvent;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.session.MessageTypes.AssistantMessage;
+import opencodehx.session.MessageTypes.FilePartData;
 import opencodehx.session.MessageTypes.Info;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TextPartData;
@@ -73,6 +74,12 @@ typedef SessionProviderIdentity = {
 	final system:Array<String>;
 }
 
+typedef SessionFileInput = {
+	final mime:String;
+	final url:String;
+	final filename:String;
+}
+
 typedef SessionProcessorInput = {
 	final prompt:String;
 	final directory:String;
@@ -90,6 +97,7 @@ typedef SessionProcessorInput = {
 	@:optional final registry:ToolRegistry;
 	@:optional final permission:opencodehx.permission.PermissionRuntime;
 	@:optional final toolCall:SessionToolCall;
+	@:optional final files:Array<SessionFileInput>;
 }
 
 typedef SessionAiSdkProcessorInput = {
@@ -111,6 +119,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final continueAfterToolResult:Bool;
 	@:optional final maxToolContinuations:Int;
 	@:optional final abortStreamImmediately:Bool;
+	@:optional final files:Array<SessionFileInput>;
 }
 
 typedef SessionProcessorResult = {
@@ -149,6 +158,7 @@ class SessionProcessor {
 	public static inline final USER_ID = "msg_user_one";
 	public static inline final ASSISTANT_ID = "msg_assistant_one";
 	public static inline final USER_PART_ID = "prt_user_text";
+	public static inline final USER_FILE_PART_ID = "prt_user_file";
 	public static inline final ASSISTANT_PART_ID = "prt_assistant_text";
 	public static inline final STEP_START_PART_ID = "prt_step_start";
 	public static inline final STEP_FINISH_PART_ID = "prt_step_finish";
@@ -193,7 +203,7 @@ class SessionProcessor {
 				events.push(event);
 		}
 		final assistantText = collectText(events);
-		final userMessage = userWithParts(sessionIDText, prompt, agent, provider, input.turnID, input.turnTime);
+		final userMessage = userWithParts(sessionIDText, prompt, agent, provider, input.turnID, input.turnTime, input.files);
 		final compaction = input.compaction == null ? null : SessionCompaction.check(input.compaction);
 		if (compaction != null && compaction.overflow) {
 			userMessage.parts.push(SessionCompaction.part(SessionID.make(sessionIDText),
@@ -272,7 +282,7 @@ class SessionProcessor {
 		}
 
 		final assistantText = collectText(events);
-		final userMessage = userWithParts(sessionIDText, prompt, agent, provider, input.turnID, input.turnTime);
+		final userMessage = userWithParts(sessionIDText, prompt, agent, provider, input.turnID, input.turnTime, input.files);
 		var wasAborted = aborted || streamAborted;
 		final text = wasAborted ? "Request aborted." : assistantText;
 		final toolCall = input.toolCall == null ? modelToolCall : input.toolCall;
@@ -377,7 +387,7 @@ class SessionProcessor {
 	}
 
 	static function userWithParts(sessionIDText:String, prompt:String, agent:String, provider:SessionProviderIdentity, turnID:Null<String>,
-			turnTime:Null<Float>):WithParts {
+			turnTime:Null<Float>, files:Null<Array<SessionFileInput>>):WithParts {
 		final sessionID = SessionID.make(sessionIDText);
 		final created = userCreated(turnTime);
 		final messageID = MessageID.make(scoped(partBase(USER_ID, turnID), sessionIDText));
@@ -396,6 +406,21 @@ class SessionProcessor {
 				apply_patch: true
 			},
 		};
+		final parts:Array<Part> = [];
+		final fileInputs = files == null ? [] : files;
+		for (index in 0...fileInputs.length) {
+			final file = fileInputs[index];
+			final filePart:FilePartData = {
+				id: PartID.make(scoped(partBase(USER_FILE_PART_ID + "_" + index, turnID), sessionIDText)),
+				sessionID: sessionID,
+				messageID: messageID,
+				type: "file",
+				mime: file.mime,
+				filename: file.filename,
+				url: file.url,
+			};
+			parts.push(FilePart(filePart));
+		}
 		final text:TextPartData = {
 			id: PartID.make(scoped(partBase(USER_PART_ID, turnID), sessionIDText)),
 			sessionID: sessionID,
@@ -407,7 +432,8 @@ class SessionProcessor {
 				end: created
 			},
 		};
-		return {info: UserInfo(info), parts: [TextPart(text)]};
+		parts.push(TextPart(text));
+		return {info: UserInfo(info), parts: parts};
 	}
 
 	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:SessionProviderIdentity,

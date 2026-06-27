@@ -180,10 +180,6 @@ const text = run(["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "t
 assert.equal(text.status, 0);
 assert.equal(text.stdout, "Hello from the fake provider.\n");
 
-const textWithFile = run(["run", "--file", "ignored.txt", "Say", "hello", "from", "the", "fixture."]);
-assert.equal(textWithFile.status, 0);
-assert.equal(textWithFile.stdout, "Hello from the fake provider.\n");
-
 const json = run(["run", "--format", "json", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."]);
 assert.equal(json.status, 0);
 const golden = JSON.parse(readFileSync(path.join(root, "fixtures/transcripts/one-turn.golden.json"), "utf8"));
@@ -219,6 +215,10 @@ try {
 	mkdirSync(globalConfig, { recursive: true });
 	mkdirSync(authDir, { recursive: true });
 	mkdirSync(project, { recursive: true });
+	const attachment = path.join(project, "attached.txt");
+	const attachmentDir = path.join(project, "attached-dir");
+	writeFileSync(attachment, "attached from generated CLI\n");
+	mkdirSync(attachmentDir, { recursive: true });
 	const configFor = (provider, baseURL) =>
 		JSON.stringify({
 			$schema: "https://opencode.ai/config.json",
@@ -248,6 +248,20 @@ try {
 	delete env.CLOUDFLARE_GATEWAY_ID;
 	delete env.CLOUDFLARE_API_TOKEN;
 	delete env.CF_AIG_TOKEN;
+	const withFile = run(["run", "--format", "json", "--dir", project, "--file", "attached.txt", "-f", "attached-dir", "Use", "generated", "attachments."], {
+		env,
+	});
+	assert.equal(withFile.status, 0);
+	const withFileJson = JSON.parse(withFile.stdout);
+	assert.equal(withFileJson.messages[0].parts[0].type, "file");
+	assert.equal(withFileJson.messages[0].parts[0].filename, "attached.txt");
+	assert.equal(withFileJson.messages[0].parts[0].mime, "text/plain");
+	assert.match(withFileJson.messages[0].parts[0].url, /^file:/);
+	assert.equal(withFileJson.messages[0].parts[1].mime, "application/x-directory");
+	assert.equal(withFileJson.messages[0].parts[2].text, "Use generated attachments.");
+	const missingFile = run(["run", "--dir", project, "--file", "missing.txt", "Hello"], { env });
+	assert.equal(missingFile.status, 1);
+	assert.match(missingFile.stderr, /File not found: missing.txt/);
 	const persistedEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "headless-run.sqlite") };
 	const persisted = run(["run", "--format", "json", "Persist", "from", "generated", "CLI."], { env: persistedEnv });
 	assert.equal(persisted.status, 0);
@@ -259,6 +273,16 @@ try {
 	assert.equal(persistedExportJson.info.id, persistedSessionID);
 	assert.equal(persistedExportJson.messages.length, 2);
 	assert.equal(persistedExportJson.messages[0].parts[0].text, "Persist from generated CLI.");
+	const persistedWithFile = run(["run", "--format", "json", "--dir", project, "--file", "attached.txt", "Persist", "generated", "file."], {
+		env: persistedEnv,
+	});
+	assert.equal(persistedWithFile.status, 0);
+	const persistedWithFileSessionID = JSON.parse(persistedWithFile.stdout).request.sessionID;
+	const persistedWithFileExport = run(["export", persistedWithFileSessionID], { env: persistedEnv });
+	assert.equal(persistedWithFileExport.status, 0);
+	const persistedWithFileJson = JSON.parse(persistedWithFileExport.stdout);
+	assert.equal(persistedWithFileJson.messages[0].parts[0].filename, "attached.txt");
+	assert.equal(persistedWithFileJson.messages[0].parts[1].text, "Persist generated file.");
 	const appended = run(["run", "--format", "json", "--session", persistedSessionID, "Append", "from", "generated", "CLI."], { env: persistedEnv });
 	assert.equal(appended.status, 0);
 	assert.equal(JSON.parse(appended.stdout).request.sessionID, persistedSessionID);

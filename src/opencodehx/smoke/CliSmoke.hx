@@ -59,9 +59,6 @@ class CliSmoke {
 		final text = Cli.run(["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."]);
 		eq(text.stdout, "Hello from the fake provider.\n", "run text output");
 
-		final textWithFile = Cli.run(["run", "--file", "ignored.txt", "Say", "hello", "from", "the", "fixture."]);
-		eq(textWithFile.stdout, "Hello from the fake provider.\n", "run file option does not leak into prompt");
-
 		final json = Cli.run(["run", "--format", "json", "Say", "hello", "from", "the", "fixture."]);
 		final parsed:Dynamic = Json.parse(json.stdout);
 		eq(Reflect.field(Reflect.field(parsed, "provider"), "id"), "openai", "run json provider");
@@ -71,6 +68,10 @@ class CliSmoke {
 		try {
 			final runDir = NodePath.join(root, "project");
 			Fs.mkdirSync(runDir, {recursive: true});
+			final attachment = NodePath.join(runDir, "attached.txt");
+			final attachmentDir = NodePath.join(runDir, "attached-dir");
+			Fs.writeFileSync(attachment, "attached from smoke\n");
+			Fs.mkdirSync(attachmentDir, {recursive: true});
 			final withDir = Cli.run([
 				"run",
 				"--format",
@@ -85,6 +86,31 @@ class CliSmoke {
 			]);
 			eq(withDir.exitCode, 0, "run dir exit");
 			eq(assistantPath(Json.parse(withDir.stdout)), NodePath.normalize(runDir), "run dir assistant path");
+			final withFile = Cli.run([
+				"run",
+				"--format",
+				"json",
+				"--dir",
+				runDir,
+				"--file",
+				"attached.txt",
+				"-f",
+				"attached-dir",
+				"Use",
+				"the",
+				"attachments."
+			]);
+			eq(withFile.exitCode, 0, "run file exit");
+			final fileParts = messageParts(Json.parse(withFile.stdout), 0);
+			eq(Reflect.field(fileParts[0], "type"), "file", "run file part type");
+			eq(Reflect.field(fileParts[0], "filename"), "attached.txt", "run file part filename");
+			eq(Reflect.field(fileParts[0], "mime"), "text/plain", "run file part mime");
+			eq(Std.string(Reflect.field(fileParts[0], "url")).indexOf("file:"), 0, "run file part url");
+			eq(Reflect.field(fileParts[1], "mime"), "application/x-directory", "run directory file part mime");
+			eq(Reflect.field(fileParts[2], "text"), "Use the attachments.", "run file text part");
+			final missingFile = Cli.run(["run", "--dir", runDir, "--file", "missing.txt", "Hello"]);
+			eq(missingFile.exitCode, 1, "run missing file exit");
+			eq(missingFile.stderr.indexOf("File not found: missing.txt") != -1, true, "run missing file message");
 			final missingDir = Cli.run(["run", "--dir", NodePath.join(root, "missing"), "Hello"]);
 			eq(missingDir.exitCode, 1, "missing run dir exit");
 			eq(missingDir.stderr.indexOf("Failed to resolve run directory") != -1, true, "missing run dir message");
@@ -288,6 +314,8 @@ class CliSmoke {
 		try {
 			final mockDir = NodePath.join(mockRoot, "project");
 			Fs.mkdirSync(mockDir, {recursive: true});
+			final mockAttachment = NodePath.join(mockDir, "mock-attached.txt");
+			Fs.writeFileSync(mockAttachment, "mock attached\n");
 			final withDir = @:await Cli.runAsync([
 				"run",
 				"--mock-ai-sdk",
@@ -303,6 +331,23 @@ class CliSmoke {
 			]);
 			eq(withDir.exitCode, 0, "async cli dir exit");
 			eq(assistantPath(Json.parse(withDir.stdout)), NodePath.normalize(mockDir), "async cli dir assistant path");
+			final withFile = @:await Cli.runAsync([
+				"run",
+				"--mock-ai-sdk",
+				"--format",
+				"json",
+				"--dir",
+				mockDir,
+				"--file",
+				"mock-attached.txt",
+				"Mock",
+				"attachment."
+			]);
+			eq(withFile.exitCode, 0, "async cli file exit");
+			final mockParts = messageParts(Json.parse(withFile.stdout), 0);
+			eq(Reflect.field(mockParts[0], "type"), "file", "async cli file part type");
+			eq(Reflect.field(mockParts[0], "filename"), "mock-attached.txt", "async cli file filename");
+			eq(Reflect.field(mockParts[1], "text"), "Mock attachment.", "async cli file text part");
 			NodeProcess.setEnv("OPENCODE_DB", NodePath.join(mockRoot, "mock-sdk.sqlite"));
 			final persisted = @:await Cli.runAsync(["run", "--mock-ai-sdk", "--format", "json", "Persist", "through", "mock", "SDK."]);
 			eq(persisted.exitCode, 0, "async cli persisted mock exit");
@@ -446,6 +491,11 @@ class CliSmoke {
 		final info:Dynamic = Reflect.field(assistant, "info");
 		final path:Dynamic = Reflect.field(info, "path");
 		return Std.string(Reflect.field(path, "cwd"));
+	}
+
+	static function messageParts(transcript:Dynamic, index:Int):Array<Dynamic> {
+		final messages:Array<Dynamic> = Reflect.field(transcript, "messages");
+		return Reflect.field(messages[index], "parts");
 	}
 
 	static function diagnosticFormatting():Void {

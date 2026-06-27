@@ -26,7 +26,7 @@ The executable runtime remains intentionally narrow. `run` still owns the determ
 - `run --help` includes upstream run options such as `--file`, `--continue`, `--session`, and `--dangerously-skip-permissions`;
 - alias help resolves to canonical usage for `auth login --help` and `plug --help`;
 - `providers list` is recognized as a known unsupported command instead of falling through to an unknown-command error;
-- `run --file ignored.txt ...` does not leak the file option value into the prompt text.
+- `run --file <file>` and `-f <dir>` attach local file/directory metadata as ordered user `file` parts before the text prompt, and missing files fail before provider execution.
 - `export <sessionID>` reads a seeded SQLite session through `OPENCODE_DB`, emits parseable `{ info, messages }` JSON on stdout, preserves the upstream-style `Exporting session: ...` progress line on stderr, supports `--sanitize`, and reports missing sessions.
 - `run --session <id>` reads the same seeded SQLite store, emits JSON with the recovered session ID, defaults assistant path metadata to the stored session directory, honors an explicit `--dir` override, and reports missing sessions.
 - `run --continue` lists stored sessions newest-first, skips forked child sessions, and continues the latest root session in the non-interactive scaffold.

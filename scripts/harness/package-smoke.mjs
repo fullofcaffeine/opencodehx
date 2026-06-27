@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -80,6 +80,8 @@ try {
 	assert.equal(runResult.stdout, "Hello from the fake provider.\n");
 	const projectDir = path.join(tempRoot, "workspace");
 	mkdirSync(projectDir, { recursive: true });
+	const attachment = path.join(projectDir, "installed-attached.txt");
+	writeFileSync(attachment, "attached from installed package\n");
 	const runJson = expectOk(
 		run(bin, [
 			"run",
@@ -99,6 +101,27 @@ try {
 		"installed run with dir",
 	);
 	assert.equal(assistantCwd(JSON.parse(runJson.stdout)), projectDir, "installed run assistant cwd");
+	const runWithFile = expectOk(
+		run(bin, [
+			"run",
+			"--format",
+			"json",
+			"--model",
+			"openai/gpt-5.2",
+			"--dir",
+			projectDir,
+			"--file",
+			"installed-attached.txt",
+			"Use",
+			"installed",
+			"file.",
+		]),
+		"installed run with file",
+	);
+	const runWithFileParts = JSON.parse(runWithFile.stdout).messages[0].parts;
+	assert.equal(runWithFileParts[0].type, "file", "installed run file part type");
+	assert.equal(runWithFileParts[0].filename, "installed-attached.txt", "installed run file part filename");
+	assert.equal(runWithFileParts[1].text, "Use installed file.", "installed run file prompt");
 	const mockJson = expectOk(
 		run(bin, [
 			"run",
@@ -132,6 +155,17 @@ try {
 	assert.match(persistedSessionID, /^ses_/, "installed persisted run session id");
 	const persistedExport = expectOk(run(bin, ["export", persistedSessionID], { env: installedDbEnv }), "installed persisted export");
 	assert.equal(JSON.parse(persistedExport.stdout).messages.length, 2, "installed persisted export messages");
+	const persistedFileRun = expectOk(
+		run(bin, ["run", "--format", "json", "--dir", projectDir, "--file", "installed-attached.txt", "Persist", "installed", "file."], {
+			env: installedDbEnv,
+		}),
+		"installed persisted file run",
+	);
+	const persistedFileSessionID = JSON.parse(persistedFileRun.stdout).request.sessionID;
+	const persistedFileExport = expectOk(run(bin, ["export", persistedFileSessionID], { env: installedDbEnv }), "installed persisted file export");
+	const persistedFileMessages = JSON.parse(persistedFileExport.stdout).messages;
+	assert.equal(persistedFileMessages[0].parts[0].filename, "installed-attached.txt", "installed persisted file export filename");
+	assert.equal(persistedFileMessages[0].parts[1].text, "Persist installed file.", "installed persisted file export prompt");
 	const resumedRun = expectOk(
 		run(bin, ["run", "--format", "json", "--session", persistedSessionID, "Append", "from", "installed", "package."], { env: installedDbEnv }),
 		"installed resumed run",
