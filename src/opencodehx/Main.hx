@@ -34,6 +34,7 @@ import opencodehx.smoke.McpAcpSmoke;
 import opencodehx.smoke.PermissionSmoke;
 import opencodehx.smoke.PluginSmoke;
 import opencodehx.smoke.ProjectRuntimeSmoke;
+import opencodehx.smoke.QuestionSmoke;
 import opencodehx.smoke.ProviderSmoke;
 import opencodehx.smoke.ProviderTransformSmoke;
 import opencodehx.smoke.PtySmoke;
@@ -155,6 +156,10 @@ class Main {
 				log("cli-async-smoke:ok");
 				ProjectRuntimeSmoke.run();
 				log("project-runtime-smoke:ok");
+				return QuestionSmoke.run();
+			})
+			.then(_ -> {
+				log("question-smoke:ok");
 				SkillSmoke.run();
 				log("skill-smoke:ok");
 				SessionPersistenceSmoke.run();
