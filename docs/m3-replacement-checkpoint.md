@@ -8,7 +8,7 @@
 
 OpenCodeHX has passed the M3 headless fake-provider checkpoint. The project should continue rather than pivot or narrow to a compiler-only experiment.
 
-This is still not enough evidence to recommend replacing upstream OpenCode or Cafex. The useful conclusion is narrower: Haxe-authored OpenCode slices can compile through `genes-ts` into strict NodeNext TypeScript, run under Node, preserve a credential-free transcript oracle, execute core tools through a permission-aware one-turn session processor, and expose real `genes-ts` issues as actionable compiler work.
+This is still not enough evidence to recommend replacing upstream OpenCode. The useful conclusion is narrower: Haxe-authored OpenCode slices can compile through `genes-ts` into strict NodeNext TypeScript, run under Node, preserve a credential-free transcript oracle, execute core tools through a permission-aware one-turn session processor, and expose real `genes-ts` issues as actionable compiler work.
 
 ## Evidence
 

@@ -8,18 +8,15 @@
 
 The active sibling compiler checkout is `../genes`, not `../genes-ts`. It contains the `genes-ts` compiler mode, tests, and haxelib metadata.
 
-The active compiler checkout reports `1.12.0`; the older Cafetera vendored reference still reports `1.11.0`:
+The active compiler checkout reports `1.12.0`:
 
 | Copy | Path | package.json | haxelib.json |
 | --- | --- | --- | --- |
 | Canonical checkout | `../genes` | `1.12.0` | `genes-ts` `1.12.0` |
-| Cafetera vendor | `../fullofcaffeine/tools/cafetera/vendor/genes-ts` | `1.11.0` | `genes-ts` `1.11.0` |
 
-The canonical compiler checkout is now ahead of the Cafetera vendored reference for OpenCodeHX work:
+The canonical compiler checkout is the only OpenCodeHX dependency reference:
 
-- Compared paths: `../genes/src` and `../fullofcaffeine/tools/cafetera/vendor/genes-ts/src`
 - Source files: 38 in the canonical tree
-- `diff -qr`: differs after OpenCodeHX-driven import-attribute support, dynamic import typing, Rest alias type-emission, async/await metadata, TS raw-type helper, TSX inline-markup, enum abstract literal-union follow-up, Undefinable object-field codegen, target-polymorphic helper docs, optional-field branch narrowing, Undefinable assignment output fixes, null-guarded local cast elision, `@:native` anonymous-field emission fixes, array element expected-type propagation fixes, ternary branch expected-type propagation fixes, abstract-underlying anonymous-field context fixes, call-argument/EitherType object context fixes, raw syntax-template native-field fixes, optional-field nullable-parameter fixes, raw placeholder call-context fixes, narrowed call-argument cast elision, Promise.resolve(null) thenable-cast elision, raw syntax-template receiver parenthesization, dependency/security gate refresh, closed enum abstract declaration/field/local literal-union preservation, inline local-name collision handling, nullish null-comparison parenthesization, nullable branch local cast elision, typed catch temp lowering, map facade non-inlining, exiting null-guard flow, map presence/key-iteration narrowing, object-construction temp naming, callback null/bind output polish, TSX child temp naming, and typed declaration helper-base fixes landed in `../genes`
 - Relative-path source manifest hash for canonical `../genes/src`: `0c0ad3aeaf7b4b6452334c0045d576a8d495715777edd9836b7d84ae1b606b41`
 
 ## Pins
@@ -68,13 +65,6 @@ Canonical `../genes` checkout:
 
 - `../genes`: full local CI passed on 2026-06-23 at `32982d3cc779584701a3e8b5f62a2bfc74375223`: `yarn test:ci`. Focused gates also passed: `UPDATE_SNAPSHOTS=1 yarn test:genes-ts:snapshots`, `yarn test:genes-ts`, `yarn test:genes-ts:full`, `yarn test:genes-ts:tsx`, `yarn test:genes-ts:snapshots`, `yarn test`, and `UPDATE_SNAPSHOTS=1 yarn build:example:todoapp`. OpenCodeHX downstream gates `npm run build` and `npm run package:smoke` passed against this compiler checkout, and `rg -n "^declare const \\w+_base: any;$" dist -g '*.d.ts'` returned no matches.
 - Previous full `../genes` and remote gates passed on 2026-06-23 at `84952a73b9978fa3d47ce213d992a6b2e65ec3d8`: local `yarn test:ci`; remote `genes-ts CI`, `CodeQL`, and `Release`.
-
-Cafetera vendored reference:
-
-- Path: `../fullofcaffeine/tools/cafetera/vendor/genes-ts`
-- Branch: `master`
-- Commit: `d9d936ca4140fe9907476e1f0c5e18a060ad2a55`
-- Role: integration reference only.
 
 ## Policy
 

@@ -21,6 +21,5 @@ Minimum first import set:
 5. `opencodehx-004` upstream OpenCode oracle manifest
 6. `opencodehx-005` genes-ts NodeNext minimal app smoke
 7. `opencodehx-045` genes-ts limitation ledger
-8. `opencodehx-042` no-Caf-integration guardrail
 
 After those are created, use `bd ready --json` and let Codex claim unblocked tasks.

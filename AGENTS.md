@@ -12,7 +12,7 @@ This project uses **bd** (Beads) as the task source of truth. Run `bd onboard` i
 - OpenCodeHX and `genes-ts` are developed together. Compiler limitations discovered here should be fixed as generic `genes-ts` improvements, not worked around with OpenCode-specific hacks.
 - **Hard boundary: never couple `genes-ts` to OpenCodeHX.** OpenCodeHX is allowed, and expected, to drive compiler fixes, but `../genes` must never gain special knowledge of OpenCodeHX paths, names, schemas, runtime conventions, or product behavior. Reduce issues to general Haxe/JS/TS/compiler cases and fix those so every Genes user benefits.
 - Keep the `../genes` repo itself project-neutral. Do not add OpenCode/OpenCodeHX-specific wording to genes source, docs, fixtures, labels, or Beads; describe discoveries there as generic downstream compiler cases.
-- Keep any future Caf/Cafex work out of the Phase 1 core. Caf/Cafex is later adapter/preflight work after OpenCode parity exists; see `docs/no-caf-integration-guardrail.md`.
+- Keep Caf/Cafex/Cafetera work out of this repo's active backlog for now. The restarted Caf effort lives in `../cafetera`; do not create OpenCodeHX Caf tasks unless explicitly requested.
 
 ## Core Product Rules
 

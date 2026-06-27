@@ -11,7 +11,7 @@
 
 ## 1. Executive summary
 
-OpenCodeHX is a staged port of upstream OpenCode to Haxe, compiled to idiomatic TypeScript through `genes-ts`. The immediate product is not a Cafex integration and not a generic cross-target agent runtime. The immediate product is: **OpenCode, functionally and UX-identical, but authored in Haxe and emitted as maintainable TypeScript.**
+OpenCodeHX is a staged port of upstream OpenCode to Haxe, compiled to idiomatic TypeScript through `genes-ts`. The immediate product is: **OpenCode, functionally and UX-identical, but authored in Haxe and emitted as maintainable TypeScript.**
 
 The experiment has two deliberate outputs:
 
@@ -60,48 +60,26 @@ OpenCode test inventory is large enough to be used as the main oracle: `packages
 
 ### 2.2 genes-ts version verification
 
-There are two genes-ts copies in the uploaded material:
-
-1. Standalone bundle: `repomix-output-genes-ts.xml`
-2. Cafetera vendored copy: `tools/cafetera/vendor/genes-ts` inside `repomix-output-fullofcaffeine-cafetera.xml`
-
-Result:
-
-- Both report version **`1.11.0`** in `package.json` / `haxelib.json`.
-- The common compiler source files are byte-for-byte identical across the standalone and Cafetera vendored copy.
-- The Cafetera copy adds module metadata, examples, generated output, and integration packaging around the same compiler core.
-- Latest visible changelog entry in the uploaded sources is `1.11.0` dated 2026-02-05.
+The active compiler dependency is the sibling `../genes` checkout, which contains the `genes-ts` compiler mode, tests, and haxelib metadata.
 
 Recommendation:
 
-- Use the **standalone genes-ts repo as the canonical development dependency** for this experiment because it is smaller and cleaner for compiler work.
-- Keep Cafetera's vendored copy as the **integration reference** for later Caf module packaging.
-- Do not treat Cafetera's copy as a newer compiler unless a future diff shows source divergence.
+- Use `../genes` as the canonical development dependency for this experiment because it is the active compiler source of truth.
+- Treat deprecated vendored compiler snapshots as historical context only, not as OpenCodeHX planning or dependency inputs.
 
-### 2.3 Cafex / Cafetera snapshot
-
-Cafex is present under Cafetera's Codex module and `deps/codex`. The relevant docs frame Cafex as a **Codex-specific Caf-native harness**, not the semantic authority for Caf itself. The semantic authority remains CML/Haxe/contracts/fixtures/Brew/receipts.
-
-Implication for OpenCodeHX:
-
-- Phase 1 must **not** integrate Cafex.
-- OpenCodeHX should not inherit Cafex Rust internals.
-- Later, if OpenCodeHX becomes a Cafex replacement candidate, it should consume Caf contracts rather than clone Codex/Cafex internals.
-
-### 2.4 hxcodex reference snapshot
+### 2.3 hxcodex reference snapshot
 
 The hxcodex WIP is valuable as a planning pattern:
 
 - Upstream-first compatibility experiment.
 - Gate-driven plan.
-- Caf adapter later.
 - Small boundary slices.
 - Fixtures and generated-runtime validation.
 - Clear kill/pivot criteria.
 
 OpenCodeHX should follow the same shape but with a stronger 1:1 product goal because OpenCode's TUI/CLI UX is itself the target.
 
-### 2.5 haxe.rust / haxe.go snapshots
+### 2.4 haxe.rust / haxe.go snapshots
 
 These are reference-only for now. They support a later portability audit, but they should not dictate the initial OpenCodeHX architecture. The useful lesson is to classify boundaries early, not abstract them early.
 
@@ -109,12 +87,11 @@ These are reference-only for now. They support a later portability audit, but th
 
 ## 3. Problem statement
 
-The current Cafex path is tied to a Codex fork and a Rust-native harness. OpenCode is a separate and active agent product with a richer terminal UX and a TypeScript/Node/Bun ecosystem. A Haxe-authored OpenCode port could become a better long-term agent substrate for Caf, but only if it first proves that:
+OpenCode is an active agent product with a rich terminal UX and a TypeScript/Node/Bun ecosystem. A Haxe-authored OpenCode port is useful only if it first proves that:
 
 1. A large, real TypeScript codebase can be ported to Haxe without UX or behavior drift.
 2. `genes-ts` can emit TypeScript that remains readable, strict-type-checkable, and workable inside a modern Node/Bun package.
 3. The Haxe source can stay close enough to upstream OpenCode for ongoing parity work.
-4. The resulting architecture can later expose Caf integration seams without contaminating the initial port.
 
 ---
 
@@ -137,8 +114,6 @@ The current Cafex path is tied to a Codex fork and a Rust-native harness. OpenCo
 
 ### 4.3 Future goals, explicitly deferred
 
-- Evaluate OpenCodeHX as a Cafex replacement candidate.
-- Add Caf integration agentic layer.
 - Port selected runtime slices through haxe.rust or haxe.go.
 - Replace external npm dependencies with portable Haxe implementations where it is worth it.
 
@@ -146,8 +121,7 @@ The current Cafex path is tied to a Codex fork and a Rust-native harness. OpenCo
 
 ## 5. Non-goals
 
-- No Cafex integration in Phase 1.
-- No claim that OpenCodeHX replaces Cafex until parity and Caf contract checks are passed.
+- No Caf/Cafex/Cafetera tasks in this repository's active backlog for now; that work belongs in the restarted `../cafetera` effort unless explicitly requested here.
 - No immediate Rust/Go target.
 - No broad portability abstraction layer before the TS target works.
 - No rewrite of all npm dependencies into Haxe.
@@ -164,8 +138,7 @@ The current Cafex path is tied to a Codex fork and a Rust-native harness. OpenCo
 3. **Node-first, not portable-first.** Use Node/Bun realities where OpenCode requires them.
 4. **Classify seams now; abstract later.** Mark host/runtime seams, but do not add indirection everywhere.
 5. **Compiler work is first-class product work.** `genes-ts` improvements are expected, not incidental.
-6. **Caf later, contracts first.** Future Caf integration should consume Caf contracts, not Cafex Rust implementation details.
-7. **Parity is empirical.** Every meaningful subsystem needs tests, golden transcripts, or smoke evidence.
+6. **Parity is empirical.** Every meaningful subsystem needs tests, golden transcripts, or smoke evidence.
 
 ---
 
@@ -349,9 +322,7 @@ OpenCode includes text prompts, JSON files, embedded web assets, parser workers,
 
 ### 10.2 Out of scope until after parity
 
-- Caf integration layer
 - Brew conversion
-- Cafex replacement assertion
 - Rust/Go codegen target
 - Full dependency replacement
 - Major UI redesign
@@ -534,18 +505,7 @@ Acceptance:
 - Bun binary packaging feasibility report is complete.
 - Generated TS, sourcemaps, assets, and resources are packaged correctly.
 
-### M9 — Cafex replacement preflight
-
-**Objective:** Decide whether OpenCodeHX is a credible future Cafex replacement substrate.
-
-Acceptance:
-
-- Cafex seam ledger is mapped to OpenCodeHX capabilities.
-- Caf contract consumption points are identified.
-- No Caf integration has leaked into the core port.
-- Replacement candidate decision is documented with evidence.
-
-### M10 — Portability audit
+### M9 — Portability audit
 
 **Objective:** Determine whether Rust/Go follow-up work is realistic.
 
@@ -665,7 +625,7 @@ Dependency policy:
 - Compiler bugs discovered from a port task use `discovered-from` or equivalent relationship back to the port task.
 - Avoid markdown TODO lists; create beads for discovered work.
 - Use labels consistently:
-  - `area:cli`, `area:tui`, `area:session`, `area:tool`, `area:provider`, `area:server`, `area:storage`, `area:compiler`, `area:cafex`, `area:portability`
+  - `area:cli`, `area:tui`, `area:session`, `area:tool`, `area:provider`, `area:server`, `area:storage`, `area:compiler`, `area:portability`
   - `kind:parity`, `kind:extern`, `kind:compiler-repro`, `kind:fixture`, `kind:smoke`, `kind:docs`
   - `runtime:node`, `runtime:bun`, `runtime:portable`, `runtime:tsx`
 
@@ -686,7 +646,6 @@ A seed JSONL backlog is provided separately as `opencodehx-beads-backlog.seed.js
 | Generated TS unreadable | Maintenance cost too high | Snapshot generated TS; improve genes-ts output quality as acceptance criterion |
 | Upstream drift | Port lags OpenCode | Pin snapshot; periodic rebase bead; maintain parity matrix |
 | Over-portability | Performance/UX degradation | Node-first policy; classify seams instead of abstracting everything |
-| Cafex coupling too early | Replacement experiment becomes biased | Explicit guardrail bead and no-Caf-integration milestone |
 
 ---
 
@@ -705,14 +664,6 @@ A seed JSONL backlog is provided separately as `opencodehx-beads-backlog.seed.js
 - Generated TS becomes too opaque to maintain.
 - The Effect/session processor cannot be represented without a large semantic rewrite.
 - TUI parity requires unacceptable compiler/runtime contortions.
-
-### Consider Cafex replacement evaluation only if
-
-- Headless + tools + provider + server + TUI parity are green enough for daily use.
-- Caf contract consumption can be added without changing OpenCodeHX core semantics.
-- Cafex seam ledger maps cleanly to OpenCodeHX extension points.
-
----
 
 ## 18. Immediate next steps
 
