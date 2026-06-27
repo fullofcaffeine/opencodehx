@@ -869,6 +869,23 @@ class SessionProcessorSmoke {
 			eq(toolResult.events[5].text, "The file says: ai sdk tool fixture.", "ai sdk continuation text event");
 			assertToolOutcome(toolResult.tool);
 			assertAssistantParts(toolResult.messages[1].parts, "ai sdk tool", "tool_1", "The file says: ai sdk tool fixture.");
+
+			final disabledRuntime = AiSdkMockModel.inspectableToolThenText("This continuation should not run.", "read", "{\"filePath\":\"src/input.txt\"}");
+			final disabledContinuation = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_tool_no_continue",
+				prompt: "Read the AI SDK fixture without follow-up.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: disabledRuntime.language,
+				continueAfterToolResult: false,
+			});
+			eq(disabledRuntime.mock.doStreamCalls.length, 1, "ai sdk disabled continuation call count");
+			eq(disabledContinuation.events[1].type, "tool-call", "ai sdk disabled continuation model call");
+			eq(disabledContinuation.events[4].status, "completed", "ai sdk disabled continuation tool finish");
+			assertToolOutcome(disabledContinuation.tool);
+			assertAssistantParts(disabledContinuation.messages[1].parts, "ai sdk disabled continuation", "tool_1", "");
+
 			final multiRuntime = AiSdkMockModel.inspectableTwoToolsThenText("Both reads completed.", "read", "{\"filePath\":\"src/input.txt\"}", "read",
 				"{\"filePath\":\"src/input.txt\"}");
 			final multiToolResult = @:await SessionProcessor.runAiSdk({
@@ -903,6 +920,25 @@ class SessionProcessorSmoke {
 			eq(multiToolResult.events[9].text, "Both reads completed.", "ai sdk multi-tool final text event");
 			assertToolOutcome(multiToolResult.tool);
 			assertAssistantTwoToolParts(multiToolResult.messages[1].parts, "Both reads completed.");
+
+			final limitedRuntime = AiSdkMockModel.inspectableTwoToolsThenText("The capped answer should not run.", "read", "{\"filePath\":\"src/input.txt\"}",
+				"read", "{\"filePath\":\"src/input.txt\"}");
+			final limitedContinuation = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_tool_limit",
+				prompt: "Read the AI SDK fixture twice with one continuation.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: limitedRuntime.language,
+				maxToolContinuations: 1,
+			});
+			eq(limitedRuntime.mock.doStreamCalls.length, 2, "ai sdk max continuation call count");
+			assertSdkToolResultPrompt(limitedRuntime.mock.doStreamCalls[1].prompt, "Read the AI SDK fixture twice with one continuation.", "tool_1", "read",
+				"ai sdk tool fixture", "ai sdk max continuation prompt");
+			eq(limitedContinuation.events[5].callID, "tool_2", "ai sdk max continuation second model call id");
+			eq(limitedContinuation.events[8].status, "completed", "ai sdk max continuation second finish");
+			assertToolOutcome(limitedContinuation.tool);
+			assertAssistantTwoToolParts(limitedContinuation.messages[1].parts, "");
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			// Smoke cleanup must catch arbitrary Haxe/JS failures so the temp
