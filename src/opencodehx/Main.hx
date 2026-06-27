@@ -31,6 +31,7 @@ import opencodehx.smoke.FormatterSmoke;
 import opencodehx.smoke.LspSmoke;
 import opencodehx.smoke.MessageSmoke;
 import opencodehx.smoke.McpAcpSmoke;
+import opencodehx.smoke.PatchSmoke;
 import opencodehx.smoke.PermissionSmoke;
 import opencodehx.smoke.PluginSmoke;
 import opencodehx.smoke.ProjectRuntimeSmoke;
@@ -109,6 +110,8 @@ class Main {
 			})
 			.then(_ -> {
 				log("tool-smoke:ok");
+				PatchSmoke.run();
+				log("patch-smoke:ok");
 				ProviderSmoke.run();
 				return ProviderSmoke.runRemote();
 			})

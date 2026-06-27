@@ -15,7 +15,11 @@ This slice extends the Haxe-owned tool registry with the first mutating filesyst
 
 ## Evidence
 
-`ToolSmoke` now covers registry surface, unknown/disabled/invalid failures, read file and directory output, path escape rejection, read permission denial, read/bash truncation metadata, glob/grep parity smoke cases, write creation, edit exact/replace-all/multiple-match failures, tolerant edit fallbacks for line-trimmed, block-anchor, whitespace, indentation, and escape-normalized matches, plus apply_patch add/update/delete/move execution, EOF anchors, heredoc parsing, Unicode-normalized matching, malformed headers, and no-side-effect verification failures. Full upstream `Truncate` service behavior, including file-spill, cleanup, direction, byte/line defaults, and Task-tool hints, remains deferred.
+`ToolSmoke` now covers registry surface, unknown/disabled/invalid failures, read file and directory output, path escape rejection, read permission denial, read/bash truncation metadata, glob/grep parity smoke cases, write creation, edit exact/replace-all/multiple-match failures, tolerant edit fallbacks for line-trimmed, block-anchor, whitespace, indentation, and escape-normalized matches, plus permissioned apply_patch add/update/delete/move execution, EOF anchors, heredoc parsing, Unicode-normalized matching, malformed headers, and no-side-effect verification failures.
+
+`PatchSmoke` covers the standalone upstream `Patch` namespace through `opencodehx.patch.PatchRuntime`; see `patch-runtime.md` for parser, command-detection, direct apply, and verified-planning evidence.
+
+Full upstream `Truncate` service behavior, including file-spill, cleanup, direction, byte/line defaults, and Task-tool hints, remains deferred.
 
 Gates used for this slice:
 
@@ -30,7 +34,7 @@ This is still a parity scaffold, not the final OpenCode tool runtime:
 
 - LSP diagnostics, formatting hooks, file watcher/bus publication, snapshots, and Effect integration remain deferred to their owning beads.
 - `edit` now ports the upstream tolerant replacement ladder shape, but broad differential coverage against every upstream edit test remains future work once the Haxe-authored test facade grows beyond smoke fixtures.
-- `apply_patch` now covers the high-risk verification cases from the follow-up bead, but the standalone upstream `patch/index.ts` helper surface is still not a public Haxe API.
+- The standalone upstream `patch/index.ts` helper surface is now a public typed Haxe runtime in `opencodehx.patch.PatchRuntime`; the tool wrapper remains responsible for project-boundary checks, permission aggregation, and tool-shaped metadata.
 
 ## genes-ts Notes
 
