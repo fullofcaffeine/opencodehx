@@ -267,6 +267,22 @@ try {
 	const appendedExportJson = JSON.parse(appendedExport.stdout);
 	assert.equal(appendedExportJson.messages.length, 4);
 	assert.equal(appendedExportJson.messages[2].parts[0].text, "Append from generated CLI.");
+	const mockEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "mock-sdk-run.sqlite") };
+	const mockPersisted = run(["run", "--mock-ai-sdk", "--format", "json", "Persist", "from", "generated", "mock", "SDK."], { env: mockEnv });
+	assert.equal(mockPersisted.status, 0);
+	const mockSessionID = JSON.parse(mockPersisted.stdout).request.sessionID;
+	assert.match(mockSessionID, /^ses_/);
+	const mockExport = run(["export", mockSessionID], { env: mockEnv });
+	assert.equal(mockExport.status, 0);
+	assert.equal(JSON.parse(mockExport.stdout).messages.length, 2);
+	const mockAppended = run(["run", "--mock-ai-sdk", "--format", "json", "--session", mockSessionID, "Append", "from", "generated", "mock", "SDK."], {
+		env: mockEnv,
+	});
+	assert.equal(mockAppended.status, 0);
+	assert.equal(JSON.parse(mockAppended.stdout).request.sessionID, mockSessionID);
+	const mockAppendedExport = run(["export", mockSessionID], { env: mockEnv });
+	assert.equal(mockAppendedExport.status, 0);
+	assert.equal(JSON.parse(mockAppendedExport.stdout).messages.length, 4);
 	const globalLoaded = run(["run", "--live-ai-sdk", "--model", "global-live/missing", "Hello"], { env });
 	assert.equal(globalLoaded.status, 1);
 	assert.match(globalLoaded.stderr, /Model not found: global-live\/missing/);

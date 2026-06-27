@@ -284,6 +284,7 @@ class CliSmoke {
 		eq(Reflect.field(events[1], "text"), "Hello ", "async cli first delta");
 
 		final mockRoot = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-mock-"));
+		final originalMockDb = NodeProcess.envValue("OPENCODE_DB");
 		try {
 			final mockDir = NodePath.join(mockRoot, "project");
 			Fs.mkdirSync(mockDir, {recursive: true});
@@ -302,8 +303,37 @@ class CliSmoke {
 			]);
 			eq(withDir.exitCode, 0, "async cli dir exit");
 			eq(assistantPath(Json.parse(withDir.stdout)), NodePath.normalize(mockDir), "async cli dir assistant path");
+			NodeProcess.setEnv("OPENCODE_DB", NodePath.join(mockRoot, "mock-sdk.sqlite"));
+			final persisted = @:await Cli.runAsync(["run", "--mock-ai-sdk", "--format", "json", "Persist", "through", "mock", "SDK."]);
+			eq(persisted.exitCode, 0, "async cli persisted mock exit");
+			final persistedParsed:Dynamic = Json.parse(persisted.stdout);
+			final persistedSessionID = Std.string(Reflect.field(Reflect.field(persistedParsed, "request"), "sessionID"));
+			eq(persistedSessionID.indexOf("ses_"), 0, "async cli persisted mock generated id");
+			final exported = @:await Cli.runAsync(["export", persistedSessionID]);
+			eq(exported.exitCode, 0, "async cli persisted mock export exit");
+			final exportedMessages:Array<Dynamic> = Reflect.field(Json.parse(exported.stdout), "messages");
+			eq(exportedMessages.length, 2, "async cli persisted mock message count");
+			final resumed = @:await Cli.runAsync([
+				"run",
+				"--mock-ai-sdk",
+				"--format",
+				"json",
+				"--session",
+				persistedSessionID,
+				"Append",
+				"through",
+				"mock",
+				"SDK."
+			]);
+			eq(resumed.exitCode, 0, "async cli resumed mock exit");
+			final resumedExport = @:await Cli.runAsync(["export", persistedSessionID]);
+			eq(resumedExport.exitCode, 0, "async cli resumed mock export exit");
+			final resumedMessages:Array<Dynamic> = Reflect.field(Json.parse(resumedExport.stdout), "messages");
+			eq(resumedMessages.length, 4, "async cli resumed mock message count");
+			restoreEnv("OPENCODE_DB", originalMockDb);
 			Fs.rmSync(mockRoot, {recursive: true, force: true});
 		} catch (error:Dynamic) {
+			restoreEnv("OPENCODE_DB", originalMockDb);
 			Fs.rmSync(mockRoot, {recursive: true, force: true});
 			throw error;
 		}
