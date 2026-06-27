@@ -1,6 +1,7 @@
 package opencodehx.smoke;
 
 import genes.ts.Unknown;
+import haxe.Json;
 import opencodehx.config.ConfigPlugin;
 import opencodehx.config.ConfigPlugin.PluginOrigin;
 import opencodehx.config.ConfigPlugin.PluginScope;
@@ -8,6 +9,8 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeBuffer;
+import opencodehx.plugin.PluginCodex;
 import opencodehx.plugin.PluginMeta;
 import opencodehx.plugin.PluginRuntime;
 import opencodehx.plugin.PluginRuntime.PluginLegacyExport;
@@ -21,6 +24,7 @@ class PluginSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-plugin-"));
 		try {
+			codexJwtClaims();
 			parseSpecifiers();
 			metadata(root);
 			runtime(root);
@@ -31,6 +35,45 @@ class PluginSmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	static function codexJwtClaims():Void {
+		final rootClaims = PluginCodex.parseJwtClaims(jwt({email: "test@example.com", chatgpt_account_id: "acc-123"}));
+		eq(rootClaims != null, true, "codex jwt claims parse");
+		eq(PluginCodex.extractAccountIdFromClaims(rootClaims), "acc-123", "codex root account id");
+		eq(PluginCodex.parseJwtClaims("invalid") == null, true, "codex jwt rejects one part");
+		eq(PluginCodex.parseJwtClaims("only.two") == null, true, "codex jwt rejects two parts");
+		eq(PluginCodex.parseJwtClaims("a.!!!invalid!!!.b") == null, true, "codex jwt rejects invalid base64");
+		eq(PluginCodex.parseJwtClaims(jwtRaw("not json")) == null, true, "codex jwt rejects invalid json");
+
+		final nested = Unknown.fromBoundary({"https://api.openai.com/auth": {chatgpt_account_id: "acc-nested"}});
+		eq(PluginCodex.extractAccountIdFromClaims(nested), "acc-nested", "codex nested account id");
+		final rootPreferred = Unknown.fromBoundary({
+			chatgpt_account_id: "acc-root",
+			"https://api.openai.com/auth": {chatgpt_account_id: "acc-nested"},
+		});
+		eq(PluginCodex.extractAccountIdFromClaims(rootPreferred), "acc-root", "codex prefers root account id");
+		final organization = Unknown.fromBoundary({organizations: [{id: "org-123"}, {id: "org-456"}]});
+		eq(PluginCodex.extractAccountIdFromClaims(organization), "org-123", "codex organization fallback");
+		eq(PluginCodex.extractAccountIdFromClaims(Unknown.fromBoundary({email: "test@example.com"})) == null, true, "codex missing account id");
+
+		final idToken = jwt({chatgpt_account_id: "from-id-token"});
+		final accessToken = jwt({chatgpt_account_id: "from-access-token"});
+		eq(PluginCodex.extractAccountId({id_token: idToken, access_token: accessToken, refresh_token: "rt"}), "from-id-token", "codex id token first");
+		final accessFallback = jwt({"https://api.openai.com/auth": {chatgpt_account_id: "from-access"}});
+		eq(PluginCodex.extractAccountId({id_token: jwt({email: "test@example.com"}), access_token: accessFallback, refresh_token: "rt"}), "from-access",
+			"codex access token fallback");
+		final noAccount = jwt({email: "test@example.com"});
+		eq(PluginCodex.extractAccountId({id_token: noAccount, access_token: noAccount, refresh_token: "rt"}) == null, true, "codex no token account id");
+		eq(PluginCodex.extractAccountId({id_token: "", access_token: accessToken, refresh_token: "rt"}), "from-access-token", "codex missing id token");
+	}
+
+	static function jwt(payload:Dynamic):String {
+		return jwtRaw(Json.stringify(payload));
+	}
+
+	static function jwtRaw(payload:String):String {
+		return NodeBuffer.toBase64Url(Json.stringify({alg: "none"})) + "." + NodeBuffer.toBase64Url(payload) + ".sig";
 	}
 
 	static function parseSpecifiers():Void {

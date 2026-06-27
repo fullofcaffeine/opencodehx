@@ -96,7 +96,7 @@ permission/arity.test.ts,test,permission,P1,direct,src/opencodehx/permission/Bas
 permission/next.test.ts,test,permission,P1,partial,src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md,sync ask/allow/deny is covered; full async session prompt lifecycle remains deferred,PermissionSmoke.runtimeAskReply/toolIntegration,opencodehx-000.11
 plugin/auth-override.test.ts,test,plugin,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.5
 plugin/cloudflare.test.ts,test,plugin,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.5
-plugin/codex.test.ts,test,plugin,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.5
+plugin/codex.test.ts,test,plugin,P1,partial,src/opencodehx/plugin/PluginCodex.hx; src/opencodehx/smoke/PluginSmoke.hx; docs/plugin-runtime-minimum.md,JWT claim parsing and ChatGPT account-id extraction are covered; live Codex OAuth/device/browser auth plugin behavior remains deferred,PluginSmoke.codexJwtClaims,opencodehx-000.5
 plugin/github-copilot-models.test.ts,test,plugin,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.5
 plugin/install-concurrency.test.ts,test,plugin,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.5
 plugin/install.test.ts,test,plugin,P1,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.5
