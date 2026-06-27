@@ -1,20 +1,31 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
+import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPartType;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptRole;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelTool;
+import opencodehx.externs.ai.AiSdk.AiTool;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
 import opencodehx.permission.PermissionRuntime;
 import opencodehx.permission.PermissionTypes.PermissionAskRecord;
+import opencodehx.permission.PermissionTypes.PermissionRule;
+import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
+import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.session.MessageTypes.Info;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TokenUsage;
 import opencodehx.session.MessageTypes.ToolState;
 import opencodehx.session.SessionID;
+import opencodehx.session.SessionLlm;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionRetry.SessionProviderError;
 import opencodehx.storage.SqliteSessionStore;
@@ -22,6 +33,10 @@ import js.lib.Promise;
 
 class SessionProcessorSmoke {
 	public static function run():Void {
+		llmHasToolCalls();
+		llmResolveTools();
+		llmCompatibilityTools();
+		llmRequestHeaders();
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-session-processor-"));
 		final dbPath = NodePath.join(root, "opencodehx.db");
 		final store = new SqliteSessionStore(dbPath);
@@ -78,6 +93,248 @@ class SessionProcessorSmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	static function llmHasToolCalls():Void {
+		eq(SessionLlm.hasToolCalls([]), false, "llm hasToolCalls empty");
+		eq(SessionLlm.hasToolCalls([
+			{
+				role: AiLanguageModelPromptRole.User,
+				content: [{type: AiLanguageModelPromptPartType.Text, text: "Hello"}],
+			},
+			{
+				role: AiLanguageModelPromptRole.Assistant,
+				content: [{type: AiLanguageModelPromptPartType.Text, text: "Hi there"}],
+			},
+		]), false, "llm hasToolCalls text parts");
+		eq(SessionLlm.hasToolCalls([
+			{
+				role: AiLanguageModelPromptRole.Assistant,
+				content: [
+					{
+						type: AiLanguageModelPromptPartType.ToolCall,
+						toolCallId: "call-123",
+						toolName: "bash",
+						input: Unknown.fromBoundary({command: "pwd"}),
+					}
+				],
+			},
+		]), true, "llm hasToolCalls tool-call");
+		eq(SessionLlm.hasToolCalls([
+			{
+				role: AiLanguageModelPromptRole.Tool,
+				content: [
+					{
+						type: AiLanguageModelPromptPartType.ToolResult,
+						toolCallId: "call-123",
+						toolName: "bash",
+						output: {type: "text", value: "done"},
+					}
+				],
+			},
+		]), true, "llm hasToolCalls tool-result");
+		eq(SessionLlm.hasToolCalls([
+			{
+				role: AiLanguageModelPromptRole.User,
+				content: "Hello world",
+			},
+			{
+				role: AiLanguageModelPromptRole.Assistant,
+				content: "Hi there",
+			},
+		]), false, "llm hasToolCalls string content");
+		eq(SessionLlm.hasToolCalls([
+			{
+				role: AiLanguageModelPromptRole.Assistant,
+				content: [
+					{type: AiLanguageModelPromptPartType.Text, text: "Let me run that command"},
+					{
+						type: AiLanguageModelPromptPartType.ToolCall,
+						toolCallId: "call-456",
+						toolName: "read",
+						input: Unknown.fromBoundary({filePath: "README.md"}),
+					}
+				],
+			},
+		]), true, "llm hasToolCalls mixed content");
+	}
+
+	static function llmResolveTools():Void {
+		final tools = new DynamicAccess<AiTool>();
+		tools.set("question", AiSdkProvider.readTool());
+		tools.set("read", AiSdkProvider.readTool());
+		final userTools = new DynamicAccess<Bool>();
+		userTools.set("question", true);
+		userTools.set("read", false);
+		final agentDenyQuestion:Array<PermissionRule> = [{permission: "question", pattern: "*", action: "deny"}];
+		final promptAllowQuestion:Array<PermissionRule> = [{permission: "question", pattern: "*", action: "allow"}];
+		final resolved = SessionLlm.resolveTools(tools, agentDenyQuestion, promptAllowQuestion, userTools);
+		eq(hasAiTool(resolved, "question"), true, "llm resolve prompt allow keeps tool");
+		eq(hasAiTool(resolved, "read"), false, "llm resolve user false hides tool");
+
+		final denied = SessionLlm.resolveTools(tools, agentDenyQuestion, [], userTools);
+		eq(hasAiTool(denied, "question"), false, "llm resolve agent deny removes tool");
+
+		final promptDenyQuestion:Array<PermissionRule> = [{permission: "question", pattern: "*", action: "deny"}];
+		final agentAllowQuestion:Array<PermissionRule> = [{permission: "question", pattern: "*", action: "allow"}];
+		final promptDenied = SessionLlm.resolveTools(tools, agentAllowQuestion, promptDenyQuestion, userTools);
+		eq(hasAiTool(promptDenied, "question"), false, "llm resolve prompt deny overrides agent allow");
+	}
+
+	static function llmCompatibilityTools():Void {
+		final empty = new DynamicAccess<AiTool>();
+		final withHistoryToolCall:Array<AiLanguageModelPromptMessage> = [
+			{
+				role: AiLanguageModelPromptRole.Assistant,
+				content: [
+					{
+						type: AiLanguageModelPromptPartType.ToolCall,
+						toolCallId: "call-history",
+						toolName: "read",
+						input: Unknown.fromBoundary({filePath: "README.md"}),
+					}
+				],
+			}
+		];
+
+		final litellm = modelForCompatibility("litellm-gateway", "chat-model");
+		final litellmTools = SessionLlm.compatibilityTools(litellm, empty, withHistoryToolCall);
+		eq(hasAiTool(litellmTools, SessionLlm.NOOP_TOOL_ID), true, "llm compatibility litellm noop");
+		eq(hasAiTool(empty, SessionLlm.NOOP_TOOL_ID), false, "llm compatibility keeps source unmodified");
+
+		final apiLiteLlm = modelForCompatibility("custom-provider", "company-litellm-model");
+		eq(hasAiTool(SessionLlm.compatibilityTools(apiLiteLlm, empty, withHistoryToolCall), SessionLlm.NOOP_TOOL_ID), true, "llm compatibility api id noop");
+
+		final optionLiteLlm = modelForCompatibility("custom-provider", "chat-model", true);
+		eq(hasAiTool(SessionLlm.compatibilityTools(optionLiteLlm, empty, withHistoryToolCall), SessionLlm.NOOP_TOOL_ID), true, "llm compatibility option noop");
+
+		final copilot = modelForCompatibility("github-copilot", "gpt-5.2");
+		eq(hasAiTool(SessionLlm.compatibilityTools(copilot, empty, withHistoryToolCall), SessionLlm.NOOP_TOOL_ID), true, "llm compatibility copilot noop");
+
+		final normal = modelForCompatibility("openai", "gpt-5.2");
+		eq(hasAiTool(SessionLlm.compatibilityTools(normal, empty, withHistoryToolCall), SessionLlm.NOOP_TOOL_ID), false,
+			"llm compatibility normal provider no noop");
+
+		final withoutHistoryTool:Array<AiLanguageModelPromptMessage> = [{role: AiLanguageModelPromptRole.User, content: "Hello"}];
+		eq(hasAiTool(SessionLlm.compatibilityTools(litellm, empty, withoutHistoryTool), SessionLlm.NOOP_TOOL_ID), false,
+			"llm compatibility no history tool no noop");
+
+		final active = AiSdkProvider.toolSet("read", AiSdkProvider.readTool());
+		final activeResult = SessionLlm.compatibilityTools(litellm, active, withHistoryToolCall);
+		eq(hasAiTool(activeResult, "read"), true, "llm compatibility preserves active tool");
+		eq(hasAiTool(activeResult, SessionLlm.NOOP_TOOL_ID), false, "llm compatibility active tools skip noop");
+	}
+
+	static function llmRequestHeaders():Void {
+		final source = new FakeProvider().model;
+		final modelHeaders = new DynamicAccess<String>();
+		modelHeaders.set("x-model-header", "model");
+		modelHeaders.set("x-session-affinity", "model-affinity");
+		modelHeaders.set("User-Agent", "model-agent");
+		final providerModel = modelWithHeaders("openai", source.api.id, modelHeaders);
+		final pluginHeaders = new DynamicAccess<String>();
+		pluginHeaders.set("x-plugin-header", "plugin");
+		pluginHeaders.set("User-Agent", "plugin-agent");
+		final headers = SessionLlm.requestHeaders({
+			model: providerModel,
+			sessionID: "ses_headers",
+			parentSessionID: "ses_parent",
+			userID: "msg_user",
+			projectID: "proj_123",
+			client: "cli",
+			installationVersion: "9.8.7",
+			headers: pluginHeaders,
+		});
+		eq(headers.get("x-session-affinity"), "model-affinity", "llm headers model overrides affinity");
+		eq(headers.get("x-parent-session-id"), "ses_parent", "llm headers parent session");
+		eq(headers.get("User-Agent"), "plugin-agent", "llm headers plugin overrides model");
+		eq(headers.get("x-model-header"), "model", "llm headers keeps model header");
+		eq(headers.get("x-plugin-header"), "plugin", "llm headers keeps plugin header");
+
+		final plainHeaders = SessionLlm.requestHeaders({
+			model: modelWithHeaders("openai", source.api.id, new DynamicAccess<String>()),
+			sessionID: "ses_plain",
+			userID: "msg_plain",
+			projectID: "proj_plain",
+			client: "desktop",
+			installationVersion: "1.2.3",
+		});
+		eq(plainHeaders.get("x-session-affinity"), "ses_plain", "llm headers default affinity");
+		eq(plainHeaders.get("x-parent-session-id"), null, "llm headers omits missing parent");
+		eq(plainHeaders.get("User-Agent"), "opencode/1.2.3", "llm headers default user agent");
+
+		final opencodeHeaders = new DynamicAccess<String>();
+		opencodeHeaders.set("x-opencode-client", "plugin-client");
+		final opencode = SessionLlm.requestHeaders({
+			model: modelWithHeaders("opencode", source.api.id, new DynamicAccess<String>()),
+			sessionID: "ses_opencode",
+			userID: "msg_opencode",
+			projectID: "proj_opencode",
+			client: "cli",
+			installationVersion: "1.2.3",
+			headers: opencodeHeaders,
+		});
+		eq(opencode.get("x-opencode-project"), "proj_opencode", "llm headers opencode project");
+		eq(opencode.get("x-opencode-session"), "ses_opencode", "llm headers opencode session");
+		eq(opencode.get("x-opencode-request"), "msg_opencode", "llm headers opencode request");
+		eq(opencode.get("x-opencode-client"), "plugin-client", "llm headers plugin overrides opencode client");
+		eq(opencode.get("x-session-affinity"), null, "llm headers opencode omits affinity");
+		eq(opencode.get("User-Agent"), null, "llm headers opencode omits user agent");
+	}
+
+	static function hasAiTool(tools:DynamicAccess<AiTool>, name:String):Bool {
+		for (key in tools.keys()) {
+			if (key == name)
+				return true;
+		}
+		return false;
+	}
+
+	static function modelForCompatibility(providerID:String, apiID:String, ?litellmProxy:Bool):ProviderModel {
+		final source = new FakeProvider().model;
+		final options = new DynamicAccess<Dynamic>();
+		if (litellmProxy != null)
+			options.set("litellmProxy", litellmProxy);
+		return {
+			id: source.id,
+			providerID: ProviderID.make(providerID),
+			name: source.name,
+			capabilities: source.capabilities,
+			api: {
+				id: apiID,
+				url: source.api.url,
+				npm: source.api.npm,
+			},
+			cost: source.cost,
+			limit: source.limit,
+			status: source.status,
+			options: options,
+			headers: source.headers,
+			release_date: source.release_date,
+			variants: source.variants,
+		};
+	}
+
+	static function modelWithHeaders(providerID:String, apiID:String, headers:DynamicAccess<String>):ProviderModel {
+		final source = new FakeProvider().model;
+		return {
+			id: source.id,
+			providerID: ProviderID.make(providerID),
+			name: source.name,
+			capabilities: source.capabilities,
+			api: {
+				id: apiID,
+				url: source.api.url,
+				npm: source.api.npm,
+			},
+			cost: source.cost,
+			limit: source.limit,
+			status: source.status,
+			options: source.options,
+			headers: headers,
+			release_date: source.release_date,
+			variants: source.variants,
+		};
 	}
 
 	@:async

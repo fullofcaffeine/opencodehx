@@ -184,9 +184,9 @@ function directEvidence(path) {
       "session/llm.test.ts",
       [
         "partial",
-        "fixtures/transcripts/one-turn.golden.json; scripts/harness/transcript-parity.mjs; scripts/harness/cli-smoke.mjs; src/opencodehx/smoke/SessionProcessorSmoke.hx",
-        "credential-backed success evidence plus live tool schema advertisement and continuation after tool results remain deferred",
-        "one-turn fake-provider transcript golden plus credential-free async AI SDK session/CLI harness including first model-emitted tool-call dispatch and live-registry CLI validation with well-known remote config plus global/project config/auth storage/active-account config discovery",
+        "fixtures/transcripts/one-turn.golden.json; scripts/harness/transcript-parity.mjs; scripts/harness/cli-smoke.mjs; src/opencodehx/session/SessionLlm.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx",
+        "credential-backed success evidence plus full live provider cancellation/retry scheduling remain deferred",
+        "one-turn fake-provider transcript golden plus credential-free async AI SDK session/CLI harness including pure hasToolCalls helper coverage, prompt-permission active-tool filtering, LiteLLM/GitHub Copilot _noop compatibility tool injection, streaming request header assembly and override order, first model-emitted tool-call dispatch, live tool schema advertisement, repeated continuation after successful tool results, and live-registry CLI validation with well-known remote config plus global/project config/auth storage/active-account config discovery",
         m11Owners.session,
       ],
     ],
