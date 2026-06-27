@@ -422,6 +422,29 @@ try {
 		const liveAppendExportJson = JSON.parse(liveAppendExport.stdout);
 		assert.equal(liveAppendExportJson.messages.length, 4);
 		assert.equal(liveAppendExportJson.messages[2].parts[0].text, "Append live.");
+		const liveContinue = await runAsync(["run", "--live-ai-sdk", "--model", "local-live/chat", "--format", "json", "--continue", "Continue", "live."], {
+			env: liveEnv,
+		});
+		assert.equal(liveContinue.status, 0);
+		assert.equal(JSON.parse(liveContinue.stdout).request.sessionID, liveJson.request.sessionID);
+		const liveContinueExport = run(["export", liveJson.request.sessionID], { env: liveEnv });
+		assert.equal(liveContinueExport.status, 0);
+		const liveContinueExportJson = JSON.parse(liveContinueExport.stdout);
+		assert.equal(liveContinueExportJson.messages.length, 6);
+		assert.equal(liveContinueExportJson.messages[4].parts[0].text, "Continue live.");
+		const liveFork = await runAsync(["run", "--live-ai-sdk", "--model", "local-live/chat", "--format", "json", "--continue", "--fork", "Fork", "live."], {
+			env: liveEnv,
+		});
+		assert.equal(liveFork.status, 0);
+		const liveForkJson = JSON.parse(liveFork.stdout);
+		assert.match(liveForkJson.request.sessionID, /^ses_/);
+		assert.notEqual(liveForkJson.request.sessionID, liveJson.request.sessionID);
+		const liveForkExport = run(["export", liveForkJson.request.sessionID], { env: liveEnv });
+		assert.equal(liveForkExport.status, 0);
+		const liveForkExportJson = JSON.parse(liveForkExport.stdout);
+		assert.equal(liveForkExportJson.info.parentID, liveJson.request.sessionID);
+		assert.equal(liveForkExportJson.messages.length, 2);
+		assert.equal(liveForkExportJson.messages[0].parts[0].text, "Fork live.");
 	});
 	await withRemoteConfigServer(async (remoteUrl, observed) => {
 		writeFileSync(

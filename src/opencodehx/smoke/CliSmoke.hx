@@ -493,6 +493,51 @@ class CliSmoke {
 			eq(liveAppendMessages.length, 4, "live cli local append export message count");
 			final liveAppendParts:Array<Dynamic> = Reflect.field(liveAppendMessages[2], "parts");
 			eq(Reflect.field(liveAppendParts[0], "text"), "Append live.", "live cli local appended prompt");
+			final liveContinue = @:await Cli.runAsync([
+				"run",
+				"--live-ai-sdk",
+				"--model",
+				"local-live/chat",
+				"--format",
+				"json",
+				"--continue",
+				"Continue",
+				"live."
+			]);
+			eq(liveContinue.exitCode, 0, "live cli local continue exit");
+			final liveContinueParsed:Dynamic = Json.parse(liveContinue.stdout);
+			eq(Reflect.field(Reflect.field(liveContinueParsed, "request"), "sessionID"), liveSessionID, "live cli local continue session");
+			final liveContinueExport = @:await Cli.runAsync(["export", liveSessionID]);
+			eq(liveContinueExport.exitCode, 0, "live cli local continue export exit");
+			final liveContinueMessages:Array<Dynamic> = Reflect.field(Json.parse(liveContinueExport.stdout), "messages");
+			eq(liveContinueMessages.length, 6, "live cli local continue export message count");
+			final liveContinueParts:Array<Dynamic> = Reflect.field(liveContinueMessages[4], "parts");
+			eq(Reflect.field(liveContinueParts[0], "text"), "Continue live.", "live cli local continued prompt");
+			final liveFork = @:await Cli.runAsync([
+				"run",
+				"--live-ai-sdk",
+				"--model",
+				"local-live/chat",
+				"--format",
+				"json",
+				"--continue",
+				"--fork",
+				"Fork",
+				"live."
+			]);
+			eq(liveFork.exitCode, 0, "live cli local fork exit");
+			final liveForkParsed:Dynamic = Json.parse(liveFork.stdout);
+			final liveForkSessionID = Std.string(Reflect.field(Reflect.field(liveForkParsed, "request"), "sessionID"));
+			eq(liveForkSessionID.indexOf("ses_"), 0, "live cli local fork session id");
+			eq(liveForkSessionID == liveSessionID, false, "live cli local fork child session");
+			final liveForkExport = @:await Cli.runAsync(["export", liveForkSessionID]);
+			eq(liveForkExport.exitCode, 0, "live cli local fork export exit");
+			final liveForkExportParsed:Dynamic = Json.parse(liveForkExport.stdout);
+			eq(Reflect.field(Reflect.field(liveForkExportParsed, "info"), "parentID"), liveSessionID, "live cli local fork parent");
+			final liveForkMessages:Array<Dynamic> = Reflect.field(liveForkExportParsed, "messages");
+			eq(liveForkMessages.length, 2, "live cli local fork export message count");
+			final liveForkParts:Array<Dynamic> = Reflect.field(liveForkMessages[0], "parts");
+			eq(Reflect.field(liveForkParts[0], "text"), "Fork live.", "live cli local fork prompt");
 			SmokeFetchStub.restore(originalLiveFetch);
 			restoreEnv("XDG_CONFIG_HOME", originalLiveXdg);
 			restoreEnv("XDG_DATA_HOME", originalLiveXdgData);

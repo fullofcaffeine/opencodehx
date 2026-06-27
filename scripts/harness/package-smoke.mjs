@@ -324,6 +324,58 @@ try {
 		const liveAppendExportJson = JSON.parse(liveAppendExport.stdout);
 		assert.equal(liveAppendExportJson.messages.length, 4, "installed resumed live AI SDK export messages");
 		assert.equal(liveAppendExportJson.messages[2].parts[0].text, "Append installed live.", "installed resumed live AI SDK export prompt");
+		const liveContinue = await expectOkAsync(
+			runAsync(
+				bin,
+				[
+					"run",
+					"--live-ai-sdk",
+					"--model",
+					"installed-live/chat",
+					"--format",
+					"json",
+					"--continue",
+					"Continue",
+					"installed",
+					"live.",
+				],
+				{ env: liveEnv },
+			),
+			"installed continued live AI SDK run",
+		);
+		assert.equal(JSON.parse(liveContinue.stdout).request.sessionID, liveTranscript.request.sessionID, "installed continued live AI SDK session id");
+		const liveContinueExport = expectOk(run(bin, ["export", liveTranscript.request.sessionID], { env: liveEnv }), "installed continued live AI SDK export");
+		const liveContinueExportJson = JSON.parse(liveContinueExport.stdout);
+		assert.equal(liveContinueExportJson.messages.length, 6, "installed continued live AI SDK export messages");
+		assert.equal(liveContinueExportJson.messages[4].parts[0].text, "Continue installed live.", "installed continued live AI SDK export prompt");
+		const liveFork = await expectOkAsync(
+			runAsync(
+				bin,
+				[
+					"run",
+					"--live-ai-sdk",
+					"--model",
+					"installed-live/chat",
+					"--format",
+					"json",
+					"--continue",
+					"--fork",
+					"Fork",
+					"installed",
+					"live.",
+				],
+				{ env: liveEnv },
+			),
+			"installed forked live AI SDK run",
+		);
+		const liveForkJson = JSON.parse(liveFork.stdout);
+		assert.match(liveForkJson.request.sessionID, /^ses_/, "installed forked live AI SDK session id");
+		assert.notEqual(liveForkJson.request.sessionID, liveTranscript.request.sessionID, "installed forked live AI SDK child session id");
+		const liveForkExport = expectOk(run(bin, ["export", liveForkJson.request.sessionID], { env: liveEnv }), "installed forked live AI SDK export");
+		const liveForkExportJson = JSON.parse(liveForkExport.stdout);
+		assert.equal(liveForkExportJson.info.parentID, liveTranscript.request.sessionID, "installed forked live AI SDK parent id");
+		assert.equal(liveForkExportJson.messages.length, 2, "installed forked live AI SDK export messages");
+		assert.equal(liveForkExportJson.messages[0].parts[0].text, "Fork installed live.", "installed forked live AI SDK export prompt");
 	});
 	const installedDbEnv = {
 		...process.env,
