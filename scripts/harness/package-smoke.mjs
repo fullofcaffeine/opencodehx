@@ -789,6 +789,71 @@ try {
 			);
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "bash",
+			callId: "call_bash_1",
+			arguments: {
+				command: "printf 'bash installed live tool\\n' > installed-bash.txt",
+				description: "Create installed live bash fixture",
+			},
+			finalText: "Installed bash tool completed.",
+			usage: { prompt_tokens: 19, completion_tokens: 4, total_tokens: 23 },
+		},
+		async (localUrl, observed) => {
+			const liveBashConfigRoot = path.join(tempRoot, "installed-live-bash-config");
+			const liveBashDataRoot = path.join(tempRoot, "installed-live-bash-data");
+			mkdirSync(path.join(liveBashConfigRoot, "opencode"), { recursive: true });
+			mkdirSync(path.join(liveBashDataRoot, "opencode"), { recursive: true });
+			writeFileSync(
+				path.join(liveBashConfigRoot, "opencode", "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "installed-bash/chat",
+					provider: {
+						"installed-bash": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "Installed Bash",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "installed-bash-key" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				}),
+			);
+			const liveBashEnv = {
+				...process.env,
+				XDG_CONFIG_HOME: liveBashConfigRoot,
+				XDG_DATA_HOME: liveBashDataRoot,
+			};
+			const liveBash = await expectOkAsync(
+				runAsync(bin, ["run", "--format", "json", "--dir", projectDir, "Run", "installed", "bash", "fixture."], { env: liveBashEnv }),
+				"installed live AI SDK bash tool run",
+			);
+			const liveBashJson = JSON.parse(liveBash.stdout);
+			assert.equal(liveBashJson.provider.id, "installed-bash", "installed live bash provider");
+			assert.equal(
+				liveBashJson.messages[1].parts.find((part) => part.type === "text").text,
+				"Installed bash tool completed.",
+				"installed live bash final text",
+			);
+			assert.equal(liveBashJson.events.some((event) => event.type === "tool-call" && event.tool === "bash"), true, "installed live bash tool-call event");
+			assert.equal(liveBashJson.events.some((event) => event.type === "tool-call-start" && event.tool === "bash"), true, "installed live bash start event");
+			assert.equal(
+				liveBashJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "bash" && event.status === "completed"),
+				true,
+				"installed live bash finish event",
+			);
+			assert.equal(liveBashJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "bash"), true, "installed live bash tool part");
+			assert.equal(readFileSync(path.join(projectDir, "installed-bash.txt"), "utf8"), "bash installed live tool\n", "installed live bash file content");
+			assert.equal(observed.auth, "Bearer installed-bash-key", "installed live bash auth header");
+			assert.equal(observed.paths.length, 2, "installed live bash continuation request");
+			assert.equal(observed.bodies[0].stream, true, "installed live bash first stream flag");
+			assert.equal(observed.bodies[1].stream, true, "installed live bash continuation stream flag");
+			const liveBashExport = expectOk(run(bin, ["export", liveBashJson.request.sessionID], { env: liveBashEnv }), "installed live AI SDK bash export");
+			const liveBashExportJson = JSON.parse(liveBashExport.stdout);
+			assert.equal(liveBashExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "bash"), true, "installed live bash export part");
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");
 		const liveFailureDataRoot = path.join(tempRoot, "installed-live-failure-data");

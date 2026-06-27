@@ -723,6 +723,42 @@ try {
 			assert.equal(patchExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "apply_patch"), true);
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "bash",
+			callId: "call_bash_1",
+			arguments: {
+				command: "printf 'bash live tool\\n' > live-bash.txt",
+				description: "Create live bash fixture",
+			},
+			finalText: "Bash tool completed.",
+			usage: { prompt_tokens: 19, completion_tokens: 3, total_tokens: 22 },
+		},
+		async (localUrl, observed) => {
+			writeFileSync(path.join(project, "opencode.json"), configFor("local-bash", `${localUrl}/v1`));
+			const bashEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "bash-live-data") };
+			const bashRun = await runAsync(["run", "--format", "json", "--dir", project, "Run", "the", "bash", "fixture."], {
+				env: bashEnv,
+			});
+			assert.equal(bashRun.status, 0);
+			const bashJson = JSON.parse(bashRun.stdout);
+			assert.equal(bashJson.provider.id, "local-bash");
+			assert.equal(bashJson.messages[1].parts.find((part) => part.type === "text").text, "Bash tool completed.");
+			assert.equal(bashJson.events.some((event) => event.type === "tool-call" && event.tool === "bash"), true);
+			assert.equal(bashJson.events.some((event) => event.type === "tool-call-start" && event.tool === "bash"), true);
+			assert.equal(bashJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "bash" && event.status === "completed"), true);
+			assert.equal(bashJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "bash"), true);
+			assert.equal(readFileSync(path.join(project, "live-bash.txt"), "utf8"), "bash live tool\n");
+			assert.equal(observed.auth, "Bearer test-key");
+			assert.equal(observed.paths.length, 2);
+			assert.equal(observed.bodies[0].stream, true);
+			assert.equal(observed.bodies[1].stream, true);
+			const bashExport = run(["export", bashJson.request.sessionID], { env: bashEnv });
+			assert.equal(bashExport.status, 0);
+			const bashExportJson = JSON.parse(bashExport.stdout);
+			assert.equal(bashExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "bash"), true);
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		writeFileSync(path.join(project, "opencode.json"), configFor("local-fail", `${localUrl}/v1`));
 		const liveFailureEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "live-sdk-failure.sqlite") };
