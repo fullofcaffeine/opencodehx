@@ -782,6 +782,7 @@ class SessionProcessorSmoke {
 	@:async
 	public static function runAsync():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-session-processor-async-"));
+		var asyncStore:Null<SqliteSessionStore> = null;
 		try {
 			Fs.mkdirSync(NodePath.join(root, "src"), {recursive: true});
 			Fs.writeFileSync(NodePath.join(root, "src/input.txt"), "ai sdk tool fixture\n");
@@ -812,6 +813,29 @@ class SessionProcessorSmoke {
 				case _:
 					throw "session processor async: expected assistant text";
 			}
+
+			final store = new SqliteSessionStore(NodePath.join(root, "ai-sdk-session.db"));
+			asyncStore = store;
+			final persisted = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_persisted",
+				prompt: "Persist this AI SDK turn.",
+				directory: root,
+				store: store,
+				provider: fixture.info,
+				model: fixture.model,
+				language: AiSdkMockModel.text(["Persisted ", "through AI SDK."]),
+			});
+			eq(persisted.messages.length, 2, "ai sdk persisted message count");
+			final recoveredAiSdk = SessionProcessor.recover(store, "ses_ai_sdk_persisted", 10);
+			eq(recoveredAiSdk.session.directory, root, "ai sdk recovered session directory");
+			eq(recoveredAiSdk.messages.length, 2, "ai sdk recovered message count");
+			switch recoveredAiSdk.messages[1].parts[0] {
+				case TextPart(text):
+					eq(text.text, "Persisted through AI SDK.", "ai sdk recovered assistant text");
+				case _:
+					throw "session processor async: expected recovered assistant text";
+			}
+
 			final errorResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_error",
 				prompt: "Fail through the SDK runtime.",
@@ -939,10 +963,21 @@ class SessionProcessorSmoke {
 			eq(limitedContinuation.events[8].status, "completed", "ai sdk max continuation second finish");
 			assertToolOutcome(limitedContinuation.tool);
 			assertAssistantTwoToolParts(limitedContinuation.messages[1].parts, "");
+			switch asyncStore {
+				case null:
+				case store:
+					store.close();
+					asyncStore = null;
+			}
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			// Smoke cleanup must catch arbitrary Haxe/JS failures so the temp
 			// directory is removed before rethrowing the original assertion error.
+			switch asyncStore {
+				case null:
+				case store:
+					store.close();
+			}
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
