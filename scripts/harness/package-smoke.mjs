@@ -141,6 +141,15 @@ try {
 	const resumedMessages = JSON.parse(resumedExport.stdout).messages;
 	assert.equal(resumedMessages.length, 4, "installed resumed export messages");
 	assert.equal(resumedMessages[2].parts[0].text, "Append from installed package.", "installed resumed export prompt");
+	const continuedRun = expectOk(
+		run(bin, ["run", "--format", "json", "--continue", "Continue", "from", "installed", "package."], { env: installedDbEnv }),
+		"installed continue run",
+	);
+	assert.equal(JSON.parse(continuedRun.stdout).request.sessionID, persistedSessionID, "installed continue run session id");
+	const continuedExport = expectOk(run(bin, ["export", persistedSessionID], { env: installedDbEnv }), "installed continue export");
+	const continuedMessages = JSON.parse(continuedExport.stdout).messages;
+	assert.equal(continuedMessages.length, 6, "installed continue export messages");
+	assert.equal(continuedMessages[4].parts[0].text, "Continue from installed package.", "installed continue export prompt");
 	const tui = expectOk(
 		run(
 			installedBun,
