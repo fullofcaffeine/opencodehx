@@ -8,10 +8,16 @@ import js.html.Response;
 import js.html.URL;
 import js.Syntax;
 import js.lib.Promise;
+import js.lib.Uint8Array;
 import opencodehx.externs.web.Fetch.FetchInput;
+import opencodehx.externs.web.WebStreams.WebReadableStream;
+import opencodehx.externs.web.WebStreams.WebReadableStreamDefaultController;
+import opencodehx.externs.web.WebStreams.WebTextEncoder;
 
 typedef SmokeFetchStubInit = {
 	@:optional final headers:DynamicAccess<String>;
+	@:optional final method:String;
+	@:optional final body:String;
 }
 
 typedef SmokeFetchStubCallback = (url:FetchInput, ?init:SmokeFetchStubInit) -> Promise<Response>;
@@ -72,6 +78,9 @@ class SmokeFetchStub {
 	static var cliFetchedUrlValue:Null<String>;
 	static var cliAccountAuthValue:Null<String>;
 	static var cliAccountOrgValue:Null<String>;
+	static var liveFetchedUrlValue:Null<String>;
+	static var liveAuthValue:Null<String>;
+	static var liveRequestBodyValue:Null<String>;
 
 	public static function installConfigRemote():SmokeFetchHandle {
 		final originalFetch = new SmokeFetchHandle(SmokeFetchGlobal.fetch);
@@ -86,6 +95,15 @@ class SmokeFetchStub {
 		cliAccountAuthValue = null;
 		cliAccountOrgValue = null;
 		SmokeFetchGlobal.fetch = SmokeFetchStubFunction.fromStub(cliRemoteFetch);
+		return originalFetch;
+	}
+
+	public static function installCliLiveSuccess():SmokeFetchHandle {
+		final originalFetch = new SmokeFetchHandle(SmokeFetchGlobal.fetch);
+		liveFetchedUrlValue = null;
+		liveAuthValue = null;
+		liveRequestBodyValue = null;
+		SmokeFetchGlobal.fetch = SmokeFetchStubFunction.fromStub(cliLiveFetch);
 		return originalFetch;
 	}
 
@@ -107,6 +125,18 @@ class SmokeFetchStub {
 
 	public static function cliAccountOrg():Null<String> {
 		return cliAccountOrgValue;
+	}
+
+	public static function liveFetchedUrl():Null<String> {
+		return liveFetchedUrlValue;
+	}
+
+	public static function liveAuth():Null<String> {
+		return liveAuthValue;
+	}
+
+	public static function liveRequestBody():Null<String> {
+		return liveRequestBodyValue;
 	}
 
 	static function configRemoteFetch(url:FetchInput, ?init:SmokeFetchStubInit):Promise<Response> {
@@ -153,6 +183,38 @@ class SmokeFetchStub {
 		});
 	}
 
+	static function cliLiveFetch(url:FetchInput, ?init:SmokeFetchStubInit):Promise<Response> {
+		final text = inputText(url);
+		liveFetchedUrlValue = text;
+		final headers = init == null || init.headers == null ? new Headers() : new Headers(init.headers);
+		liveAuthValue = headers.get("authorization");
+		liveRequestBodyValue = init == null ? null : init.body;
+		if (StringTools.endsWith(text, "/chat/completions"))
+			return Promise.resolve(streamResponse([
+				"data: " + Json.stringify({
+					id: "chatcmpl-local-live",
+					created: 1,
+					model: "chat",
+					choices: [{delta: {role: "assistant", content: "Hello "}}],
+				}) + "\n\n",
+				"data: " + Json.stringify({
+					id: "chatcmpl-local-live",
+					created: 1,
+					model: "chat",
+					choices: [{delta: {content: "from local live."}}],
+				}) + "\n\n",
+				"data: " + Json.stringify({
+					id: "chatcmpl-local-live",
+					created: 1,
+					model: "chat",
+					choices: [{delta: {}, finish_reason: "stop"}],
+					usage: {prompt_tokens: 7, completion_tokens: 4, total_tokens: 11},
+				}) + "\n\n",
+				"data: [DONE]\n\n"
+			]));
+		return Promise.resolve(new Response("not found", {status: 404}));
+	}
+
 	static function inputText(input:FetchInput):String {
 		if (Std.isOfType(input, Request)) {
 			// FetchInput is an EitherType; after the runtime Request proof, the
@@ -172,5 +234,28 @@ class SmokeFetchStub {
 		// The Dynamic value is immediately serialized and never escapes this
 		// test-only fetch stub as an application value.
 		return Promise.resolve(new Response(Json.stringify(body), {status: 200}));
+	}
+
+	static function streamResponse(chunks:Array<String>):Response {
+		final stream = new WebReadableStream<Uint8Array>({
+			start: controller -> enqueueChunks(controller, chunks),
+		});
+		return new Response(stream, {
+			status: 200,
+			headers: headerMap("content-type", "text/event-stream"),
+		});
+	}
+
+	static function enqueueChunks(controller:WebReadableStreamDefaultController<Uint8Array>, chunks:Array<String>):Void {
+		final encoder = new WebTextEncoder();
+		for (chunk in chunks)
+			controller.enqueue(encoder.encode(chunk));
+		controller.close();
+	}
+
+	static function headerMap(name:String, value:String):DynamicAccess<String> {
+		final headers = new DynamicAccess<String>();
+		headers.set(name, value);
+		return headers;
 	}
 }

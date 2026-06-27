@@ -416,6 +416,52 @@ class CliSmoke {
 		eq(liveMissingProvider.exitCode, 1, "live cli missing provider exit");
 		eq(liveMissingProvider.stderr.indexOf("Provider not available") != -1, true, "live cli missing provider message");
 
+		final liveRoot = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-live-"));
+		final originalLiveXdg = NodeProcess.envValue("XDG_CONFIG_HOME");
+		final originalLiveXdgData = NodeProcess.envValue("XDG_DATA_HOME");
+		final originalLiveFetch = SmokeFetchStub.installCliLiveSuccess();
+		try {
+			final liveXdg = NodePath.join(liveRoot, "xdg");
+			final liveXdgData = NodePath.join(liveRoot, "data");
+			final liveConfig = NodePath.join(liveXdg, "opencode");
+			Fs.mkdirSync(liveConfig, {recursive: true});
+			Fs.mkdirSync(NodePath.join(liveXdgData, "opencode"), {recursive: true});
+			Fs.writeFileSync(NodePath.join(liveConfig, "opencode.json"),
+				'{"' + "$" +
+				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","provider":{"local-live":{"npm":"@ai-sdk/openai-compatible","name":"Local Live","options":{"baseURL":"https://local-live.example.com/v1","apiKey":"local-key"},"models":{"chat":{"name":"Chat"}}}}}');
+			NodeProcess.setEnv("XDG_CONFIG_HOME", liveXdg);
+			NodeProcess.setEnv("XDG_DATA_HOME", liveXdgData);
+			final liveRun = @:await Cli.runAsync([
+				"run",
+				"--live-ai-sdk",
+				"--model",
+				"local-live/chat",
+				"--format",
+				"json",
+				"Hello",
+				"live."
+			]);
+			eq(liveRun.exitCode, 0, "live cli local success exit");
+			final liveParsed:Dynamic = Json.parse(liveRun.stdout);
+			eq(Reflect.field(Reflect.field(liveParsed, "provider"), "id"), "local-live", "live cli local provider");
+			eq(Reflect.field(Reflect.field(liveParsed, "request"), "prompt"), "Hello live.", "live cli local prompt");
+			eq(assistantText(liveParsed), "Hello from local live.", "live cli local assistant text");
+			eq(SmokeFetchStub.liveFetchedUrl(), "https://local-live.example.com/v1/chat/completions", "live cli local request URL");
+			eq(SmokeFetchStub.liveAuth(), "Bearer local-key", "live cli local auth header");
+			final liveBody = SmokeFetchStub.liveRequestBody();
+			eq(liveBody != null && liveBody.indexOf('"stream":true') != -1, true, "live cli local streaming request");
+			SmokeFetchStub.restore(originalLiveFetch);
+			restoreEnv("XDG_CONFIG_HOME", originalLiveXdg);
+			restoreEnv("XDG_DATA_HOME", originalLiveXdgData);
+			Fs.rmSync(liveRoot, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			SmokeFetchStub.restore(originalLiveFetch);
+			restoreEnv("XDG_CONFIG_HOME", originalLiveXdg);
+			restoreEnv("XDG_DATA_HOME", originalLiveXdgData);
+			Fs.rmSync(liveRoot, {recursive: true, force: true});
+			throw error;
+		}
+
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-"));
 		var originalXdg:Null<String> = null;
 		var originalXdgData:Null<String> = null;
@@ -512,6 +558,15 @@ class CliSmoke {
 		final info:Dynamic = Reflect.field(assistant, "info");
 		final path:Dynamic = Reflect.field(info, "path");
 		return Std.string(Reflect.field(path, "cwd"));
+	}
+
+	static function assistantText(transcript:Dynamic):String {
+		final parts = messageParts(transcript, 1);
+		for (part in parts) {
+			if (Reflect.field(part, "type") == "text")
+				return Std.string(Reflect.field(part, "text"));
+		}
+		return "";
 	}
 
 	static function messageParts(transcript:Dynamic, index:Int):Array<Dynamic> {

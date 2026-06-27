@@ -129,6 +129,67 @@ async function withRemoteConfigServer(fn) {
 	}
 }
 
+async function withLiveOpenAICompatibleServer(fn) {
+	const observed = { auth: null, body: null, path: null };
+	const server = createServer((req, res) => {
+		observed.auth = req.headers.authorization ?? null;
+		observed.path = req.url;
+		let body = "";
+		req.setEncoding("utf8");
+		req.on("data", (chunk) => {
+			body += chunk;
+		});
+		req.on("end", () => {
+			observed.body = body ? JSON.parse(body) : null;
+			if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+				res.writeHead(404);
+				res.end();
+				return;
+			}
+			res.writeHead(200, { "content-type": "text/event-stream" });
+			res.end(
+				[
+					{
+						id: "chatcmpl-local-live",
+						created: 1,
+						model: "chat",
+						choices: [{ delta: { role: "assistant", content: "Hello " } }],
+					},
+					{
+						id: "chatcmpl-local-live",
+						created: 1,
+						model: "chat",
+						choices: [{ delta: { content: "from local live." } }],
+					},
+					{
+						id: "chatcmpl-local-live",
+						created: 1,
+						model: "chat",
+						choices: [{ delta: {}, finish_reason: "stop" }],
+						usage: { prompt_tokens: 7, completion_tokens: 4, total_tokens: 11 },
+					},
+				]
+					.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
+					.join("") + "data: [DONE]\n\n",
+			);
+		});
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	const baseUrl = `http://127.0.0.1:${address.port}`;
+	try {
+		return await fn(baseUrl, observed);
+	} finally {
+		await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+	}
+}
+
 function writeAccountDatabase(file, url) {
 	const db = new Database(file);
 	try {
@@ -330,6 +391,20 @@ try {
 	const authLoaded = run(["run", "--live-ai-sdk", "--model", "cloudflare-ai-gateway/missing", "Hello"], { env });
 	assert.equal(authLoaded.status, 1);
 	assert.match(authLoaded.stderr, /Model not found: cloudflare-ai-gateway\/missing/);
+	await withLiveOpenAICompatibleServer(async (localUrl, observed) => {
+		writeFileSync(path.join(project, "opencode.json"), configFor("local-live", `${localUrl}/v1`));
+		const liveRun = await runAsync(["run", "--live-ai-sdk", "--model", "local-live/chat", "--format", "json", "--dir", project, "Hello", "live."], {
+			env,
+		});
+		assert.equal(liveRun.status, 0);
+		const liveJson = JSON.parse(liveRun.stdout);
+		assert.equal(liveJson.provider.id, "local-live");
+		assert.equal(liveJson.request.prompt, "Hello live.");
+		assert.equal(liveJson.messages[1].parts.find((part) => part.type === "text").text, "Hello from local live.");
+		assert.equal(observed.path, "/v1/chat/completions");
+		assert.equal(observed.auth, "Bearer test-key");
+		assert.equal(observed.body.stream, true);
+	});
 	await withRemoteConfigServer(async (remoteUrl, observed) => {
 		writeFileSync(
 			path.join(authDir, "auth.json"),
