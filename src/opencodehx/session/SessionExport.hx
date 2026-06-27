@@ -83,6 +83,19 @@ class SessionExport {
 				Reflect.setField(encoded, "hash", redact("patch", data.id.toString(), data.hash));
 			case SnapshotPart(data):
 				Reflect.setField(encoded, "snapshot", redact("snapshot", data.id.toString(), data.snapshot));
+			case ToolPart(data):
+				final state = Reflect.field(encoded, "state");
+				switch data.state {
+					case ToolPending(pending):
+						Reflect.setField(state, "raw", redact("tool-raw", data.id.toString(), pending.raw));
+					case ToolRunning(running):
+						if (running.title != null) Reflect.setField(state, "title", redact("tool-title", data.id.toString(), running.title));
+					case ToolCompleted(completed):
+						Reflect.setField(state, "output", redact("tool-output", data.id.toString(), completed.output));
+						Reflect.setField(state, "title", redact("tool-title", data.id.toString(), completed.title));
+					case ToolErrored(errored):
+						Reflect.setField(state, "error", redact("tool-error", data.id.toString(), errored.error));
+				}
 			case _:
 		}
 		return encoded;

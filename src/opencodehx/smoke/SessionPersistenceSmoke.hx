@@ -53,12 +53,20 @@ class SessionPersistenceSmoke {
 			eq(Reflect.field(toolParts[0], "type"), "step-start", "session export tool step start");
 			eq(Reflect.field(toolParts[1], "type"), "tool", "session export tool part");
 			eq(Reflect.field(toolParts[1], "callID"), "call_read_export", "session export tool call id");
+			final toolState = Reflect.field(toolParts[1], "state");
+			eq(Std.string(Reflect.field(toolState, "output")).indexOf("exported tool fixture") != -1, true, "session export tool output");
+			eq(Reflect.field(toolState, "title"), "src/input.txt", "session export tool title");
 			eq(Reflect.field(toolParts[2], "type"), "text", "session export tool text part");
 			eq(Reflect.field(toolParts[2], "text"), "Hello from the fake provider.", "session export tool assistant text");
 			eq(Reflect.field(toolParts[3], "type"), "step-finish", "session export tool step finish");
 			final sanitizedTool = SessionExport.exportData(store, SessionID.make("ses_export_tool"), true);
 			final sanitizedToolParts = cast(Reflect.field(cast sanitizedTool.messages[1], "parts"), Array<Dynamic>);
 			eq(Reflect.field(sanitizedToolParts[1], "callID"), "call_read_export", "session export sanitized tool call id");
+			final sanitizedToolState = Reflect.field(sanitizedToolParts[1], "state");
+			eq(Reflect.field(sanitizedToolState, "output"), "[redacted:tool-output:prt_tool_call_call_read_export_ses_export_tool]",
+				"session export sanitized tool output");
+			eq(Reflect.field(sanitizedToolState, "title"), "[redacted:tool-title:prt_tool_call_call_read_export_ses_export_tool]",
+				"session export sanitized tool title");
 			eq(Reflect.field(sanitizedToolParts[2], "text"), "[redacted:text:prt_assistant_text_ses_export_tool]", "session export sanitized tool text");
 
 			store.close();
