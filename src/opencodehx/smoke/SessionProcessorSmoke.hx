@@ -37,6 +37,7 @@ class SessionProcessorSmoke {
 		llmResolveTools();
 		llmCompatibilityTools();
 		llmRequestHeaders();
+		llmSystemMessages();
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-session-processor-"));
 		final dbPath = NodePath.join(root, "opencodehx.db");
 		final store = new SqliteSessionStore(dbPath);
@@ -280,6 +281,57 @@ class SessionProcessorSmoke {
 		eq(opencode.get("x-opencode-client"), "plugin-client", "llm headers plugin overrides opencode client");
 		eq(opencode.get("x-session-affinity"), null, "llm headers opencode omits affinity");
 		eq(opencode.get("User-Agent"), null, "llm headers opencode omits user agent");
+	}
+
+	static function llmSystemMessages():Void {
+		final fallback = SessionLlm.composeSystem({
+			provider: ["provider one", "", "provider two"],
+			input: ["call scoped"],
+			userSystem: "user scoped",
+		});
+		eq(fallback.length, 1, "llm system fallback count");
+		eq(fallback[0], "provider one\nprovider two\ncall scoped\nuser scoped", "llm system fallback content");
+
+		final agent = SessionLlm.composeSystem({
+			agentPrompt: "agent prompt",
+			provider: ["provider ignored"],
+			input: ["call scoped"],
+			userSystem: "",
+		});
+		eq(agent[0], "agent prompt\ncall scoped", "llm system agent replaces provider");
+
+		final empty = SessionLlm.composeSystem({
+			provider: [],
+			input: [],
+		});
+		eq(empty.length, 1, "llm system empty count");
+		eq(empty[0], "", "llm system empty joins to blank");
+
+		final unchanged = ["header", "plugin one", "plugin two"];
+		final rejoined = SessionLlm.finalizeSystemTransform("header", unchanged);
+		eq(rejoined.length, 2, "llm system transform rejoin count");
+		eq(rejoined[0], "header", "llm system transform header");
+		eq(rejoined[1], "plugin one\nplugin two", "llm system transform rest");
+
+		final changedHeader = SessionLlm.finalizeSystemTransform("header", ["replacement", "plugin one", "plugin two"]);
+		eq(changedHeader.length, 3, "llm system transform changed header untouched");
+		eq(changedHeader[0], "replacement", "llm system transform changed header first");
+
+		final messages:Array<AiLanguageModelPromptMessage> = [{role: AiLanguageModelPromptRole.User, content: "Hello"}];
+		final withSystem = SessionLlm.requestMessages(["system one", "system two"], messages, false, false);
+		eq(withSystem.length, 3, "llm request messages prepends system count");
+		eq(withSystem[0].role, AiLanguageModelPromptRole.System, "llm request messages first role");
+		eq(withSystem[0].content, "system one", "llm request messages first content");
+		eq(withSystem[1].content, "system two", "llm request messages second content");
+		eq(withSystem[2].role, AiLanguageModelPromptRole.User, "llm request messages user role");
+
+		final oauth = SessionLlm.requestMessages(["system"], messages, true, false);
+		eq(oauth.length, 1, "llm request messages oauth skip count");
+		eq(oauth[0].content, "Hello", "llm request messages oauth original");
+
+		final workflow = SessionLlm.requestMessages(["system"], messages, false, true);
+		eq(workflow.length, 1, "llm request messages workflow skip count");
+		eq(workflow[0].content, "Hello", "llm request messages workflow original");
 	}
 
 	static function hasAiTool(tools:DynamicAccess<AiTool>, name:String):Bool {

@@ -4,6 +4,7 @@ import haxe.DynamicAccess;
 import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPartType;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptRole;
 import opencodehx.externs.ai.AiSdk.AiSdk;
 import opencodehx.externs.ai.AiSdk.AiTool;
 import opencodehx.permission.PermissionRules;
@@ -20,6 +21,13 @@ typedef LlmRequestHeaderInput = {
 	final installationVersion:String;
 	@:optional final parentSessionID:String;
 	@:optional final headers:ProviderHeaders;
+}
+
+typedef LlmSystemInput = {
+	final provider:Array<String>;
+	final input:Array<String>;
+	@:optional final agentPrompt:String;
+	@:optional final userSystem:String;
 }
 
 /**
@@ -89,6 +97,45 @@ class SessionLlm {
 		return out;
 	}
 
+	public static function composeSystem(input:LlmSystemInput):Array<String> {
+		final parts:Array<String> = [];
+		final agentPrompt = textOrEmpty(input.agentPrompt);
+		if (agentPrompt != "") {
+			parts.push(agentPrompt);
+		} else {
+			pushTexts(parts, input.provider);
+		}
+		pushTexts(parts, input.input);
+		final userSystem = textOrEmpty(input.userSystem);
+		if (userSystem != "")
+			parts.push(userSystem);
+		return [parts.join("\n")];
+	}
+
+	public static function finalizeSystemTransform(header:String, system:Array<String>):Array<String> {
+		if (system.length <= 2 || system[0] != header)
+			return system;
+		final out = [header];
+		out.push(system.slice(1).join("\n"));
+		return out;
+	}
+
+	public static function requestMessages(system:Array<String>, messages:Array<AiLanguageModelPromptMessage>, isOpenaiOauth:Bool,
+			isWorkflow:Bool):Array<AiLanguageModelPromptMessage> {
+		if (isOpenaiOauth || isWorkflow)
+			return messages;
+		final out:Array<AiLanguageModelPromptMessage> = [];
+		for (item in system) {
+			out.push({
+				role: AiLanguageModelPromptRole.System,
+				content: item,
+			});
+		}
+		for (message in messages)
+			out.push(message);
+		return out;
+	}
+
 	public static function requiresNoopTool(model:ProviderModel):Bool {
 		final providerID = model.providerID.toString().toLowerCase();
 		final apiID = model.api.id.toLowerCase();
@@ -112,6 +159,21 @@ class SessionLlm {
 
 	static function nonNullHeader(headers:ProviderHeaders, key:String):String {
 		final value:Null<String> = headers.get(key);
+		return value == null ? "" : value;
+	}
+
+	static function pushTexts(out:Array<String>, items:Array<String>):Void {
+		for (item in items) {
+			if (hasText(item))
+				out.push(item);
+		}
+	}
+
+	static function hasText(value:Null<String>):Bool {
+		return value != null && value != "";
+	}
+
+	static function textOrEmpty(value:Null<String>):String {
 		return value == null ? "" : value;
 	}
 
