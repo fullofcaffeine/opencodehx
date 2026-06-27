@@ -174,6 +174,83 @@ async function withLiveOpenAICompatibleServer(fn) {
 	}
 }
 
+async function withToolOpenAICompatibleServer(fn) {
+	const observed = { auth: null, bodies: [], paths: [] };
+	const server = createServer((req, res) => {
+		observed.auth = req.headers.authorization ?? null;
+		observed.paths.push(req.url);
+		let body = "";
+		req.setEncoding("utf8");
+		req.on("data", (chunk) => {
+			body += chunk;
+		});
+		req.on("end", () => {
+			observed.bodies.push(body ? JSON.parse(body) : null);
+			if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+				res.writeHead(404);
+				res.end();
+				return;
+			}
+			const firstCall = observed.bodies.length === 1;
+			res.writeHead(200, { "content-type": "text/event-stream" });
+			const chunks = firstCall
+				? [
+						{
+							id: "chatcmpl-local-tool",
+							created: 1,
+							model: "chat",
+							choices: [
+								{
+									delta: {
+										role: "assistant",
+										tool_calls: [
+											{
+												index: 0,
+												id: "call_read_1",
+												type: "function",
+												function: { name: "read", arguments: JSON.stringify({ filePath: "live-tool.txt" }) },
+											},
+										],
+									},
+									finish_reason: "tool_calls",
+								},
+							],
+						},
+					]
+				: [
+						{
+							id: "chatcmpl-local-tool",
+							created: 1,
+							model: "chat",
+							choices: [{ delta: { role: "assistant", content: "Read tool completed." } }],
+						},
+						{
+							id: "chatcmpl-local-tool",
+							created: 1,
+							model: "chat",
+							choices: [{ delta: {}, finish_reason: "stop" }],
+							usage: { prompt_tokens: 11, completion_tokens: 3, total_tokens: 14 },
+						},
+					];
+			res.end(chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") + "data: [DONE]\n\n");
+		});
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	const baseUrl = `http://127.0.0.1:${address.port}`;
+	try {
+		return await fn(baseUrl, observed);
+	} finally {
+		await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+	}
+}
+
 async function withFailingOpenAICompatibleServer(fn) {
 	const observed = { auth: null, body: null, path: null };
 	const server = createServer((req, res) => {
@@ -499,6 +576,30 @@ try {
 		assert.equal(configuredLiveJson.provider.id, "local-live");
 		assert.equal(configuredLiveJson.request.prompt, "Hello configured live.");
 		assert.equal(configuredLiveJson.messages[1].parts.find((part) => part.type === "text").text, "Hello from local live.");
+	});
+	await withToolOpenAICompatibleServer(async (localUrl, observed) => {
+		writeFileSync(path.join(project, "opencode.json"), configFor("local-tool", `${localUrl}/v1`));
+		writeFileSync(path.join(project, "live-tool.txt"), "tool fixture contents\n");
+		const toolEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "tool-live-data") };
+		const toolRun = await runAsync(["run", "--format", "json", "--dir", project, "Read", "the", "tool", "fixture."], {
+			env: toolEnv,
+		});
+		assert.equal(toolRun.status, 0);
+		const toolJson = JSON.parse(toolRun.stdout);
+		assert.equal(toolJson.provider.id, "local-tool");
+		assert.equal(toolJson.messages[1].parts.find((part) => part.type === "text").text, "Read tool completed.");
+		assert.equal(toolJson.events.some((event) => event.type === "tool-call" && event.tool === "read"), true);
+		assert.equal(toolJson.events.some((event) => event.type === "tool-call-start" && event.tool === "read"), true);
+		assert.equal(toolJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "read" && event.status === "completed"), true);
+		assert.equal(toolJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "read"), true);
+		assert.equal(observed.auth, "Bearer test-key");
+		assert.equal(observed.paths.length, 2);
+		assert.equal(observed.bodies[0].stream, true);
+		assert.equal(observed.bodies[1].stream, true);
+		const toolExport = run(["export", toolJson.request.sessionID], { env: toolEnv });
+		assert.equal(toolExport.status, 0);
+		const toolExportJson = JSON.parse(toolExport.stdout);
+		assert.equal(toolExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "read"), true);
 	});
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		writeFileSync(path.join(project, "opencode.json"), configFor("local-fail", `${localUrl}/v1`));

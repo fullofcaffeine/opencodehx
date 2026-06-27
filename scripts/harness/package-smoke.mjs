@@ -126,6 +126,83 @@ async function withLiveOpenAICompatibleServer(fn) {
 	}
 }
 
+async function withToolOpenAICompatibleServer(fn) {
+	const observed = { auth: null, bodies: [], paths: [] };
+	const server = createServer((req, res) => {
+		observed.auth = req.headers.authorization ?? null;
+		observed.paths.push(req.url);
+		let body = "";
+		req.setEncoding("utf8");
+		req.on("data", (chunk) => {
+			body += chunk;
+		});
+		req.on("end", () => {
+			observed.bodies.push(body ? JSON.parse(body) : null);
+			if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+				res.writeHead(404);
+				res.end();
+				return;
+			}
+			const firstCall = observed.bodies.length === 1;
+			res.writeHead(200, { "content-type": "text/event-stream" });
+			const chunks = firstCall
+				? [
+						{
+							id: "chatcmpl-installed-tool",
+							created: 1,
+							model: "chat",
+							choices: [
+								{
+									delta: {
+										role: "assistant",
+										tool_calls: [
+											{
+												index: 0,
+												id: "call_read_1",
+												type: "function",
+												function: { name: "read", arguments: JSON.stringify({ filePath: "installed-tool.txt" }) },
+											},
+										],
+									},
+									finish_reason: "tool_calls",
+								},
+							],
+						},
+					]
+				: [
+						{
+							id: "chatcmpl-installed-tool",
+							created: 1,
+							model: "chat",
+							choices: [{ delta: { role: "assistant", content: "Installed read tool completed." } }],
+						},
+						{
+							id: "chatcmpl-installed-tool",
+							created: 1,
+							model: "chat",
+							choices: [{ delta: {}, finish_reason: "stop" }],
+							usage: { prompt_tokens: 11, completion_tokens: 4, total_tokens: 15 },
+						},
+					];
+			res.end(chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") + "data: [DONE]\n\n");
+		});
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	const baseUrl = `http://127.0.0.1:${address.port}`;
+	try {
+		return await fn(baseUrl, observed);
+	} finally {
+		await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+	}
+}
+
 async function withFailingOpenAICompatibleServer(fn) {
 	const observed = { auth: null, body: null, path: null };
 	const server = createServer((req, res) => {
@@ -452,6 +529,55 @@ try {
 			"Hello from installed live.",
 			"installed configured live AI SDK assistant text",
 		);
+	});
+	await withToolOpenAICompatibleServer(async (localUrl, observed) => {
+		const liveToolConfigRoot = path.join(tempRoot, "installed-live-tool-config");
+		const liveToolDataRoot = path.join(tempRoot, "installed-live-tool-data");
+		mkdirSync(path.join(liveToolConfigRoot, "opencode"), { recursive: true });
+		mkdirSync(path.join(liveToolDataRoot, "opencode"), { recursive: true });
+		writeFileSync(
+			path.join(liveToolConfigRoot, "opencode", "opencode.json"),
+			JSON.stringify({
+				$schema: "https://opencode.ai/config.json",
+				model: "installed-tool/chat",
+				provider: {
+					"installed-tool": {
+						npm: "@ai-sdk/openai-compatible",
+						name: "Installed Tool",
+						options: { baseURL: `${localUrl}/v1`, apiKey: "installed-tool-key" },
+						models: { chat: { name: "Chat" } },
+					},
+				},
+			}),
+		);
+		writeFileSync(path.join(projectDir, "installed-tool.txt"), "installed tool fixture contents\n");
+		const liveToolEnv = {
+			...process.env,
+			XDG_CONFIG_HOME: liveToolConfigRoot,
+			XDG_DATA_HOME: liveToolDataRoot,
+		};
+		const liveTool = await expectOkAsync(
+			runAsync(bin, ["run", "--format", "json", "--dir", projectDir, "Read", "installed", "tool", "fixture."], { env: liveToolEnv }),
+			"installed live AI SDK tool run",
+		);
+		const liveToolJson = JSON.parse(liveTool.stdout);
+		assert.equal(liveToolJson.provider.id, "installed-tool", "installed live tool provider");
+		assert.equal(liveToolJson.messages[1].parts.find((part) => part.type === "text").text, "Installed read tool completed.", "installed live tool final text");
+		assert.equal(liveToolJson.events.some((event) => event.type === "tool-call" && event.tool === "read"), true, "installed live tool-call event");
+		assert.equal(liveToolJson.events.some((event) => event.type === "tool-call-start" && event.tool === "read"), true, "installed live tool start event");
+		assert.equal(
+			liveToolJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "read" && event.status === "completed"),
+			true,
+			"installed live tool finish event",
+		);
+		assert.equal(liveToolJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "read"), true, "installed live tool part");
+		assert.equal(observed.auth, "Bearer installed-tool-key", "installed live tool auth header");
+		assert.equal(observed.paths.length, 2, "installed live tool continuation request");
+		assert.equal(observed.bodies[0].stream, true, "installed live tool first stream flag");
+		assert.equal(observed.bodies[1].stream, true, "installed live tool continuation stream flag");
+		const liveToolExport = expectOk(run(bin, ["export", liveToolJson.request.sessionID], { env: liveToolEnv }), "installed live AI SDK tool export");
+		const liveToolExportJson = JSON.parse(liveToolExport.stdout);
+		assert.equal(liveToolExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "read"), true, "installed live tool export part");
 	});
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");
