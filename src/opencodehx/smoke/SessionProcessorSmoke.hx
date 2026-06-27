@@ -40,6 +40,7 @@ class SessionProcessorSmoke {
 		llmRequestOptions();
 		llmRequestParams();
 		llmWorkflowApproval();
+		llmWorkflowToolExecutor();
 		llmCompatibilityTools();
 		llmRequestHeaders();
 		llmSystemMessages();
@@ -353,6 +354,32 @@ class SessionProcessorSmoke {
 		final remembered = SessionLlm.rememberWorkflowApproval(["read"], ["read"], [{name: "read", args: "{}"}, {name: "bash", args: "{}"}]);
 		eq(remembered.approved.join(","), "read,bash", "llm workflow approval set update");
 		eq(remembered.preapproved.join(","), "read,read,bash", "llm workflow preapproved appends upstream names");
+	}
+
+	static function llmWorkflowToolExecutor():Void {
+		final unknown = SessionLlm.workflowUnknownToolResult("missing");
+		eq(unknown.result, "", "llm workflow tool unknown empty result");
+		eq(unknown.error, "Unknown tool: missing", "llm workflow tool unknown error");
+
+		final stringResult = SessionLlm.workflowToolExecutionResult(Unknown.fromBoundary("plain output"));
+		eq(stringResult.result, "plain output", "llm workflow tool string result");
+		eq(Reflect.field(stringResult, "title"), null, "llm workflow tool string no title");
+
+		final objectResult = SessionLlm.workflowToolExecutionResult(Unknown.fromBoundary({
+			output: "file contents",
+			title: "Read README",
+			metadata: {lines: 3},
+		}));
+		eq(objectResult.result, "file contents", "llm workflow tool object output");
+		eq(objectResult.title, "Read README", "llm workflow tool object title");
+		eq(Reflect.field(objectResult.metadata, "lines"), 3, "llm workflow tool object metadata");
+
+		final fallback = SessionLlm.workflowToolExecutionResult(Unknown.fromBoundary({title: "Only title"}));
+		eq(fallback.result, '{"title":"Only title"}', "llm workflow tool object json fallback");
+
+		final failed = SessionLlm.workflowToolExecutionError(Unknown.fromBoundary(new js.lib.Error("boom")));
+		eq(failed.result, "", "llm workflow tool error empty result");
+		eq(failed.error, "boom", "llm workflow tool error message");
 	}
 
 	static function llmCompatibilityTools():Void {

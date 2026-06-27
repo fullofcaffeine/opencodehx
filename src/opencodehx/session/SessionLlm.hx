@@ -17,6 +17,7 @@ import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.ProviderTransform;
+import opencodehx.util.ErrorTools;
 import opencodehx.util.Wildcard;
 
 typedef LlmRequestHeaderInput = {
@@ -77,6 +78,13 @@ typedef LlmWorkflowApprovalTool = {
 typedef LlmWorkflowApprovalUpdate = {
 	final approved:Array<String>;
 	final preapproved:Array<String>;
+}
+
+typedef LlmWorkflowToolExecutorResult = {
+	var result:String;
+	@:optional var metadata:Unknown;
+	@:optional var title:String;
+	@:optional var error:String;
 }
 
 /**
@@ -244,6 +252,40 @@ class SessionLlm {
 		};
 	}
 
+	public static function workflowUnknownToolResult(toolName:String):LlmWorkflowToolExecutorResult {
+		return {
+			result: "",
+			error: 'Unknown tool: ${toolName}',
+		};
+	}
+
+	public static function workflowToolExecutionResult(raw:Unknown):LlmWorkflowToolExecutorResult {
+		final text = UnknownNarrow.string(raw);
+		if (text != null)
+			return {result: text};
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
+			return {result: stringifyUnknown(raw)};
+		final output = workflowResultOutput(record.get("output"));
+		final out:LlmWorkflowToolExecutorResult = {
+			result: output == null ? stringifyUnknown(raw) : output,
+		};
+		final metadata = record.get("metadata");
+		if (!UnknownNarrow.isNull(metadata) && !UnknownNarrow.isUndefined(metadata))
+			out.metadata = metadata;
+		final title = UnknownNarrow.string(record.get("title"));
+		if (title != null)
+			out.title = title;
+		return out;
+	}
+
+	public static function workflowToolExecutionError(error:Unknown):LlmWorkflowToolExecutorResult {
+		return {
+			result: "",
+			error: ErrorTools.message(error),
+		};
+	}
+
 	public static function repairToolCall(toolCall:LlmToolCallRepairInput, tools:DynamicAccess<AiTool>, errorMessage:String):LlmToolCallRepairInput {
 		final lower = toolCall.toolName.toLowerCase();
 		if (lower != toolCall.toolName && tools.exists(lower))
@@ -347,6 +389,31 @@ class SessionLlm {
 		if (number != null)
 			return number == 0 ? "" : Std.string(number);
 		return "";
+	}
+
+	static function workflowResultOutput(value:Unknown):Null<String> {
+		if (UnknownNarrow.isNull(value) || UnknownNarrow.isUndefined(value))
+			return null;
+		final text = UnknownNarrow.string(value);
+		if (text != null)
+			return text;
+		final bool = UnknownNarrow.bool(value);
+		if (bool != null)
+			return bool == true ? "true" : "false";
+		final number = UnknownNarrow.number(value);
+		if (number != null)
+			return Std.string(number);
+		return stringifyUnknown(value);
+	}
+
+	static function stringifyUnknown(value:Unknown):String {
+		try {
+			// Mirrors upstream's JSON.stringify fallback for workflow tool results.
+			final encoded:Null<String> = Json.stringify(value);
+			return encoded == null ? "" : encoded;
+		} catch (_:Dynamic) {
+			return "";
+		}
 	}
 
 	static function pushUnique(out:Array<String>, value:String):Void {
