@@ -8,7 +8,7 @@
 This slice adds the first executable CLI path:
 
 - `opencodehx.cli.Cli` handles `--help`, `--version`, and `run [message..]`.
-- `opencodehx.cli.CliSurface` records the broader upstream yargs command surface so non-`run` command help, aliases, options, and known-command errors can be tested while command side effects are still deferred.
+- `opencodehx.cli.CliSurface` records the broader upstream yargs command surface so non-`run` command help, aliases, options, and known-command errors can be tested while most command side effects are still deferred.
 - `run --model openai/gpt-5.2` uses the deterministic fake provider from `opencodehx-020`.
 - `run --format json` emits the same normalized one-turn transcript as the fake-provider harness.
 - Default `run` output prints the assistant text for non-JSON headless use.
@@ -29,6 +29,7 @@ node dist/index.js run --dir "$PWD" --format json --model openai/gpt-5.2 "Say he
 node dist/index.js run --mock-ai-sdk "Say hello through the SDK."
 node dist/index.js run --mock-ai-sdk --dir "$PWD" --format json "Say hello through the SDK."
 node dist/index.js run --live-ai-sdk --model openai/gpt-5.2 "Say hello with a real provider."
+OPENCODE_DB=/path/to/opencode.db node dist/index.js export ses_example --sanitize
 npm run cli:smoke
 ```
 
@@ -47,6 +48,6 @@ npm run transcript:parity
 
 ## Boundary
 
-This is not the full yargs/OpenCode command runtime. The command surface catalog covers help text, aliases, options, and known-command errors for the upstream command set, but most non-`run` command handlers still intentionally stop before side effects. The default path deliberately accepts only the fake provider model and the minimal `run` behavior needed to keep transcript parity deterministic. `--dir` is now honored by deterministic and mock runs, but file attachment ingestion, history loading, project initialization, and permission prompting around that workspace are still later slices. The `--mock-ai-sdk` path is a development harness over the real AI SDK stream facade, not a live provider claim. The `--live-ai-sdk` path is real but intentionally thin: it requires an explicit `--model`, loads well-known remote config, active-account remote config, global/project config, process env, and upstream-shaped auth storage, and still lacks account login/token refresh, server-backed session orchestration, cancellation, retry scheduling, and upstream message-history prompt construction around tool results. Session creation, storage-backed conversation history, slash commands, file attachment ingestion, permission prompts, server attach, full model/provider registry UX, real agent selection, side-effecting CLI subcommands, and complete provider-backed CLI chat remain deferred.
+This is not the full yargs/OpenCode command runtime. The command surface catalog covers help text, aliases, options, and known-command errors for the upstream command set, but most non-`run` command handlers still intentionally stop before side effects. `export <sessionID>` is the first exception and currently covers only the non-interactive SQLite-backed path, not the upstream interactive session picker. The default path deliberately accepts only the fake provider model and the minimal `run` behavior needed to keep transcript parity deterministic. `--dir` is now honored by deterministic and mock runs, but file attachment ingestion, history loading, project initialization, and permission prompting around that workspace are still later slices. The `--mock-ai-sdk` path is a development harness over the real AI SDK stream facade, not a live provider claim. The `--live-ai-sdk` path is real but intentionally thin: it requires an explicit `--model`, loads well-known remote config, active-account remote config, global/project config, process env, and upstream-shaped auth storage, and still lacks account login/token refresh, server-backed session orchestration, cancellation, retry scheduling, and upstream message-history prompt construction around tool results. Session creation, storage-backed conversation history, slash commands, file attachment ingestion, permission prompts, server attach, full model/provider registry UX, real agent selection, most side-effecting CLI subcommands, and complete provider-backed CLI chat remain deferred.
 
 Future live-chat work should keep this CLI facade stable while replacing only the provider/session execution path behind it.

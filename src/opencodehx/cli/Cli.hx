@@ -2,6 +2,7 @@ package opencodehx.cli;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import haxe.Json;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.account.AccountStore;
@@ -21,8 +22,14 @@ import opencodehx.provider.ProviderRegistry;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.session.MessageTypes.Part;
+import opencodehx.session.SessionExport;
+import opencodehx.session.SessionID;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionProcessor.SessionProcessorResult;
+import opencodehx.storage.SessionStore;
+import opencodehx.storage.SqliteSessionStore;
+import opencodehx.storage.StorageDatabasePath;
+import opencodehx.storage.StorageError.StorageException;
 
 typedef CliResult = {
 	final handled:Bool;
@@ -44,6 +51,8 @@ class Cli {
 			return ok(BuildInfo.version);
 		if (args[0] == "run")
 			return runCommand(args.slice(1));
+		if (args[0] == "export")
+			return exportCommand(args.slice(1));
 		final surface = CliSurface.find(args);
 		if (surface != null) {
 			if (has(args, "--help") || has(args, "-h"))
@@ -67,6 +76,8 @@ class Cli {
 			return @:await runCommandAsync(args.slice(1));
 		if (args[0] == "serve")
 			return @:await serveCommand(args.slice(1));
+		if (args[0] == "export")
+			return exportCommand(args.slice(1));
 		final surface = CliSurface.find(args);
 		if (surface != null) {
 			if (has(args, "--help") || has(args, "-h"))
@@ -195,6 +206,50 @@ class Cli {
 		}
 	}
 
+	static function exportCommand(args:Array<String>):CliResult {
+		final surface = CliSurface.find(["export"]);
+		if (has(args, "--help") || has(args, "-h"))
+			return ok(surface == null ? "opencodehx export [sessionID]" : CliSurface.help(surface));
+		final sessionIDText = positional(args);
+		if (sessionIDText == "")
+			return fail("Session ID required for non-interactive export.");
+		final sessionID = SessionID.make(sessionIDText);
+		final progress = 'Exporting session: ${sessionID.toString()}\n';
+		var store:Null<SessionStore> = null;
+		try {
+			final env = NodeProcess.env();
+			final dbPath = StorageDatabasePath.path(env, "latest");
+			Fs.mkdirSync(NodePath.dirname(dbPath), {recursive: true});
+			store = new SqliteSessionStore(dbPath);
+			final data = SessionExport.exportData(store, sessionID, has(args, "--sanitize"));
+			store.close();
+			return {
+				handled: true,
+				exitCode: 0,
+				stdout: Json.stringify(data, null, "  ") + "\n",
+				stderr: progress,
+			};
+		} catch (error:StorageException) {
+			if (store != null)
+				store.close();
+			return {
+				handled: true,
+				exitCode: 1,
+				stdout: "",
+				stderr: progress + 'Session not found: ${sessionID.toString()}\n',
+			};
+		} catch (error:haxe.Exception) {
+			if (store != null)
+				store.close();
+			return {
+				handled: true,
+				exitCode: 1,
+				stdout: "",
+				stderr: progress + ErrorFormatter.format(Unknown.fromBoundary(error)) + "\n",
+			};
+		}
+	}
+
 	@:async
 	static function serveCommand(args:Array<String>):Promise<CliResult> {
 		final surface = CliSurface.find(["serve"]);
@@ -289,6 +344,24 @@ class Cli {
 			}
 		}
 		return values.join(" ");
+	}
+
+	static function positional(args:Array<String>):String {
+		var i = 0;
+		while (i < args.length) {
+			final item = args[i];
+			if (valueOption(item)) {
+				i += 2;
+				continue;
+			}
+			if (item == "--")
+				i++;
+			else if (StringTools.startsWith(item, "-"))
+				i++;
+			else
+				return item;
+		}
+		return "";
 	}
 
 	static function valueOption(item:String):Bool {

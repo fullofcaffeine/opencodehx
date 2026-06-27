@@ -22,6 +22,9 @@ import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.resource.Resources;
 import opencodehx.resource.Resources.ResourcePaths;
+import opencodehx.session.MessageCodec;
+import opencodehx.session.SessionID;
+import opencodehx.storage.SqliteSessionStore;
 
 class CliSmoke {
 	public static function run():Void {
@@ -85,6 +88,7 @@ class CliSmoke {
 			final missingDir = Cli.run(["run", "--dir", NodePath.join(root, "missing"), "Hello"]);
 			eq(missingDir.exitCode, 1, "missing run dir exit");
 			eq(missingDir.stderr.indexOf("Failed to resolve run directory") != -1, true, "missing run dir message");
+			cliExport(root);
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			Fs.rmSync(root, {recursive: true, force: true});
@@ -96,6 +100,70 @@ class CliSmoke {
 		eq(missing.stderr.indexOf("You must provide a message") != -1, true, "missing prompt message");
 
 		diagnosticFormatting();
+	}
+
+	static function cliExport(root:String):Void {
+		final dbPath = NodePath.join(root, "cli-export.sqlite");
+		final store = new SqliteSessionStore(dbPath);
+		store.upsertProject({id: "proj_cli_export", worktree: root, name: "CLI Export"});
+		store.createSession({
+			id: SessionID.make("ses_cli_export"),
+			slug: "cli-export",
+			projectID: "proj_cli_export",
+			directory: root,
+			title: "CLI export fixture",
+			version: "0.0.0-test",
+			time: {
+				created: 10,
+				updated: 20,
+			},
+		});
+		store.upsertMessage(MessageCodec.decodeInfoRecord({
+			id: "msg_cli_export_user",
+			sessionID: "ses_cli_export",
+			role: "user",
+			time: {created: 11},
+			agent: "test",
+			model: {providerID: "test", modelID: "test-model"},
+			tools: {},
+		}, "cli export message"));
+		store.upsertPart(MessageCodec.decodePartRecord({
+			id: "prt_cli_export_text",
+			sessionID: "ses_cli_export",
+			messageID: "msg_cli_export_user",
+			type: "text",
+			text: "Export this from CLI",
+		}, "cli export part"), 11);
+		store.close();
+
+		final originalDb = NodeProcess.envValue("OPENCODE_DB");
+		try {
+			NodeProcess.setEnv("OPENCODE_DB", dbPath);
+			final exported = Cli.run(["export", "ses_cli_export"]);
+			eq(exported.exitCode, 0, "cli export exit");
+			eq(exported.stderr, "Exporting session: ses_cli_export\n", "cli export stderr");
+			final parsed:Dynamic = Json.parse(exported.stdout);
+			eq(Reflect.field(Reflect.field(parsed, "info"), "id"), "ses_cli_export", "cli export info id");
+			final messages:Array<Dynamic> = Reflect.field(parsed, "messages");
+			eq(messages.length, 1, "cli export message count");
+			final parts:Array<Dynamic> = Reflect.field(messages[0], "parts");
+			eq(Reflect.field(parts[0], "text"), "Export this from CLI", "cli export raw text");
+
+			final sanitized = Cli.run(["export", "--sanitize", "ses_cli_export"]);
+			eq(sanitized.exitCode, 0, "cli export sanitized exit");
+			final sanitizedParsed:Dynamic = Json.parse(sanitized.stdout);
+			final sanitizedMessages:Array<Dynamic> = Reflect.field(sanitizedParsed, "messages");
+			final sanitizedParts:Array<Dynamic> = Reflect.field(sanitizedMessages[0], "parts");
+			eq(Reflect.field(sanitizedParts[0], "text"), "[redacted:text:prt_cli_export_text]", "cli export sanitized text");
+
+			final missing = Cli.run(["export", "ses_cli_missing"]);
+			eq(missing.exitCode, 1, "cli export missing exit");
+			eq(missing.stderr.indexOf("Session not found: ses_cli_missing") != -1, true, "cli export missing message");
+			restoreEnv("OPENCODE_DB", originalDb);
+		} catch (error:Dynamic) {
+			restoreEnv("OPENCODE_DB", originalDb);
+			throw error;
+		}
 	}
 
 	@:async
