@@ -812,6 +812,42 @@ class SessionProcessorSmoke {
 				case _:
 					throw "session processor async: expected assistant text";
 			}
+			final errorResult = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_error",
+				prompt: "Fail through the SDK runtime.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: AiSdkMockModel.error("fixture provider error"),
+			});
+			eq(errorResult.events[1].type, "error", "ai sdk error event type");
+			eq(errorResult.events[1].message, "fixture provider error", "ai sdk error event message");
+			eq(errorResult.events[2].type, "finish", "ai sdk error finish event");
+			eq(errorResult.events[2].reason, "error", "ai sdk error finish reason");
+
+			final abortResult = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_abort",
+				prompt: "Abort through the SDK runtime.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: AiSdkMockModel.abortable(),
+				abortStreamImmediately: true,
+			});
+			eq(abortResult.aborted == true, true, "ai sdk abort result flag");
+			eq(hasSessionEvent(abortResult.events, "abort", AiSdkProvider.ABORT_REASON), true, "ai sdk abort event");
+			switch abortResult.messages[1].info {
+				case AssistantInfo(assistant):
+					eq(Reflect.field(assistant.error, "name"), "AbortedError", "ai sdk abort assistant error");
+				case _:
+					throw "session processor async: expected abort assistant info";
+			}
+			switch abortResult.messages[1].parts[0] {
+				case TextPart(text):
+					eq(text.text, "Request aborted.", "ai sdk abort assistant text");
+				case _:
+					throw "session processor async: expected abort text";
+			}
 			final runtime = AiSdkMockModel.inspectableToolThenText("The file says: ai sdk tool fixture.", "read", "{\"filePath\":\"src/input.txt\"}");
 			final toolResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_tool",
@@ -1042,6 +1078,14 @@ class SessionProcessorSmoke {
 			return false;
 		for (tool in tools) {
 			if (tool.name == name)
+				return true;
+		}
+		return false;
+	}
+
+	static function hasSessionEvent(events:Array<opencodehx.session.SessionProcessor.SessionEvent>, type:String, message:String):Bool {
+		for (event in events) {
+			if (event.type == type && event.message == message)
 				return true;
 		}
 		return false;

@@ -106,6 +106,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final toolCall:SessionToolCall;
 	@:optional final continueAfterToolResult:Bool;
 	@:optional final maxToolContinuations:Int;
+	@:optional final abortStreamImmediately:Bool;
 }
 
 typedef SessionProcessorResult = {
@@ -241,6 +242,7 @@ class SessionProcessor {
 		final registry:ToolRegistry = input.registry == null ? new ToolRegistry() : input.registry;
 		final events:Array<SessionEvent> = [];
 		final aborted = input.aborted == true;
+		var streamAborted = false;
 		var tokens = tokenUsage();
 		var modelToolCall:Null<SessionToolCall> = null;
 		var toolOutcome:Null<SessionToolOutcome> = null;
@@ -255,7 +257,9 @@ class SessionProcessor {
 				prompt: prompt,
 				messages: requestMessages,
 				tools: AiSdkProvider.toolsFromRegistry(registry),
+				abortImmediately: input.abortStreamImmediately,
 			});
+			streamAborted = stream.aborted;
 			tokens = tokenUsageFromAiSdk(stream.totalUsage);
 			modelToolCall = firstModelToolCall(stream.events);
 			for (event in encodeAiSdkEvents(stream.events))
@@ -264,10 +268,11 @@ class SessionProcessor {
 
 		final assistantText = collectText(events);
 		final userMessage = userWithParts(sessionIDText, prompt, agent, provider);
-		final text = aborted ? "Request aborted." : assistantText;
+		var wasAborted = aborted || streamAborted;
+		final text = wasAborted ? "Request aborted." : assistantText;
 		final toolCall = input.toolCall == null ? modelToolCall : input.toolCall;
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, toolCall, registry,
-			input.permission, events, null, null, aborted, tokens);
+			input.permission, events, null, null, wasAborted, tokens);
 		toolOutcome = assistantMessage.tool;
 		var continuationLimit = DEFAULT_TOOL_CONTINUATIONS;
 		final configuredContinuationLimit = input.maxToolContinuations;
@@ -275,7 +280,11 @@ class SessionProcessor {
 			continuationLimit = configuredContinuationLimit;
 		var continuations = 0;
 		final toolHistory:Array<AiModelToolResultTurn> = [];
-		while (!aborted && input.continueAfterToolResult != false && input.toolCall == null && continuations < continuationLimit) {
+		while (!streamAborted
+			&& !aborted
+			&& input.continueAfterToolResult != false
+			&& input.toolCall == null
+			&& continuations < continuationLimit) {
 			final currentOutcome:SessionToolOutcome = switch toolOutcome {
 				case null:
 					break;
@@ -292,7 +301,10 @@ class SessionProcessor {
 				prompt: prompt,
 				messages: continuationMessages,
 				tools: AiSdkProvider.toolsFromRegistry(registry),
+				abortImmediately: input.abortStreamImmediately,
 			});
+			streamAborted = continuation.aborted;
+			wasAborted = wasAborted || streamAborted;
 			final continuationEvents = encodeAiSdkEvents(continuation.events);
 			for (event in continuationEvents)
 				events.push(event);
@@ -328,7 +340,7 @@ class SessionProcessor {
 			messages: [userMessage, assistantMessage.message],
 			retry: null,
 			compaction: null,
-			aborted: aborted ? true : null,
+			aborted: wasAborted ? true : null,
 			tool: toolOutcome,
 		};
 	}
