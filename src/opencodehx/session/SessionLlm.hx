@@ -88,6 +88,25 @@ typedef LlmWorkflowToolExecutorResult = {
 	@:optional var error:String;
 }
 
+typedef LlmTelemetryInput = {
+	final sessionID:String;
+	@:optional final openTelemetry:Bool;
+	@:optional final username:String;
+	@:optional final tracer:Unknown;
+}
+
+typedef LlmTelemetryMetadata = {
+	final userId:String;
+	final sessionId:String;
+}
+
+typedef LlmTelemetryOptions = {
+	final isEnabled:Undefinable<Bool>;
+	final functionId:String;
+	final tracer:Undefinable<Unknown>;
+	final metadata:LlmTelemetryMetadata;
+}
+
 /**
  * Small pure helpers for upstream session/llm behavior that can be proven
  * without booting the full Effect LLM service.
@@ -334,6 +353,18 @@ class SessionLlm {
 		return type == "stream" ? ProviderTransform.message(prompt, model, options) : prompt;
 	}
 
+	public static function telemetryOptions(input:LlmTelemetryInput):LlmTelemetryOptions {
+		return {
+			isEnabled: boolOrAbsent(input.openTelemetry),
+			functionId: "session.llm",
+			tracer: input.tracer == null ? Undefinable.absent() : input.tracer,
+			metadata: {
+				userId: textOr(input.username, "unknown"),
+				sessionId: input.sessionID,
+			},
+		};
+	}
+
 	public static function requiresNoopTool(model:ProviderModel):Bool {
 		final providerID = model.providerID.toString().toLowerCase();
 		final apiID = model.api.id.toLowerCase();
@@ -507,6 +538,10 @@ class SessionLlm {
 		return value == null ? Undefinable.absent() : value;
 	}
 
+	static function boolOrAbsent(value:Null<Bool>):Undefinable<Bool> {
+		return value == null ? Undefinable.absent() : value;
+	}
+
 	static function copyHeaders(source:ProviderHeaders, target:ProviderHeaders):Void {
 		for (key in source.keys())
 			target.set(key, nonNullHeader(source, key));
@@ -530,6 +565,10 @@ class SessionLlm {
 
 	static function textOrEmpty(value:Null<String>):String {
 		return value == null ? "" : value;
+	}
+
+	static function textOr(value:Null<String>, fallback:String):String {
+		return value == null ? fallback : value;
 	}
 
 	static function noopTool():AiTool {

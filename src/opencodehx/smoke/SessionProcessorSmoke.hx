@@ -45,6 +45,7 @@ class SessionProcessorSmoke {
 		llmWorkflowApproval();
 		llmWorkflowToolExecutor();
 		llmTransformStreamPrompt();
+		llmTelemetryOptions();
 		llmCompatibilityTools();
 		llmRequestHeaders();
 		llmSystemMessages();
@@ -399,6 +400,27 @@ class SessionProcessorSmoke {
 		final stream = SessionLlm.transformStreamPrompt("stream", prompt, model, optionMap());
 		eq(stream.length, 1, "llm transform stream filters empty anthropic content");
 		eq(stream[0].role, ProviderMessageRole.User, "llm transform stream keeps user message");
+	}
+
+	static function llmTelemetryOptions():Void {
+		final disabled = SessionLlm.telemetryOptions({
+			sessionID: "ses_telemetry_default",
+		});
+		eq(disabled.isEnabled.orNull(), null, "llm telemetry absent enabled");
+		eq(disabled.functionId, "session.llm", "llm telemetry function id");
+		eq(disabled.metadata.userId, "unknown", "llm telemetry username fallback");
+		eq(disabled.metadata.sessionId, "ses_telemetry_default", "llm telemetry session metadata");
+		eq(disabled.tracer.orNull() == null, true, "llm telemetry absent tracer");
+
+		final enabled = SessionLlm.telemetryOptions({
+			sessionID: "ses_telemetry_enabled",
+			openTelemetry: true,
+			username: "fixture-user",
+			tracer: Unknown.fromBoundary({kind: "tracer"}),
+		});
+		eq(enabled.isEnabled.orNull(), true, "llm telemetry enabled");
+		eq(enabled.metadata.userId, "fixture-user", "llm telemetry username");
+		eq(enabled.tracer.orNull() == null, false, "llm telemetry tracer passthrough");
 	}
 
 	static function llmCompatibilityTools():Void {
