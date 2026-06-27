@@ -221,6 +221,19 @@ class CliSmoke {
 			final unsupportedFork = Cli.run(["run", "--session", "ses_cli_export", "--fork", "Hello"]);
 			eq(unsupportedFork.exitCode, 1, "cli run fork unsupported exit");
 			eq(unsupportedFork.stderr.indexOf("--fork is not wired") != -1, true, "cli run fork unsupported message");
+
+			final persistedRun = Cli.run(["run", "--format", "json", "Persist", "this", "run."]);
+			eq(persistedRun.exitCode, 0, "cli run persisted exit");
+			final persistedParsed:Dynamic = Json.parse(persistedRun.stdout);
+			final persistedSessionID = Std.string(Reflect.field(Reflect.field(persistedParsed, "request"), "sessionID"));
+			eq(persistedSessionID.indexOf("ses_"), 0, "cli run persisted generated session id");
+			final persistedExport = Cli.run(["export", persistedSessionID]);
+			eq(persistedExport.exitCode, 0, "cli run persisted export exit");
+			final persistedExportParsed:Dynamic = Json.parse(persistedExport.stdout);
+			final persistedMessages:Array<Dynamic> = Reflect.field(persistedExportParsed, "messages");
+			eq(persistedMessages.length, 2, "cli run persisted export messages");
+			final persistedParts:Array<Dynamic> = Reflect.field(persistedMessages[0], "parts");
+			eq(Reflect.field(persistedParts[0], "text"), "Persist this run.", "cli run persisted prompt");
 			restoreEnv("OPENCODE_DB", originalDb);
 		} catch (error:Dynamic) {
 			restoreEnv("OPENCODE_DB", originalDb);

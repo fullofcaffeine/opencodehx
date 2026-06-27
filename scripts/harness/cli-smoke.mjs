@@ -248,6 +248,17 @@ try {
 	delete env.CLOUDFLARE_GATEWAY_ID;
 	delete env.CLOUDFLARE_API_TOKEN;
 	delete env.CF_AIG_TOKEN;
+	const persistedEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "headless-run.sqlite") };
+	const persisted = run(["run", "--format", "json", "Persist", "from", "generated", "CLI."], { env: persistedEnv });
+	assert.equal(persisted.status, 0);
+	const persistedSessionID = JSON.parse(persisted.stdout).request.sessionID;
+	assert.match(persistedSessionID, /^ses_/);
+	const persistedExport = run(["export", persistedSessionID], { env: persistedEnv });
+	assert.equal(persistedExport.status, 0);
+	const persistedExportJson = JSON.parse(persistedExport.stdout);
+	assert.equal(persistedExportJson.info.id, persistedSessionID);
+	assert.equal(persistedExportJson.messages.length, 2);
+	assert.equal(persistedExportJson.messages[0].parts[0].text, "Persist from generated CLI.");
 	const globalLoaded = run(["run", "--live-ai-sdk", "--model", "global-live/missing", "Hello"], { env });
 	assert.equal(globalLoaded.status, 1);
 	assert.match(globalLoaded.stderr, /Model not found: global-live\/missing/);

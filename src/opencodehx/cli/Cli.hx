@@ -11,6 +11,7 @@ import opencodehx.cli.ErrorFormatter;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigWriter;
+import opencodehx.externs.node.Crypto;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.GlobalPaths;
 import opencodehx.harness.TranscriptHarness;
@@ -42,6 +43,11 @@ typedef RunSessionSelection = {
 	final directory:String;
 	final sessionID:Null<String>;
 	final error:Null<String>;
+}
+
+typedef RunPersistence = {
+	final store:Null<SessionStore>;
+	final sessionID:Null<String>;
 }
 
 class Cli {
@@ -115,12 +121,20 @@ class Cli {
 		final resumeError = resume.error;
 		if (resumeError != null)
 			return fail(resumeError);
-		final processed = SessionProcessor.run({
-			prompt: prompt,
-			directory: resume.directory,
-			sessionID: resume.sessionID,
-		});
-		return formatRunResult(processed, format);
+		final persistence = runPersistence(resume.sessionID);
+		try {
+			final processed = SessionProcessor.run({
+				prompt: prompt,
+				directory: resume.directory,
+				sessionID: resume.sessionID == null ? persistence.sessionID : resume.sessionID,
+				store: persistence.store,
+			});
+			closeStore(persistence.store);
+			return formatRunResult(processed, format);
+		} catch (error:haxe.Exception) {
+			closeStore(persistence.store);
+			return fail(ErrorFormatter.format(Unknown.fromBoundary(error)));
+		}
 	}
 
 	@:async
@@ -149,15 +163,23 @@ class Cli {
 		if (resumeError != null)
 			return fail(resumeError);
 		final fixture = new FakeProvider();
-		final processed = @:await SessionProcessor.runAiSdk({
-			prompt: prompt,
-			directory: resume.directory,
-			sessionID: resume.sessionID,
-			provider: fixture.info,
-			model: fixture.model,
-			language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
-		});
-		return formatRunResult(processed, format);
+		final persistence = runPersistence(resume.sessionID);
+		try {
+			final processed = @:await SessionProcessor.runAiSdk({
+				prompt: prompt,
+				directory: resume.directory,
+				sessionID: resume.sessionID == null ? persistence.sessionID : resume.sessionID,
+				store: persistence.store,
+				provider: fixture.info,
+				model: fixture.model,
+				language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
+			});
+			closeStore(persistence.store);
+			return formatRunResult(processed, format);
+		} catch (error:haxe.Exception) {
+			closeStore(persistence.store);
+			return fail(ErrorFormatter.format(Unknown.fromBoundary(error)));
+		}
 	}
 
 	@:async
@@ -264,6 +286,35 @@ class Cli {
 				stderr: progress + ErrorFormatter.format(Unknown.fromBoundary(error)) + "\n",
 			};
 		}
+	}
+
+	static function runPersistence(resumedSessionID:Null<String>):RunPersistence {
+		if (resumedSessionID != null)
+			return {store: null, sessionID: null};
+		final dbPath = explicitDatabasePath();
+		if (dbPath == null)
+			return {store: null, sessionID: null};
+		Fs.mkdirSync(NodePath.dirname(dbPath), {recursive: true});
+		return {
+			store: new SqliteSessionStore(dbPath),
+			sessionID: freshSessionID(),
+		};
+	}
+
+	static function explicitDatabasePath():Null<String> {
+		final configured = NodeProcess.envValue("OPENCODE_DB");
+		if (configured == null || configured == "")
+			return null;
+		return StorageDatabasePath.path(NodeProcess.env(), "latest");
+	}
+
+	static function freshSessionID():String {
+		return "ses_" + StringTools.replace(Crypto.randomUUID(), "-", "").substr(0, 20);
+	}
+
+	static function closeStore(store:Null<SessionStore>):Void {
+		if (store != null)
+			store.close();
 	}
 
 	static function runSessionSelection(args:Array<String>, fallbackDirectory:String):RunSessionSelection {
