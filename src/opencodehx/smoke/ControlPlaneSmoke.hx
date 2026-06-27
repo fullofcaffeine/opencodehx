@@ -1,12 +1,15 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
-import haxe.DynamicAccess;
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import js.lib.Promise;
 import opencodehx.controlplane.WorkspaceAdaptors;
 import opencodehx.controlplane.WorkspaceAdaptors.WorkspaceAdaptor;
+import opencodehx.controlplane.WorkspaceAdaptors.WorkspaceEnv;
 import opencodehx.controlplane.WorkspaceAdaptors.WorkspaceInfo;
 import opencodehx.controlplane.WorkspaceAdaptors.WorkspaceTarget;
+import opencodehx.plugin.PluginWorkspaceRuntime;
 import opencodehx.project.ProjectRuntime.ProjectID;
 
 class ControlPlaneSmoke {
@@ -15,6 +18,7 @@ class ControlPlaneSmoke {
 		WorkspaceAdaptors.reset();
 		await(projectScopedAdaptors());
 		await(latestAdaptorWins());
+		await(pluginWorkspaceRegistration());
 		WorkspaceAdaptors.reset();
 	}
 
@@ -43,6 +47,58 @@ class ControlPlaneSmoke {
 		eq(localDirectory(await(WorkspaceAdaptors.get(projectID, type).target(info(projectID, type))), "latest second"), "/two", "latest second target");
 	}
 
+	@:async
+	static function pluginWorkspaceRegistration():Promise<Void> {
+		final type = "plug-workspace";
+		final projectID = ProjectID.make("project-plugin-workspace");
+		final space = "/tmp/opencodehx-plugin-workspace";
+		final extra = Unknown.fromBoundary({key: "value"});
+		final created:Array<WorkspaceInfo> = [];
+		final registry = PluginWorkspaceRuntime.registry(projectID);
+
+		registry.register(type, {
+			name: "plug",
+			description: "plugin workspace adaptor",
+			configure: input -> Promise.resolve({
+				id: input.id,
+				type: input.type,
+				name: "plug",
+				branch: "plug/main",
+				directory: space,
+				extra: input.extra,
+				projectID: input.projectID,
+			}),
+			create: (input, _env, ?_from) -> {
+				created.push(input);
+				return resolvedVoid();
+			},
+			remove: _ -> resolvedVoid(),
+			target: input -> Promise.resolve(LocalTarget(requireDirectory(input.directory, "plugin workspace target"))),
+		});
+
+		final registered = WorkspaceAdaptors.get(projectID, type);
+		final configured = await(registered.configure({
+			id: "plugin-workspace",
+			type: type,
+			name: "pending",
+			branch: null,
+			directory: null,
+			extra: extra,
+			projectID: projectID,
+		}));
+		await(registered.create(configured, WorkspaceAdaptors.emptyEnv()));
+
+		eq(configured.type, type, "plugin workspace type");
+		eq(configured.name, "plug", "plugin workspace configured name");
+		eq(configured.branch, "plug/main", "plugin workspace configured branch");
+		eq(configured.directory, space, "plugin workspace configured directory");
+		eq(extraString(configured.extra, "key", "plugin workspace configured extra"), "value", "plugin workspace configured extra value");
+		eq(created.length, 1, "plugin workspace create call count");
+		eq(created[0].directory, space, "plugin workspace create directory");
+		eq(extraString(created[0].extra, "key", "plugin workspace create extra"), "value", "plugin workspace create extra value");
+		eq(localDirectory(await(registered.target(configured)), "plugin workspace target"), space, "plugin workspace local target");
+	}
+
 	static function info(projectID:ProjectID, type:String):WorkspaceInfo {
 		return {
 			id: "workspace-test",
@@ -66,7 +122,7 @@ class ControlPlaneSmoke {
 		};
 	}
 
-	static function createNoop(_info:WorkspaceInfo, _env:DynamicAccess<String>, ?_from:WorkspaceInfo):Promise<Void> {
+	static function createNoop(_info:WorkspaceInfo, _env:WorkspaceEnv, ?_from:WorkspaceInfo):Promise<Void> {
 		return resolvedVoid();
 	}
 
@@ -84,6 +140,24 @@ class ControlPlaneSmoke {
 			case RemoteTarget(_, _):
 				throw '${label}: expected local target';
 		}
+	}
+
+	static function requireDirectory(directory:Null<String>, label:String):String {
+		if (directory == null)
+			throw '${label}: expected directory';
+		return directory;
+	}
+
+	static function extraString(extra:Null<Unknown>, field:String, label:String):String {
+		if (extra == null)
+			throw '${label}: expected extra';
+		final record = UnknownNarrow.record(extra);
+		if (record == null)
+			throw '${label}: expected record extra';
+		final value = UnknownNarrow.string(record.get(field));
+		if (value == null)
+			throw '${label}: expected string field ${field}';
+		return value;
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

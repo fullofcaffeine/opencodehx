@@ -10,9 +10,9 @@
 
 | Port status | Kind | Count |
 | --- | --- | ---: |
-| deferred | test | 42 |
+| deferred | test | 41 |
 | direct | test | 20 |
-| partial | test | 76 |
+| partial | test | 77 |
 | ported | fixture | 1 |
 | ported | test | 21 |
 | reference-only | doc | 9 |
@@ -33,6 +33,25 @@ Every `partial` or `deferred` executable test row has a `skip_or_defer_reason`, 
 
 ## Current Reading
 
-OpenCodeHX has direct executable evidence for selected utility, config, file, message, storage, tool, permission, provider registry, credential-free AI SDK stream mechanics, local no-network OpenAI-compatible live CLI streaming, installed-package local live CLI streaming, config-denied and permission-skipped live tool enforcement including skip-flag deny precedence, default/OPENCODE_DB-backed live run export/resume/continue/fork persistence, OpenAI-compatible/OpenAI/xAI/Azure/Google/Vertex/Anthropic/Bedrock/Mistral/Groq/Cohere/Perplexity/OpenRouter/DeepInfra/Cerebras/Gateway/TogetherAI/Vercel/Alibaba/GitLab SDK factory paths, first provider request-option, variant, and schema transforms, CLI, project/git/worktree/sync/npm, parser-backed bash permissions, PTY lifecycle/WebSocket replay, npm package smoke, and one-turn session behavior. Large product surfaces remain deferred: full server/API and SDK compatibility, broader provider SDK loading/transforms, full session lifecycle, MCP/ACP, plugin loading, LSP, live TUI, live package-manager installation side effects, and Bun/release packaging.
+OpenCodeHX has direct executable evidence in these broad areas:
+
+- CLI/headless run, export, session persistence, resume/continue/fork, and local no-network live streaming.
+- Installed npm package workflows for run, tool calls, persistence, TUI scaffold execution, and server health/SSE/session/PTY routes.
+- Utility, config, file, message, storage, tool, permission, provider registry, project/git/worktree/sync/npm, PTY, and one-turn session behavior.
+- Credential-free AI SDK stream mechanics, local provider-error handling, tool schema advertisement, and side-effecting live tool-loop evidence.
+- Bundled SDK factory paths for OpenAI-compatible, OpenAI, xAI, Azure, Google, Vertex, Anthropic, Bedrock, Mistral, Groq, Cohere, Perplexity, OpenRouter, DeepInfra, Cerebras, Gateway, TogetherAI, Vercel, Alibaba, and GitLab.
+- First provider request-option, variant, schema, and plugin-hook evidence.
+
+Large product surfaces remain deferred:
+
+- full server/API and SDK compatibility
+- broader provider SDK loading and transforms
+- full session lifecycle
+- MCP/ACP
+- plugin loading/install/auth/runtime side effects
+- LSP
+- live TUI beyond the scaffold
+- live package-manager side effects
+- Bun/release packaging
 
 The next practical move is to use this matrix while selecting Beads: before starting a subsystem, filter `reference/opencode-test-port-matrix.csv` by `next_bead` and promote the relevant upstream tests into Haxe-owned fixtures or differential harnesses.

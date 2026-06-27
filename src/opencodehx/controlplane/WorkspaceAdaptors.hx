@@ -5,6 +5,14 @@ import haxe.DynamicAccess;
 import js.lib.Promise;
 import opencodehx.project.ProjectRuntime.ProjectID;
 
+// Upstream plugin workspace adaptors receive an open environment record from
+// the host. Keep that string map named and contained at the adaptor boundary.
+typedef WorkspaceEnv = DynamicAccess<String>;
+
+// Remote workspace targets may contribute arbitrary HTTP headers. Product code
+// should read these only through target/proxy seams that own the remote call.
+typedef WorkspaceTargetHeaders = DynamicAccess<String>;
+
 typedef WorkspaceInfo = {
 	final id:String;
 	final type:String;
@@ -17,14 +25,14 @@ typedef WorkspaceInfo = {
 
 enum WorkspaceTarget {
 	LocalTarget(directory:String);
-	RemoteTarget(url:String, ?headers:DynamicAccess<String>);
+	RemoteTarget(url:String, ?headers:WorkspaceTargetHeaders);
 }
 
 typedef WorkspaceAdaptor = {
 	final name:String;
 	final description:String;
 	final configure:WorkspaceInfo->Promise<WorkspaceInfo>;
-	final create:(WorkspaceInfo, DynamicAccess<String>, ?WorkspaceInfo) -> Promise<Void>;
+	final create:(WorkspaceInfo, WorkspaceEnv, ?WorkspaceInfo) -> Promise<Void>;
 	final remove:WorkspaceInfo->Promise<Void>;
 	final target:WorkspaceInfo->Promise<WorkspaceTarget>;
 }
@@ -77,5 +85,9 @@ class WorkspaceAdaptors {
 		}
 		out.sort((a, b) -> Reflect.compare(a.type, b.type));
 		return out;
+	}
+
+	public static function emptyEnv():WorkspaceEnv {
+		return new DynamicAccess<String>();
 	}
 }
