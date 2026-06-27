@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -23,9 +24,106 @@ function run(command, args, options = {}) {
 	return result;
 }
 
+function runAsync(command, args, options = {}) {
+	return new Promise((resolve, reject) => {
+		const child = spawn(command, args, {
+			cwd: options.cwd ?? root,
+			env: options.env ?? process.env,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		let stdout = "";
+		let stderr = "";
+		const timeout = setTimeout(() => {
+			child.kill("SIGTERM");
+			reject(new Error(`Timed out running ${command} ${args.join(" ")}`));
+		}, options.timeout ?? 60_000);
+		child.stdout.setEncoding("utf8");
+		child.stderr.setEncoding("utf8");
+		child.stdout.on("data", (chunk) => {
+			stdout += chunk;
+		});
+		child.stderr.on("data", (chunk) => {
+			stderr += chunk;
+		});
+		child.once("error", (error) => {
+			clearTimeout(timeout);
+			reject(error);
+		});
+		child.once("close", (status) => {
+			clearTimeout(timeout);
+			resolve({ status, stdout, stderr });
+		});
+	});
+}
+
 function expectOk(result, label) {
 	assert.equal(result.status, 0, `${label} failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
 	return result;
+}
+
+async function expectOkAsync(resultPromise, label) {
+	return expectOk(await resultPromise, label);
+}
+
+async function withLiveOpenAICompatibleServer(fn) {
+	const observed = { auth: null, body: null, path: null };
+	const server = createServer((req, res) => {
+		observed.auth = req.headers.authorization ?? null;
+		observed.path = req.url;
+		let body = "";
+		req.setEncoding("utf8");
+		req.on("data", (chunk) => {
+			body += chunk;
+		});
+		req.on("end", () => {
+			observed.body = body ? JSON.parse(body) : null;
+			if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+				res.writeHead(404);
+				res.end();
+				return;
+			}
+			res.writeHead(200, { "content-type": "text/event-stream" });
+			res.end(
+				[
+					{
+						id: "chatcmpl-installed-live",
+						created: 1,
+						model: "chat",
+						choices: [{ delta: { role: "assistant", content: "Hello " } }],
+					},
+					{
+						id: "chatcmpl-installed-live",
+						created: 1,
+						model: "chat",
+						choices: [{ delta: { content: "from installed live." } }],
+					},
+					{
+						id: "chatcmpl-installed-live",
+						created: 1,
+						model: "chat",
+						choices: [{ delta: {}, finish_reason: "stop" }],
+						usage: { prompt_tokens: 7, completion_tokens: 4, total_tokens: 11 },
+					},
+				]
+					.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`)
+					.join("") + "data: [DONE]\n\n",
+			);
+		});
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	const baseUrl = `http://127.0.0.1:${address.port}`;
+	try {
+		return await fn(baseUrl, observed);
+	} finally {
+		await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+	}
 }
 
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "opencodehx-package-"));
@@ -143,6 +241,59 @@ try {
 	assert.equal(mockTranscript.provider.id, "openai", "installed mock AI SDK provider");
 	assert.equal(mockTranscript.events[0].type, "start", "installed mock AI SDK start event");
 	assert.equal(assistantCwd(mockTranscript), projectDir, "installed mock AI SDK assistant cwd");
+	await withLiveOpenAICompatibleServer(async (localUrl, observed) => {
+		const liveConfigRoot = path.join(tempRoot, "installed-live-config");
+		const liveDataRoot = path.join(tempRoot, "installed-live-data");
+		mkdirSync(path.join(liveConfigRoot, "opencode"), { recursive: true });
+		mkdirSync(path.join(liveDataRoot, "opencode"), { recursive: true });
+		writeFileSync(
+			path.join(liveConfigRoot, "opencode", "opencode.json"),
+			JSON.stringify({
+				$schema: "https://opencode.ai/config.json",
+				provider: {
+					"installed-live": {
+						npm: "@ai-sdk/openai-compatible",
+						name: "Installed Live",
+						options: { baseURL: `${localUrl}/v1`, apiKey: "installed-live-key" },
+						models: { chat: { name: "Chat" } },
+					},
+				},
+			}),
+		);
+		const liveEnv = {
+			...process.env,
+			XDG_CONFIG_HOME: liveConfigRoot,
+			XDG_DATA_HOME: liveDataRoot,
+		};
+		const liveRun = await expectOkAsync(
+			runAsync(
+				bin,
+				[
+					"run",
+					"--live-ai-sdk",
+					"--model",
+					"installed-live/chat",
+					"--format",
+					"json",
+					"--dir",
+					projectDir,
+					"Hello",
+					"installed",
+					"live.",
+				],
+				{ env: liveEnv },
+			),
+			"installed live AI SDK run",
+		);
+		const liveTranscript = JSON.parse(liveRun.stdout);
+		assert.equal(liveTranscript.provider.id, "installed-live", "installed live AI SDK provider");
+		assert.equal(liveTranscript.request.prompt, "Hello installed live.", "installed live AI SDK prompt");
+		assert.equal(liveTranscript.messages[1].parts.find((part) => part.type === "text").text, "Hello from installed live.");
+		assert.equal(assistantCwd(liveTranscript), realpathSync(projectDir), "installed live AI SDK assistant cwd");
+		assert.equal(observed.path, "/v1/chat/completions", "installed live AI SDK request path");
+		assert.equal(observed.auth, "Bearer installed-live-key", "installed live AI SDK auth header");
+		assert.equal(observed.body.stream, true, "installed live AI SDK stream flag");
+	});
 	const installedDbEnv = {
 		...process.env,
 		OPENCODE_DB: path.join(tempRoot, "installed-run.sqlite"),
