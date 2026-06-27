@@ -13,6 +13,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.harness.TranscriptHarness;
 import opencodehx.plugin.PluginServerHooks;
+import opencodehx.plugin.PluginConfigHooks;
 import opencodehx.host.node.NodePath;
 import opencodehx.provider.ProviderError.ProviderException;
 import opencodehx.provider.ProviderError.ProviderFailure;
@@ -219,6 +220,23 @@ class ProviderSmoke {
 		]);
 		eq(filters.getProvider(ProviderIDs.known("anthropic")) != null, true, "plugin enabled provider kept");
 		eq(filters.getProvider(ProviderIDs.known("openai")) == null, true, "plugin disabled provider removed");
+
+		final failures:Array<Int> = [];
+		final isolatedConfig = config({});
+		PluginConfigHooks.apply(isolatedConfig, [
+			{
+				config: _ -> throw "plugin exploded",
+			},
+			{
+				config: cfg -> cfg.enabledProviders = ["anthropic"],
+			}
+		], failure -> failures.push(failure.hookIndex));
+		eq(failures.length, 1, "plugin config hook failure reported");
+		eq(failures[0], 0, "plugin config hook failure index");
+		final isolatedEnabled = isolatedConfig.enabledProviders;
+		if (isolatedEnabled == null)
+			throw "plugin config hook after failure did not set enabled providers";
+		eq(isolatedEnabled[0], "anthropic", "plugin config hook after failure still runs");
 	}
 
 	static function registryModels():Void {

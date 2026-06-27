@@ -23,7 +23,7 @@ This slice adds the first Haxe-owned provider registry:
 - `opencodehx.auth.AuthStore` owns the Node auth storage seam for `OPENCODE_AUTH_CONTENT` and XDG data `auth.json`, validating upstream `api`, `oauth`, and `wellknown` entry shapes before provider/config code sees them.
 - `CloudflareAiGatewayLoader` wires the real `ai-gateway-provider` package into the typed AI SDK loader surface, forwarding account/gateway credentials plus cache/log/metadata options through narrow externs before calling `gateway.chat(...)`; the smoke also validates the SDK's generated `cf-aig-*` request headers.
 - `ProviderRegistry` ports upstream OpenCode provider paid-model gating: public access keeps free models and a public API key, while env/auth/config API keys keep paid models visible.
-- `opencodehx.plugin.PluginConfigHooks` models the upstream `server().config(cfg)` hook order for provider loading: typed plugin hooks mutate the live config before `ProviderRegistry` reads `cfg.provider`, `enabled_providers`, or `disabled_providers`.
+- `opencodehx.plugin.PluginConfigHooks` models the upstream `server().config(cfg)` hook order for provider loading: typed plugin hooks mutate the live config before `ProviderRegistry` reads `cfg.provider`, `enabled_providers`, or `disabled_providers`; individual hook failures are isolated so later hooks still run.
 - `CopilotChatMessages` ports the first typed OpenAI-compatible GitHub Copilot prompt-message conversion slice.
 - `CopilotChatCompletion` ports pure GitHub Copilot response metadata, non-stream response content assembly, finish-reason, response-usage, stream-final-usage, and prediction-token metadata normalization.
 - `CopilotChatRequest` ports pure GitHub Copilot request argument shaping for OpenAI-compatible chat calls.
@@ -49,7 +49,7 @@ This slice adds the first Haxe-owned provider registry:
 - User-facing `ModelNotFound` suggestions for misspelled provider IDs and model IDs.
 - Provider lookup, model sort, and closest-model helpers, including missing providers, no-match queries, and ordered multi-term matching.
 - Auth file-shaped API keys.
-- Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, and plugin-owned enabled/disabled provider filters.
+- Provider config hooks from plugins, including a plugin-added provider/model, hook reapplication across registry rebuilds, plugin-owned enabled/disabled provider filters, and config-hook failure isolation with a typed reporter.
 - Anthropic env autoload, default beta headers, no-network `@ai-sdk/anthropic` `languageModel(...)` resolution, and the current SDK's `LanguageModelV2` descriptor shape.
 - Bedrock region, profile, endpoint-to-`baseURL`, env autoload, bearer auth, web-identity autoload, small-model global/regional/unprefixed selection, OpenCode/GitHub Copilot small-model priority, cross-region model-prefix detection, and no-network `@ai-sdk/amazon-bedrock` `languageModel(...)` resolution.
 - Cloudflare AI Gateway env autoload for `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, and `CLOUDFLARE_API_TOKEN`, preservation of configured `options.metadata`, `cf-aig-metadata` header fallback parsing, cache/log option request-header generation, and no-network AI SDK factory/model resolution through `ai-gateway-provider`.
@@ -206,7 +206,7 @@ Variant config follows upstream's control-data rule: `disabled` decides whether 
 
 Config, auth, and env inputs are still dynamic JSON/process boundaries. The registry normalizes them into typed provider/model records as soon as the current slice has enough schema knowledge. Further config-schema tightening belongs to `opencodehx-ajd`.
 
-`PluginConfigHooks` intentionally mutates `ConfigInfo` instead of returning an overlay. That matches upstream's `server().config(cfg)` contract: plugin config hooks run before provider loading and may add provider definitions or alter provider filters in place. The current Haxe hook type is narrow on purpose; real external plugin module loading, install compatibility, auth hooks, tool hooks, and event hooks belong to the plugin runtime slice.
+`PluginConfigHooks` intentionally mutates `ConfigInfo` instead of returning an overlay. That matches upstream's `server().config(cfg)` contract: plugin config hooks run before provider loading and may add provider definitions or alter provider filters in place. Hook failures are caught per hook, reported through a typed `PluginConfigHookErrorReporter` when supplied, and do not block later hooks. The current Haxe hook type is narrow on purpose; real external plugin module loading, install compatibility, live auth loaders, tool hooks, and event hooks belong to the plugin runtime slice.
 
 `ProviderModelsDev.parse` treats `Json.parse` output as `genes.ts.Unknown`, narrows with `UnknownNarrow`/`UnknownRecord`, and copies validated fields into typed models.dev records before returning a `ModelsDevCatalog` to the registry. Open provider mode bodies remain `DynamicAccess<Unknown>` until `ProviderRegistry` normalizes them into provider options.
 

@@ -10,6 +10,9 @@ import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeBuffer;
+import opencodehx.plugin.PluginAuthHooks;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthHook;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthMethodType;
 import opencodehx.plugin.PluginCloudflare;
 import opencodehx.plugin.PluginCloudflare.CloudflareChatParamsInput;
 import opencodehx.plugin.PluginCloudflare.CloudflareChatParamsOutput;
@@ -27,6 +30,7 @@ import opencodehx.plugin.PluginShared.PluginSource;
 import opencodehx.provider.ProviderOpenRecords;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderIDs;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 
 class PluginSmoke {
@@ -34,6 +38,7 @@ class PluginSmoke {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-plugin-"));
 		try {
 			codexJwtClaims();
+			authOverride();
 			cloudflareChatParams();
 			githubCopilotModels();
 			parseSpecifiers();
@@ -77,6 +82,32 @@ class PluginSmoke {
 		final noAccount = jwt({email: "test@example.com"});
 		eq(PluginCodex.extractAccountId({id_token: noAccount, access_token: noAccount, refresh_token: "rt"}) == null, true, "codex no token account id");
 		eq(PluginCodex.extractAccountId({id_token: "", access_token: accessToken, refresh_token: "rt"}), "from-access-token", "codex missing id token");
+	}
+
+	static function authOverride():Void {
+		final builtIns:Array<PluginAuthHook> = [
+			authHook(ProviderIDs.known("github-copilot"), "GitHub Copilot"),
+			authHook(ProviderIDs.known("openai"), "OpenAI"),
+		];
+		final user:Array<PluginAuthHook> = [authHook(ProviderIDs.known("github-copilot"), "Test Override Auth"),];
+		final combined = PluginAuthHooks.concat(builtIns, user);
+
+		eq(PluginAuthHooks.methodsFor(ProviderIDs.known("github-copilot"), combined).length, 1, "auth override method count");
+		eq(PluginAuthHooks.methodsFor(ProviderIDs.known("github-copilot"), combined)[0].label, "Test Override Auth", "auth override label");
+		eq(PluginAuthHooks.methodsFor(ProviderIDs.known("github-copilot"), builtIns)[0].label, "GitHub Copilot", "plain built-in auth label");
+		eq(PluginAuthHooks.methodsFor(ProviderIDs.known("openai"), combined)[0].label, "OpenAI", "unrelated auth provider unchanged");
+	}
+
+	static function authHook(provider:ProviderID, label:String):PluginAuthHook {
+		return {
+			provider: provider,
+			methods: [
+				{
+					type: PluginAuthMethodType.Api,
+					label: label,
+				}
+			],
+		};
 	}
 
 	static function cloudflareChatParams():Void {
