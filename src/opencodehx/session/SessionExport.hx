@@ -85,6 +85,7 @@ class SessionExport {
 				Reflect.setField(encoded, "snapshot", redact("snapshot", data.id.toString(), data.snapshot));
 			case ToolPart(data):
 				final state = Reflect.field(encoded, "state");
+				Reflect.setField(state, "input", redact("tool-input", data.id.toString(), "input"));
 				switch data.state {
 					case ToolPending(pending):
 						Reflect.setField(state, "raw", redact("tool-raw", data.id.toString(), pending.raw));
