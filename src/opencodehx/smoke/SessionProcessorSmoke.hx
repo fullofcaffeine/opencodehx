@@ -19,6 +19,9 @@ import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
 import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderMessage;
+import opencodehx.provider.ProviderTypes.ProviderMessageContent;
+import opencodehx.provider.ProviderTypes.ProviderMessageRole;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.session.MessageTypes.Info;
@@ -41,6 +44,7 @@ class SessionProcessorSmoke {
 		llmRequestParams();
 		llmWorkflowApproval();
 		llmWorkflowToolExecutor();
+		llmTransformStreamPrompt();
 		llmCompatibilityTools();
 		llmRequestHeaders();
 		llmSystemMessages();
@@ -382,6 +386,21 @@ class SessionProcessorSmoke {
 		eq(failed.error, "boom", "llm workflow tool error message");
 	}
 
+	static function llmTransformStreamPrompt():Void {
+		final prompt = [
+			providerMessage(ProviderMessageRole.System, providerTextContent("")),
+			providerMessage(ProviderMessageRole.User, providerTextContent("hello")),
+		];
+		final model = modelWithOptionsVariants("anthropic", "claude-sonnet-4", "@ai-sdk/anthropic", optionMap(), new DynamicAccess<ProviderOptions>());
+		final nonStream = SessionLlm.transformStreamPrompt("generate", prompt, model, optionMap());
+		eq(nonStream.length, 2, "llm transform non-stream keeps count");
+		eq(nonStream[0].content, "", "llm transform non-stream keeps empty system");
+
+		final stream = SessionLlm.transformStreamPrompt("stream", prompt, model, optionMap());
+		eq(stream.length, 1, "llm transform stream filters empty anthropic content");
+		eq(stream[0].role, ProviderMessageRole.User, "llm transform stream keeps user message");
+	}
+
 	static function llmCompatibilityTools():Void {
 		final empty = new DynamicAccess<AiTool>();
 		final withHistoryToolCall:Array<AiLanguageModelPromptMessage> = [
@@ -665,6 +684,14 @@ class SessionProcessorSmoke {
 		out.set(keyA, valueA);
 		out.set(keyB, valueB);
 		return out;
+	}
+
+	static function providerMessage(role:ProviderMessageRole, content:ProviderMessageContent):ProviderMessage {
+		return {role: role, content: content};
+	}
+
+	static function providerTextContent(text:String):ProviderMessageContent {
+		return text;
 	}
 
 	@:async

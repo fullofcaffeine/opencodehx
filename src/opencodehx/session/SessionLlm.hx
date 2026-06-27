@@ -15,6 +15,7 @@ import opencodehx.permission.PermissionRules;
 import opencodehx.permission.PermissionTypes.PermissionRule;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
+import opencodehx.provider.ProviderTypes.ProviderMessage;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.provider.ProviderTransform;
 import opencodehx.util.ErrorTools;
@@ -326,6 +327,11 @@ class SessionLlm {
 			maxOutputTokens: ProviderTransform.maxOutputTokens(input.model),
 			options: input.options,
 		};
+	}
+
+	public static function transformStreamPrompt(type:String, prompt:Array<ProviderMessage>, model:ProviderModel,
+			options:ProviderOptions):Array<ProviderMessage> {
+		return type == "stream" ? ProviderTransform.message(prompt, model, options) : prompt;
 	}
 
 	public static function requiresNoopTool(model:ProviderModel):Bool {
