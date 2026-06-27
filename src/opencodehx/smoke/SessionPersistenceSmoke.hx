@@ -33,6 +33,34 @@ class SessionPersistenceSmoke {
 			final sanitizedPart = cast(Reflect.field(cast sanitized.messages[0], "parts"), Array<Dynamic>)[0];
 			eq(Reflect.field(sanitizedPart, "text"), "[redacted:text:prt_user_text_ses_export]", "session export sanitized text");
 
+			Fs.mkdirSync(NodePath.join(root, "src"), {recursive: true});
+			Fs.writeFileSync(NodePath.join(root, "src/input.txt"), "exported tool fixture\n");
+			SessionProcessor.run({
+				prompt: "Export a tool turn",
+				directory: root,
+				sessionID: "ses_export_tool",
+				projectID: "proj_export",
+				store: store,
+				toolCall: {
+					id: "call_read_export",
+					tool: "read",
+					input: {filePath: "src/input.txt"},
+				},
+			});
+			final toolExport = SessionExport.exportData(store, SessionID.make("ses_export_tool"));
+			eq(toolExport.messages.length, 2, "session export tool message count");
+			final toolParts = cast(Reflect.field(cast toolExport.messages[1], "parts"), Array<Dynamic>);
+			eq(Reflect.field(toolParts[0], "type"), "step-start", "session export tool step start");
+			eq(Reflect.field(toolParts[1], "type"), "tool", "session export tool part");
+			eq(Reflect.field(toolParts[1], "callID"), "call_read_export", "session export tool call id");
+			eq(Reflect.field(toolParts[2], "type"), "text", "session export tool text part");
+			eq(Reflect.field(toolParts[2], "text"), "Hello from the fake provider.", "session export tool assistant text");
+			eq(Reflect.field(toolParts[3], "type"), "step-finish", "session export tool step finish");
+			final sanitizedTool = SessionExport.exportData(store, SessionID.make("ses_export_tool"), true);
+			final sanitizedToolParts = cast(Reflect.field(cast sanitizedTool.messages[1], "parts"), Array<Dynamic>);
+			eq(Reflect.field(sanitizedToolParts[1], "callID"), "call_read_export", "session export sanitized tool call id");
+			eq(Reflect.field(sanitizedToolParts[2], "text"), "[redacted:text:prt_assistant_text_ses_export_tool]", "session export sanitized tool text");
+
 			store.close();
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
