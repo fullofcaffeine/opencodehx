@@ -35,6 +35,7 @@ class SessionProcessorSmoke {
 	public static function run():Void {
 		llmHasToolCalls();
 		llmResolveTools();
+		llmRepairToolCall();
 		llmCompatibilityTools();
 		llmRequestHeaders();
 		llmSystemMessages();
@@ -205,6 +206,36 @@ class SessionProcessorSmoke {
 		final promptAskResult = SessionLlm.workflowPreapprovedTools(workflowTools, workflowAgent, promptAsk);
 		eq(hasString(promptAskResult, "read"), false, "llm workflow preapproved prompt ask wins");
 		eq(SessionLlm.workflowPreapprovedTools(workflowTools, [], []).length, 3, "llm workflow preapproved no rules includes all");
+	}
+
+	static function llmRepairToolCall():Void {
+		final tools = new DynamicAccess<AiTool>();
+		tools.set("read", AiSdkProvider.readTool());
+
+		final repaired = SessionLlm.repairToolCall({
+			toolCallId: "call_upper",
+			toolName: "READ",
+			input: '{"filePath":"README.md"}',
+		}, tools, "Tool READ not found");
+		eq(repaired.toolCallId, "call_upper", "llm repair preserves call id");
+		eq(repaired.toolName, "read", "llm repair lower-case known tool");
+		eq(repaired.input, '{"filePath":"README.md"}', "llm repair preserves input");
+
+		final invalid = SessionLlm.repairToolCall({
+			toolCallId: "call_unknown",
+			toolName: "missingTool",
+			input: "{}",
+		}, tools, "Missing tool");
+		eq(invalid.toolCallId, "call_unknown", "llm repair invalid preserves call id");
+		eq(invalid.toolName, SessionLlm.INVALID_TOOL_ID, "llm repair invalid tool name");
+		eq(invalid.input, '{"tool":"missingTool","error":"Missing tool"}', "llm repair invalid input");
+
+		final lowerKnown = SessionLlm.repairToolCall({
+			toolName: "read",
+			input: "{}",
+		}, tools, "Already lower-case failure");
+		eq(lowerKnown.toolName, SessionLlm.INVALID_TOOL_ID, "llm repair lower-case failed call stays invalid");
+		eq(lowerKnown.input, '{"tool":"read","error":"Already lower-case failure"}', "llm repair lower-case invalid input");
 	}
 
 	static function llmCompatibilityTools():Void {

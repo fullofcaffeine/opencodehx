@@ -1,6 +1,7 @@
 package opencodehx.session;
 
 import haxe.DynamicAccess;
+import haxe.Json;
 import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPartType;
@@ -29,6 +30,12 @@ typedef LlmSystemInput = {
 	final input:Array<String>;
 	@:optional final agentPrompt:String;
 	@:optional final userSystem:String;
+}
+
+typedef LlmToolCallRepairInput = {
+	@:optional var toolCallId:String;
+	final toolName:String;
+	@:optional var input:String;
 }
 
 /**
@@ -158,6 +165,16 @@ class SessionLlm {
 		return out;
 	}
 
+	public static function repairToolCall(toolCall:LlmToolCallRepairInput, tools:DynamicAccess<AiTool>, errorMessage:String):LlmToolCallRepairInput {
+		final lower = toolCall.toolName.toLowerCase();
+		if (lower != toolCall.toolName && tools.exists(lower))
+			return copyToolCall(toolCall, lower, toolCall.input);
+		return copyToolCall(toolCall, INVALID_TOOL_ID, Json.stringify({
+			tool: toolCall.toolName,
+			error: errorMessage,
+		}));
+	}
+
 	public static function requiresNoopTool(model:ProviderModel):Bool {
 		final providerID = model.providerID.toString().toLowerCase();
 		final apiID = model.api.id.toLowerCase();
@@ -181,6 +198,17 @@ class SessionLlm {
 				found = rule.action;
 		}
 		return found;
+	}
+
+	static function copyToolCall(source:LlmToolCallRepairInput, toolName:String, input:Null<String>):LlmToolCallRepairInput {
+		final out:LlmToolCallRepairInput = {
+			toolName: toolName,
+		};
+		if (source.toolCallId != null)
+			out.toolCallId = source.toolCallId;
+		if (input != null)
+			out.input = input;
+		return out;
 	}
 
 	static function copyHeaders(source:ProviderHeaders, target:ProviderHeaders):Void {
