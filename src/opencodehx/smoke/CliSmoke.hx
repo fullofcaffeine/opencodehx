@@ -159,6 +159,49 @@ class CliSmoke {
 			final missing = Cli.run(["export", "ses_cli_missing"]);
 			eq(missing.exitCode, 1, "cli export missing exit");
 			eq(missing.stderr.indexOf("Session not found: ses_cli_missing") != -1, true, "cli export missing message");
+
+			final resumed = Cli.run([
+				"run",
+				"--format",
+				"json",
+				"--session",
+				"ses_cli_export",
+				"Resume",
+				"this",
+				"session."
+			]);
+			eq(resumed.exitCode, 0, "cli run session exit");
+			final resumedParsed:Dynamic = Json.parse(resumed.stdout);
+			eq(Reflect.field(Reflect.field(resumedParsed, "request"), "sessionID"), "ses_cli_export", "cli run session id");
+			eq(assistantPath(resumedParsed), NodePath.normalize(root), "cli run session recovered directory");
+
+			final overrideDir = NodePath.join(root, "resume-override");
+			Fs.mkdirSync(overrideDir, {recursive: true});
+			final resumedOverride = Cli.run([
+				"run",
+				"--format",
+				"json",
+				"--session",
+				"ses_cli_export",
+				"--dir",
+				overrideDir,
+				"Resume",
+				"elsewhere."
+			]);
+			eq(resumedOverride.exitCode, 0, "cli run session dir override exit");
+			eq(assistantPath(Json.parse(resumedOverride.stdout)), NodePath.normalize(overrideDir), "cli run session explicit dir");
+
+			final missingRun = Cli.run(["run", "--session", "ses_cli_missing", "Hello"]);
+			eq(missingRun.exitCode, 1, "cli run missing session exit");
+			eq(missingRun.stderr.indexOf("Session not found: ses_cli_missing") != -1, true, "cli run missing session message");
+
+			final continueRun = Cli.run(["run", "--continue", "Hello"]);
+			eq(continueRun.exitCode, 1, "cli run continue unsupported exit");
+			eq(continueRun.stderr.indexOf("--continue is not wired") != -1, true, "cli run continue unsupported message");
+
+			final invalidFork = Cli.run(["run", "--fork", "Hello"]);
+			eq(invalidFork.exitCode, 1, "cli run invalid fork exit");
+			eq(invalidFork.stderr.indexOf("--fork requires --continue or --session") != -1, true, "cli run invalid fork message");
 			restoreEnv("OPENCODE_DB", originalDb);
 		} catch (error:Dynamic) {
 			restoreEnv("OPENCODE_DB", originalDb);

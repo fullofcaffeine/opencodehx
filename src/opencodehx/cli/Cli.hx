@@ -38,6 +38,12 @@ typedef CliResult = {
 	final stderr:String;
 }
 
+typedef RunSessionSelection = {
+	final directory:String;
+	final sessionID:Null<String>;
+	final error:Null<String>;
+}
+
 class Cli {
 	static final runningServers:Array<OpenCodeServer> = [];
 	static final runningListeners:Array<ServerListener> = [];
@@ -105,9 +111,14 @@ class Cli {
 		final prompt = message(args);
 		if (StringTools.trim(prompt) == "")
 			return fail("You must provide a message or a command");
+		final resume = runSessionSelection(args, directoryResult.directory);
+		final resumeError = resume.error;
+		if (resumeError != null)
+			return fail(resumeError);
 		final processed = SessionProcessor.run({
 			prompt: prompt,
-			directory: directoryResult.directory,
+			directory: resume.directory,
+			sessionID: resume.sessionID,
 		});
 		return formatRunResult(processed, format);
 	}
@@ -133,10 +144,15 @@ class Cli {
 		final prompt = message(args);
 		if (StringTools.trim(prompt) == "")
 			return fail("You must provide a message or a command");
+		final resume = runSessionSelection(args, directoryResult.directory);
+		final resumeError = resume.error;
+		if (resumeError != null)
+			return fail(resumeError);
 		final fixture = new FakeProvider();
 		final processed = @:await SessionProcessor.runAiSdk({
 			prompt: prompt,
-			directory: directoryResult.directory,
+			directory: resume.directory,
+			sessionID: resume.sessionID,
 			provider: fixture.info,
 			model: fixture.model,
 			language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
@@ -247,6 +263,41 @@ class Cli {
 				stdout: "",
 				stderr: progress + ErrorFormatter.format(Unknown.fromBoundary(error)) + "\n",
 			};
+		}
+	}
+
+	static function runSessionSelection(args:Array<String>, fallbackDirectory:String):RunSessionSelection {
+		if (has(args, "--fork") && !has(args, "--continue") && option(args, "--session", option(args, "-s", "")) == "")
+			return {directory: fallbackDirectory, sessionID: null, error: "--fork requires --continue or --session"};
+		if (has(args, "--continue"))
+			return {directory: fallbackDirectory, sessionID: null, error: "--continue is not wired in the non-interactive scaffold yet; pass --session <id>."};
+
+		final sessionIDText = option(args, "--session", option(args, "-s", ""));
+		if (sessionIDText == "")
+			return {directory: fallbackDirectory, sessionID: null, error: null};
+
+		var store:Null<SessionStore> = null;
+		try {
+			final env = NodeProcess.env();
+			final dbPath = StorageDatabasePath.path(env, "latest");
+			Fs.mkdirSync(NodePath.dirname(dbPath), {recursive: true});
+			store = new SqliteSessionStore(dbPath);
+			final recovered = SessionProcessor.recover(store, sessionIDText, 1);
+			store.close();
+			final explicitDirectory = option(args, "--dir", "") != "";
+			return {
+				directory: explicitDirectory ? fallbackDirectory : recovered.session.directory,
+				sessionID: recovered.session.id.toString(),
+				error: null,
+			};
+		} catch (error:StorageException) {
+			if (store != null)
+				store.close();
+			return {directory: fallbackDirectory, sessionID: null, error: 'Session not found: ${sessionIDText}'};
+		} catch (error:haxe.Exception) {
+			if (store != null)
+				store.close();
+			return {directory: fallbackDirectory, sessionID: null, error: ErrorFormatter.format(Unknown.fromBoundary(error))};
 		}
 	}
 
