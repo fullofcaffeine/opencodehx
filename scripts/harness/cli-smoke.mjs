@@ -643,6 +643,40 @@ try {
 			assert.equal(writeExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "write"), true);
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "edit",
+			callId: "call_edit_1",
+			arguments: { filePath: "live-edit.txt", oldString: "old line", newString: "edited line" },
+			finalText: "Edit tool completed.",
+			usage: { prompt_tokens: 15, completion_tokens: 3, total_tokens: 18 },
+		},
+		async (localUrl, observed) => {
+			writeFileSync(path.join(project, "opencode.json"), configFor("local-edit", `${localUrl}/v1`));
+			writeFileSync(path.join(project, "live-edit.txt"), "alpha\nold line\nomega\n");
+			const editEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "edit-live-data") };
+			const editRun = await runAsync(["run", "--format", "json", "--dir", project, "Edit", "the", "tool", "fixture."], {
+				env: editEnv,
+			});
+			assert.equal(editRun.status, 0);
+			const editJson = JSON.parse(editRun.stdout);
+			assert.equal(editJson.provider.id, "local-edit");
+			assert.equal(editJson.messages[1].parts.find((part) => part.type === "text").text, "Edit tool completed.");
+			assert.equal(editJson.events.some((event) => event.type === "tool-call" && event.tool === "edit"), true);
+			assert.equal(editJson.events.some((event) => event.type === "tool-call-start" && event.tool === "edit"), true);
+			assert.equal(editJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "edit" && event.status === "completed"), true);
+			assert.equal(editJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "edit"), true);
+			assert.equal(readFileSync(path.join(project, "live-edit.txt"), "utf8"), "alpha\nedited line\nomega\n");
+			assert.equal(observed.auth, "Bearer test-key");
+			assert.equal(observed.paths.length, 2);
+			assert.equal(observed.bodies[0].stream, true);
+			assert.equal(observed.bodies[1].stream, true);
+			const editExport = run(["export", editJson.request.sessionID], { env: editEnv });
+			assert.equal(editExport.status, 0);
+			const editExportJson = JSON.parse(editExport.stdout);
+			assert.equal(editExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "edit"), true);
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		writeFileSync(path.join(project, "opencode.json"), configFor("local-fail", `${localUrl}/v1`));
 		const liveFailureEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "live-sdk-failure.sqlite") };

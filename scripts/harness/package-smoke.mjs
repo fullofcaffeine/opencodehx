@@ -650,6 +650,69 @@ try {
 			assert.equal(liveWriteExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "write"), true, "installed live write export part");
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "edit",
+			callId: "call_edit_1",
+			arguments: { filePath: "installed-edit.txt", oldString: "old installed line", newString: "edited installed line" },
+			finalText: "Installed edit tool completed.",
+			usage: { prompt_tokens: 15, completion_tokens: 4, total_tokens: 19 },
+		},
+		async (localUrl, observed) => {
+			const liveEditConfigRoot = path.join(tempRoot, "installed-live-edit-config");
+			const liveEditDataRoot = path.join(tempRoot, "installed-live-edit-data");
+			mkdirSync(path.join(liveEditConfigRoot, "opencode"), { recursive: true });
+			mkdirSync(path.join(liveEditDataRoot, "opencode"), { recursive: true });
+			writeFileSync(
+				path.join(liveEditConfigRoot, "opencode", "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "installed-edit/chat",
+					provider: {
+						"installed-edit": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "Installed Edit",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "installed-edit-key" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				}),
+			);
+			writeFileSync(path.join(projectDir, "installed-edit.txt"), "alpha\nold installed line\nomega\n");
+			const liveEditEnv = {
+				...process.env,
+				XDG_CONFIG_HOME: liveEditConfigRoot,
+				XDG_DATA_HOME: liveEditDataRoot,
+			};
+			const liveEdit = await expectOkAsync(
+				runAsync(bin, ["run", "--format", "json", "--dir", projectDir, "Edit", "installed", "tool", "fixture."], { env: liveEditEnv }),
+				"installed live AI SDK edit tool run",
+			);
+			const liveEditJson = JSON.parse(liveEdit.stdout);
+			assert.equal(liveEditJson.provider.id, "installed-edit", "installed live edit provider");
+			assert.equal(
+				liveEditJson.messages[1].parts.find((part) => part.type === "text").text,
+				"Installed edit tool completed.",
+				"installed live edit final text",
+			);
+			assert.equal(liveEditJson.events.some((event) => event.type === "tool-call" && event.tool === "edit"), true, "installed live edit tool-call event");
+			assert.equal(liveEditJson.events.some((event) => event.type === "tool-call-start" && event.tool === "edit"), true, "installed live edit start event");
+			assert.equal(
+				liveEditJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "edit" && event.status === "completed"),
+				true,
+				"installed live edit finish event",
+			);
+			assert.equal(liveEditJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "edit"), true, "installed live edit tool part");
+			assert.equal(readFileSync(path.join(projectDir, "installed-edit.txt"), "utf8"), "alpha\nedited installed line\nomega\n", "installed live edit file content");
+			assert.equal(observed.auth, "Bearer installed-edit-key", "installed live edit auth header");
+			assert.equal(observed.paths.length, 2, "installed live edit continuation request");
+			assert.equal(observed.bodies[0].stream, true, "installed live edit first stream flag");
+			assert.equal(observed.bodies[1].stream, true, "installed live edit continuation stream flag");
+			const liveEditExport = expectOk(run(bin, ["export", liveEditJson.request.sessionID], { env: liveEditEnv }), "installed live AI SDK edit export");
+			const liveEditExportJson = JSON.parse(liveEditExport.stdout);
+			assert.equal(liveEditExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "edit"), true, "installed live edit export part");
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");
 		const liveFailureDataRoot = path.join(tempRoot, "installed-live-failure-data");
