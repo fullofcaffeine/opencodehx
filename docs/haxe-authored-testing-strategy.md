@@ -8,6 +8,8 @@ The deeper reason is future portability. If OpenCodeHX later targets another run
 
 The Haxe layer should also improve test ergonomics, not just port syntax. Typed builders, enum-backed expected events, transcript pattern matching, composable fixtures, precise assertion helpers, and macro-generated boilerplate are all good uses of Haxe when they make tests easier to write and harder to break accidentally.
 
+Adopt this gradually. Keep shell/package/browser harnesses in their native runners while they are proving host behavior, and promote stable semantic assertions into Haxe-authored tests once the contract is clear enough to retarget.
+
 ## Goals
 
 - Preserve upstream OpenCode tests as behavior oracles.

@@ -251,6 +251,84 @@ async function withToolOpenAICompatibleServer(toolSpec, fn) {
 	}
 }
 
+async function withToolChainOpenAICompatibleServer(chainSpec, fn) {
+	const observed = { auth: null, bodies: [], paths: [] };
+	const server = createServer((req, res) => {
+		observed.auth = req.headers.authorization ?? null;
+		observed.paths.push(req.url);
+		let body = "";
+		req.setEncoding("utf8");
+		req.on("data", (chunk) => {
+			body += chunk;
+		});
+		req.on("end", () => {
+			observed.bodies.push(body ? JSON.parse(body) : null);
+			if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+				res.writeHead(404);
+				res.end();
+				return;
+			}
+			const requestIndex = observed.bodies.length - 1;
+			const step = chainSpec.steps[requestIndex];
+			res.writeHead(200, { "content-type": "text/event-stream" });
+			const chunks = step
+				? [
+						{
+							id: "chatcmpl-local-chain",
+							created: 1,
+							model: "chat",
+							choices: [
+								{
+									delta: {
+										role: "assistant",
+										tool_calls: [
+											{
+												index: 0,
+												id: step.callId,
+												type: "function",
+												function: { name: step.tool, arguments: JSON.stringify(step.arguments) },
+											},
+										],
+									},
+									finish_reason: "tool_calls",
+								},
+							],
+						},
+					]
+				: [
+						{
+							id: "chatcmpl-local-chain",
+							created: 1,
+							model: "chat",
+							choices: [{ delta: { role: "assistant", content: chainSpec.finalText } }],
+						},
+						{
+							id: "chatcmpl-local-chain",
+							created: 1,
+							model: "chat",
+							choices: [{ delta: {}, finish_reason: "stop" }],
+							usage: chainSpec.usage,
+						},
+					];
+			res.end(chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") + "data: [DONE]\n\n");
+		});
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	const baseUrl = `http://127.0.0.1:${address.port}`;
+	try {
+		return await fn(baseUrl, observed);
+	} finally {
+		await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+	}
+}
+
 async function withFailingOpenAICompatibleServer(fn) {
 	const observed = { auth: null, body: null, path: null };
 	const server = createServer((req, res) => {
@@ -757,6 +835,57 @@ try {
 			assert.equal(bashExport.status, 0);
 			const bashExportJson = JSON.parse(bashExport.stdout);
 			assert.equal(bashExportJson.messages[1].parts.some((part) => part.type === "tool" && part.tool === "bash"), true);
+		},
+	);
+	await withToolChainOpenAICompatibleServer(
+		{
+			steps: [
+				{
+					tool: "write",
+					callId: "call_chain_write_1",
+					arguments: { filePath: "live-chain.txt", content: "chain written by live tool\n" },
+				},
+				{
+					tool: "read",
+					callId: "call_chain_read_1",
+					arguments: { filePath: "live-chain.txt" },
+				},
+			],
+			finalText: "Tool chain completed.",
+			usage: { prompt_tokens: 23, completion_tokens: 5, total_tokens: 28 },
+		},
+		async (localUrl, observed) => {
+			writeFileSync(path.join(project, "opencode.json"), configFor("local-chain", `${localUrl}/v1`));
+			const chainEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "chain-live-data") };
+			const chainRun = await runAsync(["run", "--format", "json", "--dir", project, "Write", "then", "read", "the", "chain", "fixture."], {
+				env: chainEnv,
+			});
+			assert.equal(chainRun.status, 0);
+			const chainJson = JSON.parse(chainRun.stdout);
+			assert.equal(chainJson.provider.id, "local-chain");
+			assert.equal(chainJson.messages[1].parts.find((part) => part.type === "text").text, "Tool chain completed.");
+			assert.equal(chainJson.events.some((event) => event.type === "tool-call" && event.tool === "write"), true);
+			assert.equal(chainJson.events.some((event) => event.type === "tool-call" && event.tool === "read"), true);
+			assert.equal(chainJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "write" && event.status === "completed"), true);
+			assert.equal(chainJson.events.some((event) => event.type === "tool-call-finish" && event.tool === "read" && event.status === "completed"), true);
+			const chainToolParts = chainJson.messages[1].parts.filter((part) => part.type === "tool");
+			assert.equal(chainToolParts.some((part) => part.tool === "write"), true);
+			assert.equal(chainToolParts.some((part) => part.tool === "read"), true);
+			assert.equal(readFileSync(path.join(project, "live-chain.txt"), "utf8"), "chain written by live tool\n");
+			assert.equal(observed.auth, "Bearer test-key");
+			assert.equal(observed.paths.length, 3);
+			assert.equal(observed.bodies[0].stream, true);
+			assert.equal(observed.bodies[1].stream, true);
+			assert.equal(observed.bodies[2].stream, true);
+			assert.match(JSON.stringify(observed.bodies[1]), /call_chain_write_1/);
+			assert.match(JSON.stringify(observed.bodies[2]), /call_chain_read_1/);
+			assert.match(JSON.stringify(observed.bodies[2]), /chain written by live tool/);
+			const chainExport = run(["export", chainJson.request.sessionID], { env: chainEnv });
+			assert.equal(chainExport.status, 0);
+			const chainExportJson = JSON.parse(chainExport.stdout);
+			const chainExportToolParts = chainExportJson.messages[1].parts.filter((part) => part.type === "tool");
+			assert.equal(chainExportToolParts.some((part) => part.tool === "write"), true);
+			assert.equal(chainExportToolParts.some((part) => part.tool === "read"), true);
 		},
 	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
