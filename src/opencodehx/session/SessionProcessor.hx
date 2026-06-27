@@ -8,6 +8,7 @@ import opencodehx.BuildInfo;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelUsage;
+import opencodehx.externs.ai.AiSdk.AiModelToolResultTurn;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
 import opencodehx.provider.FakeProvider;
@@ -273,6 +274,7 @@ class SessionProcessor {
 		if (configuredContinuationLimit != null)
 			continuationLimit = configuredContinuationLimit;
 		var continuations = 0;
+		final toolHistory:Array<AiModelToolResultTurn> = [];
 		while (!aborted && input.continueAfterToolResult != false && input.toolCall == null && continuations < continuationLimit) {
 			final currentOutcome:SessionToolOutcome = switch toolOutcome {
 				case null:
@@ -283,9 +285,8 @@ class SessionProcessor {
 			if (!currentOutcome.success || currentOutcome.result == null)
 				break;
 			continuations++;
-			final result = currentOutcome.result;
-			final continuationMessages = SessionLlm.requestToolResultModelMessages(provider.system, prompt, currentOutcome.call.id, currentOutcome.call.tool,
-				Unknown.fromBoundary(currentOutcome.call.input), result == null ? "" : result.output, false, false);
+			toolHistory.push(toolHistoryTurn(currentOutcome));
+			final continuationMessages = SessionLlm.requestToolHistoryModelMessages(provider.system, prompt, toolHistory, false, false);
 			final continuation = @:await AiSdkProvider.stream({
 				model: input.language,
 				prompt: prompt,
@@ -663,6 +664,16 @@ class SessionProcessor {
 			}
 		}
 		return raw;
+	}
+
+	static function toolHistoryTurn(outcome:SessionToolOutcome):AiModelToolResultTurn {
+		final result = outcome.result;
+		return {
+			toolCallId: outcome.call.id,
+			toolName: outcome.call.tool,
+			input: Unknown.fromBoundary(outcome.call.input),
+			output: result == null ? "" : result.output,
+		};
 	}
 
 	static function appendAssistantTool(message:WithParts, sessionIDText:String, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,

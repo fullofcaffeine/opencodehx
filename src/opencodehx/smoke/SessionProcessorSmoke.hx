@@ -36,6 +36,12 @@ import opencodehx.session.SessionRetry.SessionProviderError;
 import opencodehx.storage.SqliteSessionStore;
 import js.lib.Promise;
 
+typedef ExpectedToolPromptTurn = {
+	final callID:String;
+	final toolName:String;
+	final outputFragment:String;
+}
+
 class SessionProcessorSmoke {
 	public static function run():Void {
 		llmHasToolCalls();
@@ -841,6 +847,20 @@ class SessionProcessorSmoke {
 			eq(hasLanguageTool(multiRuntime.mock.doStreamCalls[0].tools, "read"), true, "ai sdk multi-tool first call advertises read");
 			eq(hasLanguageTool(multiRuntime.mock.doStreamCalls[1].tools, "read"), true, "ai sdk multi-tool second call advertises read");
 			eq(hasLanguageTool(multiRuntime.mock.doStreamCalls[2].tools, "read"), true, "ai sdk multi-tool final call advertises read");
+			assertSdkToolResultPrompt(multiRuntime.mock.doStreamCalls[1].prompt, "Read the AI SDK fixture twice.", "tool_1", "read", "ai sdk tool fixture",
+				"ai sdk multi-tool first continuation prompt");
+			assertSdkToolHistoryPrompt(multiRuntime.mock.doStreamCalls[2].prompt, "Read the AI SDK fixture twice.", [
+				{
+					callID: "tool_1",
+					toolName: "read",
+					outputFragment: "ai sdk tool fixture",
+				},
+				{
+					callID: "tool_2",
+					toolName: "read",
+					outputFragment: "ai sdk tool fixture",
+				}
+			], "ai sdk multi-tool final prompt");
 			eq(multiToolResult.events[5].callID, "tool_2", "ai sdk multi-tool second model call id");
 			eq(multiToolResult.events[7].type, "tool-call-start", "ai sdk multi-tool execute second start");
 			eq(multiToolResult.events[8].status, "completed", "ai sdk multi-tool execute second finish");
@@ -1037,26 +1057,36 @@ class SessionProcessorSmoke {
 
 	static function assertSdkToolResultPrompt(prompt:Array<AiLanguageModelPromptMessage>, userText:String, callID:String, toolName:String,
 			outputFragment:String, label:String):Void {
-		eq(prompt.length, 4, label + " count");
+		assertSdkToolHistoryPrompt(prompt, userText, [{callID: callID, toolName: toolName, outputFragment: outputFragment}], label);
+	}
+
+	static function assertSdkToolHistoryPrompt(prompt:Array<AiLanguageModelPromptMessage>, userText:String, expected:Array<ExpectedToolPromptTurn>,
+			label:String):Void {
+		eq(prompt.length, 2 + expected.length * 2, label + " count");
 		eq(prompt[0].role, AiLanguageModelPromptRole.System, label + " system role");
 		eq(promptContentText(prompt[0]), "You are an AI SDK provider runtime.", label + " system text");
 		eq(prompt[1].role, AiLanguageModelPromptRole.User, label + " user role");
 		eq(promptContentText(prompt[1]), userText, label + " user text");
-		eq(prompt[2].role, AiLanguageModelPromptRole.Assistant, label + " assistant role");
-		final toolCall = promptContentParts(prompt[2], label + " assistant content")[0];
-		eq(toolCall.type, AiLanguageModelPromptPartType.ToolCall, label + " tool-call type");
-		eq(toolCall.toolCallId, callID, label + " tool-call id");
-		eq(toolCall.toolName, toolName, label + " tool-call name");
-		eq(prompt[3].role, AiLanguageModelPromptRole.Tool, label + " tool role");
-		final toolResult = promptContentParts(prompt[3], label + " tool content")[0];
-		eq(toolResult.type, AiLanguageModelPromptPartType.ToolResult, label + " tool-result type");
-		eq(toolResult.toolCallId, callID, label + " tool-result id");
-		eq(toolResult.toolName, toolName, label + " tool-result name");
-		if (toolResult.output == null)
-			throw label + ": expected tool-result output";
-		eq(toolResult.output.type, "text", label + " tool-result output type");
-		if (Std.string(toolResult.output.value).indexOf(outputFragment) == -1)
-			throw label + ': missing output ${outputFragment}';
+		for (index in 0...expected.length) {
+			final turn = expected[index];
+			final assistantIndex = 2 + index * 2;
+			final toolIndex = assistantIndex + 1;
+			eq(prompt[assistantIndex].role, AiLanguageModelPromptRole.Assistant, label + " assistant role " + index);
+			final toolCall = promptContentParts(prompt[assistantIndex], label + " assistant content " + index)[0];
+			eq(toolCall.type, AiLanguageModelPromptPartType.ToolCall, label + " tool-call type " + index);
+			eq(toolCall.toolCallId, turn.callID, label + " tool-call id " + index);
+			eq(toolCall.toolName, turn.toolName, label + " tool-call name " + index);
+			eq(prompt[toolIndex].role, AiLanguageModelPromptRole.Tool, label + " tool role " + index);
+			final toolResult = promptContentParts(prompt[toolIndex], label + " tool content " + index)[0];
+			eq(toolResult.type, AiLanguageModelPromptPartType.ToolResult, label + " tool-result type " + index);
+			eq(toolResult.toolCallId, turn.callID, label + " tool-result id " + index);
+			eq(toolResult.toolName, turn.toolName, label + " tool-result name " + index);
+			if (toolResult.output == null)
+				throw label + ": expected tool-result output " + index;
+			eq(toolResult.output.type, "text", label + " tool-result output type " + index);
+			if (Std.string(toolResult.output.value).indexOf(turn.outputFragment) == -1)
+				throw label + ': missing output ${turn.outputFragment}';
+		}
 	}
 
 	static function promptContentText(message:AiLanguageModelPromptMessage):String {

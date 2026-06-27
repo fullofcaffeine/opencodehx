@@ -10,6 +10,7 @@ import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPartType;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptRole;
 import opencodehx.externs.ai.AiSdk.AiModelMessages;
+import opencodehx.externs.ai.AiSdk.AiModelToolResultTurn;
 import opencodehx.externs.ai.AiSdk.AiSdk;
 import opencodehx.externs.ai.AiSdk.AiTool;
 import opencodehx.permission.PermissionRules;
@@ -250,6 +251,11 @@ class SessionLlm {
 	public static function requestToolResultModelMessages(system:Array<String>, userPrompt:String, toolCallId:String, toolName:String, toolInput:Unknown,
 			toolOutput:String, isOpenaiOauth:Bool, isWorkflow:Bool):AiModelMessages {
 		return AiModelMessages.systemUserToolResult(isOpenaiOauth || isWorkflow ? [] : system, userPrompt, toolCallId, toolName, toolInput, toolOutput);
+	}
+
+	public static function requestToolHistoryModelMessages(system:Array<String>, userPrompt:String, history:Array<AiModelToolResultTurn>, isOpenaiOauth:Bool,
+			isWorkflow:Bool):AiModelMessages {
+		return AiModelMessages.systemUserToolResults(isOpenaiOauth || isWorkflow ? [] : system, userPrompt, history);
 	}
 
 	public static function activeToolNames(tools:DynamicAccess<AiTool>):Array<String> {

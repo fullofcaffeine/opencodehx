@@ -439,6 +439,13 @@ abstract AiModelToolResultPart(AiModelToolResultPartShape) from AiModelToolResul
 
 typedef AiModelMessagePart = EitherType<AiModelToolCallPart, AiModelToolResultPart>;
 
+typedef AiModelToolResultTurn = {
+	final toolCallId:String;
+	final toolName:String;
+	final input:Unknown;
+	final output:String;
+}
+
 typedef AiModelMessageShape = {
 	final role:String;
 	final content:EitherType<String, Array<AiModelMessagePart>>;
@@ -468,35 +475,33 @@ abstract AiModelMessages(Array<AiModelMessage>) from Array<AiModelMessage> to Ar
 
 	public static function systemUserToolResult(system:Array<String>, user:String, toolCallId:String, toolName:String, input:Unknown,
 			output:String):AiModelMessages {
+		return systemUserToolResults(system, user, [
+			{
+				toolCallId: toolCallId,
+				toolName: toolName,
+				input: input,
+				output: output,
+			}
+		]);
+	}
+
+	public static function systemUserToolResults(system:Array<String>, user:String, turns:Array<AiModelToolResultTurn>):AiModelMessages {
 		final out:Array<AiModelMessage> = [];
-		final toolCallPart:AiModelToolCallPart = {
-			type: "tool-call",
-			toolCallId: toolCallId,
-			toolName: toolName,
-			input: input,
-		};
-		final toolResultPart:AiModelToolResultPart = {
-			type: "tool-result",
-			toolCallId: toolCallId,
-			toolName: toolName,
-			output: {
-				type: "text",
-				value: output,
-			},
-		};
 		pushSystem(out, system);
 		out.push({
 			role: "user",
 			content: user,
 		});
-		out.push({
-			role: "assistant",
-			content: [toolCallPart],
-		});
-		out.push({
-			role: "tool",
-			content: [toolResultPart],
-		});
+		for (turn in turns) {
+			out.push({
+				role: "assistant",
+				content: [toolCallPart(turn)],
+			});
+			out.push({
+				role: "tool",
+				content: [toolResultPart(turn)],
+			});
+		}
 		return out;
 	}
 
@@ -507,6 +512,27 @@ abstract AiModelMessages(Array<AiModelMessage>) from Array<AiModelMessage> to Ar
 				content: item,
 			});
 		}
+	}
+
+	static function toolCallPart(turn:AiModelToolResultTurn):AiModelToolCallPart {
+		return {
+			type: "tool-call",
+			toolCallId: turn.toolCallId,
+			toolName: turn.toolName,
+			input: turn.input,
+		};
+	}
+
+	static function toolResultPart(turn:AiModelToolResultTurn):AiModelToolResultPart {
+		return {
+			type: "tool-result",
+			toolCallId: turn.toolCallId,
+			toolName: turn.toolName,
+			output: {
+				type: "text",
+				value: turn.output,
+			},
+		};
 	}
 }
 
