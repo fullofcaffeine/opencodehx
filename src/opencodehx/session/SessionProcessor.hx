@@ -283,11 +283,12 @@ class SessionProcessor {
 			if (!currentOutcome.success || currentOutcome.result == null)
 				break;
 			continuations++;
-			final continuationText = continuationPrompt(prompt, currentOutcome);
-			final continuationMessages = SessionLlm.requestModelMessages(provider.system, continuationText, false, false);
+			final result = currentOutcome.result;
+			final continuationMessages = SessionLlm.requestToolResultModelMessages(provider.system, prompt, currentOutcome.call.id, currentOutcome.call.tool,
+				Unknown.fromBoundary(currentOutcome.call.input), result == null ? "" : result.output, false, false);
 			final continuation = @:await AiSdkProvider.stream({
 				model: input.language,
-				prompt: continuationText,
+				prompt: prompt,
 				messages: continuationMessages,
 				tools: AiSdkProvider.toolsFromRegistry(registry),
 			});
@@ -662,12 +663,6 @@ class SessionProcessor {
 			}
 		}
 		return raw;
-	}
-
-	static function continuationPrompt(prompt:String, outcome:SessionToolOutcome):String {
-		final result = outcome.result;
-		final output = result == null ? "" : result.output;
-		return 'User request:\n${prompt}\n\nTool ${outcome.call.tool} returned:\n${output}\n\nAnswer the user using the tool result.';
 	}
 
 	static function appendAssistantTool(message:WithParts, sessionIDText:String, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,

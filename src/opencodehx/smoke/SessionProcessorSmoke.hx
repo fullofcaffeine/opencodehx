@@ -818,12 +818,8 @@ class SessionProcessorSmoke {
 			eq(hasLanguageTool(runtime.mock.doStreamCalls[0].tools, "read"), true, "ai sdk session advertises read tool");
 			eq(hasLanguageTool(runtime.mock.doStreamCalls[1].tools, "read"), true, "ai sdk continuation advertises read tool");
 			assertSdkPrompt(runtime.mock.doStreamCalls[0].prompt, "Read the AI SDK fixture.", "ai sdk first call prompt");
-			assertSdkPromptContains(runtime.mock.doStreamCalls[1].prompt, [
-				"User request:\nRead the AI SDK fixture.",
-				"Tool read returned:",
-				"ai sdk tool fixture",
-				"Answer the user using the tool result."
-			], "ai sdk continuation prompt");
+			assertSdkToolResultPrompt(runtime.mock.doStreamCalls[1].prompt, "Read the AI SDK fixture.", "tool_1", "read", "ai sdk tool fixture",
+				"ai sdk continuation prompt");
 			eq(runtime.mock.doStreamCalls.length, 2, "ai sdk continuation call count");
 			eq(toolResult.events[1].type, "tool-call", "ai sdk tool model event");
 			eq(toolResult.events[3].type, "tool-call-start", "ai sdk tool execute start");
@@ -1039,15 +1035,28 @@ class SessionProcessorSmoke {
 		eq(promptContentText(prompt[1]), userText, label + " user text");
 	}
 
-	static function assertSdkPromptContains(prompt:Array<AiLanguageModelPromptMessage>, fragments:Array<String>, label:String):Void {
-		eq(prompt.length, 2, label + " count");
+	static function assertSdkToolResultPrompt(prompt:Array<AiLanguageModelPromptMessage>, userText:String, callID:String, toolName:String,
+			outputFragment:String, label:String):Void {
+		eq(prompt.length, 4, label + " count");
 		eq(prompt[0].role, AiLanguageModelPromptRole.System, label + " system role");
+		eq(promptContentText(prompt[0]), "You are an AI SDK provider runtime.", label + " system text");
 		eq(prompt[1].role, AiLanguageModelPromptRole.User, label + " user role");
-		final text = promptContentText(prompt[1]);
-		for (fragment in fragments) {
-			if (text.indexOf(fragment) == -1)
-				throw label + ': missing ${fragment}';
-		}
+		eq(promptContentText(prompt[1]), userText, label + " user text");
+		eq(prompt[2].role, AiLanguageModelPromptRole.Assistant, label + " assistant role");
+		final toolCall = promptContentParts(prompt[2], label + " assistant content")[0];
+		eq(toolCall.type, AiLanguageModelPromptPartType.ToolCall, label + " tool-call type");
+		eq(toolCall.toolCallId, callID, label + " tool-call id");
+		eq(toolCall.toolName, toolName, label + " tool-call name");
+		eq(prompt[3].role, AiLanguageModelPromptRole.Tool, label + " tool role");
+		final toolResult = promptContentParts(prompt[3], label + " tool content")[0];
+		eq(toolResult.type, AiLanguageModelPromptPartType.ToolResult, label + " tool-result type");
+		eq(toolResult.toolCallId, callID, label + " tool-result id");
+		eq(toolResult.toolName, toolName, label + " tool-result name");
+		if (toolResult.output == null)
+			throw label + ": expected tool-result output";
+		eq(toolResult.output.type, "text", label + " tool-result output type");
+		if (Std.string(toolResult.output.value).indexOf(outputFragment) == -1)
+			throw label + ': missing output ${outputFragment}';
 	}
 
 	static function promptContentText(message:AiLanguageModelPromptMessage):String {
@@ -1057,6 +1066,15 @@ class SessionProcessorSmoke {
 		if (parts.length == 1 && parts[0].type == AiLanguageModelPromptPartType.Text)
 			return parts[0].text;
 		throw "session processor: expected text prompt content";
+	}
+
+	static function promptContentParts(message:AiLanguageModelPromptMessage, label:String):Array<AiLanguageModelPromptPart> {
+		if (!Std.isOfType(message.content, Array))
+			throw label + ": expected prompt content parts";
+		final parts:Array<AiLanguageModelPromptPart> = message.content;
+		if (parts.length != 1)
+			throw label + ": expected single prompt part";
+		return parts;
 	}
 
 	static function assertCompactionPart(parts:Array<Part>, label:String):Void {

@@ -406,9 +406,42 @@ typedef AiLanguageModelPromptMessage = {
 	@:optional final providerOptions:AiProviderOptions;
 }
 
+typedef AiModelToolCallPartShape = {
+	final type:String;
+	final toolCallId:String;
+	final toolName:String;
+	final input:Unknown;
+}
+
+typedef AiModelToolResultOutputShape = {
+	final type:String;
+	final value:String;
+}
+
+typedef AiModelToolResultPartShape = {
+	final type:String;
+	final toolCallId:String;
+	final toolName:String;
+	final output:AiModelToolResultOutput;
+}
+
+@:forward(type, toolCallId, toolName, input)
+@:ts.type("import('ai').ToolCallPart")
+abstract AiModelToolCallPart(AiModelToolCallPartShape) from AiModelToolCallPartShape to AiModelToolCallPartShape {}
+
+@:forward(type, value)
+@:ts.type("import('@ai-sdk/provider-utils').ToolResultOutput")
+abstract AiModelToolResultOutput(AiModelToolResultOutputShape) from AiModelToolResultOutputShape to AiModelToolResultOutputShape {}
+
+@:forward(type, toolCallId, toolName, output)
+@:ts.type("import('ai').ToolResultPart")
+abstract AiModelToolResultPart(AiModelToolResultPartShape) from AiModelToolResultPartShape to AiModelToolResultPartShape {}
+
+typedef AiModelMessagePart = EitherType<AiModelToolCallPart, AiModelToolResultPart>;
+
 typedef AiModelMessageShape = {
 	final role:String;
-	final content:String;
+	final content:EitherType<String, Array<AiModelMessagePart>>;
 }
 
 @:forward(role, content)
@@ -425,17 +458,55 @@ abstract AiModelMessage(AiModelMessageShape) from AiModelMessageShape to AiModel
 abstract AiModelMessages(Array<AiModelMessage>) from Array<AiModelMessage> to Array<AiModelMessage> {
 	public static function systemUser(system:Array<String>, user:String):AiModelMessages {
 		final out:Array<AiModelMessage> = [];
+		pushSystem(out, system);
+		out.push({
+			role: "user",
+			content: user,
+		});
+		return out;
+	}
+
+	public static function systemUserToolResult(system:Array<String>, user:String, toolCallId:String, toolName:String, input:Unknown,
+			output:String):AiModelMessages {
+		final out:Array<AiModelMessage> = [];
+		final toolCallPart:AiModelToolCallPart = {
+			type: "tool-call",
+			toolCallId: toolCallId,
+			toolName: toolName,
+			input: input,
+		};
+		final toolResultPart:AiModelToolResultPart = {
+			type: "tool-result",
+			toolCallId: toolCallId,
+			toolName: toolName,
+			output: {
+				type: "text",
+				value: output,
+			},
+		};
+		pushSystem(out, system);
+		out.push({
+			role: "user",
+			content: user,
+		});
+		out.push({
+			role: "assistant",
+			content: [toolCallPart],
+		});
+		out.push({
+			role: "tool",
+			content: [toolResultPart],
+		});
+		return out;
+	}
+
+	static function pushSystem(out:Array<AiModelMessage>, system:Array<String>):Void {
 		for (item in system) {
 			out.push({
 				role: "system",
 				content: item,
 			});
 		}
-		out.push({
-			role: "user",
-			content: user,
-		});
-		return out;
 	}
 }
 

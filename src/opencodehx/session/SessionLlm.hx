@@ -247,6 +247,11 @@ class SessionLlm {
 		return AiModelMessages.systemUser(isOpenaiOauth || isWorkflow ? [] : system, userPrompt);
 	}
 
+	public static function requestToolResultModelMessages(system:Array<String>, userPrompt:String, toolCallId:String, toolName:String, toolInput:Unknown,
+			toolOutput:String, isOpenaiOauth:Bool, isWorkflow:Bool):AiModelMessages {
+		return AiModelMessages.systemUserToolResult(isOpenaiOauth || isWorkflow ? [] : system, userPrompt, toolCallId, toolName, toolInput, toolOutput);
+	}
+
 	public static function activeToolNames(tools:DynamicAccess<AiTool>):Array<String> {
 		final out:Array<String> = [];
 		for (name in tools.keys()) {
