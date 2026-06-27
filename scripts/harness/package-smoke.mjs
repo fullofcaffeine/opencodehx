@@ -1016,6 +1016,64 @@ try {
 			assert.equal(liveChainExportToolParts.some((part) => part.tool === "read"), true, "installed live chain export read part");
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "write",
+			callId: "call_installed_denied_write_1",
+			arguments: { filePath: "installed-denied.txt", content: "should not be written\n" },
+			finalText: "Installed denied write should not continue.",
+			usage: { prompt_tokens: 7, completion_tokens: 1, total_tokens: 8 },
+		},
+		async (localUrl, observed) => {
+			const liveDeniedConfigRoot = path.join(tempRoot, "installed-live-denied-config");
+			const liveDeniedDataRoot = path.join(tempRoot, "installed-live-denied-data");
+			mkdirSync(path.join(liveDeniedConfigRoot, "opencode"), { recursive: true });
+			mkdirSync(path.join(liveDeniedDataRoot, "opencode"), { recursive: true });
+			writeFileSync(
+				path.join(liveDeniedConfigRoot, "opencode", "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "installed-denied/chat",
+					permission: { edit: "deny" },
+					provider: {
+						"installed-denied": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "Installed Denied",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "installed-denied-key" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				}),
+			);
+			const liveDeniedEnv = {
+				...process.env,
+				XDG_CONFIG_HOME: liveDeniedConfigRoot,
+				XDG_DATA_HOME: liveDeniedDataRoot,
+			};
+			const liveDenied = await expectOkAsync(
+				runAsync(bin, ["run", "--format", "json", "--dir", projectDir, "Try", "an", "installed", "denied", "write."], { env: liveDeniedEnv }),
+				"installed live AI SDK denied write run",
+			);
+			const liveDeniedJson = JSON.parse(liveDenied.stdout);
+			assert.equal(liveDeniedJson.provider.id, "installed-denied", "installed live denied provider");
+			assert.equal(liveDeniedJson.events.some((event) => event.type === "tool-call" && event.tool === "write"), true, "installed live denied write call");
+			const liveDeniedFinish = liveDeniedJson.events.find((event) => event.type === "tool-call-finish" && event.tool === "write");
+			assert.equal(liveDeniedFinish.status, "error", "installed live denied write status");
+			assert.match(liveDeniedFinish.error, /specified a rule which prevents this tool call/, "installed live denied write event error");
+			const liveDeniedTool = liveDeniedJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(liveDeniedTool.state.status, "error", "installed live denied write tool state");
+			assert.match(liveDeniedTool.state.error, /write tool was denied permission/, "installed live denied write tool error");
+			assert.equal(existsSync(path.join(projectDir, "installed-denied.txt")), false, "installed live denied write no file");
+			assert.equal(observed.auth, "Bearer installed-denied-key", "installed live denied auth header");
+			assert.equal(observed.paths.length, 1, "installed live denied no continuation");
+			assert.equal(observed.bodies[0].stream, true, "installed live denied stream flag");
+			const liveDeniedExport = expectOk(run(bin, ["export", liveDeniedJson.request.sessionID], { env: liveDeniedEnv }), "installed live AI SDK denied write export");
+			const liveDeniedExportJson = JSON.parse(liveDeniedExport.stdout);
+			const liveDeniedExportTool = liveDeniedExportJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(liveDeniedExportTool.state.status, "error", "installed live denied export tool state");
+			assert.match(liveDeniedExportTool.state.error, /write tool was denied permission/, "installed live denied export tool error");
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");
 		const liveFailureDataRoot = path.join(tempRoot, "installed-live-failure-data");

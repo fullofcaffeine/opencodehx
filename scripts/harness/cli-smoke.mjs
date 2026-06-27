@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import os from "node:os";
@@ -886,6 +886,57 @@ try {
 			const chainExportToolParts = chainExportJson.messages[1].parts.filter((part) => part.type === "tool");
 			assert.equal(chainExportToolParts.some((part) => part.tool === "write"), true);
 			assert.equal(chainExportToolParts.some((part) => part.tool === "read"), true);
+		},
+	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "write",
+			callId: "call_denied_write_1",
+			arguments: { filePath: "live-denied.txt", content: "should not be written\n" },
+			finalText: "Denied write should not continue.",
+			usage: { prompt_tokens: 7, completion_tokens: 1, total_tokens: 8 },
+		},
+		async (localUrl, observed) => {
+			writeFileSync(
+				path.join(project, "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "local-denied/chat",
+					permission: { edit: "deny" },
+					provider: {
+						"local-denied": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "local-denied",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "test-key" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				}),
+			);
+			const deniedEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "denied-live-data") };
+			const deniedRun = await runAsync(["run", "--format", "json", "--dir", project, "Try", "a", "denied", "write."], {
+				env: deniedEnv,
+			});
+			assert.equal(deniedRun.status, 0);
+			const deniedJson = JSON.parse(deniedRun.stdout);
+			assert.equal(deniedJson.provider.id, "local-denied");
+			assert.equal(deniedJson.events.some((event) => event.type === "tool-call" && event.tool === "write"), true);
+			const finish = deniedJson.events.find((event) => event.type === "tool-call-finish" && event.tool === "write");
+			assert.equal(finish.status, "error");
+			assert.match(finish.error, /specified a rule which prevents this tool call/);
+			const deniedTool = deniedJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(deniedTool.state.status, "error");
+			assert.match(deniedTool.state.error, /write tool was denied permission/);
+			assert.equal(existsSync(path.join(project, "live-denied.txt")), false);
+			assert.equal(observed.auth, "Bearer test-key");
+			assert.equal(observed.paths.length, 1);
+			assert.equal(observed.bodies[0].stream, true);
+			const deniedExport = run(["export", deniedJson.request.sessionID], { env: deniedEnv });
+			assert.equal(deniedExport.status, 0);
+			const deniedExportJson = JSON.parse(deniedExport.stdout);
+			const deniedExportTool = deniedExportJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(deniedExportTool.state.status, "error");
+			assert.match(deniedExportTool.state.error, /write tool was denied permission/);
 		},
 	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {

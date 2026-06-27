@@ -18,6 +18,8 @@ import opencodehx.host.node.GlobalPaths;
 import opencodehx.harness.TranscriptHarness;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
+import opencodehx.permission.PermissionRules;
+import opencodehx.permission.PermissionRuntime;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
 import opencodehx.provider.ProviderRegistry;
@@ -271,10 +273,12 @@ class Cli {
 			final model = registry.getModel(parsed.providerID, parsed.modelID);
 			final language = registry.getLanguage(model);
 			persistence = runPersistence(resume.sessionID, resume.forkParentID);
+			final runSessionID = resume.sessionID == null ? persistence.sessionID : resume.sessionID;
+			final permission = permissionRuntime(mergedConfig, args, runSessionID);
 			final processed = @:await SessionProcessor.runAiSdk({
 				prompt: prompt,
 				directory: resume.directory,
-				sessionID: resume.sessionID == null ? persistence.sessionID : resume.sessionID,
+				sessionID: runSessionID,
 				turnID: persistence.turnID,
 				turnTime: persistence.turnTime,
 				parentSessionID: resume.forkParentID,
@@ -284,6 +288,7 @@ class Cli {
 				language: language,
 				files: filesResult.files,
 				history: resume.history,
+				permission: permission,
 			});
 			closeStore(persistence.store);
 			return formatRunResult(processed, format);
@@ -537,6 +542,17 @@ class Cli {
 			i++;
 		}
 		return {files: files, error: null};
+	}
+
+	static function permissionRuntime(config:ConfigInfo, args:Array<String>, sessionID:Null<String>):Null<PermissionRuntime> {
+		final rules = PermissionRules.fromConfig(config.permission);
+		if (rules.length == 0 && !has(args, "--dangerously-skip-permissions"))
+			return null;
+		return new PermissionRuntime({
+			ruleset: rules,
+			sessionID: sessionID == null ? "" : sessionID,
+			prompt: has(args, "--dangerously-skip-permissions") ? (_->{reply: "once"}) : null,
+		});
 	}
 
 	static function liveDirectory(args:Array<String>):{final directory:String; final error:Null<String>;} {

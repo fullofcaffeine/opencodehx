@@ -250,7 +250,7 @@ bd dolt push
 
 Keep this file current. When the port teaches a durable lesson about Haxe modeling, `genes-ts`, externs, OpenCode behavior, runtime seams, generated TS quality, or testing gates, update `AGENTS.md` or the relevant doc in the same change.
 
-Keep README-level docs current too. New build/test commands, public-readiness steps, subsystem status, important generated artifacts, and cross-repo workflow changes should update `README.md` or `docs/README.md` in the same task that introduces them. Subsystem implementation details should land in the nearest focused doc, with the README linking only the durable orientation a newcomer needs.
+Keep README-level docs current too. New build/test commands, public-readiness steps, subsystem status, important generated artifacts, and cross-repo workflow changes should update `README.md` or `docs/README.md` in the same task that introduces them. Subsystem implementation details should land in the nearest focused doc, with the README linking only the durable orientation a newcomer needs. Do not let README-level evidence sections become huge paragraphs; organize them into short grouped bullets or compact subsections so the docs remain appealing and scannable.
 
 Keep the ASCII progress bar in `README.md` synchronized with Beads. Treat it as an unweighted planning snapshot from non-epic `opencodehx-*` issues, and refresh it when closing meaningful port slices or adding/removing substantial backlog items.
 
