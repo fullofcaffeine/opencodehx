@@ -502,7 +502,7 @@ class SessionProcessor {
 			error: aborted ? {name: "AbortedError", message: "User aborted the request"} : null,
 			cost: 0,
 			tokens: tokens,
-			finish: "stop",
+			finish: assistantFinish(events),
 		};
 
 		final parts:Array<Part> = [];
@@ -776,6 +776,17 @@ class SessionProcessor {
 			}
 		}
 		return encoded;
+	}
+
+	static function assistantFinish(events:Array<SessionEvent>):String {
+		var index = events.length - 1;
+		while (index >= 0) {
+			final event = events[index];
+			if (event.type == "finish" && event.reason != null)
+				return event.reason;
+			index--;
+		}
+		return "stop";
 	}
 
 	static function firstModelToolCall(events:Array<AiSdkStreamEvent>):Null<SessionToolCall> {

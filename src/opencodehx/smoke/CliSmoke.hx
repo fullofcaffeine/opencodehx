@@ -552,6 +552,62 @@ class CliSmoke {
 			throw error;
 		}
 
+		final liveFailureRoot = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-live-failure-"));
+		final originalLiveFailureXdg = NodeProcess.envValue("XDG_CONFIG_HOME");
+		final originalLiveFailureXdgData = NodeProcess.envValue("XDG_DATA_HOME");
+		final originalLiveFailureDb = NodeProcess.envValue("OPENCODE_DB");
+		final originalLiveFailureFetch = SmokeFetchStub.installCliLiveFailure();
+		try {
+			final liveFailureXdg = NodePath.join(liveFailureRoot, "xdg");
+			final liveFailureXdgData = NodePath.join(liveFailureRoot, "data");
+			final liveFailureConfig = NodePath.join(liveFailureXdg, "opencode");
+			Fs.mkdirSync(liveFailureConfig, {recursive: true});
+			Fs.mkdirSync(NodePath.join(liveFailureXdgData, "opencode"), {recursive: true});
+			Fs.writeFileSync(NodePath.join(liveFailureConfig, "opencode.json"),
+				'{"' + "$" +
+				'schema":"${ConfigInfo.DEFAULT_SCHEMA}","provider":{"local-fail":{"npm":"@ai-sdk/openai-compatible","name":"Local Fail","options":{"baseURL":"https://local-fail.example.com/v1","apiKey":"fail-key"},"models":{"chat":{"name":"Chat"}}}}}');
+			NodeProcess.setEnv("XDG_CONFIG_HOME", liveFailureXdg);
+			NodeProcess.setEnv("XDG_DATA_HOME", liveFailureXdgData);
+			NodeProcess.setEnv("OPENCODE_DB", NodePath.join(liveFailureRoot, "live-failure.sqlite"));
+			final liveFailure = @:await Cli.runAsync([
+				"run",
+				"--live-ai-sdk",
+				"--model",
+				"local-fail/chat",
+				"--format",
+				"json",
+				"Fail",
+				"live."
+			]);
+			eq(liveFailure.exitCode, 0, "live cli local failure exit");
+			final liveFailureParsed:Dynamic = Json.parse(liveFailure.stdout);
+			eq(Reflect.field(Reflect.field(liveFailureParsed, "provider"), "id"), "local-fail", "live cli local failure provider");
+			eq(hasTranscriptEvent(liveFailureParsed, "error", "local live failure"), true, "live cli local failure event");
+			eq(hasTranscriptEvent(liveFailureParsed, "error", "No output generated. Check the stream for errors."), true,
+				"live cli local failure no-output event");
+			eq(assistantFinish(liveFailureParsed), "error", "live cli local failure assistant finish");
+			eq(SmokeFetchStub.liveFetchedUrl(), "https://local-fail.example.com/v1/chat/completions", "live cli local failure request URL");
+			eq(SmokeFetchStub.liveAuth(), "Bearer fail-key", "live cli local failure auth header");
+			final liveFailureSessionID = Std.string(Reflect.field(Reflect.field(liveFailureParsed, "request"), "sessionID"));
+			final liveFailureExport = @:await Cli.runAsync(["export", liveFailureSessionID]);
+			eq(liveFailureExport.exitCode, 0, "live cli local failure export exit");
+			final liveFailureExportParsed:Dynamic = Json.parse(liveFailureExport.stdout);
+			eq(assistantFinish(liveFailureExportParsed), "error", "live cli local failure export assistant finish");
+			eq(assistantText(liveFailureExportParsed), "", "live cli local failure export empty assistant text");
+			SmokeFetchStub.restore(originalLiveFailureFetch);
+			restoreEnv("XDG_CONFIG_HOME", originalLiveFailureXdg);
+			restoreEnv("XDG_DATA_HOME", originalLiveFailureXdgData);
+			restoreEnv("OPENCODE_DB", originalLiveFailureDb);
+			Fs.rmSync(liveFailureRoot, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			SmokeFetchStub.restore(originalLiveFailureFetch);
+			restoreEnv("XDG_CONFIG_HOME", originalLiveFailureXdg);
+			restoreEnv("XDG_DATA_HOME", originalLiveFailureXdgData);
+			restoreEnv("OPENCODE_DB", originalLiveFailureDb);
+			Fs.rmSync(liveFailureRoot, {recursive: true, force: true});
+			throw error;
+		}
+
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-"));
 		var originalXdg:Null<String> = null;
 		var originalXdgData:Null<String> = null;
@@ -657,6 +713,22 @@ class CliSmoke {
 				return Std.string(Reflect.field(part, "text"));
 		}
 		return "";
+	}
+
+	static function assistantFinish(transcript:Dynamic):String {
+		final messages:Array<Dynamic> = Reflect.field(transcript, "messages");
+		final assistant:Dynamic = messages[1];
+		final info:Dynamic = Reflect.field(assistant, "info");
+		return Std.string(Reflect.field(info, "finish"));
+	}
+
+	static function hasTranscriptEvent(transcript:Dynamic, type:String, message:String):Bool {
+		final events:Array<Dynamic> = Reflect.field(transcript, "events");
+		for (event in events) {
+			if (Reflect.field(event, "type") == type && Reflect.field(event, "message") == message)
+				return true;
+		}
+		return false;
 	}
 
 	static function messageParts(transcript:Dynamic, index:Int):Array<Dynamic> {

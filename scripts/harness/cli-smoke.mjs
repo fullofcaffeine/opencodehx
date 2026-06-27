@@ -190,6 +190,43 @@ async function withLiveOpenAICompatibleServer(fn) {
 	}
 }
 
+async function withFailingOpenAICompatibleServer(fn) {
+	const observed = { auth: null, body: null, path: null };
+	const server = createServer((req, res) => {
+		observed.auth = req.headers.authorization ?? null;
+		observed.path = req.url;
+		let body = "";
+		req.setEncoding("utf8");
+		req.on("data", (chunk) => {
+			body += chunk;
+		});
+		req.on("end", () => {
+			observed.body = body ? JSON.parse(body) : null;
+			if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+				res.writeHead(404);
+				res.end();
+				return;
+			}
+			res.writeHead(500, { "content-type": "application/json" });
+			res.end(JSON.stringify({ error: { message: "local live failure" } }));
+		});
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	const baseUrl = `http://127.0.0.1:${address.port}`;
+	try {
+		return await fn(baseUrl, observed);
+	} finally {
+		await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+	}
+}
+
 function writeAccountDatabase(file, url) {
 	const db = new Database(file);
 	try {
@@ -445,6 +482,30 @@ try {
 		assert.equal(liveForkExportJson.info.parentID, liveJson.request.sessionID);
 		assert.equal(liveForkExportJson.messages.length, 2);
 		assert.equal(liveForkExportJson.messages[0].parts[0].text, "Fork live.");
+	});
+	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
+		writeFileSync(path.join(project, "opencode.json"), configFor("local-fail", `${localUrl}/v1`));
+		const liveFailureEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "live-sdk-failure.sqlite") };
+		const liveFailure = await runAsync(["run", "--live-ai-sdk", "--model", "local-fail/chat", "--format", "json", "--dir", project, "Fail", "live."], {
+			env: liveFailureEnv,
+		});
+		assert.equal(liveFailure.status, 0);
+		const liveFailureJson = JSON.parse(liveFailure.stdout);
+		assert.equal(liveFailureJson.provider.id, "local-fail");
+		assert.equal(liveFailureJson.events.some((event) => event.type === "error" && event.message === "local live failure"), true);
+		assert.equal(
+			liveFailureJson.events.some((event) => event.type === "error" && event.message === "No output generated. Check the stream for errors."),
+			true,
+		);
+		assert.equal(liveFailureJson.messages[1].info.finish, "error");
+		assert.equal(observed.path, "/v1/chat/completions");
+		assert.equal(observed.auth, "Bearer test-key");
+		assert.equal(observed.body.stream, true);
+		const liveFailureExport = run(["export", liveFailureJson.request.sessionID], { env: liveFailureEnv });
+		assert.equal(liveFailureExport.status, 0);
+		const liveFailureExportJson = JSON.parse(liveFailureExport.stdout);
+		assert.equal(liveFailureExportJson.messages[1].info.finish, "error");
+		assert.equal(liveFailureExportJson.messages[1].parts.find((part) => part.type === "text").text, "");
 	});
 	await withRemoteConfigServer(async (remoteUrl, observed) => {
 		writeFileSync(

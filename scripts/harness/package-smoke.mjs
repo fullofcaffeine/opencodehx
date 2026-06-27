@@ -126,6 +126,43 @@ async function withLiveOpenAICompatibleServer(fn) {
 	}
 }
 
+async function withFailingOpenAICompatibleServer(fn) {
+	const observed = { auth: null, body: null, path: null };
+	const server = createServer((req, res) => {
+		observed.auth = req.headers.authorization ?? null;
+		observed.path = req.url;
+		let body = "";
+		req.setEncoding("utf8");
+		req.on("data", (chunk) => {
+			body += chunk;
+		});
+		req.on("end", () => {
+			observed.body = body ? JSON.parse(body) : null;
+			if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+				res.writeHead(404);
+				res.end();
+				return;
+			}
+			res.writeHead(500, { "content-type": "application/json" });
+			res.end(JSON.stringify({ error: { message: "installed live failure" } }));
+		});
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	const baseUrl = `http://127.0.0.1:${address.port}`;
+	try {
+		return await fn(baseUrl, observed);
+	} finally {
+		await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+	}
+}
+
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "opencodehx-package-"));
 try {
 	const pack = expectOk(run("npm", ["pack", "--pack-destination", tempRoot, "--json"], { timeout: 120_000 }), "npm pack");
@@ -376,6 +413,64 @@ try {
 		assert.equal(liveForkExportJson.info.parentID, liveTranscript.request.sessionID, "installed forked live AI SDK parent id");
 		assert.equal(liveForkExportJson.messages.length, 2, "installed forked live AI SDK export messages");
 		assert.equal(liveForkExportJson.messages[0].parts[0].text, "Fork installed live.", "installed forked live AI SDK export prompt");
+	});
+	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
+		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");
+		const liveFailureDataRoot = path.join(tempRoot, "installed-live-failure-data");
+		mkdirSync(path.join(liveFailureConfigRoot, "opencode"), { recursive: true });
+		mkdirSync(path.join(liveFailureDataRoot, "opencode"), { recursive: true });
+		writeFileSync(
+			path.join(liveFailureConfigRoot, "opencode", "opencode.json"),
+			JSON.stringify({
+				$schema: "https://opencode.ai/config.json",
+				provider: {
+					"installed-fail": {
+						npm: "@ai-sdk/openai-compatible",
+						name: "Installed Fail",
+						options: { baseURL: `${localUrl}/v1`, apiKey: "installed-fail-key" },
+						models: { chat: { name: "Chat" } },
+					},
+				},
+			}),
+		);
+		const liveFailureEnv = {
+			...process.env,
+			XDG_CONFIG_HOME: liveFailureConfigRoot,
+			XDG_DATA_HOME: liveFailureDataRoot,
+			OPENCODE_DB: path.join(tempRoot, "installed-live-failure.sqlite"),
+		};
+		const liveFailure = await expectOkAsync(
+			runAsync(
+				bin,
+				["run", "--live-ai-sdk", "--model", "installed-fail/chat", "--format", "json", "--dir", projectDir, "Fail", "installed", "live."],
+				{ env: liveFailureEnv },
+			),
+			"installed failed live AI SDK run",
+		);
+		const liveFailureJson = JSON.parse(liveFailure.stdout);
+		assert.equal(liveFailureJson.provider.id, "installed-fail", "installed failed live AI SDK provider");
+		assert.equal(
+			liveFailureJson.events.some((event) => event.type === "error" && event.message === "installed live failure"),
+			true,
+			"installed failed live AI SDK provider error event",
+		);
+		assert.equal(
+			liveFailureJson.events.some((event) => event.type === "error" && event.message === "No output generated. Check the stream for errors."),
+			true,
+			"installed failed live AI SDK no-output error event",
+		);
+		assert.equal(liveFailureJson.messages[1].info.finish, "error", "installed failed live AI SDK assistant finish");
+		assert.equal(observed.path, "/v1/chat/completions", "installed failed live AI SDK request path");
+		assert.equal(observed.auth, "Bearer installed-fail-key", "installed failed live AI SDK auth header");
+		assert.equal(observed.body.stream, true, "installed failed live AI SDK stream flag");
+		const liveFailureExport = expectOk(run(bin, ["export", liveFailureJson.request.sessionID], { env: liveFailureEnv }), "installed failed live AI SDK export");
+		const liveFailureExportJson = JSON.parse(liveFailureExport.stdout);
+		assert.equal(liveFailureExportJson.messages[1].info.finish, "error", "installed failed live AI SDK export assistant finish");
+		assert.equal(
+			liveFailureExportJson.messages[1].parts.find((part) => part.type === "text").text,
+			"",
+			"installed failed live AI SDK export empty assistant text",
+		);
 	});
 	const installedDbEnv = {
 		...process.env,

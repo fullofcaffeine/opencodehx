@@ -881,6 +881,12 @@ class SessionProcessorSmoke {
 			eq(errorResult.events[1].message, "fixture provider error", "ai sdk error event message");
 			eq(errorResult.events[2].type, "finish", "ai sdk error finish event");
 			eq(errorResult.events[2].reason, "error", "ai sdk error finish reason");
+			switch errorResult.messages[1].info {
+				case AssistantInfo(assistant):
+					eq(assistant.finish, "error", "ai sdk error assistant finish");
+				case _:
+					throw "session processor async: expected error assistant info";
+			}
 
 			final abortResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_abort",

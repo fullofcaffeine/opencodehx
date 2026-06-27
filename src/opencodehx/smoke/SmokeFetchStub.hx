@@ -107,6 +107,15 @@ class SmokeFetchStub {
 		return originalFetch;
 	}
 
+	public static function installCliLiveFailure():SmokeFetchHandle {
+		final originalFetch = new SmokeFetchHandle(SmokeFetchGlobal.fetch);
+		liveFetchedUrlValue = null;
+		liveAuthValue = null;
+		liveRequestBodyValue = null;
+		SmokeFetchGlobal.fetch = SmokeFetchStubFunction.fromStub(cliLiveFailureFetch);
+		return originalFetch;
+	}
+
 	public static function restore(originalFetch:SmokeFetchHandle):Void {
 		SmokeFetchGlobal.fetch = originalFetch.raw();
 	}
@@ -212,6 +221,20 @@ class SmokeFetchStub {
 				}) + "\n\n",
 				"data: [DONE]\n\n"
 			]));
+		return Promise.resolve(new Response("not found", {status: 404}));
+	}
+
+	static function cliLiveFailureFetch(url:FetchInput, ?init:SmokeFetchStubInit):Promise<Response> {
+		final text = inputText(url);
+		liveFetchedUrlValue = text;
+		final headers = init == null || init.headers == null ? new Headers() : new Headers(init.headers);
+		liveAuthValue = headers.get("authorization");
+		liveRequestBodyValue = init == null ? null : init.body;
+		if (StringTools.endsWith(text, "/chat/completions"))
+			return Promise.resolve(new Response(Json.stringify({error: {message: "local live failure"}}), {
+				status: 500,
+				headers: headerMap("content-type", "application/json"),
+			}));
 		return Promise.resolve(new Response("not found", {status: 404}));
 	}
 
