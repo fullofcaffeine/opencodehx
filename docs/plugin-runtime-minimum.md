@@ -12,7 +12,7 @@
 
 ## Current Surface
 
-OpenCodeHX now has a dependency-free first plugin runtime seam:
+OpenCodeHX now has a dependency-free first plugin runtime seam. The port matrix now promotes exact evidence for `plugin/shared.test.ts`, `plugin/meta.test.ts`, `plugin/loader-shared.test.ts`, and `plugin/trigger.test.ts`; install/auth/built-in provider/workspace plugin rows remain deferred.
 
 - `opencodehx.plugin.PluginShared` covers upstream-style plugin spec parsing for plain, scoped, versioned, git URL, alias, and `npm:` protocol specs. It also resolves file plugin targets through the existing config path resolver, reads package metadata, resolves basic package entrypoints, resolves plugin IDs, and validates `oc-themes` entries.
 - `opencodehx.plugin.PluginMeta` tracks file and npm plugin metadata in JSON: source, requested version, installed version, file modified time, fingerprint, load count, and first/same/updated states.
