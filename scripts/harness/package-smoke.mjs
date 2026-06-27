@@ -1143,6 +1143,71 @@ try {
 			assert.equal(liveSkipExportTool.state.status, "completed", "installed live skip export tool state");
 		},
 	);
+	await withToolOpenAICompatibleServer(
+		{
+			tool: "write",
+			callId: "call_installed_skip_denied_write_1",
+			arguments: { filePath: "installed-skip-denied.txt", content: "installed skip must not override deny\n" },
+			finalText: "Installed denied skip write should not continue.",
+			usage: { prompt_tokens: 7, completion_tokens: 1, total_tokens: 8 },
+		},
+		async (localUrl, observed) => {
+			const liveSkipDeniedConfigRoot = path.join(tempRoot, "installed-live-skip-denied-config");
+			const liveSkipDeniedDataRoot = path.join(tempRoot, "installed-live-skip-denied-data");
+			mkdirSync(path.join(liveSkipDeniedConfigRoot, "opencode"), { recursive: true });
+			mkdirSync(path.join(liveSkipDeniedDataRoot, "opencode"), { recursive: true });
+			writeFileSync(
+				path.join(liveSkipDeniedConfigRoot, "opencode", "opencode.json"),
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					model: "installed-skip-denied/chat",
+					permission: { edit: "deny" },
+					provider: {
+						"installed-skip-denied": {
+							npm: "@ai-sdk/openai-compatible",
+							name: "Installed Skip Denied",
+							options: { baseURL: `${localUrl}/v1`, apiKey: "installed-skip-denied-key" },
+							models: { chat: { name: "Chat" } },
+						},
+					},
+				}),
+			);
+			const liveSkipDeniedEnv = {
+				...process.env,
+				XDG_CONFIG_HOME: liveSkipDeniedConfigRoot,
+				XDG_DATA_HOME: liveSkipDeniedDataRoot,
+			};
+			const liveSkipDenied = await expectOkAsync(
+				runAsync(
+					bin,
+					["run", "--format", "json", "--dir", projectDir, "--dangerously-skip-permissions", "Try", "an", "installed", "denied", "permission", "skip", "write."],
+					{ env: liveSkipDeniedEnv },
+				),
+				"installed live AI SDK permission skip denied write run",
+			);
+			const liveSkipDeniedJson = JSON.parse(liveSkipDenied.stdout);
+			assert.equal(liveSkipDeniedJson.provider.id, "installed-skip-denied", "installed live skip denied provider");
+			assert.equal(liveSkipDeniedJson.events.some((event) => event.type === "tool-call" && event.tool === "write"), true, "installed live skip denied write call");
+			const liveSkipDeniedFinish = liveSkipDeniedJson.events.find((event) => event.type === "tool-call-finish" && event.tool === "write");
+			assert.equal(liveSkipDeniedFinish.status, "error", "installed live skip denied write status");
+			assert.match(liveSkipDeniedFinish.error, /specified a rule which prevents this tool call/, "installed live skip denied write event error");
+			const liveSkipDeniedTool = liveSkipDeniedJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(liveSkipDeniedTool.state.status, "error", "installed live skip denied write tool state");
+			assert.match(liveSkipDeniedTool.state.error, /write tool was denied permission/, "installed live skip denied write tool error");
+			assert.equal(existsSync(path.join(projectDir, "installed-skip-denied.txt")), false, "installed live skip denied write no file");
+			assert.equal(observed.auth, "Bearer installed-skip-denied-key", "installed live skip denied auth header");
+			assert.equal(observed.paths.length, 1, "installed live skip denied no continuation");
+			assert.equal(observed.bodies[0].stream, true, "installed live skip denied stream flag");
+			const liveSkipDeniedExport = expectOk(
+				run(bin, ["export", liveSkipDeniedJson.request.sessionID], { env: liveSkipDeniedEnv }),
+				"installed live AI SDK permission skip denied write export",
+			);
+			const liveSkipDeniedExportJson = JSON.parse(liveSkipDeniedExport.stdout);
+			const liveSkipDeniedExportTool = liveSkipDeniedExportJson.messages[1].parts.find((part) => part.type === "tool" && part.tool === "write");
+			assert.equal(liveSkipDeniedExportTool.state.status, "error", "installed live skip denied export tool state");
+			assert.match(liveSkipDeniedExportTool.state.error, /write tool was denied permission/, "installed live skip denied export tool error");
+		},
+	);
 	await withFailingOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveFailureConfigRoot = path.join(tempRoot, "installed-live-failure-config");
 		const liveFailureDataRoot = path.join(tempRoot, "installed-live-failure-data");
