@@ -234,6 +234,24 @@ class CliSmoke {
 			eq(persistedMessages.length, 2, "cli run persisted export messages");
 			final persistedParts:Array<Dynamic> = Reflect.field(persistedMessages[0], "parts");
 			eq(Reflect.field(persistedParts[0], "text"), "Persist this run.", "cli run persisted prompt");
+			final appendedRun = Cli.run([
+				"run",
+				"--format",
+				"json",
+				"--session",
+				persistedSessionID,
+				"Append",
+				"this",
+				"run."
+			]);
+			eq(appendedRun.exitCode, 0, "cli run append persisted exit");
+			final appendedExport = Cli.run(["export", persistedSessionID]);
+			eq(appendedExport.exitCode, 0, "cli run append export exit");
+			final appendedExportParsed:Dynamic = Json.parse(appendedExport.stdout);
+			final appendedMessages:Array<Dynamic> = Reflect.field(appendedExportParsed, "messages");
+			eq(appendedMessages.length, 4, "cli run append export messages");
+			final appendedParts:Array<Dynamic> = Reflect.field(appendedMessages[2], "parts");
+			eq(Reflect.field(appendedParts[0], "text"), "Append this run.", "cli run append prompt");
 			restoreEnv("OPENCODE_DB", originalDb);
 		} catch (error:Dynamic) {
 			restoreEnv("OPENCODE_DB", originalDb);

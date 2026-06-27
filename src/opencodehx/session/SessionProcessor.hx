@@ -77,6 +77,8 @@ typedef SessionProcessorInput = {
 	final prompt:String;
 	final directory:String;
 	@:optional final sessionID:String;
+	@:optional final turnID:String;
+	@:optional final turnTime:Float;
 	@:optional final projectID:String;
 	@:optional final agent:String;
 	@:optional final aborted:Bool;
@@ -97,6 +99,8 @@ typedef SessionAiSdkProcessorInput = {
 	final model:ProviderModel;
 	final language:AiLanguageModel;
 	@:optional final sessionID:String;
+	@:optional final turnID:String;
+	@:optional final turnTime:Float;
 	@:optional final projectID:String;
 	@:optional final agent:String;
 	@:optional final aborted:Bool;
@@ -189,11 +193,12 @@ class SessionProcessor {
 				events.push(event);
 		}
 		final assistantText = collectText(events);
-		final userMessage = userWithParts(sessionIDText, prompt, agent, provider);
+		final userMessage = userWithParts(sessionIDText, prompt, agent, provider, input.turnID, input.turnTime);
 		final compaction = input.compaction == null ? null : SessionCompaction.check(input.compaction);
 		if (compaction != null && compaction.overflow) {
-			userMessage.parts.push(SessionCompaction.part(SessionID.make(sessionIDText), MessageID.make(scoped(USER_ID, sessionIDText)),
-				PartID.make(scoped(COMPACTION_PART_ID, sessionIDText)), true, true));
+			userMessage.parts.push(SessionCompaction.part(SessionID.make(sessionIDText),
+				MessageID.make(scoped(partBase(USER_ID, input.turnID), sessionIDText)),
+				PartID.make(scoped(partBase(COMPACTION_PART_ID, input.turnID), sessionIDText)), true, true));
 			events.push({
 				type: "compaction",
 				auto: true,
@@ -205,7 +210,7 @@ class SessionProcessor {
 		final text = aborted ? "Request aborted." : assistantText;
 		final tokens = tokenUsage();
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, input.toolCall, registry,
-			input.permission, events, retry, input.providerError, aborted, tokens);
+			input.permission, events, retry, input.providerError, aborted, tokens, input.turnID, input.turnTime);
 
 		if (input.store != null) {
 			persist(input.store, projectID, sessionIDText, input.directory, userMessage, assistantMessage.message);
@@ -267,12 +272,12 @@ class SessionProcessor {
 		}
 
 		final assistantText = collectText(events);
-		final userMessage = userWithParts(sessionIDText, prompt, agent, provider);
+		final userMessage = userWithParts(sessionIDText, prompt, agent, provider, input.turnID, input.turnTime);
 		var wasAborted = aborted || streamAborted;
 		final text = wasAborted ? "Request aborted." : assistantText;
 		final toolCall = input.toolCall == null ? modelToolCall : input.toolCall;
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, toolCall, registry,
-			input.permission, events, null, null, wasAborted, tokens);
+			input.permission, events, null, null, wasAborted, tokens, input.turnID, input.turnTime);
 		toolOutcome = assistantMessage.tool;
 		var continuationLimit = DEFAULT_TOOL_CONTINUATIONS;
 		final configuredContinuationLimit = input.maxToolContinuations;
@@ -312,7 +317,7 @@ class SessionProcessor {
 			final nextToolCall = firstModelToolCall(continuation.events);
 			if (nextToolCall != null) {
 				toolOutcome = appendAssistantTool(assistantMessage.message, sessionIDText, input.directory, agent, nextToolCall, registry, input.permission,
-					events);
+					events, input.turnID, input.turnTime);
 			} else {
 				if (continuedText != "")
 					replaceAssistantText(assistantMessage.message, continuedText);
@@ -371,14 +376,16 @@ class SessionProcessor {
 		};
 	}
 
-	static function userWithParts(sessionIDText:String, prompt:String, agent:String, provider:SessionProviderIdentity):WithParts {
+	static function userWithParts(sessionIDText:String, prompt:String, agent:String, provider:SessionProviderIdentity, turnID:Null<String>,
+			turnTime:Null<Float>):WithParts {
 		final sessionID = SessionID.make(sessionIDText);
-		final messageID = MessageID.make(scoped(USER_ID, sessionIDText));
+		final created = userCreated(turnTime);
+		final messageID = MessageID.make(scoped(partBase(USER_ID, turnID), sessionIDText));
 		final info:UserMessage = {
 			id: messageID,
 			sessionID: sessionID,
 			role: "user",
-			time: {created: CREATED_USER},
+			time: {created: created},
 			agent: agent,
 			model: {providerID: provider.info.id, modelID: provider.model.id},
 			format: OutputText,
@@ -390,30 +397,36 @@ class SessionProcessor {
 			},
 		};
 		final text:TextPartData = {
-			id: PartID.make(scoped(USER_PART_ID, sessionIDText)),
+			id: PartID.make(scoped(partBase(USER_PART_ID, turnID), sessionIDText)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "text",
 			text: prompt,
-			time: {start: CREATED_USER, end: CREATED_USER},
+			time: {
+				start: created,
+				end: created
+			},
 		};
 		return {info: UserInfo(info), parts: [TextPart(text)]};
 	}
 
 	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:SessionProviderIdentity,
 			toolCall:Null<SessionToolCall>, registry:ToolRegistry, permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>,
-			retry:Null<SessionRetryStatus>, providerError:Null<SessionProviderError>, aborted:Bool, tokens:TokenUsage):{
+			retry:Null<SessionRetryStatus>, providerError:Null<SessionProviderError>, aborted:Bool, tokens:TokenUsage, turnID:Null<String>,
+			turnTime:Null<Float>):{
 		final message:WithParts;
 		final tool:Null<SessionToolOutcome>;
 	} {
 		final sessionID = SessionID.make(sessionIDText);
-		final messageID = MessageID.make(scoped(ASSISTANT_ID, sessionIDText));
+		final created = assistantCreated(turnTime);
+		final completed = assistantCompleted(turnTime);
+		final messageID = MessageID.make(scoped(partBase(ASSISTANT_ID, turnID), sessionIDText));
 		final parentID = userID(parentInfo);
 		final info:AssistantMessage = {
 			id: messageID,
 			sessionID: sessionID,
 			role: "assistant",
-			time: {created: CREATED_ASSISTANT, completed: COMPLETED_ASSISTANT},
+			time: {created: created, completed: completed},
 			parentID: parentID,
 			modelID: provider.model.id,
 			providerID: provider.info.id,
@@ -429,41 +442,44 @@ class SessionProcessor {
 		final parts:Array<Part> = [];
 		if (retry != null && providerError != null) {
 			parts.push(RetryPart({
-				id: PartID.make(scoped(RETRY_PART_ID, sessionIDText)),
+				id: PartID.make(scoped(partBase(RETRY_PART_ID, turnID), sessionIDText)),
 				sessionID: sessionID,
 				messageID: messageID,
 				type: "retry",
 				attempt: retry.attempt,
 				error: SessionRetry.errorRecord(providerError),
 				time: {
-					created: CREATED_ASSISTANT
+					created: created
 				},
 			}));
 		}
 		var toolOutcome:Null<SessionToolOutcome> = null;
 		if (toolCall != null) {
 			parts.push(StepStartPart({
-				id: PartID.make(scoped(STEP_START_PART_ID, sessionIDText)),
+				id: PartID.make(scoped(partBase(STEP_START_PART_ID, turnID), sessionIDText)),
 				sessionID: sessionID,
 				messageID: messageID,
 				type: "step-start",
 			}));
-			toolOutcome = executeTool(sessionID, messageID, directory, agent, toolCall, registry, permission, events);
+			toolOutcome = executeTool(sessionID, messageID, directory, agent, toolCall, registry, permission, events, turnID, turnTime);
 			parts.push(toolOutcome.part);
 		}
 
 		parts.push(TextPart({
-			id: PartID.make(scoped(ASSISTANT_PART_ID, sessionIDText)),
+			id: PartID.make(scoped(partBase(ASSISTANT_PART_ID, turnID), sessionIDText)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "text",
 			text: text,
-			time: {start: CREATED_ASSISTANT, end: COMPLETED_ASSISTANT},
+			time: {
+				start: created,
+				end: completed
+			},
 		}));
 
 		if (toolCall != null) {
 			parts.push(StepFinishPart({
-				id: PartID.make(scoped(STEP_FINISH_PART_ID, sessionIDText)),
+				id: PartID.make(scoped(partBase(STEP_FINISH_PART_ID, turnID), sessionIDText)),
 				sessionID: sessionID,
 				messageID: messageID,
 				type: "step-finish",
@@ -480,7 +496,8 @@ class SessionProcessor {
 	}
 
 	static function executeTool(sessionID:SessionID, messageID:MessageID, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,
-			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>):SessionToolOutcome {
+			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>, turnID:Null<String>,
+			turnTime:Null<Float>):SessionToolOutcome {
 		events.push({type: "tool-call-start", callID: call.id, tool: call.tool});
 		final ctx:ToolContext = {
 			directory: directory,
@@ -494,7 +511,7 @@ class SessionProcessor {
 			Reflect.setField(ctx, "ask", permission.toToolAsk());
 		try {
 			final toolResult = registry.execute(call.tool, call.input, ctx);
-			final part = completedToolPart(sessionID, messageID, call, toolResult);
+			final part = completedToolPart(sessionID, messageID, call, toolResult, turnID, turnTime);
 			events.push({
 				type: "tool-call-finish",
 				callID: call.id,
@@ -509,7 +526,7 @@ class SessionProcessor {
 			};
 		} catch (error:ToolException) {
 			final message = error.message == null ? Std.string(error.failure) : error.message;
-			final part = erroredToolPart(sessionID, messageID, call, message);
+			final part = erroredToolPart(sessionID, messageID, call, message, turnID, turnTime);
 			events.push({
 				type: "tool-call-finish",
 				callID: call.id,
@@ -526,7 +543,8 @@ class SessionProcessor {
 		}
 	}
 
-	static function completedToolPart(sessionID:SessionID, messageID:MessageID, call:SessionToolCall, result:ToolResult):Part {
+	static function completedToolPart(sessionID:SessionID, messageID:MessageID, call:SessionToolCall, result:ToolResult, turnID:Null<String>,
+			turnTime:Null<Float>):Part {
 		final state:ToolState = ToolCompleted({
 			status: "completed",
 			input: call.input,
@@ -534,12 +552,12 @@ class SessionProcessor {
 			title: result.title,
 			metadata: result.metadata == null ? {} : result.metadata,
 			time: {
-				start: TOOL_STARTED,
-				end: TOOL_ENDED
+				start: toolStarted(turnTime),
+				end: toolEnded(turnTime)
 			},
 		});
 		return ToolPart({
-			id: PartID.make(scopedCallPart(TOOL_PART_ID, sessionID, call.id)),
+			id: PartID.make(scopedCallPart(partBase(TOOL_PART_ID, turnID), sessionID, call.id)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "tool",
@@ -549,16 +567,17 @@ class SessionProcessor {
 		});
 	}
 
-	static function erroredToolPart(sessionID:SessionID, messageID:MessageID, call:SessionToolCall, message:String):Part {
+	static function erroredToolPart(sessionID:SessionID, messageID:MessageID, call:SessionToolCall, message:String, turnID:Null<String>,
+			turnTime:Null<Float>):Part {
 		final state:ToolState = ToolErrored({
 			status: "error",
 			input: call.input,
 			error: message,
 			metadata: {},
-			time: {start: TOOL_STARTED, end: TOOL_ENDED},
+			time: {start: toolStarted(turnTime), end: toolEnded(turnTime)},
 		});
 		return ToolPart({
-			id: PartID.make(scopedCallPart(TOOL_PART_ID, sessionID, call.id)),
+			id: PartID.make(scopedCallPart(partBase(TOOL_PART_ID, turnID), sessionID, call.id)),
 			sessionID: sessionID,
 			messageID: messageID,
 			type: "tool",
@@ -571,13 +590,14 @@ class SessionProcessor {
 	static function persist(store:SessionStore, projectID:String, sessionIDText:String, directory:String, userMessage:WithParts,
 			assistantMessage:WithParts):Void {
 		store.upsertProject({id: projectID, worktree: directory, name: "OpenCodeHX fixture"});
-		store.createSession(sessionInfo(projectID, sessionIDText, directory));
-		persistMessage(store, userMessage, CREATED_USER);
-		persistMessage(store, assistantMessage, CREATED_ASSISTANT);
+		store.createSession(persistedSessionInfo(store, projectID, sessionIDText, directory, assistantCompletedFromInfo(assistantMessage.info)));
+		persistMessage(store, userMessage);
+		persistMessage(store, assistantMessage);
 	}
 
-	static function persistMessage(store:SessionStore, message:WithParts, created:Float):Void {
+	static function persistMessage(store:SessionStore, message:WithParts):Void {
 		store.upsertMessage(message.info);
+		final created = createdFromInfo(message.info);
 		var offset = 0.0;
 		for (part in message.parts) {
 			store.upsertPart(part, created + offset);
@@ -585,7 +605,38 @@ class SessionProcessor {
 		}
 	}
 
-	static function sessionInfo(projectID:String, sessionIDText:String, directory:String):SessionInfo {
+	static function persistedSessionInfo(store:SessionStore, projectID:String, sessionIDText:String, directory:String, updated:Float):SessionInfo {
+		try {
+			return resumedSessionInfo(store.getSession(SessionID.make(sessionIDText)), directory, updated);
+		} catch (_:opencodehx.storage.StorageError.StorageException) {
+			return sessionInfo(projectID, sessionIDText, directory, updated);
+		}
+	}
+
+	static function resumedSessionInfo(existing:SessionInfo, directory:String, updated:Float):SessionInfo {
+		return {
+			id: existing.id,
+			slug: existing.slug,
+			projectID: existing.projectID,
+			workspaceID: existing.workspaceID,
+			parentID: existing.parentID,
+			directory: existing.directory,
+			title: existing.title,
+			version: existing.version,
+			summary: existing.summary,
+			share: existing.share,
+			revert: existing.revert,
+			permission: existing.permission,
+			time: {
+				created: existing.time.created,
+				updated: updated,
+				compacting: existing.time.compacting,
+				archived: existing.time.archived,
+			},
+		};
+	}
+
+	static function sessionInfo(projectID:String, sessionIDText:String, directory:String, updated:Float):SessionInfo {
 		return {
 			id: SessionID.make(sessionIDText),
 			slug: "fixture-slug",
@@ -595,7 +646,7 @@ class SessionProcessor {
 			version: BuildInfo.version,
 			time: {
 				created: CREATED_USER,
-				updated: COMPLETED_ASSISTANT,
+				updated: updated,
 			},
 		};
 	}
@@ -689,10 +740,11 @@ class SessionProcessor {
 	}
 
 	static function appendAssistantTool(message:WithParts, sessionIDText:String, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,
-			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>):SessionToolOutcome {
+			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>, turnID:Null<String>,
+			turnTime:Null<Float>):SessionToolOutcome {
 		final sessionID = SessionID.make(sessionIDText);
-		final messageID = MessageID.make(scoped(ASSISTANT_ID, sessionIDText));
-		final outcome = executeTool(sessionID, messageID, directory, agent, call, registry, permission, events);
+		final messageID = MessageID.make(scoped(partBase(ASSISTANT_ID, turnID), sessionIDText));
+		final outcome = executeTool(sessionID, messageID, directory, agent, call, registry, permission, events, turnID, turnTime);
 		insertBeforeAssistantText(message, outcome.part);
 		return outcome;
 	}
@@ -785,6 +837,50 @@ class SessionProcessor {
 		if (value == null || value == "")
 			return fallbackValue;
 		return value;
+	}
+
+	static function partBase(base:String, turnID:Null<String>):String {
+		if (turnID == null || turnID == "")
+			return base;
+		return base + "_" + sanitizeID(turnID);
+	}
+
+	static function userCreated(turnTime:Null<Float>):Float {
+		return turnTime == null ? CREATED_USER : turnTime;
+	}
+
+	static function assistantCreated(turnTime:Null<Float>):Float {
+		return userCreated(turnTime) + 1;
+	}
+
+	static function assistantCompleted(turnTime:Null<Float>):Float {
+		return userCreated(turnTime) + 2;
+	}
+
+	static function toolStarted(turnTime:Null<Float>):Float {
+		return userCreated(turnTime) + 1.25;
+	}
+
+	static function toolEnded(turnTime:Null<Float>):Float {
+		return userCreated(turnTime) + 1.75;
+	}
+
+	static function createdFromInfo(info:Info):Float {
+		return switch info {
+			case UserInfo(userData):
+				userData.time.created;
+			case AssistantInfo(assistantData):
+				assistantData.time.created;
+		}
+	}
+
+	static function assistantCompletedFromInfo(info:Info):Float {
+		return switch info {
+			case AssistantInfo(assistantData):
+				assistantData.time.completed == null ? assistantData.time.created : assistantData.time.completed;
+			case UserInfo(userData):
+				userData.time.created;
+		}
 	}
 
 	static function scopedFromSession(base:String, sessionID:SessionID):String {

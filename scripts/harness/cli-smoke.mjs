@@ -259,6 +259,14 @@ try {
 	assert.equal(persistedExportJson.info.id, persistedSessionID);
 	assert.equal(persistedExportJson.messages.length, 2);
 	assert.equal(persistedExportJson.messages[0].parts[0].text, "Persist from generated CLI.");
+	const appended = run(["run", "--format", "json", "--session", persistedSessionID, "Append", "from", "generated", "CLI."], { env: persistedEnv });
+	assert.equal(appended.status, 0);
+	assert.equal(JSON.parse(appended.stdout).request.sessionID, persistedSessionID);
+	const appendedExport = run(["export", persistedSessionID], { env: persistedEnv });
+	assert.equal(appendedExport.status, 0);
+	const appendedExportJson = JSON.parse(appendedExport.stdout);
+	assert.equal(appendedExportJson.messages.length, 4);
+	assert.equal(appendedExportJson.messages[2].parts[0].text, "Append from generated CLI.");
 	const globalLoaded = run(["run", "--live-ai-sdk", "--model", "global-live/missing", "Hello"], { env });
 	assert.equal(globalLoaded.status, 1);
 	assert.match(globalLoaded.stderr, /Model not found: global-live\/missing/);

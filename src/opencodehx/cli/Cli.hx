@@ -48,6 +48,8 @@ typedef RunSessionSelection = {
 typedef RunPersistence = {
 	final store:Null<SessionStore>;
 	final sessionID:Null<String>;
+	final turnID:Null<String>;
+	final turnTime:Null<Float>;
 }
 
 class Cli {
@@ -127,6 +129,8 @@ class Cli {
 				prompt: prompt,
 				directory: resume.directory,
 				sessionID: resume.sessionID == null ? persistence.sessionID : resume.sessionID,
+				turnID: persistence.turnID,
+				turnTime: persistence.turnTime,
 				store: persistence.store,
 			});
 			closeStore(persistence.store);
@@ -169,6 +173,8 @@ class Cli {
 				prompt: prompt,
 				directory: resume.directory,
 				sessionID: resume.sessionID == null ? persistence.sessionID : resume.sessionID,
+				turnID: persistence.turnID,
+				turnTime: persistence.turnTime,
 				store: persistence.store,
 				provider: fixture.info,
 				model: fixture.model,
@@ -289,15 +295,28 @@ class Cli {
 	}
 
 	static function runPersistence(resumedSessionID:Null<String>):RunPersistence {
-		if (resumedSessionID != null)
-			return {store: null, sessionID: null};
 		final dbPath = explicitDatabasePath();
 		if (dbPath == null)
-			return {store: null, sessionID: null};
+			return {
+				store: null,
+				sessionID: null,
+				turnID: null,
+				turnTime: null
+			};
 		Fs.mkdirSync(NodePath.dirname(dbPath), {recursive: true});
+		if (resumedSessionID != null) {
+			return {
+				store: new SqliteSessionStore(dbPath),
+				sessionID: null,
+				turnID: freshTurnID(),
+				turnTime: currentTurnTime(),
+			};
+		}
 		return {
 			store: new SqliteSessionStore(dbPath),
 			sessionID: freshSessionID(),
+			turnID: null,
+			turnTime: null,
 		};
 	}
 
@@ -310,6 +329,14 @@ class Cli {
 
 	static function freshSessionID():String {
 		return "ses_" + StringTools.replace(Crypto.randomUUID(), "-", "").substr(0, 20);
+	}
+
+	static function freshTurnID():String {
+		return "turn_" + StringTools.replace(Crypto.randomUUID(), "-", "").substr(0, 20);
+	}
+
+	static function currentTurnTime():Float {
+		return new js.lib.Date().getTime();
 	}
 
 	static function closeStore(store:Null<SessionStore>):Void {
