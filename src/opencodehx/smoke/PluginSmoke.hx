@@ -14,6 +14,8 @@ import opencodehx.plugin.PluginCloudflare;
 import opencodehx.plugin.PluginCloudflare.CloudflareChatParamsInput;
 import opencodehx.plugin.PluginCloudflare.CloudflareChatParamsOutput;
 import opencodehx.plugin.PluginCodex;
+import opencodehx.plugin.PluginGithubCopilotModels;
+import opencodehx.plugin.PluginGithubCopilotModels.CopilotRemoteModel;
 import opencodehx.plugin.PluginMeta;
 import opencodehx.plugin.PluginRuntime;
 import opencodehx.plugin.PluginRuntime.PluginLegacyExport;
@@ -22,6 +24,10 @@ import opencodehx.plugin.PluginRuntime.PluginV1Export;
 import opencodehx.plugin.PluginServerHooks;
 import opencodehx.plugin.PluginShared;
 import opencodehx.plugin.PluginShared.PluginSource;
+import opencodehx.provider.ProviderOpenRecords;
+import opencodehx.provider.ProviderTypes.ModelID;
+import opencodehx.provider.ProviderTypes.ProviderID;
+import opencodehx.provider.ProviderTypes.ProviderModel;
 
 class PluginSmoke {
 	public static function run():Void {
@@ -29,6 +35,7 @@ class PluginSmoke {
 		try {
 			codexJwtClaims();
 			cloudflareChatParams();
+			githubCopilotModels();
 			parseSpecifiers();
 			metadata(root);
 			runtime(root);
@@ -102,6 +109,90 @@ class PluginSmoke {
 
 	static function cloudflareOutput():CloudflareChatParamsOutput {
 		return {maxOutputTokens: 32000.0};
+	}
+
+	static function githubCopilotModels():Void {
+		final existing = new Map<String, ProviderModel>();
+		existing.set("gpt-4o", copilotModel("gpt-4o", "gpt-4o", "https://api.githubcopilot.com", "@ai-sdk/openai-compatible", true));
+		final merged = PluginGithubCopilotModels.merge("https://api.githubcopilot.com", [
+			copilotRemote("gpt-4o", "GPT-4o", "gpt", 64000, 16384, true),
+			copilotRemote("brand-new", "Brand New", "test", 32000, 8192, false),
+		], existing);
+		eq(merged.get("gpt-4o").capabilities.temperature, true, "copilot preserves existing temperature support");
+		eq(merged.get("brand-new").capabilities.temperature, true, "copilot defaults new model temperature support");
+
+		final fallbackInput = new Map<String, ProviderModel>();
+		fallbackInput.set("claude", copilotModel("claude", "claude-sonnet-4.5", "https://api.githubcopilot.com/v1", "@ai-sdk/anthropic", true));
+		final fallback = PluginGithubCopilotModels.fallbackModels(fallbackInput, "ghe.example.com");
+		eq(fallback.get("claude").api.url, "https://copilot-api.ghe.example.com", "copilot enterprise fallback url");
+		eq(fallback.get("claude").api.npm, "@ai-sdk/github-copilot", "copilot enterprise fallback sdk");
+	}
+
+	static function copilotRemote(id:String, name:String, family:String, context:Float, output:Float, toolCalls:Bool):CopilotRemoteModel {
+		return {
+			modelPickerEnabled: true,
+			id: id,
+			name: name,
+			version: id + "-2026-04-01",
+			family: family,
+			maxContextWindowTokens: context,
+			maxOutputTokens: output,
+			maxPromptTokens: context,
+			streaming: true,
+			toolCalls: toolCalls,
+		};
+	}
+
+	static function copilotModel(key:String, apiID:String, apiURL:String, apiNpm:String, temperature:Bool):ProviderModel {
+		return {
+			id: ModelID.make(key),
+			providerID: ProviderID.make("github-copilot"),
+			api: {
+				id: apiID,
+				url: apiURL,
+				npm: apiNpm,
+			},
+			name: key,
+			family: "gpt",
+			capabilities: {
+				temperature: temperature,
+				reasoning: false,
+				attachment: true,
+				toolcall: true,
+				input: {
+					text: true,
+					audio: false,
+					image: true,
+					video: false,
+					pdf: false,
+				},
+				output: {
+					text: true,
+					audio: false,
+					image: false,
+					video: false,
+					pdf: false,
+				},
+				interleaved: false,
+			},
+			cost: {
+				input: 0,
+				output: 0,
+				cache: {
+					read: 0,
+					write: 0,
+				},
+			},
+			limit: {
+				context: 64000,
+				output: 16384,
+			},
+			options: ProviderOpenRecords.options(),
+			headers: ProviderOpenRecords.headers(),
+			release_date: "2024-05-13",
+			variants: ProviderOpenRecords.variants(),
+			status: "active",
+		};
 	}
 
 	static function jwt(payload:Dynamic):String {
