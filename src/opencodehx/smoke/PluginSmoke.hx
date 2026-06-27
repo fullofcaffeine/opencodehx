@@ -10,6 +10,9 @@ import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeBuffer;
+import opencodehx.plugin.PluginCloudflare;
+import opencodehx.plugin.PluginCloudflare.CloudflareChatParamsInput;
+import opencodehx.plugin.PluginCloudflare.CloudflareChatParamsOutput;
 import opencodehx.plugin.PluginCodex;
 import opencodehx.plugin.PluginMeta;
 import opencodehx.plugin.PluginRuntime;
@@ -25,6 +28,7 @@ class PluginSmoke {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-plugin-"));
 		try {
 			codexJwtClaims();
+			cloudflareChatParams();
 			parseSpecifiers();
 			metadata(root);
 			runtime(root);
@@ -66,6 +70,38 @@ class PluginSmoke {
 		final noAccount = jwt({email: "test@example.com"});
 		eq(PluginCodex.extractAccountId({id_token: noAccount, access_token: noAccount, refresh_token: "rt"}) == null, true, "codex no token account id");
 		eq(PluginCodex.extractAccountId({id_token: "", access_token: accessToken, refresh_token: "rt"}), "from-access-token", "codex missing id token");
+	}
+
+	static function cloudflareChatParams():Void {
+		final omitted = cloudflareOutput();
+		PluginCloudflare.applyChatParams(cloudflareInput("cloudflare-ai-gateway", "openai/gpt-5.2-codex", true), omitted);
+		eq(omitted.maxOutputTokens.orNull() == null, true, "cloudflare omits openai reasoning max output");
+
+		final nonReasoning = cloudflareOutput();
+		PluginCloudflare.applyChatParams(cloudflareInput("cloudflare-ai-gateway", "openai/gpt-4-turbo", false), nonReasoning);
+		eq(nonReasoning.maxOutputTokens.orNull(), 32000.0, "cloudflare keeps openai non-reasoning max output");
+
+		final nonOpenAI = cloudflareOutput();
+		PluginCloudflare.applyChatParams(cloudflareInput("cloudflare-ai-gateway", "anthropic/claude-sonnet-4-5", true), nonOpenAI);
+		eq(nonOpenAI.maxOutputTokens.orNull(), 32000.0, "cloudflare keeps non-openai reasoning max output");
+
+		final otherProvider = cloudflareOutput();
+		PluginCloudflare.applyChatParams(cloudflareInput("openai", "gpt-5.2-codex", true), otherProvider);
+		eq(otherProvider.maxOutputTokens.orNull(), 32000.0, "cloudflare ignores non-cloudflare provider");
+	}
+
+	static function cloudflareInput(providerID:String, apiID:String, reasoning:Bool):CloudflareChatParamsInput {
+		return {
+			model: {
+				providerID: providerID,
+				api: {id: apiID},
+				capabilities: {reasoning: reasoning},
+			},
+		};
+	}
+
+	static function cloudflareOutput():CloudflareChatParamsOutput {
+		return {maxOutputTokens: 32000.0};
 	}
 
 	static function jwt(payload:Dynamic):String {
