@@ -291,6 +291,19 @@ try {
 	const appendedExportJson = JSON.parse(appendedExport.stdout);
 	assert.equal(appendedExportJson.messages.length, 4);
 	assert.equal(appendedExportJson.messages[2].parts[0].text, "Append from generated CLI.");
+	const forked = run(["run", "--format", "json", "--session", persistedSessionID, "--fork", "Fork", "from", "generated", "CLI."], {
+		env: persistedEnv,
+	});
+	assert.equal(forked.status, 0);
+	const forkedSessionID = JSON.parse(forked.stdout).request.sessionID;
+	assert.match(forkedSessionID, /^ses_/);
+	assert.notEqual(forkedSessionID, persistedSessionID);
+	const forkedExport = run(["export", forkedSessionID], { env: persistedEnv });
+	assert.equal(forkedExport.status, 0);
+	const forkedExportJson = JSON.parse(forkedExport.stdout);
+	assert.equal(forkedExportJson.info.parentID, persistedSessionID);
+	assert.equal(forkedExportJson.messages.length, 2);
+	assert.equal(forkedExportJson.messages[0].parts[0].text, "Fork from generated CLI.");
 	const mockEnv = { ...env, OPENCODE_DB: path.join(tempRoot, "mock-sdk-run.sqlite") };
 	const mockPersisted = run(["run", "--mock-ai-sdk", "--format", "json", "Persist", "from", "generated", "mock", "SDK."], { env: mockEnv });
 	assert.equal(mockPersisted.status, 0);

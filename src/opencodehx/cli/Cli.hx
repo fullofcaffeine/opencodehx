@@ -44,6 +44,7 @@ typedef CliResult = {
 typedef RunSessionSelection = {
 	final directory:String;
 	final sessionID:Null<String>;
+	final forkParentID:Null<String>;
 	final history:Array<WithParts>;
 	final error:Null<String>;
 }
@@ -135,7 +136,7 @@ class Cli {
 		final resumeError = resume.error;
 		if (resumeError != null)
 			return fail(resumeError);
-		final persistence = runPersistence(resume.sessionID);
+		final persistence = runPersistence(resume.sessionID, resume.forkParentID);
 		try {
 			final processed = SessionProcessor.run({
 				prompt: prompt,
@@ -143,6 +144,7 @@ class Cli {
 				sessionID: resume.sessionID == null ? persistence.sessionID : resume.sessionID,
 				turnID: persistence.turnID,
 				turnTime: persistence.turnTime,
+				parentSessionID: resume.forkParentID,
 				store: persistence.store,
 				files: filesResult.files,
 			});
@@ -184,7 +186,7 @@ class Cli {
 		if (resumeError != null)
 			return fail(resumeError);
 		final fixture = new FakeProvider();
-		final persistence = runPersistence(resume.sessionID);
+		final persistence = runPersistence(resume.sessionID, resume.forkParentID);
 		try {
 			final processed = @:await SessionProcessor.runAiSdk({
 				prompt: prompt,
@@ -192,6 +194,7 @@ class Cli {
 				sessionID: resume.sessionID == null ? persistence.sessionID : resume.sessionID,
 				turnID: persistence.turnID,
 				turnTime: persistence.turnTime,
+				parentSessionID: resume.forkParentID,
 				store: persistence.store,
 				provider: fixture.info,
 				model: fixture.model,
@@ -313,17 +316,24 @@ class Cli {
 		}
 	}
 
-	static function runPersistence(resumedSessionID:Null<String>):RunPersistence {
+	static function runPersistence(resumedSessionID:Null<String>, forkParentID:Null<String>):RunPersistence {
 		final dbPath = explicitDatabasePath();
-		if (dbPath == null)
+		if (dbPath == null && forkParentID == null)
 			return {
 				store: null,
 				sessionID: null,
 				turnID: null,
 				turnTime: null
 			};
+		if (dbPath == null)
+			return {
+				store: null,
+				sessionID: freshSessionID(),
+				turnID: null,
+				turnTime: null,
+			};
 		Fs.mkdirSync(NodePath.dirname(dbPath), {recursive: true});
-		if (resumedSessionID != null) {
+		if (resumedSessionID != null && forkParentID == null) {
 			return {
 				store: new SqliteSessionStore(dbPath),
 				sessionID: null,
@@ -368,6 +378,7 @@ class Cli {
 			return {
 				directory: fallbackDirectory,
 				sessionID: null,
+				forkParentID: null,
 				history: [],
 				error: "--fork requires --continue or --session"
 			};
@@ -378,6 +389,7 @@ class Cli {
 			return {
 				directory: fallbackDirectory,
 				sessionID: null,
+				forkParentID: null,
 				history: [],
 				error: null
 			};
@@ -401,26 +413,29 @@ class Cli {
 					return {
 						directory: fallbackDirectory,
 						sessionID: null,
+						forkParentID: null,
 						history: [],
 						error: "No sessions found to continue."
 					};
 				}
 			}
-			if (has(args, "--fork")) {
-				store.close();
-				return {
-					directory: fallbackDirectory,
-					sessionID: null,
-					history: [],
-					error: "--fork is not wired in the non-interactive scaffold yet."
-				};
-			}
 			final recovered = SessionProcessor.recover(store, sessionIDText, 40);
 			store.close();
 			final explicitDirectory = option(args, "--dir", "") != "";
+			final directory = explicitDirectory ? fallbackDirectory : recovered.session.directory;
+			if (has(args, "--fork")) {
+				return {
+					directory: directory,
+					sessionID: null,
+					forkParentID: recovered.session.id.toString(),
+					history: recovered.messages,
+					error: null,
+				};
+			}
 			return {
-				directory: explicitDirectory ? fallbackDirectory : recovered.session.directory,
+				directory: directory,
 				sessionID: recovered.session.id.toString(),
+				forkParentID: null,
 				history: recovered.messages,
 				error: null,
 			};
@@ -430,6 +445,7 @@ class Cli {
 			return {
 				directory: fallbackDirectory,
 				sessionID: null,
+				forkParentID: null,
 				history: [],
 				error: 'Session not found: ${sessionIDText}'
 			};
@@ -439,6 +455,7 @@ class Cli {
 			return {
 				directory: fallbackDirectory,
 				sessionID: null,
+				forkParentID: null,
 				history: [],
 				error: ErrorFormatter.format(Unknown.fromBoundary(error))
 			};

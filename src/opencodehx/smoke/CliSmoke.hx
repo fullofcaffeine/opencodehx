@@ -244,9 +244,30 @@ class CliSmoke {
 			eq(invalidFork.exitCode, 1, "cli run invalid fork exit");
 			eq(invalidFork.stderr.indexOf("--fork requires --continue or --session") != -1, true, "cli run invalid fork message");
 
-			final unsupportedFork = Cli.run(["run", "--session", "ses_cli_export", "--fork", "Hello"]);
-			eq(unsupportedFork.exitCode, 1, "cli run fork unsupported exit");
-			eq(unsupportedFork.stderr.indexOf("--fork is not wired") != -1, true, "cli run fork unsupported message");
+			final forkedRun = Cli.run([
+				"run",
+				"--session",
+				"ses_cli_export",
+				"--fork",
+				"--format",
+				"json",
+				"Fork",
+				"this",
+				"session."
+			]);
+			eq(forkedRun.exitCode, 0, "cli run fork exit");
+			final forkedParsed:Dynamic = Json.parse(forkedRun.stdout);
+			final forkedSessionID = Std.string(Reflect.field(Reflect.field(forkedParsed, "request"), "sessionID"));
+			eq(forkedSessionID.indexOf("ses_"), 0, "cli run fork generated session id");
+			eq(forkedSessionID == "ses_cli_export", false, "cli run fork uses child session id");
+			final forkedExport = Cli.run(["export", forkedSessionID]);
+			eq(forkedExport.exitCode, 0, "cli run fork export exit");
+			final forkedExportParsed:Dynamic = Json.parse(forkedExport.stdout);
+			eq(Reflect.field(Reflect.field(forkedExportParsed, "info"), "parentID"), "ses_cli_export", "cli run fork parent id");
+			final forkedMessages:Array<Dynamic> = Reflect.field(forkedExportParsed, "messages");
+			eq(forkedMessages.length, 2, "cli run fork export messages");
+			final forkedParts:Array<Dynamic> = Reflect.field(forkedMessages[0], "parts");
+			eq(Reflect.field(forkedParts[0], "text"), "Fork this session.", "cli run fork prompt");
 
 			final persistedRun = Cli.run(["run", "--format", "json", "Persist", "this", "run."]);
 			eq(persistedRun.exitCode, 0, "cli run persisted exit");

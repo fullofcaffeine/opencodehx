@@ -184,6 +184,20 @@ try {
 	const continuedMessages = JSON.parse(continuedExport.stdout).messages;
 	assert.equal(continuedMessages.length, 6, "installed continue export messages");
 	assert.equal(continuedMessages[4].parts[0].text, "Continue from installed package.", "installed continue export prompt");
+	const forkedRun = expectOk(
+		run(bin, ["run", "--format", "json", "--session", persistedSessionID, "--fork", "Fork", "from", "installed", "package."], {
+			env: installedDbEnv,
+		}),
+		"installed fork run",
+	);
+	const forkedSessionID = JSON.parse(forkedRun.stdout).request.sessionID;
+	assert.match(forkedSessionID, /^ses_/, "installed fork run session id");
+	assert.notEqual(forkedSessionID, persistedSessionID, "installed fork uses child session id");
+	const forkedExport = expectOk(run(bin, ["export", forkedSessionID], { env: installedDbEnv }), "installed fork export");
+	const forkedExportJson = JSON.parse(forkedExport.stdout);
+	assert.equal(forkedExportJson.info.parentID, persistedSessionID, "installed fork parent id");
+	assert.equal(forkedExportJson.messages.length, 2, "installed fork export messages");
+	assert.equal(forkedExportJson.messages[0].parts[0].text, "Fork from installed package.", "installed fork export prompt");
 	const installedMockDbEnv = {
 		...process.env,
 		OPENCODE_DB: path.join(tempRoot, "installed-mock-run.sqlite"),

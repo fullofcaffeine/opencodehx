@@ -87,6 +87,7 @@ typedef SessionProcessorInput = {
 	@:optional final sessionID:String;
 	@:optional final turnID:String;
 	@:optional final turnTime:Float;
+	@:optional final parentSessionID:String;
 	@:optional final projectID:String;
 	@:optional final agent:String;
 	@:optional final aborted:Bool;
@@ -110,6 +111,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final sessionID:String;
 	@:optional final turnID:String;
 	@:optional final turnTime:Float;
+	@:optional final parentSessionID:String;
 	@:optional final projectID:String;
 	@:optional final agent:String;
 	@:optional final aborted:Bool;
@@ -225,7 +227,7 @@ class SessionProcessor {
 			input.permission, events, retry, input.providerError, aborted, tokens, input.turnID, input.turnTime);
 
 		if (input.store != null) {
-			persist(input.store, projectID, sessionIDText, input.directory, userMessage, assistantMessage.message);
+			persist(input.store, projectID, sessionIDText, input.directory, input.parentSessionID, userMessage, assistantMessage.message);
 		}
 
 		return {
@@ -339,7 +341,7 @@ class SessionProcessor {
 		}
 
 		if (input.store != null) {
-			persist(input.store, projectID, sessionIDText, input.directory, userMessage, assistantMessage.message);
+			persist(input.store, projectID, sessionIDText, input.directory, input.parentSessionID, userMessage, assistantMessage.message);
 		}
 
 		return {
@@ -651,10 +653,11 @@ class SessionProcessor {
 		});
 	}
 
-	static function persist(store:SessionStore, projectID:String, sessionIDText:String, directory:String, userMessage:WithParts,
+	static function persist(store:SessionStore, projectID:String, sessionIDText:String, directory:String, parentSessionID:Null<String>, userMessage:WithParts,
 			assistantMessage:WithParts):Void {
 		store.upsertProject({id: projectID, worktree: directory, name: "OpenCodeHX fixture"});
-		store.createSession(persistedSessionInfo(store, projectID, sessionIDText, directory, assistantCompletedFromInfo(assistantMessage.info)));
+		store.createSession(persistedSessionInfo(store, projectID, sessionIDText, directory, parentSessionID,
+			assistantCompletedFromInfo(assistantMessage.info)));
 		persistMessage(store, userMessage);
 		persistMessage(store, assistantMessage);
 	}
@@ -669,11 +672,12 @@ class SessionProcessor {
 		}
 	}
 
-	static function persistedSessionInfo(store:SessionStore, projectID:String, sessionIDText:String, directory:String, updated:Float):SessionInfo {
+	static function persistedSessionInfo(store:SessionStore, projectID:String, sessionIDText:String, directory:String, parentSessionID:Null<String>,
+			updated:Float):SessionInfo {
 		try {
 			return resumedSessionInfo(store.getSession(SessionID.make(sessionIDText)), directory, updated);
 		} catch (_:opencodehx.storage.StorageError.StorageException) {
-			return sessionInfo(projectID, sessionIDText, directory, updated);
+			return sessionInfo(projectID, sessionIDText, directory, parentSessionID, updated);
 		}
 	}
 
@@ -700,7 +704,22 @@ class SessionProcessor {
 		};
 	}
 
-	static function sessionInfo(projectID:String, sessionIDText:String, directory:String, updated:Float):SessionInfo {
+	static function sessionInfo(projectID:String, sessionIDText:String, directory:String, parentSessionID:Null<String>, updated:Float):SessionInfo {
+		if (parentSessionID != null) {
+			return {
+				id: SessionID.make(sessionIDText),
+				slug: "fixture-slug",
+				projectID: projectID,
+				parentID: SessionID.make(parentSessionID),
+				directory: directory,
+				title: "Say hello from the fixture.",
+				version: BuildInfo.version,
+				time: {
+					created: CREATED_USER,
+					updated: updated,
+				},
+			};
+		}
 		return {
 			id: SessionID.make(sessionIDText),
 			slug: "fixture-slug",
