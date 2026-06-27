@@ -180,6 +180,31 @@ class SessionProcessorSmoke {
 		final agentAllowQuestion:Array<PermissionRule> = [{permission: "question", pattern: "*", action: "allow"}];
 		final promptDenied = SessionLlm.resolveTools(tools, agentAllowQuestion, promptDenyQuestion, userTools);
 		eq(hasAiTool(promptDenied, "question"), false, "llm resolve prompt deny overrides agent allow");
+
+		tools.set(SessionLlm.INVALID_TOOL_ID, AiSdkProvider.readTool());
+		final activeNames = SessionLlm.activeToolNames(tools);
+		eq(hasString(activeNames, "question"), true, "llm active tools keeps normal tool");
+		eq(hasString(activeNames, "read"), true, "llm active tools keeps read");
+		eq(hasString(activeNames, SessionLlm.INVALID_TOOL_ID), false, "llm active tools skips invalid");
+
+		final workflowTools = new DynamicAccess<AiTool>();
+		workflowTools.set("read", AiSdkProvider.readTool());
+		workflowTools.set("question", AiSdkProvider.readTool());
+		workflowTools.set("bash", AiSdkProvider.readTool());
+		final workflowAgent:Array<PermissionRule> = [
+			{permission: "*", pattern: "*", action: "ask"},
+			{permission: "read", pattern: "*", action: "allow"}
+		];
+		final workflowPrompt:Array<PermissionRule> = [{permission: "question", pattern: "*", action: "deny"}];
+		final preapproved = SessionLlm.workflowPreapprovedTools(workflowTools, workflowAgent, workflowPrompt);
+		eq(hasString(preapproved, "read"), true, "llm workflow preapproved allow");
+		eq(hasString(preapproved, "question"), true, "llm workflow preapproved deny still preapproved");
+		eq(hasString(preapproved, "bash"), false, "llm workflow preapproved ask excluded");
+
+		final promptAsk:Array<PermissionRule> = [{permission: "read", pattern: "*", action: "ask"}];
+		final promptAskResult = SessionLlm.workflowPreapprovedTools(workflowTools, workflowAgent, promptAsk);
+		eq(hasString(promptAskResult, "read"), false, "llm workflow preapproved prompt ask wins");
+		eq(SessionLlm.workflowPreapprovedTools(workflowTools, [], []).length, 3, "llm workflow preapproved no rules includes all");
 	}
 
 	static function llmCompatibilityTools():Void {
@@ -337,6 +362,14 @@ class SessionProcessorSmoke {
 	static function hasAiTool(tools:DynamicAccess<AiTool>, name:String):Bool {
 		for (key in tools.keys()) {
 			if (key == name)
+				return true;
+		}
+		return false;
+	}
+
+	static function hasString(items:Array<String>, expected:String):Bool {
+		for (item in items) {
+			if (item == expected)
 				return true;
 		}
 		return false;

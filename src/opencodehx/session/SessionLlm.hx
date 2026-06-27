@@ -11,6 +11,7 @@ import opencodehx.permission.PermissionRules;
 import opencodehx.permission.PermissionTypes.PermissionRule;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
+import opencodehx.util.Wildcard;
 
 typedef LlmRequestHeaderInput = {
 	final model:ProviderModel;
@@ -36,6 +37,7 @@ typedef LlmSystemInput = {
  */
 class SessionLlm {
 	public static inline final NOOP_TOOL_ID = "_noop";
+	public static inline final INVALID_TOOL_ID = "invalid";
 
 	public static function hasToolCalls(messages:Array<AiLanguageModelPromptMessage>):Bool {
 		for (message in messages) {
@@ -136,6 +138,26 @@ class SessionLlm {
 		return out;
 	}
 
+	public static function activeToolNames(tools:DynamicAccess<AiTool>):Array<String> {
+		final out:Array<String> = [];
+		for (name in tools.keys()) {
+			if (name != INVALID_TOOL_ID)
+				out.push(name);
+		}
+		return out;
+	}
+
+	public static function workflowPreapprovedTools(tools:DynamicAccess<AiTool>, agentRules:Array<PermissionRule>,
+			promptRules:Array<PermissionRule>):Array<String> {
+		final out:Array<String> = [];
+		final ruleset = PermissionRules.merge([agentRules, promptRules]);
+		for (name in tools.keys()) {
+			if (lastToolAction(name, ruleset) != "ask")
+				out.push(name);
+		}
+		return out;
+	}
+
 	public static function requiresNoopTool(model:ProviderModel):Bool {
 		final providerID = model.providerID.toString().toLowerCase();
 		final apiID = model.api.id.toLowerCase();
@@ -150,6 +172,15 @@ class SessionLlm {
 		for (_ in tools.keys())
 			return true;
 		return false;
+	}
+
+	static function lastToolAction(name:String, ruleset:Array<PermissionRule>):Null<String> {
+		var found:Null<String> = null;
+		for (rule in ruleset) {
+			if (Wildcard.match(name, rule.permission))
+				found = rule.action;
+		}
+		return found;
 	}
 
 	static function copyHeaders(source:ProviderHeaders, target:ProviderHeaders):Void {
