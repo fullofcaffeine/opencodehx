@@ -53,22 +53,6 @@ function runAsync(args, options = {}) {
 	});
 }
 
-function canonical(value) {
-  return `${JSON.stringify(value, Object.keys(flattenKeys(value)).sort(), 2)}\n`;
-}
-
-function flattenKeys(value, keys = {}) {
-  if (Array.isArray(value)) {
-    for (const item of value) flattenKeys(item, keys);
-  } else if (value && typeof value === "object") {
-    for (const [key, child] of Object.entries(value)) {
-      keys[key] = true;
-      flattenKeys(child, keys);
-    }
-  }
-  return keys;
-}
-
 async function withRemoteConfigServer(fn) {
 	const observed = { accountAuth: null, accountOrg: null };
 	const server = createServer((req, res) => {
@@ -274,34 +258,57 @@ const version = run(["--version"]);
 assert.equal(version.status, 0);
 assert.equal(version.stdout, `${packageJson.version}\n`);
 
-const text = run(["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."]);
-assert.equal(text.status, 0);
-assert.equal(text.stdout, "Hello from the fake provider.\n");
+const defaultRoot = mkdtempSync(path.join(os.tmpdir(), "opencodehx-cli-default-"));
+try {
+	const defaultEnv = {
+		...process.env,
+		XDG_CONFIG_HOME: path.join(defaultRoot, "config"),
+		XDG_DATA_HOME: path.join(defaultRoot, "data"),
+	};
+	delete defaultEnv.OPENCODE_DB;
+	const text = run(["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."], { env: defaultEnv });
+	assert.equal(text.status, 0);
+	assert.equal(text.stdout, "Hello from the fake provider.\n");
 
-const json = run(["run", "--format", "json", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."]);
-assert.equal(json.status, 0);
-const golden = JSON.parse(readFileSync(path.join(root, "fixtures/transcripts/one-turn.golden.json"), "utf8"));
-assert.equal(canonical(JSON.parse(json.stdout)), canonical(golden));
+	const json = run(["run", "--format", "json", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "fixture."], { env: defaultEnv });
+	assert.equal(json.status, 0);
+	const parsedJson = JSON.parse(json.stdout);
+	assert.equal(parsedJson.provider.id, "openai");
+	assert.equal(parsedJson.request.prompt, "Say hello from the fixture.");
+	assert.match(parsedJson.request.sessionID, /^ses_/);
+	assert.equal(parsedJson.messages[1].parts.find((part) => part.type === "text").text, "Hello from the fake provider.");
+	const defaultExport = run(["export", parsedJson.request.sessionID], { env: defaultEnv });
+	assert.equal(defaultExport.status, 0);
+	assert.equal(JSON.parse(defaultExport.stdout).messages.length, 2);
+	const defaultResume = run(["run", "--format", "json", "--session", parsedJson.request.sessionID, "Continue", "default", "store."], { env: defaultEnv });
+	assert.equal(defaultResume.status, 0);
+	assert.equal(JSON.parse(defaultResume.stdout).request.sessionID, parsedJson.request.sessionID);
+	const defaultContinue = run(["run", "--format", "json", "--continue", "Continue", "latest", "default", "store."], { env: defaultEnv });
+	assert.equal(defaultContinue.status, 0);
+	assert.match(JSON.parse(defaultContinue.stdout).request.sessionID, /^ses_/);
 
-const mockText = run(["run", "--mock-ai-sdk", "Say", "hello", "through", "the", "SDK."]);
-assert.equal(mockText.status, 0);
-assert.equal(mockText.stdout, "Hello from the AI SDK session.\n");
+	const mockText = run(["run", "--mock-ai-sdk", "Say", "hello", "through", "the", "SDK."], { env: defaultEnv });
+	assert.equal(mockText.status, 0);
+	assert.equal(mockText.stdout, "Hello from the AI SDK session.\n");
 
-const mockJson = run(["run", "--mock-ai-sdk", "--format", "json", "Say", "hello", "through", "the", "SDK."]);
-assert.equal(mockJson.status, 0);
-const mockParsed = JSON.parse(mockJson.stdout);
-assert.equal(mockParsed.provider.id, "openai");
-assert.equal(mockParsed.request.system[0], "You are an AI SDK provider runtime.");
-assert.equal(mockParsed.events[0].type, "start");
-assert.equal(mockParsed.events[1].text, "Hello ");
+	const mockJson = run(["run", "--mock-ai-sdk", "--format", "json", "Say", "hello", "through", "the", "SDK."], { env: defaultEnv });
+	assert.equal(mockJson.status, 0);
+	const mockParsed = JSON.parse(mockJson.stdout);
+	assert.equal(mockParsed.provider.id, "openai");
+	assert.equal(mockParsed.request.system[0], "You are an AI SDK provider runtime.");
+	assert.equal(mockParsed.events[0].type, "start");
+	assert.equal(mockParsed.events[1].text, "Hello ");
 
-const liveMissingModel = run(["run", "--live-ai-sdk", "Hello"]);
-assert.equal(liveMissingModel.status, 1);
-assert.match(liveMissingModel.stderr, /require --model/);
+	const liveMissingModel = run(["run", "--live-ai-sdk", "Hello"], { env: defaultEnv });
+	assert.equal(liveMissingModel.status, 1);
+	assert.match(liveMissingModel.stderr, /require --model/);
 
-const liveMissingProvider = run(["run", "--live-ai-sdk", "--model", "missing-provider\/model", "Hello"]);
-assert.equal(liveMissingProvider.status, 1);
-assert.match(liveMissingProvider.stderr, /Provider not available/);
+	const liveMissingProvider = run(["run", "--live-ai-sdk", "--model", "missing-provider\/model", "Hello"], { env: defaultEnv });
+	assert.equal(liveMissingProvider.status, 1);
+	assert.match(liveMissingProvider.stderr, /Provider not available/);
+} finally {
+	rmSync(defaultRoot, { recursive: true, force: true });
+}
 
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "opencodehx-cli-"));
 try {

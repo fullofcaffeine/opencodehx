@@ -204,6 +204,13 @@ try {
 	assert.equal(existsSync(bin), true, "global install exposes opencodehx bin");
 	const installedBun = path.join(installedRoot, "node_modules", ".bin", process.platform === "win32" ? "bun.cmd" : "bun");
 	assert.equal(existsSync(installedBun), true, "installed package exposes package-local bun");
+	const installedEnv = {
+		...process.env,
+		XDG_CONFIG_HOME: path.join(tempRoot, "installed-config"),
+		XDG_DATA_HOME: path.join(tempRoot, "installed-data"),
+		OPENCODE_TEST_HOME: path.join(tempRoot, "installed-home"),
+	};
+	delete installedEnv.OPENCODE_DB;
 
 	const version = expectOk(run(bin, ["--version"]), "installed version");
 	assert.equal(version.stdout, `${packageJson.version}\n`);
@@ -211,7 +218,7 @@ try {
 	const help = expectOk(run(bin, ["--help"]), "installed help");
 	assert.match(help.stdout, /providers\s+manage AI providers and credentials/);
 
-	const runResult = expectOk(run(bin, ["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "package."]), "installed run");
+	const runResult = expectOk(run(bin, ["run", "--model", "openai/gpt-5.2", "Say", "hello", "from", "the", "package."], { env: installedEnv }), "installed run");
 	assert.equal(runResult.stdout, "Hello from the fake provider.\n");
 	const projectDir = path.join(tempRoot, "workspace");
 	mkdirSync(projectDir, { recursive: true });
@@ -232,10 +239,20 @@ try {
 			"the",
 			"installed",
 			"workspace.",
-		]),
+		], { env: installedEnv }),
 		"installed run with dir",
 	);
-	assert.equal(assistantCwd(JSON.parse(runJson.stdout)), projectDir, "installed run assistant cwd");
+	const runJsonTranscript = JSON.parse(runJson.stdout);
+	assert.equal(assistantCwd(runJsonTranscript), projectDir, "installed run assistant cwd");
+	assert.match(runJsonTranscript.request.sessionID, /^ses_/, "installed default run session id");
+	const defaultExport = expectOk(run(bin, ["export", runJsonTranscript.request.sessionID], { env: installedEnv }), "installed default export");
+	assert.equal(JSON.parse(defaultExport.stdout).messages.length, 2, "installed default export messages");
+	const defaultResume = expectOk(run(bin, ["run", "--format", "json", "--session", runJsonTranscript.request.sessionID, "Continue", "installed", "default."], { env: installedEnv }),
+		"installed default resume");
+	assert.equal(JSON.parse(defaultResume.stdout).request.sessionID, runJsonTranscript.request.sessionID, "installed default resume session id");
+	const defaultContinue = expectOk(run(bin, ["run", "--format", "json", "--continue", "Continue", "latest", "installed", "default."], { env: installedEnv }),
+		"installed default continue");
+	assert.match(JSON.parse(defaultContinue.stdout).request.sessionID, /^ses_/, "installed default continue session id");
 	const runWithFile = expectOk(
 		run(bin, [
 			"run",
@@ -250,7 +267,7 @@ try {
 			"Use",
 			"installed",
 			"file.",
-		]),
+		], { env: installedEnv }),
 		"installed run with file",
 	);
 	const runWithFileParts = JSON.parse(runWithFile.stdout).messages[0].parts;
@@ -271,13 +288,16 @@ try {
 			"the",
 			"installed",
 			"SDK.",
-		]),
+		], { env: installedEnv }),
 		"installed mock AI SDK run with dir",
 	);
 	const mockTranscript = JSON.parse(mockJson.stdout);
 	assert.equal(mockTranscript.provider.id, "openai", "installed mock AI SDK provider");
 	assert.equal(mockTranscript.events[0].type, "start", "installed mock AI SDK start event");
 	assert.equal(assistantCwd(mockTranscript), projectDir, "installed mock AI SDK assistant cwd");
+	assert.match(mockTranscript.request.sessionID, /^ses_/, "installed default mock AI SDK session id");
+	const mockDefaultExport = expectOk(run(bin, ["export", mockTranscript.request.sessionID], { env: installedEnv }), "installed default mock AI SDK export");
+	assert.equal(JSON.parse(mockDefaultExport.stdout).messages.length, 2, "installed default mock AI SDK export messages");
 	await withLiveOpenAICompatibleServer(async (localUrl, observed) => {
 		const liveConfigRoot = path.join(tempRoot, "installed-live-config");
 		const liveDataRoot = path.join(tempRoot, "installed-live-data");
@@ -301,7 +321,6 @@ try {
 			...process.env,
 			XDG_CONFIG_HOME: liveConfigRoot,
 			XDG_DATA_HOME: liveDataRoot,
-			OPENCODE_DB: path.join(tempRoot, "installed-live-run.sqlite"),
 		};
 		const liveRun = await expectOkAsync(
 			runAsync(
@@ -473,7 +492,7 @@ try {
 		);
 	});
 	const installedDbEnv = {
-		...process.env,
+		...installedEnv,
 		OPENCODE_DB: path.join(tempRoot, "installed-run.sqlite"),
 	};
 	const persistedRun = expectOk(
@@ -528,7 +547,7 @@ try {
 	assert.equal(forkedExportJson.messages.length, 2, "installed fork export messages");
 	assert.equal(forkedExportJson.messages[0].parts[0].text, "Fork from installed package.", "installed fork export prompt");
 	const installedMockDbEnv = {
-		...process.env,
+		...installedEnv,
 		OPENCODE_DB: path.join(tempRoot, "installed-mock-run.sqlite"),
 	};
 	const persistedMockRun = expectOk(
@@ -564,7 +583,7 @@ try {
 	);
 	assert.match(tui.stdout, /tui-scaffold:ok/);
 
-	const serveHelp = expectOk(run(bin, ["serve", "--help"]), "installed serve help");
+	const serveHelp = expectOk(run(bin, ["serve", "--help"], { env: installedEnv }), "installed serve help");
 	assert.match(serveHelp.stdout, /opencodehx serve/);
 	assert.match(serveHelp.stdout, /--hostname <value>/);
 

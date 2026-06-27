@@ -28,6 +28,29 @@ import opencodehx.storage.SqliteSessionStore;
 
 class CliSmoke {
 	public static function run():Void {
+		final smokeRoot = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-smoke-env-"));
+		final originalXdg = NodeProcess.envValue("XDG_CONFIG_HOME");
+		final originalXdgData = NodeProcess.envValue("XDG_DATA_HOME");
+		final originalDb = NodeProcess.envValue("OPENCODE_DB");
+		try {
+			NodeProcess.setEnv("XDG_CONFIG_HOME", NodePath.join(smokeRoot, "xdg"));
+			NodeProcess.setEnv("XDG_DATA_HOME", NodePath.join(smokeRoot, "data"));
+			NodeProcess.unsetEnv("OPENCODE_DB");
+			runIsolated();
+			restoreEnv("XDG_CONFIG_HOME", originalXdg);
+			restoreEnv("XDG_DATA_HOME", originalXdgData);
+			restoreEnv("OPENCODE_DB", originalDb);
+			Fs.rmSync(smokeRoot, {recursive: true, force: true});
+		} catch (error:Dynamic) {
+			restoreEnv("XDG_CONFIG_HOME", originalXdg);
+			restoreEnv("XDG_DATA_HOME", originalXdgData);
+			restoreEnv("OPENCODE_DB", originalDb);
+			Fs.rmSync(smokeRoot, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
+	static function runIsolated():Void {
 		final help = Cli.run(["--help"]);
 		eq(help.exitCode, 0, "help exit");
 		eq(help.stdout.indexOf("run         run opencode with a message") != -1, true, "help mentions run");
@@ -63,6 +86,37 @@ class CliSmoke {
 		final parsed:Dynamic = Json.parse(json.stdout);
 		eq(Reflect.field(Reflect.field(parsed, "provider"), "id"), "openai", "run json provider");
 		eq(Reflect.field(Reflect.field(parsed, "request"), "prompt"), "Say hello from the fixture.", "run json prompt");
+		final defaultSessionID = Std.string(Reflect.field(Reflect.field(parsed, "request"), "sessionID"));
+		eq(defaultSessionID.indexOf("ses_"), 0, "run json default persisted session id");
+		final defaultExport = Cli.run(["export", defaultSessionID]);
+		eq(defaultExport.exitCode, 0, "run json default export exit");
+		final defaultExportMessages:Array<Dynamic> = Reflect.field(Json.parse(defaultExport.stdout), "messages");
+		eq(defaultExportMessages.length, 2, "run json default export messages");
+		final defaultResume = Cli.run([
+			"run",
+			"--session",
+			defaultSessionID,
+			"--format",
+			"json",
+			"Continue",
+			"default",
+			"store."
+		]);
+		eq(defaultResume.exitCode, 0, "run json default resume exit");
+		eq(Reflect.field(Reflect.field(Json.parse(defaultResume.stdout), "request"), "sessionID"), defaultSessionID, "run json default resume session");
+		final defaultContinue = Cli.run([
+			"run",
+			"--continue",
+			"--format",
+			"json",
+			"Continue",
+			"latest",
+			"default",
+			"store."
+		]);
+		eq(defaultContinue.exitCode, 0, "run json default continue exit");
+		eq(Std.string(Reflect.field(Reflect.field(Json.parse(defaultContinue.stdout), "request"), "sessionID")).indexOf("ses_"), 0,
+			"run json default continue session id");
 
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-run-"));
 		try {

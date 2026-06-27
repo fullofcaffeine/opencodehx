@@ -12,8 +12,8 @@
 - first-level and selected nested subcommands for MCP, providers, agents, GitHub, sessions, debug utilities, and DB tools;
 - command-specific help output for recognized commands and aliases;
 - a first side-effecting `export <sessionID> [--sanitize]` path that reads the configured SQLite session store and writes upstream-shaped JSON to stdout while keeping the progress line on stderr;
-- first non-interactive `run --session <id>`, `run --continue`, and `--fork` recovery wiring that validates the session in the configured SQLite store, preserves the recovered session ID for normal resume, creates a fresh child session for forked runs, defaults the run directory from the stored session when `--dir` is absent, and appends new turns when `OPENCODE_DB` is explicitly set;
-- new headless `run` invocations persist a generated session into the configured SQLite store when `OPENCODE_DB` is explicitly set, making the result immediately exportable/resumable;
+- first non-interactive `run --session <id>`, `run --continue`, and `--fork` recovery wiring that validates the session in the configured SQLite store, preserves the recovered session ID for normal resume, creates a fresh child session for forked runs, defaults the run directory from the stored session when `--dir` is absent, and appends new turns in the default or `OPENCODE_DB` store;
+- new headless `run` invocations persist a generated session into the configured SQLite store by default, making the result immediately exportable/resumable while preserving `OPENCODE_DB` as an override;
 - an explicit "known but not implemented yet" error for commands outside the current runnable `run`/non-interactive `export` paths.
 
 The executable runtime remains intentionally narrow. `run` still owns the deterministic fake-provider path, `--mock-ai-sdk`, and the opt-in `--live-ai-sdk` provider-registry path. `export <sessionID>` owns the first non-interactive session export side effect. Other commands are recognized for help and surface parity but do not perform side effects yet.
@@ -31,7 +31,7 @@ The executable runtime remains intentionally narrow. `run` still owns the determ
 - `run --session <id>` reads the same seeded SQLite store, emits JSON with the recovered session ID, defaults assistant path metadata to the stored session directory, honors an explicit `--dir` override, and reports missing sessions.
 - `run --continue` lists stored sessions newest-first, skips forked child sessions, and continues the latest root session in the non-interactive scaffold.
 - `run --session <id> --fork` reads the same recovered session history, emits a fresh generated child session ID, persists that child with `info.parentID` pointing at the recovered parent, and exports the child transcript.
-- `run --format json ...` with `OPENCODE_DB` set generates a fresh `ses_...` ID, persists the two-message transcript, and `export <generated>` reads it back through the generated CLI. A following `run --session <generated>` appends a second two-message turn with fresh message/part IDs and export returns all four messages.
+- `run --format json ...` generates a fresh `ses_...` ID, persists the two-message transcript, and `export <generated>` reads it back through the generated CLI. A following `run --session <generated>` appends a second two-message turn with fresh message/part IDs and export returns all four messages. The same path is covered with `OPENCODE_DB` overrides for custom database locations.
 - `ErrorFormatter` covers upstream-style account transport, provider model-not-found, and config invalid diagnostics against `fixtures/resources/errors/diagnostics.golden.json`.
 
 Gates used for this slice:

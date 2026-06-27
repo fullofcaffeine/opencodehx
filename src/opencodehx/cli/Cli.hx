@@ -336,21 +336,7 @@ class Cli {
 	}
 
 	static function runPersistence(resumedSessionID:Null<String>, forkParentID:Null<String>):RunPersistence {
-		final dbPath = explicitDatabasePath();
-		if (dbPath == null && forkParentID == null)
-			return {
-				store: null,
-				sessionID: null,
-				turnID: null,
-				turnTime: null
-			};
-		if (dbPath == null)
-			return {
-				store: null,
-				sessionID: freshSessionID(),
-				turnID: null,
-				turnTime: null,
-			};
+		final dbPath = StorageDatabasePath.path(NodeProcess.env(), "latest");
 		Fs.mkdirSync(NodePath.dirname(dbPath), {recursive: true});
 		if (resumedSessionID != null && forkParentID == null) {
 			return {
@@ -366,13 +352,6 @@ class Cli {
 			turnID: null,
 			turnTime: null,
 		};
-	}
-
-	static function explicitDatabasePath():Null<String> {
-		final configured = NodeProcess.envValue("OPENCODE_DB");
-		if (configured == null || configured == "")
-			return null;
-		return StorageDatabasePath.path(NodeProcess.env(), "latest");
 	}
 
 	static function freshSessionID():String {
