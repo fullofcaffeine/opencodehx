@@ -103,6 +103,12 @@ typedef LlmWorkflowApprovalUpdate = {
 	final preapproved:Array<String>;
 }
 
+typedef LlmWorkflowModelState = {
+	final sessionID:String;
+	final systemPrompt:String;
+	final sessionPreapprovedTools:Array<String>;
+}
+
 typedef LlmWorkflowToolExecutorResult = {
 	var result:String;
 	@:optional var metadata:Unknown;
@@ -254,6 +260,15 @@ class SessionLlm {
 				out.push(name);
 		}
 		return out;
+	}
+
+	public static function workflowModelState(sessionID:String, system:Array<String>, tools:DynamicAccess<AiTool>, agentRules:Array<PermissionRule>,
+			promptRules:Array<PermissionRule>):LlmWorkflowModelState {
+		return {
+			sessionID: sessionID,
+			systemPrompt: system.join("\n"),
+			sessionPreapprovedTools: workflowPreapprovedTools(tools, agentRules, promptRules),
+		};
 	}
 
 	public static function workflowApprovalNames(tools:Array<LlmWorkflowApprovalTool>):Array<String> {

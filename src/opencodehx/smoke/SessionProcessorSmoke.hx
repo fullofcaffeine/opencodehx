@@ -218,6 +218,11 @@ class SessionProcessorSmoke {
 		final promptAskResult = SessionLlm.workflowPreapprovedTools(workflowTools, workflowAgent, promptAsk);
 		eq(hasString(promptAskResult, "read"), false, "llm workflow preapproved prompt ask wins");
 		eq(SessionLlm.workflowPreapprovedTools(workflowTools, [], []).length, 3, "llm workflow preapproved no rules includes all");
+
+		final state = SessionLlm.workflowModelState("ses_workflow", ["system header", "plugin tail"], workflowTools, workflowAgent, workflowPrompt);
+		eq(state.sessionID, "ses_workflow", "llm workflow state session id");
+		eq(state.systemPrompt, "system header\nplugin tail", "llm workflow state system prompt");
+		eq(state.sessionPreapprovedTools.join(","), "read,question", "llm workflow state preapproved tools");
 	}
 
 	static function llmRepairToolCall():Void {
