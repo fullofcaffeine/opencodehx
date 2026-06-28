@@ -179,13 +179,45 @@ class StorageSmoke {
 			type: "text",
 			text: "Hello, migration!",
 		});
+		writeJson(join3(storageDir, "todo", "ses_from_filename.json"), [
+			{content: "First todo", status: "pending", priority: "high"},
+			{content: "Skipped todo", priority: "low"},
+			{content: "Second todo", status: "completed", priority: "medium"},
+		]);
+		writeJson(join3(storageDir, "todo", "ses_missing.json"), [{content: "Orphan todo", status: "pending", priority: "high"}]);
+		writeJson(join3(storageDir, "permission", "proj_filename.json"), [
+			{permission: "file.read", pattern: "/test/file1.ts", action: "allow"},
+			{permission: "file.write", pattern: "/test/file2.ts", action: "ask"},
+		]);
+		writeJson(join3(storageDir, "permission", "proj_missing.json"), [{permission: "file.write", pattern: "*", action: "deny"}]);
+		writeJson(join3(storageDir, "session_share", "ses_from_filename.json"), {
+			id: "share_123",
+			secret: "supersecretkey",
+			url: "https://share.example.com/ses_from_filename",
+		});
+		writeJson(join3(storageDir, "session_share", "ses_missing.json"), {
+			id: "share_missing",
+			secret: "secret",
+			url: "https://missing.example.com",
+		});
 
 		final stats = JsonStorageMigrationRuntime.run(storageDir, store);
 		eq(stats.projects, 1, "json migration project count");
 		eq(stats.sessions, 1, "json migration session count");
 		eq(stats.messages, 1, "json migration message count");
 		eq(stats.parts, 1, "json migration part count");
-		eq(stats.todos, 0, "json migration todo deferred count");
+		eq(stats.todos, 2, "json migration todo count");
+		eq(stats.todoItems.length, 2, "json migration todo item count");
+		eq(stats.todoItems[0].content, "First todo", "json migration first todo content");
+		eq(stats.todoItems[0].position, 0, "json migration first todo position");
+		eq(stats.todoItems[1].content, "Second todo", "json migration second todo content");
+		eq(stats.todoItems[1].position, 2, "json migration second todo position preserves source index");
+		eq(stats.permissions, 1, "json migration permission count");
+		eq(stats.permissionFiles[0].projectID, "proj_filename", "json migration permission project id");
+		eq(stats.permissionFiles[0].rules, 2, "json migration permission rule count");
+		eq(stats.shares, 1, "json migration share count");
+		eq(stats.shareItems[0].sessionID, "ses_from_filename", "json migration share session id");
+		eq(stats.shareItems[0].url, "https://share.example.com/ses_from_filename", "json migration share url");
 		eq(stats.errors.length, 0, "json migration errors");
 
 		final sessionID = SessionID.make("ses_from_filename");
@@ -276,7 +308,7 @@ class StorageSmoke {
 	}
 
 	static function setupLegacyStorage(storageDir:String):Void {
-		for (dir in ["project", "session", "message", "part"]) {
+		for (dir in ["project", "session", "message", "part", "todo", "permission", "session_share"]) {
 			Fs.mkdirSync(NodePath.join(storageDir, dir), {recursive: true});
 		}
 		Fs.mkdirSync(join3(storageDir, "session", "proj_filename"), {recursive: true});

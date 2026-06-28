@@ -1,6 +1,7 @@
 package opencodehx.storage;
 
 import genes.ts.Unknown;
+import genes.ts.UnknownArray;
 import genes.ts.UnknownNarrow;
 import genes.ts.UnknownRecord;
 import haxe.Json;
@@ -22,7 +23,30 @@ typedef JsonStorageMigrationStats = {
 	var todos:Int;
 	var permissions:Int;
 	var shares:Int;
+	var todoItems:Array<JsonStorageMigratedTodo>;
+	var permissionFiles:Array<JsonStorageMigratedPermission>;
+	var shareItems:Array<JsonStorageMigratedShare>;
 	var errors:Array<String>;
+}
+
+typedef JsonStorageMigratedTodo = {
+	final sessionID:String;
+	final content:String;
+	final status:String;
+	final priority:String;
+	final position:Int;
+}
+
+typedef JsonStorageMigratedPermission = {
+	final projectID:String;
+	final rules:Int;
+}
+
+typedef JsonStorageMigratedShare = {
+	final sessionID:String;
+	final id:String;
+	final secret:String;
+	final url:String;
 }
 
 /**
@@ -42,10 +66,20 @@ class JsonStorageMigrationRuntime {
 
 		final projects = migrateProjects(storageDir, store);
 		stats.projects = projects.count;
-		stats.sessions = migrateSessions(storageDir, store, projects.ids);
+		final sessions = migrateSessions(storageDir, store, projects.ids);
+		stats.sessions = sessions.count;
 		final messages = migrateMessages(storageDir, store);
 		stats.messages = messages.count;
 		stats.parts = migrateParts(storageDir, store, messages.sessionByMessage);
+		final todos = migrateTodos(storageDir, sessions.ids);
+		stats.todos = todos.count;
+		stats.todoItems = todos.items;
+		final permissions = migratePermissions(storageDir, projects.ids);
+		stats.permissions = permissions.count;
+		stats.permissionFiles = permissions.items;
+		final shares = migrateShares(storageDir, sessions.ids);
+		stats.shares = shares.count;
+		stats.shareItems = shares.items;
 		return stats;
 	}
 
@@ -70,11 +104,12 @@ class JsonStorageMigrationRuntime {
 		return {count: count, ids: ids};
 	}
 
-	static function migrateSessions(storageDir:String, store:SessionStore, projectIDs:Map<String, Bool>):Int {
+	static function migrateSessions(storageDir:String, store:SessionStore, projectIDs:Map<String, Bool>):SessionMigrationResult {
 		var count = 0;
+		final ids = new Map<String, Bool>();
 		final dir = NodePath.join(storageDir, "session");
 		if (!Fs.existsSync(dir))
-			return count;
+			return {count: count, ids: ids};
 		for (projectDir in childDirectories(dir)) {
 			if (!projectIDs.exists(projectDir))
 				continue;
@@ -83,10 +118,11 @@ class JsonStorageMigrationRuntime {
 				final record = readRecord(NodePath.join(projectPath, file));
 				final session = sessionFromRecord(record, jsonID(file), projectDir);
 				store.createSession(session);
+				ids.set(session.id.toString(), true);
 				count++;
 			}
 		}
-		return count;
+		return {count: count, ids: ids};
 	}
 
 	static function migrateMessages(storageDir:String, store:SessionStore):MessageMigrationResult {
@@ -139,6 +175,86 @@ class JsonStorageMigrationRuntime {
 		return count;
 	}
 
+	static function migrateTodos(storageDir:String, sessionIDs:Map<String, Bool>):TodoMigrationResult {
+		var count = 0;
+		final items:Array<JsonStorageMigratedTodo> = [];
+		final dir = NodePath.join(storageDir, "todo");
+		if (!Fs.existsSync(dir))
+			return {count: count, items: items};
+		for (file in jsonFiles(dir)) {
+			final sessionID = jsonID(file);
+			if (!sessionIDs.exists(sessionID))
+				continue;
+			final todos = readArray(NodePath.join(dir, file));
+			for (index in 0...todos.length) {
+				final record = UnknownNarrow.record(todos.get(index));
+				if (record == null)
+					continue;
+				final content = optionalString(record, "content");
+				final status = optionalString(record, "status");
+				final priority = optionalString(record, "priority");
+				if (content == null || status == null || priority == null)
+					continue;
+				items.push({
+					sessionID: sessionID,
+					content: content,
+					status: status,
+					priority: priority,
+					position: index,
+				});
+				count++;
+			}
+		}
+		return {count: count, items: items};
+	}
+
+	static function migratePermissions(storageDir:String, projectIDs:Map<String, Bool>):PermissionMigrationResult {
+		var count = 0;
+		final items:Array<JsonStorageMigratedPermission> = [];
+		final dir = NodePath.join(storageDir, "permission");
+		if (!Fs.existsSync(dir))
+			return {count: count, items: items};
+		for (file in jsonFiles(dir)) {
+			final projectID = jsonID(file);
+			if (!projectIDs.exists(projectID))
+				continue;
+			final rules = readArray(NodePath.join(dir, file));
+			items.push({
+				projectID: projectID,
+				rules: rules.length,
+			});
+			count++;
+		}
+		return {count: count, items: items};
+	}
+
+	static function migrateShares(storageDir:String, sessionIDs:Map<String, Bool>):ShareMigrationResult {
+		var count = 0;
+		final items:Array<JsonStorageMigratedShare> = [];
+		final dir = NodePath.join(storageDir, "session_share");
+		if (!Fs.existsSync(dir))
+			return {count: count, items: items};
+		for (file in jsonFiles(dir)) {
+			final sessionID = jsonID(file);
+			if (!sessionIDs.exists(sessionID))
+				continue;
+			final record = readRecord(NodePath.join(dir, file));
+			final id = optionalString(record, "id");
+			final secret = optionalString(record, "secret");
+			final url = optionalString(record, "url");
+			if (id == null || secret == null || url == null)
+				continue;
+			items.push({
+				sessionID: sessionID,
+				id: id,
+				secret: secret,
+				url: url,
+			});
+			count++;
+		}
+		return {count: count, items: items};
+	}
+
 	static function sessionFromRecord(record:UnknownRecord, id:String, projectID:String):SessionInfo {
 		return {
 			id: SessionID.make(id),
@@ -182,6 +298,14 @@ class JsonStorageMigrationRuntime {
 		return record;
 	}
 
+	static function readArray(path:String):UnknownArray {
+		final raw = Unknown.fromBoundary(Json.parse(Fs.readFileSync(path, "utf8")));
+		final array = UnknownNarrow.array(raw);
+		if (array == null)
+			throw 'legacy JSON storage file is not an array: ${path}';
+		return array;
+	}
+
 	static function jsonFiles(dir:String):Array<String> {
 		return Fs.readdirNamesSync(dir).filter(file -> StringTools.endsWith(file, ".json"));
 	}
@@ -221,6 +345,9 @@ class JsonStorageMigrationRuntime {
 			todos: 0,
 			permissions: 0,
 			shares: 0,
+			todoItems: [],
+			permissionFiles: [],
+			shareItems: [],
 			errors: [],
 		};
 	}
@@ -231,7 +358,27 @@ private typedef ProjectMigrationResult = {
 	final ids:Map<String, Bool>;
 }
 
+private typedef SessionMigrationResult = {
+	final count:Int;
+	final ids:Map<String, Bool>;
+}
+
 private typedef MessageMigrationResult = {
 	final count:Int;
 	final sessionByMessage:Map<String, String>;
+}
+
+private typedef TodoMigrationResult = {
+	final count:Int;
+	final items:Array<JsonStorageMigratedTodo>;
+}
+
+private typedef PermissionMigrationResult = {
+	final count:Int;
+	final items:Array<JsonStorageMigratedPermission>;
+}
+
+private typedef ShareMigrationResult = {
+	final count:Int;
+	final items:Array<JsonStorageMigratedShare>;
 }
