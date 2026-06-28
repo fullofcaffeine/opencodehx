@@ -8,6 +8,7 @@ import opencodehx.session.MessageError.MessageException;
 import opencodehx.session.MessageError.MessageFailure;
 import opencodehx.session.MessageTypes.AssistantMessage;
 import opencodehx.session.MessageTypes.CompactionPartData;
+import opencodehx.session.MessageTypes.CreatedTime;
 import opencodehx.session.MessageTypes.Cursor;
 import opencodehx.session.MessageTypes.FilePartData;
 import opencodehx.session.MessageTypes.FilePartSource;
@@ -17,10 +18,13 @@ import opencodehx.session.MessageTypes.OutputFormat;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TextSelection;
 import opencodehx.session.MessageTypes.TimeRange;
+import opencodehx.session.MessageTypes.ToolTimeRange;
 import opencodehx.session.MessageTypes.TokenUsage;
 import opencodehx.session.MessageTypes.ToolState;
 import opencodehx.session.MessageTypes.ToolStateMetadata;
 import opencodehx.session.MessageTypes.UserMessage;
+import opencodehx.session.MessageTypes.UserModelSelection;
+import opencodehx.session.MessageTypes.UserSummary;
 import opencodehx.session.MessageTypes.WithParts;
 
 typedef PartBase = {
@@ -142,18 +146,54 @@ class MessageCodec {
 	}
 
 	static function decodeUser(data:Dynamic, issues:Array<String>, path:String):UserMessage {
-		final result:UserMessage = {
-			id: MessageID.make(requiredString(data, "id", issues, path + ".id")),
-			sessionID: SessionID.make(requiredString(data, "sessionID", issues, path + ".sessionID")),
-			role: "user",
-			time: decodeCreatedTime(requiredObject(data, "time", issues, path + ".time"), issues, path + ".time"),
-			agent: requiredString(data, "agent", issues, path + ".agent"),
-			model: decodeUserModel(requiredObject(data, "model", issues, path + ".model"), issues, path + ".model"),
-		};
-		if (has(data, "format"))
-			Reflect.setField(result, "format", decodeOutputFormat(Reflect.field(data, "format"), issues, path + ".format"));
-		if (has(data, "summary"))
-			Reflect.setField(result, "summary", decodeUserSummary(Reflect.field(data, "summary"), issues, path + ".summary"));
+		final id = MessageID.make(requiredString(data, "id", issues, path + ".id"));
+		final sessionID = SessionID.make(requiredString(data, "sessionID", issues, path + ".sessionID"));
+		final time = decodeCreatedTime(requiredObject(data, "time", issues, path + ".time"), issues, path + ".time");
+		final agent = requiredString(data, "agent", issues, path + ".agent");
+		final model = decodeUserModel(requiredObject(data, "model", issues, path + ".model"), issues, path + ".model");
+		final format = has(data, "format") ? decodeOutputFormat(requiredObject(data, "format", issues, path + ".format"), issues, path + ".format") : null;
+		final summary = has(data, "summary") ? decodeUserSummary(requiredObject(data, "summary", issues, path + ".summary"), issues, path + ".summary") : null;
+		final result:UserMessage = if (format != null && summary != null) {
+			{
+				id: id,
+				sessionID: sessionID,
+				role: "user",
+				time: time,
+				format: format,
+				summary: summary,
+				agent: agent,
+				model: model,
+			};
+		} else if (format != null) {
+			{
+				id: id,
+				sessionID: sessionID,
+				role: "user",
+				time: time,
+				format: format,
+				agent: agent,
+				model: model,
+			};
+		} else if (summary != null) {
+			{
+				id: id,
+				sessionID: sessionID,
+				role: "user",
+				time: time,
+				summary: summary,
+				agent: agent,
+				model: model,
+			};
+		} else {
+			{
+				id: id,
+				sessionID: sessionID,
+				role: "user",
+				time: time,
+				agent: agent,
+				model: model,
+			};
+		}
 		copyOptional(data, result, "system");
 		copyOptionalMessageJson(data, result, "tools", issues, path + ".tools");
 		return result;
@@ -235,7 +275,7 @@ class MessageCodec {
 					messageID: base.messageID,
 					type: "retry",
 					attempt: requiredFloat(data, "attempt", issues, path + ".attempt"),
-					error: Reflect.field(data, "error"),
+					error: requiredMessageJson(data, "error", issues, path + ".error"),
 					time: decodeCreatedTime(requiredObject(data, "time", issues, path + ".time"), issues, path + ".time"),
 				});
 			case "step-start":
@@ -452,20 +492,32 @@ class MessageCodec {
 		}
 	}
 
-	static function decodeUserModel(data:Dynamic, issues:Array<String>, path:String):Dynamic {
-		final model:Dynamic = {
-			providerID: requiredString(data, "providerID", issues, path + ".providerID"),
-			modelID: requiredString(data, "modelID", issues, path + ".modelID"),
-		};
-		copyOptional(data, model, "variant");
-		return model;
+	static function decodeUserModel(data:Dynamic, issues:Array<String>, path:String):UserModelSelection {
+		final providerID = requiredString(data, "providerID", issues, path + ".providerID");
+		final modelID = requiredString(data, "modelID", issues, path + ".modelID");
+		return has(data, "variant") ? {
+			providerID: providerID,
+			modelID: modelID,
+			variant: requiredString(data, "variant", issues, path + ".variant"),
+		} : {
+			providerID: providerID,
+			modelID: modelID,
+			};
 	}
 
-	static function decodeUserSummary(data:Dynamic, issues:Array<String>, path:String):Dynamic {
-		final summary:Dynamic = {diffs: requiredMessageJson(data, "diffs", issues, path + ".diffs")};
-		copyOptional(data, summary, "title");
-		copyOptional(data, summary, "body");
-		return summary;
+	static function decodeUserSummary(data:Dynamic, issues:Array<String>, path:String):UserSummary {
+		final diffs = requiredMessageJson(data, "diffs", issues, path + ".diffs");
+		final title = has(data, "title") ? requiredString(data, "title", issues, path + ".title") : null;
+		final body = has(data, "body") ? requiredString(data, "body", issues, path + ".body") : null;
+		return if (title != null && body != null) {
+			{title: title, body: body, diffs: diffs};
+		} else if (title != null) {
+			{title: title, diffs: diffs};
+		} else if (body != null) {
+			{body: body, diffs: diffs};
+		} else {
+			{diffs: diffs};
+		}
 	}
 
 	static function decodePartBase(data:Dynamic, issues:Array<String>, path:String):PartBase {
@@ -476,10 +528,14 @@ class MessageCodec {
 		};
 	}
 
-	static function decodeCreatedTime(data:Dynamic, issues:Array<String>, path:String):Dynamic {
-		final time:Dynamic = {created: requiredFloat(data, "created", issues, path + ".created")};
-		copyOptional(data, time, "completed");
-		return time;
+	static function decodeCreatedTime(data:Dynamic, issues:Array<String>, path:String):CreatedTime {
+		final created = requiredFloat(data, "created", issues, path + ".created");
+		return has(data, "completed") ? {
+			created: created,
+			completed: requiredFloat(data, "completed", issues, path + ".completed"),
+		} : {
+			created: created,
+			};
 	}
 
 	static function decodeTimeRange(data:Dynamic, issues:Array<String>, path:String):TimeRange {
@@ -488,13 +544,17 @@ class MessageCodec {
 		return cast time;
 	}
 
-	static function decodeToolTimeRange(data:Dynamic, issues:Array<String>, path:String):Dynamic {
-		final time:Dynamic = {
-			start: requiredFloat(data, "start", issues, path + ".start"),
-			end: requiredFloat(data, "end", issues, path + ".end"),
-		};
-		copyOptional(data, time, "compacted");
-		return time;
+	static function decodeToolTimeRange(data:Dynamic, issues:Array<String>, path:String):ToolTimeRange {
+		final start = requiredFloat(data, "start", issues, path + ".start");
+		final end = requiredFloat(data, "end", issues, path + ".end");
+		return has(data, "compacted") ? {
+			start: start,
+			end: end,
+			compacted: requiredFloat(data, "compacted", issues, path + ".compacted"),
+		} : {
+			start: start,
+			end: end,
+			};
 	}
 
 	static function decodeTextSelection(data:Dynamic, issues:Array<String>, path:String):TextSelection {

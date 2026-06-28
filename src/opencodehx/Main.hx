@@ -85,6 +85,9 @@ class Main {
 				BusSmoke.run();
 				log("bus-smoke:ok");
 				EffectSmoke.run();
+				return EffectSmoke.runAsync();
+			})
+			.then(_ -> {
 				log("effect-smoke:ok");
 				FixtureSmoke.run();
 				log("fixture-smoke:ok");

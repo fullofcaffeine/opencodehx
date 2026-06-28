@@ -1,6 +1,6 @@
 # Effect Runtime Parity
 
-**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`
+**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`, `opencodehx-4kc`
 
 ## Upstream Oracle
 
@@ -9,6 +9,7 @@
 - `../opencode/packages/opencode/src/effect/run-service.ts`
 - `../opencode/packages/opencode/test/effect/run-service.test.ts`
 - `../opencode/packages/opencode/test/effect/instance-state.test.ts`
+- `../opencode/packages/opencode/test/effect/runner.test.ts`
 
 ## What Landed
 
@@ -25,6 +26,19 @@
 
 `opencodehx.effect.InstanceStateRuntime` covers the stable instance-state lifecycle: values are cached per instance directory, isolated across directories, invalidated on `InstanceRuntime.reload`, and disposed on `InstanceRuntime.disposeAll`.
 
+`opencodehx.effect.RunnerRuntime` covers the stable Runner concurrency contract without pulling in full Effect fiber machinery:
+
+- the first `ensureRunning` work runs and returns its result;
+- failures propagate and reset the runner to idle;
+- concurrent callers share the active run;
+- replacement work passed while busy is ignored;
+- completed runners can run again;
+- idle cancellation is a no-op;
+- cancellation settles all queued callers, either with `RunnerCancelledError` or the configured interrupt fallback; and
+- stale work completions after cancellation are ignored so a later run can start cleanly.
+
+`EffectSmoke.runner()` covers those cases as async smoke evidence.
+
 ## Boundary
 
-This slice does not port the full Effect observability layer, OTLP logger, OpenTelemetry trace exporter, AppRuntime logger installation, Effect `ManagedRuntime`, `Layer`, `Context.Service`, async `runPromise`/`runFork` APIs, ALS-backed `InstanceRef`, or async-boundary/high-contention instance context propagation. Those remain under the broader Effect/runtime rows.
+This slice does not port the full Effect observability layer, OTLP logger, OpenTelemetry trace exporter, AppRuntime logger installation, Effect `ManagedRuntime`, `Layer`, `Context.Service`, async `runPromise`/`runFork` APIs, real Effect `Scope`/`Fiber` interruption for Runner, ALS-backed `InstanceRef`, or async-boundary/high-contention instance context propagation. Those remain under the broader Effect/runtime rows.
