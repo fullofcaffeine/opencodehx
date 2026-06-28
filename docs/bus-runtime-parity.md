@@ -13,7 +13,7 @@ OpenCodeHX currently covers the callback-facing and stream-shaped subsets of ups
 - copied history snapshots
 - portable scope-keyed bus instances
 - scope isolation by caller-provided instance key
-- disposal that publishes `instance.disposed` to wildcard subscribers before clearing listeners
+- disposal that publishes upstream `server.instance.disposed` with the scoped directory payload to wildcard subscribers before clearing listeners
 
 `opencodehx.bus.BusStreamRuntime` is a small stream-shaped adapter over the same bus. It lets Haxe fixtures exercise the upstream Effect-native `Stream.runForEach(bus.subscribe(...))` contract without pulling the full Effect service graph into the first bus slice.
 
@@ -25,4 +25,4 @@ OpenCodeHX currently covers the callback-facing and stream-shaped subsets of ups
 
 Remaining scope:
 
-- full upstream Effect `Layer`, `Deferred`, scoped fiber, and `Instance.provide` service-context wiring beyond the portable scope-keyed bus registry
+- full upstream Effect `Layer`, `Deferred`, scoped fiber, `GlobalBus.emit`, and `Instance.provide` service-context wiring beyond the portable scope-keyed bus registry

@@ -136,10 +136,12 @@ class BusSmoke {
 		final received:Array<Int> = [];
 		final types:Array<String> = [];
 		var disposed = false;
+		var disposedDirectory = "";
 		bus.subscribeAll(event -> {
 			types.push(event.type);
 			if (event.type == BusRuntime.InstanceDisposed.type) {
 				disposed = true;
+				disposedDirectory = event.properties.directory;
 				return;
 			}
 			received.push(event.properties.value);
@@ -150,6 +152,8 @@ class BusSmoke {
 		eq(received.join(","), "1", "bus scoped disposal stops delivery");
 		eq(disposed, true, "bus scoped disposal event");
 		eq(types.indexOf(BusRuntime.InstanceDisposed.type) != -1, true, "bus scoped disposal type");
+		eq(BusRuntime.InstanceDisposed.type, "server.instance.disposed", "bus scoped disposal upstream type");
+		eq(disposedDirectory, "disposable", "bus scoped disposal directory payload");
 		eq(BusRuntime.disposeScope("disposable"), false, "bus scoped dispose missing");
 	}
 

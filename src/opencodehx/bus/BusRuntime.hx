@@ -15,20 +15,27 @@ typedef BusUnsubscribe = Void->Void;
 // open. Typed subscribers should use BusRuntime.subscribe with a definition.
 typedef BusAnyEvent = BusEvent<Dynamic>;
 
+typedef InstanceDisposedPayload = {
+	final directory:String;
+}
+
 private typedef BusListenerEntry = {
 	final type:Null<String>;
 	final deliver:BusAnyEvent->Void;
 }
 
 class BusRuntime {
-	public static final InstanceDisposed:BusEventDefinition<{}> = define("instance.disposed");
+	public static final InstanceDisposed:BusEventDefinition<InstanceDisposedPayload> = define("server.instance.disposed");
 	static final scoped:Map<String, BusRuntime> = new Map();
 
+	final directory:Null<String>;
 	final history:Array<BusAnyEvent> = [];
 	final listeners:Array<BusListenerEntry> = [];
 	var disposed = false;
 
-	public function new() {}
+	public function new(?directory:String) {
+		this.directory = directory;
+	}
 
 	public static function define<TProperties>(type:String):BusEventDefinition<TProperties> {
 		return {type: type};
@@ -38,7 +45,7 @@ class BusRuntime {
 		final existing = scoped.get(key);
 		if (existing != null)
 			return existing;
-		final bus = new BusRuntime();
+		final bus = new BusRuntime(key);
 		scoped.set(key, bus);
 		return bus;
 	}
@@ -99,7 +106,7 @@ class BusRuntime {
 		// Upstream wildcard subscribers observe InstanceDisposed before the
 		// instance stream ends. Publish it while listeners are still active, then
 		// clear subscriptions so later publishes cannot leak across lifecycles.
-		publish(InstanceDisposed, {});
+		publish(InstanceDisposed, {directory: directory == null ? "" : directory});
 		disposed = true;
 		listeners.resize(0);
 	}
