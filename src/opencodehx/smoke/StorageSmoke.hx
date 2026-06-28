@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import haxe.DynamicAccess;
 import haxe.Json;
+import genes.ts.JsonCodec;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.GlobalPaths;
@@ -17,6 +18,7 @@ import opencodehx.storage.JsonStorageMigrationRuntime;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.storage.StorageDatabasePath;
 import opencodehx.storage.StorageError.StorageException;
+import opencodehx.storage.StorageJsonRuntime;
 
 class StorageSmoke {
 	public static function run():Void {
@@ -25,6 +27,7 @@ class StorageSmoke {
 		final store = new SqliteSessionStore(dbPath);
 		try {
 			databasePath(root);
+			jsonKeyValueStorage(root);
 			store.upsertProject({id: "proj_fixture", worktree: root, name: "Fixture"});
 			sessionCreateReadUpdate(store, root);
 			messagePageAndPartCrud(store);
@@ -36,6 +39,42 @@ class StorageSmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	static function jsonKeyValueStorage(root:String):Void {
+		final storage = new StorageJsonRuntime(NodePath.join(root, "json-kv"));
+		final roundtrip = ["roundtrip", "value"];
+		storage.write(roundtrip, genes.ts.Json.value([{file: "a.ts", additions: 2, deletions: 1}]));
+		eq(jsonString(storage.read(roundtrip)), '[{"file":"a.ts","additions":2,"deletions":1}]', "storage json roundtrip");
+
+		expectNotFound(() -> storage.read(["missing", "value"]), "storage missing read");
+		expectNotFound(() -> storage.update(["missing", "key"], _ -> genes.ts.Json.value({value: 1})), "storage missing update");
+
+		final overwrite = ["overwrite", "test"];
+		storage.write(overwrite, genes.ts.Json.value({v: 1}));
+		storage.write(overwrite, genes.ts.Json.value({v: 2}));
+		eq(jsonString(storage.read(overwrite)), '{"v":2}', "storage overwrite");
+
+		final update = ["counter", "shared"];
+		storage.write(update, genes.ts.Json.value({value: 0}));
+		storage.update(update, _ -> genes.ts.Json.value({value: 1}));
+		eq(jsonString(storage.read(update)), '{"value":1}', "storage update");
+
+		final deep = ["a", "b", "c", "deep"];
+		storage.write(deep, genes.ts.Json.value({nested: true}));
+		eq(jsonString(storage.read(deep)), '{"nested":true}', "storage nested read");
+		eq(keys(storage.list(["a"])), "a/b/c/deep", "storage nested list");
+
+		final a = ["list", "a"];
+		final b = ["list", "b"];
+		storage.write(b, genes.ts.Json.value({value: 2}));
+		storage.write(a, genes.ts.Json.value({value: 1}));
+		eq(keys(storage.list(["list"])), "list/a,list/b", "storage list sorted");
+		storage.remove(a);
+		eq(keys(storage.list(["list"])), "list/b", "storage remove listed key");
+		expectNotFound(() -> storage.read(a), "storage removed read");
+		storage.remove(["does", "not", "exist"]);
+		eq(storage.list(["does"]).length, 0, "storage missing prefix empty");
 	}
 
 	static function databasePath(root:String):Void {
@@ -248,6 +287,14 @@ class StorageSmoke {
 
 	static function writeJson<T>(path:String, value:T):Void {
 		Fs.writeFileSync(path, Json.stringify(value));
+	}
+
+	static function jsonString(value:genes.ts.JsonValue):String {
+		return JsonCodec.stringify(value);
+	}
+
+	static function keys(values:Array<Array<String>>):String {
+		return [for (value in values) value.join("/")].join(",");
 	}
 
 	static function join3(first:String, second:String, third:String):String {

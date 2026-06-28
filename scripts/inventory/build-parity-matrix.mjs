@@ -201,7 +201,15 @@ function directEvidence(path) {
         m11Owners.session,
       ],
     ],
-    ["storage/storage.test.ts", ["partial", "src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "storage service integration beyond session/message CRUD remains deferred", "StorageSmoke"]],
+    [
+      "storage/storage.test.ts",
+      [
+        "partial",
+        "src/opencodehx/storage/StorageJsonRuntime.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md",
+        "generic JSON write/read/update/remove/list behavior and session/message CRUD are covered; real Effect service layering, concurrent update serialization, and full Drizzle/AppFileSystem integration remain deferred",
+        "StorageSmoke.jsonKeyValueStorage plus session/message CRUD",
+      ],
+    ],
     ["storage/json-migration.test.ts", ["partial", "src/opencodehx/storage/JsonStorageMigrationRuntime.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "todo/permission/session-share tables, unreadable-file error collection, full Drizzle migration compatibility, and storage service integration remain deferred", "StorageSmoke.jsonMigration"]],
     ["storage/db.test.ts", ["ported", "src/opencodehx/storage/StorageDatabasePath.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "none", "StorageSmoke databasePath"]],
     ["config/config.test.ts", ["partial", "src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md", "real account repo/service integration, runtime plugin loading/path resolution, and live package-manager dependency install side effects remain deferred; deterministic dependency bootstrap gitignore/install success/failure is covered", "ConfigSmoke"]],
