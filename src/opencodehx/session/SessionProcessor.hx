@@ -23,6 +23,7 @@ import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TextPartData;
 import opencodehx.session.MessageTypes.TokenUsage;
 import opencodehx.session.MessageTypes.ToolState;
+import opencodehx.session.MessageTypes.ToolStateMetadata;
 import opencodehx.session.MessageTypes.UserMessage;
 import opencodehx.session.MessageTypes.WithParts;
 import opencodehx.session.SessionCompaction.SessionCompactionCheck;
@@ -33,6 +34,7 @@ import opencodehx.session.SessionRetry.SessionRetryStatus;
 import opencodehx.storage.SessionStore;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolRegistry;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolResult;
 
@@ -41,7 +43,7 @@ typedef SessionToolCall = {
 	final tool:String;
 	// Tool inputs are JSON-shaped runtime payloads owned by each tool schema.
 	// The registry validates them before tool implementations use the fields.
-	final input:Dynamic;
+	final input:ToolCallInput;
 }
 
 typedef SessionToolOutcome = {
@@ -616,7 +618,7 @@ class SessionProcessor {
 			input: call.input,
 			output: result.output,
 			title: result.title,
-			metadata: result.metadata == null ? {} : result.metadata,
+			metadata: ToolStateMetadata.fromBoundary(result.metadata),
 			time: {
 				start: toolStarted(turnTime),
 				end: toolEnded(turnTime)
@@ -639,7 +641,7 @@ class SessionProcessor {
 			status: "error",
 			input: call.input,
 			error: message,
-			metadata: {},
+			metadata: ToolStateMetadata.empty(),
 			time: {start: toolStarted(turnTime), end: toolEnded(turnTime)},
 		});
 		return ToolPart({
@@ -804,23 +806,23 @@ class SessionProcessor {
 		return null;
 	}
 
-	static function toolInput(input:Unknown):Dynamic {
+	static function toolInput(input:Unknown):ToolCallInput {
 		// AI SDK providers may surface tool input as a parsed JSON value or as a
 		// JSON string. Tool schemas remain the authority, so this boundary only
 		// normalizes the transport shape before ToolRegistry validation.
 		final raw:Dynamic = cast input;
 		if (raw == null)
-			return {};
+			return ToolCallInput.fromBoundary({});
 		if (Std.isOfType(raw, String)) {
 			try {
-				return Json.parse(cast raw);
+				return ToolCallInput.fromBoundary(Json.parse(cast raw));
 			} catch (_:Dynamic) {
 				// If a provider sends a non-JSON string, keep it as-is and let the
 				// target tool report a normal invalid-arguments diagnostic.
-				return raw;
+				return ToolCallInput.fromBoundary(raw);
 			}
 		}
-		return raw;
+		return ToolCallInput.fromBoundary(raw);
 	}
 
 	static function toolHistoryTurn(outcome:SessionToolOutcome):AiModelToolResultTurn {

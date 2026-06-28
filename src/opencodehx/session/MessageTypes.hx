@@ -1,5 +1,22 @@
 package opencodehx.session;
 
+import genes.ts.Unknown;
+import opencodehx.tool.ToolTypes.ToolCallInput;
+
+abstract ToolStateMetadata(Unknown) from Unknown to Unknown {
+	inline function new(value:Unknown) {
+		this = value;
+	}
+
+	@:from public static inline function fromBoundary<T>(value:T):ToolStateMetadata {
+		return new ToolStateMetadata(Unknown.fromBoundary(value));
+	}
+
+	public static inline function empty():ToolStateMetadata {
+		return fromBoundary({});
+	}
+}
+
 typedef CreatedTime = {
 	final created:Float;
 	@:optional final completed:Float;
@@ -237,15 +254,15 @@ typedef StepFinishPartData = {
 
 typedef ToolStatePendingData = {
 	final status:String;
-	final input:Dynamic;
+	final input:ToolCallInput;
 	final raw:String;
 }
 
 typedef ToolStateRunningData = {
 	final status:String;
-	final input:Dynamic;
+	final input:ToolCallInput;
 	@:optional final title:String;
-	@:optional final metadata:Dynamic;
+	@:optional final metadata:ToolStateMetadata;
 	final time:{
 		final start:Float;
 	};
@@ -253,19 +270,19 @@ typedef ToolStateRunningData = {
 
 typedef ToolStateCompletedData = {
 	final status:String;
-	final input:Dynamic;
+	final input:ToolCallInput;
 	final output:String;
 	final title:String;
-	final metadata:Dynamic;
+	final metadata:ToolStateMetadata;
 	final time:ToolTimeRange;
 	@:optional final attachments:Array<FilePartData>;
 }
 
 typedef ToolStateErrorData = {
 	final status:String;
-	final input:Dynamic;
+	final input:ToolCallInput;
 	final error:String;
-	@:optional final metadata:Dynamic;
+	@:optional final metadata:ToolStateMetadata;
 	final time:ToolTimeRange;
 }
 
@@ -284,7 +301,7 @@ typedef ToolPartData = {
 	final callID:String;
 	final tool:String;
 	final state:ToolState;
-	@:optional final metadata:Dynamic;
+	@:optional final metadata:ToolStateMetadata;
 }
 
 enum Part {

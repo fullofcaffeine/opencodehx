@@ -24,6 +24,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ToolRegistry.execute` now accepts `ToolCallInput`, an explicit unknown JSON/tool-call boundary.
 - Built-in tools decode once through `ToolValidation` and then run on typed records.
 - `ToolResult.metadata`, `ToolPermissionRequest.metadata`, and permission ask records now use typed metadata wrappers instead of `Dynamic`.
+- Session tool calls and `ToolState` records use `ToolCallInput` plus `ToolStateMetadata` instead of raw `Dynamic` for stored tool input and tool-state metadata.
 
 ## Remaining Hotspots
 
