@@ -15,6 +15,7 @@
 - first non-interactive `run --session <id>`, `run --continue`, and `--fork` recovery wiring that validates the session in the configured SQLite store, preserves the recovered session ID for normal resume, creates a fresh child session for forked runs, defaults the run directory from the stored session when `--dir` is absent, and appends new turns in the default or `OPENCODE_DB` store;
 - new headless `run` invocations persist a generated session into the configured SQLite store by default, making the result immediately exportable/resumable while preserving `OPENCODE_DB` as an override;
 - pure GitHub remote URL parsing for the upstream `github` command's supported remote forms;
+- pure console account display formatting for account labels and active org rows;
 - an explicit "known but not implemented yet" error for commands outside the current runnable `run`/non-interactive `export` paths.
 
 The executable runtime remains intentionally narrow. `run` still owns the deterministic fake-provider path and `--mock-ai-sdk`; the generated CLI now routes explicit non-fake `--model provider/model` values and plain runs with a local config `model` to the provider-registry live path. `--live-ai-sdk` remains as an explicit harness override. `export <sessionID>` owns the first non-interactive session export side effect. Other commands are recognized for help and surface parity but do not perform side effects yet.
@@ -34,6 +35,7 @@ The executable runtime remains intentionally narrow. `run` still owns the determ
 - `run --session <id> --fork` reads the same recovered session history, emits a fresh generated child session ID, persists that child with `info.parentID` pointing at the recovered parent, and exports the child transcript.
 - `run --format json ...` generates a fresh `ses_...` ID, persists the two-message transcript, and `export <generated>` reads it back through the generated CLI. A following `run --session <generated>` appends a second two-message turn with fresh message/part IDs and export returns all four messages. The same path is covered with `OPENCODE_DB` overrides for custom database locations.
 - `GitHubRemote.parse` mirrors upstream `cli/github-remote.test.ts` for HTTPS/HTTP, `git@`, `ssh://git@`, optional `.git` suffixes, hyphen/underscore/number/dot owner and repo names, non-GitHub rejection, invalid URLs, missing owner/repo, and extra path rejection.
+- `AccountDisplay` mirrors upstream `cli/account.test.ts` for account URL labels, active account suffixes, and active org row formatting after ANSI stripping.
 - `ErrorFormatter` covers upstream-style account transport, provider model-not-found, and config invalid diagnostics against `fixtures/resources/errors/diagnostics.golden.json`.
 
 Gates used for this slice:
@@ -47,4 +49,4 @@ npm run smoke
 
 ## Boundary
 
-This is not a claim that the full yargs runtime has been ported. Provider login/logout, account console flows, full history-aware prompt construction, the interactive export picker, import side effects, GitHub action execution/network behavior, MCP auth/add/debug, DB shell behavior, package upgrade/uninstall, and live server/web command behavior remain later product slices. The catalog should move with those implementations so help text and aliases do not drift while command handlers land.
+This is not a claim that the full yargs runtime has been ported. Provider login/logout, account console side effects beyond display formatting, full history-aware prompt construction, the interactive export picker, import side effects, GitHub action execution/network behavior, MCP auth/add/debug, DB shell behavior, package upgrade/uninstall, and live server/web command behavior remain later product slices. The catalog should move with those implementations so help text and aliases do not drift while command handlers land.

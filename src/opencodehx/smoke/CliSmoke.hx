@@ -6,6 +6,9 @@ import haxe.Json;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.account.AccountError.AccountTransportError;
+import opencodehx.cli.AccountDisplay;
+import opencodehx.cli.AccountDisplay.AccountDisplayAccount;
+import opencodehx.cli.AccountDisplay.AccountDisplayOrg;
 import opencodehx.cli.Cli;
 import opencodehx.cli.ErrorFormatter;
 import opencodehx.cli.GitHubRemote;
@@ -182,6 +185,27 @@ class CliSmoke {
 
 		diagnosticFormatting();
 		githubRemoteParser();
+		accountDisplayFormatting();
+	}
+
+	static function accountDisplayFormatting():Void {
+		final account:AccountDisplayAccount = {email: "one@example.com", url: "https://one.example.com"};
+		final org:AccountDisplayOrg = {id: "org-1", name: "One"};
+		eq(stripKnownCliAnsi(AccountDisplay.formatAccountLabel(account, false)), "one@example.com https://one.example.com", "account label url");
+		eq(stripKnownCliAnsi(AccountDisplay.formatAccountLabel(account, true)), "one@example.com https://one.example.com (active)", "account label active");
+		eq(stripKnownCliAnsi(AccountDisplay.formatOrgLine(account, org, true)), "  \u25cf One  one@example.com  https://one.example.com  org-1",
+			"account org line active");
+	}
+
+	static function stripKnownCliAnsi(value:String):String {
+		return value.split(AccountDisplay.TEXT_HIGHLIGHT_BOLD)
+			.join("")
+			.split(AccountDisplay.TEXT_SUCCESS)
+			.join("")
+			.split(AccountDisplay.TEXT_DIM)
+			.join("")
+			.split(AccountDisplay.TEXT_NORMAL)
+			.join("");
 	}
 
 	static function githubRemoteParser():Void {
