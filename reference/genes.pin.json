@@ -1,12 +1,12 @@
 {
   "schema": "opencodehx.reference.genes-pin.v1",
-  "recorded_at": "2026-06-23T17:56:04Z",
-  "bead": "opencodehx-7rh",
+  "recorded_at": "2026-06-28T03:44:45Z",
+  "bead": "opencodehx-dzp",
   "canonical_checkout": {
     "path": "../genes",
     "role": "canonical Genes checkout for genes-ts compiler work",
     "branch": "main",
-    "commit": "32982d3cc779584701a3e8b5f62a2bfc74375223",
+    "commit": "650be6c39da1152b52954a51fa04c0d807dafe31",
     "remotes": {
       "origin": "git@github.com:fullofcaffeine/genes-ts.git",
       "upstream": "git@github.com:benmerckx/genes.git"
