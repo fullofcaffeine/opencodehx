@@ -38,6 +38,7 @@ import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolResultAttachment;
 
 typedef SessionToolCall = {
 	final id:String;
@@ -170,6 +171,7 @@ class SessionProcessor {
 	public static inline final STEP_START_PART_ID = "prt_step_start";
 	public static inline final STEP_FINISH_PART_ID = "prt_step_finish";
 	public static inline final TOOL_PART_ID = "prt_tool_call";
+	public static inline final TOOL_ATTACHMENT_PART_ID = "prt_tool_attachment";
 	public static inline final RETRY_PART_ID = "prt_retry";
 	public static inline final COMPACTION_PART_ID = "prt_compaction";
 	public static inline final CREATED_USER = 1000.0;
@@ -614,17 +616,36 @@ class SessionProcessor {
 
 	static function completedToolPart(sessionID:SessionID, messageID:MessageID, call:SessionToolCall, result:ToolResult, turnID:Null<String>,
 			turnTime:Null<Float>):Part {
-		final state:ToolState = ToolCompleted({
-			status: "completed",
-			input: call.input,
-			output: result.output,
-			title: result.title,
-			metadata: ToolStateMetadata.fromJson(result.metadata),
-			time: {
-				start: toolStarted(turnTime),
-				end: toolEnded(turnTime)
-			},
-		});
+		final started = toolStarted(turnTime);
+		final ended = toolEnded(turnTime);
+		final attachments = result.attachments;
+		var state:ToolState;
+		if (attachments == null) {
+			state = ToolCompleted({
+				status: "completed",
+				input: call.input,
+				output: result.output,
+				title: result.title,
+				metadata: ToolStateMetadata.fromJson(result.metadata),
+				time: {
+					start: started,
+					end: ended
+				},
+			});
+		} else {
+			state = ToolCompleted({
+				status: "completed",
+				input: call.input,
+				output: result.output,
+				title: result.title,
+				metadata: ToolStateMetadata.fromJson(result.metadata),
+				time: {
+					start: started,
+					end: ended
+				},
+				attachments: toolAttachments(sessionID, messageID, call, attachments, turnID),
+			});
+		}
 		return ToolPart({
 			id: PartID.make(scopedCallPart(partBase(TOOL_PART_ID, turnID), sessionID, call.id)),
 			sessionID: sessionID,
@@ -634,6 +655,24 @@ class SessionProcessor {
 			tool: call.tool,
 			state: state,
 		});
+	}
+
+	static function toolAttachments(sessionID:SessionID, messageID:MessageID, call:SessionToolCall, attachments:Array<ToolResultAttachment>,
+			turnID:Null<String>):Array<FilePartData> {
+		final out:Array<FilePartData> = [];
+		for (index in 0...attachments.length) {
+			final attachment = attachments[index];
+			out.push({
+				id: PartID.make(scopedCallPart(partBase(TOOL_ATTACHMENT_PART_ID + "_" + index, turnID), sessionID, call.id)),
+				sessionID: sessionID,
+				messageID: messageID,
+				type: attachment.type,
+				mime: attachment.mime,
+				filename: attachment.filename,
+				url: attachment.url,
+			});
+		}
+		return out;
 	}
 
 	static function erroredToolPart(sessionID:SessionID, messageID:MessageID, call:SessionToolCall, message:String, turnID:Null<String>,

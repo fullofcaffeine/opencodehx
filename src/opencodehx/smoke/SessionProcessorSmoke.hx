@@ -34,6 +34,9 @@ import opencodehx.session.SessionLlm;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionRetry.SessionProviderError;
 import opencodehx.storage.SqliteSessionStore;
+import opencodehx.tool.ToolRegistry;
+import opencodehx.tool.ToolTypes.ToolDef;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import js.lib.Promise;
 
 typedef ExpectedToolPromptTurn = {
@@ -103,6 +106,7 @@ class SessionProcessorSmoke {
 			final recovered = SessionProcessor.recover(store, SessionProcessor.SESSION_ID, 10);
 			eq(recovered.session.directory, root, "recovered session directory");
 			eq(recovered.messages.length, 2, "recovered message count");
+			toolAttachmentPropagation(root);
 			retryOverflowAndRecovery(store, root);
 			abortFlow(root);
 			store.close();
@@ -1129,6 +1133,58 @@ class SessionProcessorSmoke {
 			case _:
 				throw label + ": expected step-finish part";
 		}
+	}
+
+	static function toolAttachmentPropagation(root:String):Void {
+		final result = SessionProcessor.run({
+			prompt: "Fetch an image.",
+			directory: root,
+			registry: new ToolRegistry([attachmentTool()]),
+			toolCall: {
+				id: "call_image_one",
+				tool: "image",
+				input: {},
+			},
+		});
+		switch result.messages[1].parts[1] {
+			case ToolPart(tool):
+				eq(tool.callID, "call_image_one", "attachment tool call id");
+				switch tool.state {
+					case ToolCompleted(completed):
+						final attachments = completed.attachments;
+						if (attachments == null)
+							throw "session processor attachment propagation expected attachments";
+						eq(attachments.length, 1, "session processor attachment count");
+						eq(attachments[0].type, "file", "session processor attachment type");
+						eq(attachments[0].mime, "image/png", "session processor attachment mime");
+						eq(attachments[0].url, "data:image/png;base64,iVBORw0KGgo=", "session processor attachment url");
+						eq(attachments[0].id.toString(), "prt_tool_attachment_0_call_image_one", "session processor attachment id");
+					case _:
+						throw "session processor attachment propagation expected completed tool";
+				}
+			case _:
+				throw "session processor attachment propagation expected tool part";
+		}
+	}
+
+	static function attachmentTool():ToolDef {
+		return {
+			id: "image",
+			description: "Return an image attachment.",
+			schema: {parameters: []},
+			execute: (_, _) -> {
+				title: "Image",
+				output: "Image fetched successfully",
+				metadata: ToolResultMetadata.empty(),
+				attachments: [
+					{
+						type: "file",
+						mime: "image/png",
+						url: "data:image/png;base64,iVBORw0KGgo=",
+					}
+				],
+			},
+		};
 	}
 
 	static function assertAssistantTwoToolParts(parts:Array<Part>, expectedText:String):Void {

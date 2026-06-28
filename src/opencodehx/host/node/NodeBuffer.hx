@@ -3,6 +3,7 @@ package opencodehx.host.node;
 import js.lib.Uint8Array;
 import opencodehx.externs.node.Buffer;
 import opencodehx.externs.node.Buffer.NodeBufferData;
+import opencodehx.externs.web.WebStreams.WebArrayBufferData;
 
 class NodeBuffer {
 	public static function fromBase64(value:String):String {
@@ -21,6 +22,11 @@ class NodeBuffer {
 	}
 
 	public static function fromBytesBase64(value:Uint8Array):String {
+		final buffer = Buffer.from(value);
+		return buffer.toString("base64");
+	}
+
+	public static function fromArrayBufferBase64(value:WebArrayBufferData):String {
 		final buffer = Buffer.from(value);
 		return buffer.toString("base64");
 	}

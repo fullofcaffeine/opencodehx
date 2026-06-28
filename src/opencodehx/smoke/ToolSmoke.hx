@@ -23,6 +23,7 @@ import opencodehx.tool.ToolTypes.ToolIDs;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.ToolTypes.ToolPermissionDecision;
 import opencodehx.tool.ToolTypes.ToolPermissionRequest;
+import opencodehx.tool.WebFetchTool;
 
 class ToolSmoke {
 	@:async
@@ -45,6 +46,7 @@ class ToolSmoke {
 			writeExec(registry, context(root));
 			editExec(registry, context(root));
 			applyPatchExec(registry, context(root));
+			await(webFetchExec(context(root)));
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			// Smoke cleanup must run for arbitrary Haxe/JS thrown values, then
@@ -582,6 +584,36 @@ class ToolSmoke {
 			}
 		}, "patch verification no side effects");
 		eq(Fs.existsSync(NodePath.join(ctx.directory, "src/should-not-exist.txt")), false, "patch no side effects");
+	}
+
+	@:async
+	static function webFetchExec(ctx:ToolContext):Promise<Void> {
+		final text = await(WebFetchTool.executeRaw({
+			url: "data:text/plain;charset=utf-8,hello%20from%20webfetch",
+			format: "text"
+		}, ctx));
+		eq(text.output, "hello from webfetch", "webfetch text output");
+		eq(text.attachments == null, true, "webfetch text attachments absent");
+
+		final svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>hello</text></svg>';
+		final svgResult = await(WebFetchTool.executeRaw({
+			url: "data:image/svg+xml;charset=UTF-8," + StringTools.urlEncode(svg),
+			format: "html"
+		}, ctx));
+		eq(svgResult.output.indexOf("<svg") != -1, true, "webfetch svg text output");
+		eq(svgResult.attachments == null, true, "webfetch svg attachments absent");
+
+		final image = await(WebFetchTool.executeRaw({
+			url: "data:image/png;base64,iVBORw0KGgo=",
+			format: "markdown"
+		}, ctx));
+		eq(image.output, "Image fetched successfully", "webfetch image output");
+		if (image.attachments == null)
+			throw "webfetch image expected attachments";
+		eq(image.attachments.length, 1, "webfetch image attachment count");
+		eq(image.attachments[0].type, "file", "webfetch image attachment type");
+		eq(image.attachments[0].mime, "image/png", "webfetch image attachment mime");
+		eq(StringTools.startsWith(image.attachments[0].url, "data:image/png;base64,"), true, "webfetch image attachment data url");
 	}
 
 	static function context(root:String, ?ask:(ToolPermissionRequest) -> ToolPermissionDecision):ToolContext {

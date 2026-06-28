@@ -9,12 +9,21 @@ import js.lib.Promise;
 import opencodehx.externs.web.Fetch.AccountConfigResponse;
 import opencodehx.externs.web.Fetch.FetchInit;
 import opencodehx.externs.web.Fetch.FetchResponse;
+import opencodehx.externs.web.WebStreams.WebArrayBufferData;
 
 extern typedef UnknownJsonFetchResponse = {
 	final ok:Bool;
 	final status:Int;
 	function text():Promise<String>;
 	function json():Promise<Unknown>;
+}
+
+extern typedef WebFetchResponse = {
+	final ok:Bool;
+	final status:Int;
+	final headers:Headers;
+	function text():Promise<String>;
+	function arrayBuffer():Promise<WebArrayBufferData>;
 }
 
 extern typedef GlobalFetchInit = {
@@ -55,6 +64,9 @@ extern class GlobalFetch {
 
 	@:native("fetch")
 	static function response(url:String, ?init:GlobalFetchInit):Promise<Response>;
+
+	@:native("fetch")
+	static function webFetchResponse(url:String):Promise<WebFetchResponse>;
 
 	@:native("fetch")
 	static function forwardResponse(url:String, init:GlobalForwardFetchInit):Promise<Response>;

@@ -1,7 +1,7 @@
 # Tool Registry Port
 
 **Bead:** `opencodehx-016`  
-**Upstream oracle:** `../opencode/packages/opencode/src/tool/tool.ts`, `registry.ts`, `invalid.ts`, `glob.ts`, `grep.ts`, and `../opencode/packages/opencode/test/tool/{registry,glob,grep}.test.ts`
+**Upstream oracle:** `../opencode/packages/opencode/src/tool/tool.ts`, `registry.ts`, `invalid.ts`, `glob.ts`, `grep.ts`, `webfetch.ts`, and `../opencode/packages/opencode/test/tool/{registry,glob,grep,webfetch}.test.ts`
 
 ## Slice
 
@@ -13,12 +13,14 @@ This slice adds the first Haxe-owned tool surface:
 - `KnownToolID` plus `ToolIDs.known("...")` for source-authored fixed tool references. The registry still accepts raw `String` values at runtime so model-emitted, plugin, config, and unknown-tool failure paths remain boundary data.
 - `ToolCallInput` for the registry's JSON/tool-call boundary, with built-in tools decoding into typed Haxe input records before application logic runs.
 - Initial `invalid`, `glob`, and `grep` tool definitions.
+- `WebFetchTool` as an async Haxe runtime for text responses, SVG text passthrough, and image file attachments. It is not registered in the synchronous `ToolRegistry` yet.
+- Typed `ToolResultAttachment` file records plus session processor propagation into completed tool-state attachments.
 - `ToolDefinition` coverage for fresh object/factory init snapshots without mutating source-authored definitions.
-- `ToolSmoke` coverage for builtin ids, schema fields, unknown/disabled failures, invalid argument text, glob directory rejection, glob file matching, grep directory/file search, no-match output, and `ToolDefinition` fresh-init behavior.
+- `ToolSmoke` coverage for builtin ids, schema fields, unknown/disabled failures, invalid argument text, glob directory rejection, glob file matching, grep directory/file search, no-match output, webfetch text/SVG/image handling, and `ToolDefinition` fresh-init behavior.
 
 ## Deliberate Boundaries
 
-This is not the full upstream Effect/Zod/plugin registry. Dynamic description hooks, provider/model filtering, plugin-defined tools, full `Tool.define` Effect/Zod wrapping, truncation service file-spill/cleanup behavior, LSP/MCP tools, bash/PTY, and task/subagent descriptions are deferred to their owning beads. Core file tool permissions and read/write/edit/apply_patch scaffolding live in `docs/core-file-tools-port.md`.
+This is not the full upstream Effect/Zod/plugin registry. Dynamic description hooks, provider/model filtering, plugin-defined tools, full `Tool.define` Effect/Zod wrapping, truncation service file-spill/cleanup behavior, LSP/MCP tools, bash/PTY, and task/subagent descriptions are deferred to their owning beads. `WebFetchTool` is async and remains outside the synchronous registry/session tool loop until async tool execution lands. Core file tool permissions and read/write/edit/apply_patch scaffolding live in `docs/core-file-tools-port.md`.
 
 The registry keeps validation explicit rather than depending on Zod externs. Built-ins receive typed inputs; only the registry edge handles unknown tool-call JSON. If more tools repeat schema boilerplate, derive simple validators with a macro instead of expanding broad weak typing.
 

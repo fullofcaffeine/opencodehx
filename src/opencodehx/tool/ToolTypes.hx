@@ -38,6 +38,13 @@ typedef ToolResult = {
 	@:optional final attachments:Array<ToolResultAttachment>;
 }
 
+typedef ToolResultAttachment = {
+	final type:String;
+	final mime:String;
+	final url:String;
+	@:optional final filename:String;
+}
+
 typedef ToolParameter = {
 	final name:String;
 	final type:String;
@@ -108,16 +115,6 @@ abstract ToolPermissionMetadata(JsonValue) from JsonValue to JsonValue {
 
 	public static inline function empty():ToolPermissionMetadata {
 		return new ToolPermissionMetadata(Json.object({}));
-	}
-}
-
-abstract ToolResultAttachment(Unknown) from Unknown to Unknown {
-	inline function new(value:Unknown) {
-		this = value;
-	}
-
-	@:from public static inline function fromBoundary<T>(value:T):ToolResultAttachment {
-		return new ToolResultAttachment(Unknown.fromBoundary(value));
 	}
 }
 

@@ -313,6 +313,16 @@ function directEvidence(path) {
     ["tool/bash.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "non-interactive Node shell seam and tree-sitter Bash scanner prompts are covered; streaming metadata and full PowerShell/Windows matrix remain deferred", "ToolSmoke.bashExec and BashCommandScanner fixtures", m11Owners.tool]],
     ["tool/tool-define.test.ts", ["partial", "src/opencodehx/tool/ToolDefinition.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "fresh init snapshots for object-defined and factory-defined Haxe tool definitions are covered; upstream Effect/Zod Tool.define wrapping remains deferred", "ToolSmoke.toolDefinitionFresh", m11Owners.tool]],
     ["tool/truncation.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md; docs/bash-shell-seam.md", "read, bash, glob, and grep expose truncation metadata/output in representative tool paths; full Truncate service file-spill, cleanup, direction, byte/line limit, and Task-tool hint behavior remains deferred", "ToolSmoke read/bash/glob/grep truncation fixtures", m11Owners.tool]],
+    [
+      "tool/webfetch.test.ts",
+      [
+        "partial",
+        "src/opencodehx/tool/WebFetchTool.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md",
+        "text, SVG text passthrough, and image data-url attachment behavior are covered through the async Haxe webfetch runtime; registration in the synchronous ToolRegistry/session tool loop remains deferred until async tool execution lands",
+        "ToolSmoke.webFetchExec",
+        m11Owners.tool,
+      ],
+    ],
     ["pty/pty-output-isolation.test.ts", ["direct", "src/opencodehx/smoke/PtySmoke.hx; docs/pty-runtime.md", "service-level fixtures cover replay, tail cursors, reused socket wrappers, recycled socket objects, and in-place data mutation", "PtySmoke outputReplay/reusedSocketIsolation/recycledSocketIsolation/inPlaceSocketDataMutation", "none"]],
     ["pty/pty-session.test.ts", ["direct", "src/opencodehx/smoke/PtySmoke.hx; src/opencodehx/smoke/ServerSmoke.hx; docs/pty-runtime.md", "created/exited/deleted lifecycle plus PTY HTTP/WebSocket routes are covered; full Effect service integration remains deferred", "PtySmoke lifecycle fixtures plus ServerSmoke PTY routes/WebSocket", "none"]],
     ["pty/pty-shell.test.ts", ["direct", "src/opencodehx/pty/PtyService.hx; src/opencodehx/smoke/PtySmoke.hx; scripts/harness/windows-shell-smoke.mjs; docs/pty-runtime.md", "deterministic smoke covers PowerShell empty args and Git Bash login args; Windows CI smoke repeats the behavior against native shells when available", "PtySmoke ptyShellArgsParity plus windows:shell:smoke", "none"]],
