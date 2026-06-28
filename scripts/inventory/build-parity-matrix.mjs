@@ -170,7 +170,15 @@ function directEvidence(path) {
     ["util/process.test.ts", ["ported", "src/opencodehx/util/ProcessRuntime.hx; src/opencodehx/smoke/UtilSmoke.hx#process; docs/util-port.md", "none", "UtilSmoke.process"]],
     ["util/filesystem.test.ts", ["ported", "src/opencodehx/file/AppFileSystem.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md", "none", "FileSmoke.appFileSystem/FileSmoke.runAsync"]],
     ["util/error.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#errorTools; docs/error-diagnostics-parity.md", "none", "UtilSmoke.errorTools golden"]],
-    ["memory/abort-leak.test.ts", ["partial", "src/opencodehx/util/Abort.hx; src/opencodehx/smoke/UtilSmoke.hx#abort; docs/util-port.md", "Bun GC heap-growth worker oracle remains host-sensitive and is not a default Node smoke", "UtilSmoke.abort"]],
+    [
+      "memory/abort-leak.test.ts",
+      [
+        "partial",
+        "src/opencodehx/util/Abort.hx; src/opencodehx/smoke/UtilSmoke.hx#abort; scripts/harness/abort-leak-smoke.mjs; docs/util-port.md",
+        "Bun GC heap-growth worker oracle is covered by an opt-in host-sensitive harness and is not a default Node smoke",
+        "UtilSmoke.abort plus npm run memory:abort:smoke",
+      ],
+    ],
     ["format/format.test.ts", ["ported", "src/opencodehx/format/FormatRuntime.hx; src/opencodehx/smoke/FormatterSmoke.hx; docs/formatter-port.md", "none", "FormatterSmoke"]],
     ["bus/bus-effect.test.ts", ["partial", "src/opencodehx/bus/BusStreamRuntime.hx; src/opencodehx/smoke/BusSmoke.hx; docs/bus-runtime-parity.md", "full upstream Effect Layer/Deferred/scoped fiber and Instance.provide service wiring remain deferred", "BusSmoke streamDelivery/instanceDisposal"]],
     ["effect/app-runtime-logger.test.ts", ["partial", "src/opencodehx/effect/AppRuntimeLoggerRuntime.hx; src/opencodehx/smoke/EffectSmoke.hx; docs/effect-runtime-parity.md", "full Effect ManagedRuntime/Layer/Context.Service, runFork/runCallback, real Logger.CurrentLoggers, and ALS-backed InstanceRef integration remain deferred", "EffectSmoke.appRuntimeLogger/appRuntimeLoggerBridge"]],

@@ -28,6 +28,7 @@
     "benchmark:parity": "npm run build && npm run tui:scaffold && node scripts/harness/performance-benchmark.mjs",
     "windows:shell:smoke": "npm run build && node scripts/harness/windows-shell-smoke.mjs",
     "file:watcher:smoke": "npm run build && node scripts/harness/file-watcher-smoke.mjs",
+    "memory:abort:smoke": "npm run build && node scripts/harness/abort-leak-smoke.mjs",
     "live:package-managers": "node scripts/harness/live-package-manager-side-effects.mjs",
     "test:haxe:unit": "node scripts/harness/haxe-unit-specs.mjs",
     "macro:diagnostics": "node scripts/harness/macro-diagnostics.mjs",

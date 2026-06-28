@@ -11,7 +11,7 @@ The project intentionally uses 0.x beta versioning until upstream OpenCode parit
 Current Beads-based completion snapshot:
 
 ```text
-[######################################--] 96% (208/217 non-epic port beads closed)
+[######################################--] 96% (209/218 non-epic port beads closed)
 ```
 
 This is an unweighted planning indicator, not a parity claim.
@@ -106,6 +106,14 @@ npm run file:watcher:smoke
 ```
 
 This builds the generated output and uses the real Node `fs.watch` backend against a temporary git repo, proving `.git/HEAD` changes refresh VCS branch state through the typed event bus.
+
+The Bun-only abort leak oracle is opt-in because it uses forced GC and heap-growth thresholds:
+
+```sh
+npm run memory:abort:smoke
+```
+
+It builds first, runs the repo-pinned Bun binary, and checks both the local webfetch abort path and the bound-handler retention comparison in a fresh worker process.
 
 Live package-manager side effects are also outside normal smoke and CI. To exercise the opt-in npm/pnpm/Bun/Homebrew/Chocolatey/Scoop harness on a disposable host, run:
 
