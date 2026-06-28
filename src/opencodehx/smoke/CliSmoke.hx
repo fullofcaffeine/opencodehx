@@ -8,6 +8,7 @@ import opencodehx.BuildInfo;
 import opencodehx.account.AccountError.AccountTransportError;
 import opencodehx.cli.Cli;
 import opencodehx.cli.ErrorFormatter;
+import opencodehx.cli.GitHubRemote;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigError.ConfigFailure;
@@ -180,6 +181,46 @@ class CliSmoke {
 		eq(missing.stderr.indexOf("You must provide a message") != -1, true, "missing prompt message");
 
 		diagnosticFormatting();
+		githubRemoteParser();
+	}
+
+	static function githubRemoteParser():Void {
+		parsedRemote("https://github.com/sst/opencode.git", "sst", "opencode", "https .git");
+		parsedRemote("https://github.com/sst/opencode", "sst", "opencode", "https");
+		parsedRemote("git@github.com:sst/opencode.git", "sst", "opencode", "git ssh .git");
+		parsedRemote("git@github.com:sst/opencode", "sst", "opencode", "git ssh");
+		parsedRemote("ssh://git@github.com/sst/opencode.git", "sst", "opencode", "ssh url .git");
+		parsedRemote("ssh://git@github.com/sst/opencode", "sst", "opencode", "ssh url");
+		parsedRemote("http://github.com/owner/repo", "owner", "repo", "http");
+		parsedRemote("https://github.com/my-org/my-repo.git", "my-org", "my-repo", "hyphen names");
+		parsedRemote("git@github.com:my_org/my_repo.git", "my_org", "my_repo", "underscore names");
+		parsedRemote("https://github.com/org123/repo456", "org123", "repo456", "number names");
+		parsedRemote("https://github.com/socketio/socket.io.git", "socketio", "socket.io", "dot repo .git");
+		parsedRemote("https://github.com/vuejs/vue.js", "vuejs", "vue.js", "dot repo");
+		parsedRemote("git@github.com:mrdoob/three.js.git", "mrdoob", "three.js", "git dot repo");
+		parsedRemote("https://github.com/jashkenas/backbone.git", "jashkenas", "backbone", "backbone");
+
+		missingRemote("https://gitlab.com/owner/repo.git", "gitlab https");
+		missingRemote("git@gitlab.com:owner/repo.git", "gitlab ssh");
+		missingRemote("https://bitbucket.org/owner/repo", "bitbucket");
+		missingRemote("not-a-url", "invalid url");
+		missingRemote("", "empty");
+		missingRemote("github.com", "host only");
+		missingRemote("https://github.com/", "missing owner");
+		missingRemote("https://github.com/owner", "missing repo");
+		missingRemote("https://github.com/owner/repo/tree/main", "tree path");
+		missingRemote("https://github.com/owner/repo/blob/main/file.ts", "blob path");
+	}
+
+	static function parsedRemote(url:String, owner:String, repo:String, label:String):Void {
+		final parsed = GitHubRemote.parse(url);
+		eq(parsed == null, false, 'github remote $label present');
+		eq(parsed.owner, owner, 'github remote $label owner');
+		eq(parsed.repo, repo, 'github remote $label repo');
+	}
+
+	static function missingRemote(url:String, label:String):Void {
+		eq(GitHubRemote.parse(url), null, 'github remote $label rejected');
 	}
 
 	static function cliExport(root:String):Void {
