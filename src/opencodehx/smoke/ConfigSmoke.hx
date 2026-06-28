@@ -23,12 +23,14 @@ import opencodehx.config.ConfigPlugin.PluginOrigin;
 import opencodehx.config.ConfigPlugin.PluginOptionValue;
 import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeLocal;
 import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeGlobal;
+import opencodehx.config.ConfigTui;
 import opencodehx.config.ConfigWriter;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Url;
 import opencodehx.externs.web.Fetch.RemoteConfigObject;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
 import opencodehx.npm.Npm as NpmRuntime;
 import opencodehx.npm.Npm.NpmDeps;
 import opencodehx.npm.Npm.NpmHttpResponse;
@@ -53,6 +55,7 @@ class ConfigSmoke {
 			jsonAndJsonc(root);
 			envContentAndSubstitution(root);
 			legacyTuiKeys(root);
+			tuiConfig(root);
 			lspConfigRefinement(root);
 			markdownParsing();
 			projectDiscovery(root);
@@ -174,6 +177,76 @@ class ConfigSmoke {
 		write(dir, "opencode.json", '{"model":"test/model","theme":"legacy","tui":{"scroll_speed":4},"keybinds":{"x":"y"}}');
 		final config = ConfigLoader.loadProject(dir, {defaultUsername: "fixture-user"});
 		eq(config.model, "test/model", "legacy tui stripped model preserved");
+	}
+
+	static function tuiConfig(root:String):Void {
+		final global = directory(root, "tui-global");
+		final project = directory(root, "tui-project");
+		final opencode = directory(project, ".opencode");
+		write(global, "tui.json",
+			'{"theme":"global","keybinds":{"app_exit":"ctrl+q"},"plugin":["shared-plugin@1.0.0","global-only@1.0.0"],"plugin_enabled":{"demo.plugin":true}}');
+		write(project, "tui.json",
+			'{"theme":"project","keybinds":{"theme_list":"ctrl+k"},"plugin":["shared-plugin@2.0.0","local-only@1.0.0"],"plugin_enabled":{"demo.plugin":false,"local.plugin":true}}');
+		write(opencode, "tui.json", '{"diff_style":"stacked"}');
+
+		final merged = ConfigTui.load(project, {globalConfigDir: global, worktree: project});
+		eq(merged.theme, "project", "tui project overrides global theme");
+		eq(merged.diffStyle, "stacked", ".opencode tui overrides project diff style");
+		eq(merged.keybinds.get("app_exit"), "ctrl+q", "tui global keybind preserved");
+		eq(merged.keybinds.get("theme_list"), "ctrl+k", "tui project keybind merged");
+		eq(merged.plugin.map(ConfigPlugin.specifier).join(","), "global-only@1.0.0,shared-plugin@2.0.0,local-only@1.0.0",
+			"tui plugin deduplicates by package with local precedence");
+		eq(merged.pluginOrigins[0].scope, PluginScopeGlobal, "tui global plugin origin scope");
+		eq(merged.pluginOrigins[1].scope, PluginScopeLocal, "tui local plugin origin scope");
+		eq(merged.pluginEnabled.get("demo.plugin"), false, "tui plugin_enabled local override");
+		eq(merged.pluginEnabled.get("local.plugin"), true, "tui plugin_enabled local value");
+
+		final flat = directory(root, "tui-flat");
+		write(flat, "tui.json", '{"diff_style":"auto","tui":{"diff_style":"stacked","scroll_speed":3}}');
+		final flattened = ConfigTui.load(flat, {globalConfigDir: directory(root, "tui-empty-global"), worktree: flat});
+		eq(flattened.diffStyle, "auto", "tui top-level field wins over nested tui field");
+		eq(flattened.scrollSpeed, 3.0, "tui nested field flattened");
+
+		final migrationRoot = directory(root, "tui-migration");
+		final nested = directory(migrationRoot, "apps/client");
+		write(migrationRoot, "opencode.json", '{"theme":"root-theme"}');
+		write(nested, "opencode.json",
+			'{"model":"test/model","theme":"nested-theme","tui":{"scroll_speed":2,"diff_style":"stacked","ignored":true},"keybinds":{"app_exit":"ctrl+x"}}');
+		final migrated = ConfigTui.load(nested, {globalConfigDir: directory(root, "tui-empty-migration-global"), worktree: migrationRoot});
+		eq(migrated.theme, "nested-theme", "tui legacy migration preserves nearest theme");
+		eq(migrated.scrollSpeed, 2.0, "tui legacy migration moves nested scroll speed");
+		eq(migrated.keybinds.get("app_exit"), "ctrl+x", "tui legacy migration moves keybinds");
+		eq(Fs.existsSync(NodePath.join(migrationRoot, "opencode.json.tui-migration.bak")), true, "tui root migration backup");
+		eq(Fs.existsSync(NodePath.join(nested, "opencode.json.tui-migration.bak")), true, "tui nested migration backup");
+		eq(Fs.existsSync(NodePath.join(migrationRoot, "tui.json")), true, "tui root migration writes tui.json");
+		eq(Fs.existsSync(NodePath.join(nested, "tui.json")), true, "tui nested migration writes tui.json");
+		final stripped = Fs.readFileSync(NodePath.join(nested, "opencode.json"), "utf8");
+		eq(stripped.indexOf("theme") == -1 && stripped.indexOf("tui") == -1 && stripped.indexOf("keybinds") == -1, true,
+			"tui legacy migration strips moved keys from source");
+		eq(Fs.readFileSync(NodePath.join(nested, "tui.json"), "utf8").indexOf("ignored") == -1, true, "tui legacy migration drops unknown nested keys");
+
+		final envDir = directory(root, "tui-env");
+		write(envDir, "theme.txt", "env-theme");
+		write(envDir, "key.txt", "ctrl+e");
+		write(envDir, "custom-tui.json", '{"theme":"{file:theme.txt}","keybinds":{"app_exit":"{file:key.txt}"}}');
+		final original = NodeProcess.envValue("OPENCODE_TUI_CONFIG");
+		NodeProcess.setEnv("OPENCODE_TUI_CONFIG", NodePath.join(envDir, "custom-tui.json"));
+		try {
+			final envConfig = ConfigTui.load(envDir, {globalConfigDir: directory(root, "tui-empty-env-global"), worktree: envDir});
+			eq(envConfig.theme, "env-theme", "tui env config file substitution");
+			eq(envConfig.keybinds.get("app_exit"), "ctrl+e", "tui env config keybind substitution");
+
+			final envProject = directory(root, "tui-env-project");
+			write(envProject, "custom-tui.json", '{"theme":"custom-env"}');
+			write(envProject, "tui.json", '{"theme":"project-tui"}');
+			NodeProcess.setEnv("OPENCODE_TUI_CONFIG", NodePath.join(envProject, "custom-tui.json"));
+			eq(ConfigTui.load(envProject, {globalConfigDir: directory(root, "tui-empty-env-project-global"), worktree: envProject}).theme, "project-tui",
+				"tui project file overrides OPENCODE_TUI_CONFIG");
+		} catch (error:haxe.Exception) {
+			restoreEnv("OPENCODE_TUI_CONFIG", original);
+			throw error;
+		}
+		restoreEnv("OPENCODE_TUI_CONFIG", original);
 	}
 
 	static function lspConfigRefinement(root:String):Void {
@@ -902,6 +975,13 @@ Global command template');
 			throw '${label}: unexpected failure ${error.message}';
 		}
 		throw '${label}: expected failure';
+	}
+
+	static function restoreEnv(key:String, value:Null<String>):Void {
+		if (value == null)
+			NodeProcess.unsetEnv(key);
+		else
+			NodeProcess.setEnv(key, value);
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

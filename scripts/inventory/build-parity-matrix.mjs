@@ -213,6 +213,16 @@ function directEvidence(path) {
     ["storage/json-migration.test.ts", ["partial", "src/opencodehx/storage/JsonStorageMigrationRuntime.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "todo/permission/session-share tables, unreadable-file error collection, full Drizzle migration compatibility, and storage service integration remain deferred", "StorageSmoke.jsonMigration"]],
     ["storage/db.test.ts", ["ported", "src/opencodehx/storage/StorageDatabasePath.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "none", "StorageSmoke databasePath"]],
     ["config/config.test.ts", ["partial", "src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md", "real account repo/service integration, runtime plugin loading/path resolution, and live package-manager dependency install side effects remain deferred; deterministic dependency bootstrap gitignore/install success/failure is covered", "ConfigSmoke"]],
+    [
+      "config/tui.test.ts",
+      [
+        "partial",
+        "src/opencodehx/config/ConfigTui.hx; src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md",
+        "focused TUI config loader covers tui.json/global/env/project/.opencode precedence, nested tui flattening, keybind/plugin/plugin_enabled merges, legacy opencode.json migration with backup/strip, and env/file substitution; plugin tuple option preservation, dependency install side effects, Windows keybind platform cases, readonly-strip fallback, and full TUI service/runtime layering remain deferred",
+        "ConfigSmoke.tuiConfig",
+        m11Owners.foundation,
+      ],
+    ],
     ["config/agent-color.test.ts", ["direct", "src/opencodehx/smoke/ConfigSmoke.hx; src/opencodehx/smoke/UtilSmoke.hx; src/opencodehx/agent/AgentRuntime.hx; src/opencodehx/util/Color.hx; docs/config-port.md", "project JSON agent colors, config-backed agent lookup color propagation, and strict hex-to-ANSI conversion are covered", "ConfigSmoke agentColorConfig plus UtilSmoke color", "none"]],
     ["config/lsp.test.ts", ["direct", "src/opencodehx/config/ConfigLsp.hx; src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md", "LSP config refinement is covered for boolean toggles, builtin TypeScript config, custom servers with extensions, disabled custom servers, mixed configs, missing-extension failures, and empty-extension current behavior", "ConfigSmoke lspConfigRefinement", "none"]],
     ["config/markdown.test.ts", ["direct", "src/opencodehx/config/ConfigMarkdown.hx; src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md", "file-reference extraction and frontmatter parsing fixture behavior are covered, including comments, colon-heavy values, block scalars, empty/no frontmatter, Markdown headers, weird model IDs, nested tool maps, and content preservation", "ConfigSmoke markdownParsing", "none"]],
