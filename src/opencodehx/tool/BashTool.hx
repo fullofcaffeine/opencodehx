@@ -11,6 +11,8 @@ import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 
 typedef BashToolInput = {
 	final command:String;
@@ -91,7 +93,7 @@ class BashTool {
 				permission: "external_directory",
 				patterns: externalPatterns,
 				always: externalPatterns,
-				metadata: {}
+				metadata: ToolPermissionMetadata.checked({})
 			});
 		}
 		if (scan.patterns.length > 0) {
@@ -99,7 +101,7 @@ class BashTool {
 				permission: "bash",
 				patterns: scan.patterns,
 				always: scan.always,
-				metadata: {}
+				metadata: ToolPermissionMetadata.checked({})
 			});
 		}
 
@@ -145,13 +147,13 @@ class BashTool {
 		return {
 			title: description,
 			output: output,
-			metadata: {
+			metadata: ToolResultMetadata.checked({
 				output: preview(raw),
 				exit: exit,
 				description: description,
 				truncated: truncated,
 				signal: signal,
-			},
+			}),
 		};
 	}
 

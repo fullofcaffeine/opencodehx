@@ -9,6 +9,8 @@ import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 
 typedef ReadToolInput = {
 	final filePath:String;
@@ -64,7 +66,7 @@ class ReadTool {
 			permission: "read",
 			patterns: [relative],
 			always: ["*"],
-			metadata: {filepath: absolute}
+			metadata: ToolPermissionMetadata.checked({filepath: absolute})
 		});
 
 		if (!Fs.existsSync(absolute))
@@ -103,7 +105,7 @@ class ReadTool {
 		];
 		return {
 			title: ToolPaths.relative(ctx, absolute),
-			metadata: {preview: shown, truncated: truncated, loaded: []},
+			metadata: ToolResultMetadata.checked({preview: shown, truncated: truncated, loaded: []}),
 			output: output.join("\n"),
 		};
 	}
@@ -156,11 +158,11 @@ class ReadTool {
 		];
 		return {
 			title: ToolPaths.relative(ctx, absolute),
-			metadata: {
+			metadata: ToolResultMetadata.checked({
 				preview: body,
 				truncated: byteTruncated || lineTruncated,
 				loaded: [{start: offset, end: offset + body.length - 1}]
-			},
+			}),
 			output: output.join("\n"),
 		};
 	}

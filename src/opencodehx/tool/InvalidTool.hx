@@ -5,6 +5,7 @@ import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolValidation;
 import opencodehx.tool.ToolError.ToolException;
@@ -38,7 +39,7 @@ class InvalidTool {
 		return {
 			title: "Invalid Tool",
 			output: 'The arguments provided to the tool are invalid: ${input.error}',
-			metadata: {tool: input.tool},
+			metadata: ToolResultMetadata.checked({tool: input.tool}),
 		};
 	}
 }

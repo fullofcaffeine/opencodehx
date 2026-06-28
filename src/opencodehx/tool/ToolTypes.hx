@@ -1,5 +1,7 @@
 package opencodehx.tool;
 
+import genes.ts.Json;
+import genes.ts.JsonValue;
 import genes.ts.Unknown;
 #if macro
 import haxe.macro.Context;
@@ -73,31 +75,39 @@ abstract ToolCallInput(Unknown) from Unknown to Unknown {
 	}
 }
 
-abstract ToolResultMetadata(Unknown) from Unknown to Unknown {
-	inline function new(value:Unknown) {
+abstract ToolResultMetadata(JsonValue) from JsonValue to JsonValue {
+	inline function new(value:JsonValue) {
 		this = value;
 	}
 
-	@:from public static inline function fromBoundary<T>(value:T):ToolResultMetadata {
-		return new ToolResultMetadata(Unknown.fromBoundary(value));
+	@:from public static inline function fromJson(value:JsonValue):ToolResultMetadata {
+		return new ToolResultMetadata(value);
+	}
+
+	public static macro function checked(expr:Expr):Expr {
+		return macro @:pos(expr.pos) opencodehx.tool.ToolTypes.ToolResultMetadata.fromJson(genes.ts.Json.value($expr));
 	}
 
 	public static inline function empty():ToolResultMetadata {
-		return fromBoundary({});
+		return new ToolResultMetadata(Json.object({}));
 	}
 }
 
-abstract ToolPermissionMetadata(Unknown) from Unknown to Unknown {
-	inline function new(value:Unknown) {
+abstract ToolPermissionMetadata(JsonValue) from JsonValue to JsonValue {
+	inline function new(value:JsonValue) {
 		this = value;
 	}
 
-	@:from public static inline function fromBoundary<T>(value:T):ToolPermissionMetadata {
-		return new ToolPermissionMetadata(Unknown.fromBoundary(value));
+	@:from public static inline function fromJson(value:JsonValue):ToolPermissionMetadata {
+		return new ToolPermissionMetadata(value);
+	}
+
+	public static macro function checked(expr:Expr):Expr {
+		return macro @:pos(expr.pos) opencodehx.tool.ToolTypes.ToolPermissionMetadata.fromJson(genes.ts.Json.value($expr));
 	}
 
 	public static inline function empty():ToolPermissionMetadata {
-		return fromBoundary({});
+		return new ToolPermissionMetadata(Json.object({}));
 	}
 }
 

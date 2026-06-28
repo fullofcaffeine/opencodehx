@@ -9,6 +9,8 @@ import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 
 typedef PatchChunk = {
 	final oldLines:Array<String>;
@@ -86,7 +88,7 @@ class ApplyPatchTool {
 			permission: "edit",
 			patterns: patterns,
 			always: ["*"],
-			metadata: {filepath: patterns.join(", "), diff: totalDiff, files: changes}
+			metadata: ToolPermissionMetadata.checked({filepath: patterns.join(", "), diff: totalDiff, files: changes})
 		});
 
 		for (change in changes)
@@ -98,7 +100,7 @@ class ApplyPatchTool {
 		final output = 'Success. Updated the following files:\n${summary.join("\n")}';
 		return {
 			title: output,
-			metadata: {diff: totalDiff, files: changes, diagnostics: {}},
+			metadata: ToolResultMetadata.checked({diff: totalDiff, files: changes, diagnostics: {}}),
 			output: output,
 		};
 	}

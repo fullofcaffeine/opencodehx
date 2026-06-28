@@ -9,6 +9,8 @@ import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 
 typedef WriteToolInput = {
 	final filePath:String;
@@ -57,13 +59,13 @@ class WriteTool {
 			permission: "edit",
 			patterns: [relative],
 			always: ["*"],
-			metadata: {filepath: absolute, diff: diff}
+			metadata: ToolPermissionMetadata.checked({filepath: absolute, diff: diff})
 		});
 		Fs.mkdirSync(NodePath.dirname(absolute), {recursive: true});
 		Fs.writeFileSync(absolute, input.content, "utf8");
 		return {
 			title: relative,
-			metadata: {
+			metadata: ToolResultMetadata.checked({
 				filepath: absolute,
 				exists: existed,
 				diff: diff,
@@ -74,7 +76,7 @@ class WriteTool {
 					deletions: TextDiff.countDeletions(oldContent, input.content),
 				},
 				diagnostics: {}
-			},
+			}),
 			output: "Wrote file successfully.",
 		};
 	}

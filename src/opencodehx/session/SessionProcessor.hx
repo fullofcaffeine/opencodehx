@@ -19,6 +19,7 @@ import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.session.MessageTypes.AssistantMessage;
 import opencodehx.session.MessageTypes.FilePartData;
 import opencodehx.session.MessageTypes.Info;
+import opencodehx.session.MessageTypes.MessageJson;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TextPartData;
 import opencodehx.session.MessageTypes.TokenUsage;
@@ -406,12 +407,12 @@ class SessionProcessor {
 			agent: agent,
 			model: {providerID: provider.info.id, modelID: provider.model.id},
 			format: OutputText,
-			tools: {
+			tools: MessageJson.checked({
 				read: true,
 				write: true,
 				edit: true,
 				apply_patch: true
-			},
+			}),
 		};
 		final parts:Array<Part> = [];
 		final fileInputs = files == null ? [] : files;
@@ -501,7 +502,7 @@ class SessionProcessor {
 			mode: "primary",
 			agent: agent,
 			path: {cwd: directory, root: directory},
-			error: aborted ? {name: "AbortedError", message: "User aborted the request"} : null,
+			error: aborted ? MessageJson.checked({name: "AbortedError", message: "User aborted the request"}) : null,
 			cost: 0,
 			tokens: tokens,
 			finish: assistantFinish(events),
@@ -515,7 +516,7 @@ class SessionProcessor {
 				messageID: messageID,
 				type: "retry",
 				attempt: retry.attempt,
-				error: SessionRetry.errorRecord(providerError),
+				error: MessageJson.checked(SessionRetry.errorRecord(providerError)),
 				time: {
 					created: created
 				},
@@ -618,7 +619,7 @@ class SessionProcessor {
 			input: call.input,
 			output: result.output,
 			title: result.title,
-			metadata: ToolStateMetadata.fromBoundary(result.metadata),
+			metadata: ToolStateMetadata.fromJson(result.metadata),
 			time: {
 				start: toolStarted(turnTime),
 				end: toolEnded(turnTime)

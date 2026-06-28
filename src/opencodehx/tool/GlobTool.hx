@@ -10,6 +10,7 @@ import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.ToolValidation;
 
 typedef GlobToolInput = {
@@ -79,10 +80,10 @@ class GlobTool {
 		}
 		return {
 			title: NodePath.relative(worktree(ctx, root), search),
-			metadata: {
+			metadata: ToolResultMetadata.checked({
 				count: shown.length,
 				truncated: truncated,
-			},
+			}),
 			output: output.join("\n"),
 		};
 	}

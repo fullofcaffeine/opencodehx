@@ -1,5 +1,8 @@
 package opencodehx.tool;
 
+import genes.ts.Json;
+import genes.ts.JsonCodec;
+import genes.ts.JsonValue;
 import genes.ts.Unknown;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Url;
@@ -14,6 +17,8 @@ import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 
 typedef LspToolInput = {
 	final operation:String;
@@ -74,7 +79,7 @@ class LspTool {
 				permission: "lsp",
 				patterns: ["*"],
 				always: ["*"],
-				metadata: {}
+				metadata: ToolPermissionMetadata.checked({})
 			});
 			if (!decision.allowed)
 				throw new ToolException(PermissionDenied(KnownToolID.Lsp, decision.reason == null ? "permission denied" : decision.reason));
@@ -98,12 +103,22 @@ class LspTool {
 			case _: [];
 		}
 		final rel = ctx.worktree == null ? NodePath.relative(ctx.directory, file) : NodePath.relative(ctx.worktree, file);
+		final metadataResult = jsonResultValues(result);
 		return {
 			title: '${input.operation} ${rel}:${input.line}:${input.character}',
 			output: result.length == 0 ? 'No results found for ${input.operation}' : Std.string(result),
-			metadata: {
-				result: result
-			},
+			metadata: ToolResultMetadata.fromJson(Json.object({
+				result: metadataResult
+			})),
 		};
+	}
+
+	static function jsonResultValues(values:Array<Unknown>):Array<JsonValue> {
+		final out:Array<JsonValue> = [];
+		for (value in values) {
+			final json = JsonCodec.narrow(value);
+			out.push(json == null ? Json.nullValue() : json);
+		}
+		return out;
 	}
 }

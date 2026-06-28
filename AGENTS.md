@@ -103,6 +103,26 @@ When Haxe std reflection or extern aliases expose generated TS type leaks, fix t
 
 For untrusted JSON/JS values, use the generic `genes.ts.Unknown`, `UnknownNarrow`, `UnknownRecord`, and read-only `UnknownArray` primitives rather than project-local raw narrowing helpers. OpenCodeHX owns domain decoders, defaults, and error policy; `genes.ts` owns reusable boundary mechanics. Decoders should combine guard + conversion, avoid public `isX/asX` pairs, prove own-property access before reads, distinguish `null` from `undefined` when the boundary cares, and copy validated arrays/records into precise domain types before storing them.
 
+JSON typing lesson from `../haxe.compilerdev.reference/tink_json`: typed parsers/writers and JSON algebra beat opaque values.
+
+Before introducing or preserving an `Unknown`-backed wrapper for JSON, choose the strongest practical model in this order:
+
+1. A precise domain typedef/enum plus decoder.
+2. A generated codec or macro-backed parser/writer.
+3. A recursive JSON value enum/abstract for genuinely open JSON.
+4. `Unknown`, only for an uninspected runtime boundary or lossless passthrough.
+
+A wrapper around `Unknown` is not enough by itself. It must restrict operations, emit a narrower target type, or be paired with a decoder before app logic can read from it.
+
+If `Unknown` remains, add a nearby comment that answers:
+
+- Why a domain type, typed JSON value, schema-derived decoder, or `tink_json`-style codec was not practical there.
+- Which operations are allowed on the value: usually pass through, store, compare identity, encode, or immediately narrow.
+- What contains the unsafety so it cannot spread into app-facing APIs.
+- What owner, schema, test fixture, or Bead can replace it later.
+
+Do not name a broad `Unknown` wrapper as if it were a modeled domain value unless that wrapper documents and enforces its boundary contract.
+
 For provider registry work, model stable provider facts in Haxe first: provider/model IDs as abstracts, capabilities/costs/limits/headers as typed records, and upstream unions such as `interleaved` as Haxe union-friendly types. Keep provider `options` and `variants` open only because upstream treats them as provider-SDK passthrough `Record<string, any>` data, and narrow provider-specific options through facades when a runtime path owns them.
 
 For resource imports under NodeNext, keep the explicit `opencodehx.resource.Resources` adapter as the plain-Node fallback for copied `.txt`, file-path, and `.wasm` assets. `../genes` commit `c1b0d8e` adds generic `genes.ts.Imports.text`, `file`, `dynamicWith`, and `dynamicWasm` helpers for hosts that own a loader or bundler contract, and JSON import attributes are covered by `genes.ts.Imports.defaultImportWith(...)`. Do not replace copied runtime helpers with direct resource imports unless the target runtime path proves how those assets load outside a bundler.
@@ -254,6 +274,8 @@ bd dolt push
 Keep this file current. When the port teaches a durable lesson about Haxe modeling, `genes-ts`, externs, OpenCode behavior, runtime seams, generated TS quality, or testing gates, update `AGENTS.md` or the relevant doc in the same change.
 
 Keep README-level docs current too. New build/test commands, public-readiness steps, subsystem status, important generated artifacts, and cross-repo workflow changes should update `README.md` or `docs/README.md` in the same task that introduces them. Subsystem implementation details should land in the nearest focused doc, with the README linking only the durable orientation a newcomer needs. Do not let README-level evidence sections become huge paragraphs; organize them into short grouped bullets or compact subsections so the docs remain appealing and scannable.
+
+Document modules, classes, and non-trivial functions as soon as they cross a reasonable complexity threshold. Modules and classes should always have a short hxdoc/comment describing their purpose and boundary contract. Functions need comments when they hide policy, validation, interop, macros, codegen expectations, runtime assumptions, or non-obvious tradeoffs; prefer concise why/what/how notes over line-by-line narration.
 
 Keep the ASCII progress bar in `README.md` synchronized with Beads. Treat it as an unweighted planning snapshot from non-epic `opencodehx-*` issues, and refresh it when closing meaningful port slices or adding/removing substantial backlog items.
 

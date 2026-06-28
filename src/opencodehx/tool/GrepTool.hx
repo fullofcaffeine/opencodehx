@@ -11,6 +11,7 @@ import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.ToolValidation;
 
 typedef GrepToolInput = {
@@ -75,7 +76,7 @@ class GrepTool {
 		if (result.items.length == 0) {
 			return {
 				title: input.pattern,
-				metadata: {matches: 0, truncated: false},
+				metadata: ToolResultMetadata.checked({matches: 0, truncated: false}),
 				output: "No files found",
 			};
 		}
@@ -129,10 +130,10 @@ class GrepTool {
 
 		return {
 			title: input.pattern,
-			metadata: {
+			metadata: ToolResultMetadata.checked({
 				matches: rows.length,
 				truncated: truncated,
-			},
+			}),
 			output: output.join("\n"),
 		};
 	}

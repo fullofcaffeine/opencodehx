@@ -20,6 +20,7 @@ import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolIDs;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.ToolTypes.ToolPermissionDecision;
 import opencodehx.tool.ToolTypes.ToolPermissionRequest;
 
@@ -110,7 +111,7 @@ class ToolSmoke {
 			execute: (_, _) -> {
 				title: "test",
 				output: "ok",
-				metadata: {},
+				metadata: ToolResultMetadata.checked({}),
 			},
 		};
 	}

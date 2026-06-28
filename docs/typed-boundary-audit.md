@@ -25,7 +25,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - Built-in tools decode once through `ToolValidation` and then run on typed records.
 - `ToolResult.metadata`, `ToolPermissionRequest.metadata`, and permission ask records now use typed metadata wrappers instead of `Dynamic`.
 - Session tool calls and `ToolState` records use `ToolCallInput` plus `ToolStateMetadata` instead of raw `Dynamic` for stored tool input and tool-state metadata.
-- Open message DTO fields for symbol ranges, JSON schema output format, user summary diffs/tools, assistant error/structured data, part metadata, and retry errors use the named `MessageJson` boundary wrapper instead of raw `Dynamic`.
+- Open message DTO fields for symbol ranges, JSON schema output format, user summary diffs/tools, assistant error/structured data, part metadata, and retry errors use `MessageJson` backed by generic `genes.ts.JsonValue` checked construction instead of raw `Dynamic`, broad `Unknown`, or a product-local JSON alias.
 
 ## Remaining Hotspots
 

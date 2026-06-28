@@ -1,33 +1,45 @@
 package opencodehx.session;
 
-import genes.ts.Unknown;
+import genes.ts.Json;
+import genes.ts.JsonValue;
 import opencodehx.tool.ToolTypes.ToolCallInput;
+#if macro
+import haxe.macro.Expr;
+#end
 
-abstract MessageJson(Unknown) from Unknown to Unknown {
-	inline function new(value:Unknown) {
+abstract MessageJson(JsonValue) from JsonValue to JsonValue {
+	inline function new(value:JsonValue) {
 		this = value;
 	}
 
-	@:from public static inline function fromBoundary<T>(value:T):MessageJson {
-		return new MessageJson(Unknown.fromBoundary(value));
+	@:from public static inline function fromJson(value:JsonValue):MessageJson {
+		return new MessageJson(value);
+	}
+
+	public static macro function checked(expr:Expr):Expr {
+		return macro @:pos(expr.pos) opencodehx.session.MessageTypes.MessageJson.fromJson(genes.ts.Json.value($expr));
 	}
 
 	public static inline function emptyObject():MessageJson {
-		return fromBoundary({});
+		return new MessageJson(Json.object({}));
 	}
 }
 
-abstract ToolStateMetadata(Unknown) from Unknown to Unknown {
-	inline function new(value:Unknown) {
+abstract ToolStateMetadata(JsonValue) from JsonValue to JsonValue {
+	inline function new(value:JsonValue) {
 		this = value;
 	}
 
-	@:from public static inline function fromBoundary<T>(value:T):ToolStateMetadata {
-		return new ToolStateMetadata(Unknown.fromBoundary(value));
+	@:from public static inline function fromJson(value:JsonValue):ToolStateMetadata {
+		return new ToolStateMetadata(value);
+	}
+
+	public static macro function checked(expr:Expr):Expr {
+		return macro @:pos(expr.pos) opencodehx.session.MessageTypes.ToolStateMetadata.fromJson(genes.ts.Json.value($expr));
 	}
 
 	public static inline function empty():ToolStateMetadata {
-		return fromBoundary({});
+		return new ToolStateMetadata(Json.object({}));
 	}
 }
 

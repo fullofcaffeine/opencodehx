@@ -1,5 +1,7 @@
 package opencodehx.session;
 
+import genes.ts.JsonCodec;
+import genes.ts.Unknown;
 import haxe.Json;
 import opencodehx.host.node.NodeBuffer;
 import opencodehx.session.MessageError.MessageException;
@@ -10,12 +12,14 @@ import opencodehx.session.MessageTypes.Cursor;
 import opencodehx.session.MessageTypes.FilePartData;
 import opencodehx.session.MessageTypes.FilePartSource;
 import opencodehx.session.MessageTypes.Info;
+import opencodehx.session.MessageTypes.MessageJson;
 import opencodehx.session.MessageTypes.OutputFormat;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TextSelection;
 import opencodehx.session.MessageTypes.TimeRange;
 import opencodehx.session.MessageTypes.TokenUsage;
 import opencodehx.session.MessageTypes.ToolState;
+import opencodehx.session.MessageTypes.ToolStateMetadata;
 import opencodehx.session.MessageTypes.UserMessage;
 import opencodehx.session.MessageTypes.WithParts;
 
@@ -151,7 +155,7 @@ class MessageCodec {
 		if (has(data, "summary"))
 			Reflect.setField(result, "summary", decodeUserSummary(Reflect.field(data, "summary"), issues, path + ".summary"));
 		copyOptional(data, result, "system");
-		copyOptional(data, result, "tools");
+		copyOptionalMessageJson(data, result, "tools", issues, path + ".tools");
 		return result;
 	}
 
@@ -173,9 +177,9 @@ class MessageCodec {
 			cost: requiredFloat(data, "cost", issues, path + ".cost"),
 			tokens: decodeTokens(requiredObject(data, "tokens", issues, path + ".tokens"), issues, path + ".tokens"),
 		};
-		copyOptional(data, result, "error");
+		copyOptionalMessageJson(data, result, "error", issues, path + ".error");
 		copyOptional(data, result, "summary");
-		copyOptional(data, result, "structured");
+		copyOptionalMessageJson(data, result, "structured", issues, path + ".structured");
 		copyOptional(data, result, "variant");
 		copyOptional(data, result, "finish");
 		return result;
@@ -365,7 +369,7 @@ class MessageCodec {
 				SymbolSource({
 					text: text,
 					path: requiredString(data, "path", issues, path + ".path"),
-					range: Reflect.field(data, "range"),
+					range: requiredMessageJson(data, "range", issues, path + ".range"),
 					name: requiredString(data, "name", issues, path + ".name"),
 					kind: requiredInt(data, "kind", issues, path + ".kind"),
 				});
@@ -396,7 +400,7 @@ class MessageCodec {
 					time: {start: requiredFloat(requiredObject(data, "time", issues, path + ".time"), "start", issues, path + ".time.start")},
 				};
 				copyOptional(data, running, "title");
-				copyOptional(data, running, "metadata");
+				copyOptionalToolStateMetadata(data, running, "metadata", issues, path + ".metadata");
 				ToolRunning(cast running);
 			case "completed":
 				final completed:Dynamic = {
@@ -404,7 +408,7 @@ class MessageCodec {
 					input: requiredObject(data, "input", issues, path + ".input"),
 					output: requiredString(data, "output", issues, path + ".output"),
 					title: requiredString(data, "title", issues, path + ".title"),
-					metadata: requiredObject(data, "metadata", issues, path + ".metadata"),
+					metadata: requiredToolStateMetadata(data, "metadata", issues, path + ".metadata"),
 					time: decodeToolTimeRange(requiredObject(data, "time", issues, path + ".time"), issues, path + ".time"),
 				};
 				if (has(data, "attachments")) {
@@ -425,7 +429,7 @@ class MessageCodec {
 					error: requiredString(data, "error", issues, path + ".error"),
 					time: decodeToolTimeRange(requiredObject(data, "time", issues, path + ".time"), issues, path + ".time"),
 				};
-				copyOptional(data, error, "metadata");
+				copyOptionalToolStateMetadata(data, error, "metadata", issues, path + ".metadata");
 				ToolErrored(cast error);
 			case status:
 				issues.push('${path}.status: unknown tool state "${status}"');
@@ -441,7 +445,7 @@ class MessageCodec {
 				final retry = has(data, "retryCount") ? requiredInt(data, "retryCount", issues, path + ".retryCount") : 2;
 				if (retry < 0)
 					issues.push(path + ".retryCount: expected non-negative integer");
-				OutputJsonSchema(requiredObject(data, "schema", issues, path + ".schema"), retry);
+				OutputJsonSchema(requiredMessageJson(data, "schema", issues, path + ".schema"), retry);
 			case kind:
 				issues.push('${path}.type: unknown output format "${kind}"');
 				OutputText;
@@ -458,7 +462,7 @@ class MessageCodec {
 	}
 
 	static function decodeUserSummary(data:Dynamic, issues:Array<String>, path:String):Dynamic {
-		final summary:Dynamic = {diffs: requiredArray(data, "diffs", issues, path + ".diffs")};
+		final summary:Dynamic = {diffs: requiredMessageJson(data, "diffs", issues, path + ".diffs")};
 		copyOptional(data, summary, "title");
 		copyOptional(data, summary, "body");
 		return summary;
@@ -742,9 +746,53 @@ class MessageCodec {
 			Reflect.setField(to, field, Reflect.field(from, field));
 	}
 
+	static function copyOptionalMessageJson(from:Dynamic, to:Dynamic, field:String, issues:Array<String>, path:String):Void {
+		if (has(from, field))
+			Reflect.setField(to, field, decodeMessageJsonValue(Reflect.field(from, field), issues, path));
+	}
+
+	static function copyOptionalToolStateMetadata(from:Dynamic, to:Dynamic, field:String, issues:Array<String>, path:String):Void {
+		if (has(from, field))
+			Reflect.setField(to, field, decodeToolStateMetadataValue(Reflect.field(from, field), issues, path));
+	}
+
 	static function copyOut(from:Dynamic, to:Dynamic, field:String):Void {
 		if (has(from, field))
 			Reflect.setField(to, field, Reflect.field(from, field));
+	}
+
+	static function requiredMessageJson(data:Dynamic, field:String, issues:Array<String>, path:String):MessageJson {
+		if (!has(data, field)) {
+			issues.push(path + ": expected JSON value");
+			return MessageJson.emptyObject();
+		}
+		return decodeMessageJsonValue(Reflect.field(data, field), issues, path);
+	}
+
+	static function requiredToolStateMetadata(data:Dynamic, field:String, issues:Array<String>, path:String):ToolStateMetadata {
+		if (!has(data, field)) {
+			issues.push(path + ": expected JSON value");
+			return ToolStateMetadata.empty();
+		}
+		return decodeToolStateMetadataValue(Reflect.field(data, field), issues, path);
+	}
+
+	static function decodeMessageJsonValue(value:Dynamic, issues:Array<String>, path:String):MessageJson {
+		final json = JsonCodec.narrow(Unknown.fromBoundary(value));
+		if (json == null) {
+			issues.push(path + ": expected JSON value");
+			return MessageJson.emptyObject();
+		}
+		return MessageJson.fromJson(json);
+	}
+
+	static function decodeToolStateMetadataValue(value:Dynamic, issues:Array<String>, path:String):ToolStateMetadata {
+		final json = JsonCodec.narrow(Unknown.fromBoundary(value));
+		if (json == null) {
+			issues.push(path + ": expected JSON value");
+			return ToolStateMetadata.empty();
+		}
+		return ToolStateMetadata.fromJson(json);
 	}
 
 	static function requiredObject(data:Dynamic, field:String, issues:Array<String>, path:String):Dynamic {

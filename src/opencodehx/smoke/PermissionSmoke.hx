@@ -12,6 +12,7 @@ import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolIDs;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
 
 class PermissionSmoke {
 	public static function run():Void {
@@ -148,7 +149,7 @@ class PermissionSmoke {
 			permission: "read",
 			patterns: ["src/a.ts"],
 			always: ["src/*"],
-			metadata: {}
+			metadata: ToolPermissionMetadata.checked({})
 		});
 		eq(first.allowed, true, "first ask allowed");
 		eq(seen.length, 1, "prompt called");
@@ -156,7 +157,7 @@ class PermissionSmoke {
 			permission: "read",
 			patterns: ["src/b.ts"],
 			always: ["src/*"],
-			metadata: {}
+			metadata: ToolPermissionMetadata.checked({})
 		});
 		eq(second.allowed, true, "approved always allowed");
 		eq(seen.length, 1, "prompt not called after always");
@@ -172,7 +173,7 @@ class PermissionSmoke {
 			permission: "bash",
 			patterns: ["pwd"],
 			always: ["pwd *"],
-			metadata: {}
+			metadata: ToolPermissionMetadata.checked({})
 		});
 		eq(denied.allowed, false, "reject denied");
 		eq(denied.reason, "no thanks", "reject reason");
