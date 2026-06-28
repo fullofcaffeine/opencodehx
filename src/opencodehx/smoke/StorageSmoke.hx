@@ -13,6 +13,7 @@ import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.PartID;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionInfo.SessionInfo;
+import opencodehx.storage.JsonStorageMigrationRuntime;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.storage.StorageDatabasePath;
 import opencodehx.storage.StorageError.StorageException;
@@ -27,6 +28,7 @@ class StorageSmoke {
 			store.upsertProject({id: "proj_fixture", worktree: root, name: "Fixture"});
 			sessionCreateReadUpdate(store, root);
 			messagePageAndPartCrud(store);
+			jsonMigration(root);
 			store.close();
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
@@ -105,6 +107,80 @@ class StorageSmoke {
 		expectNotFound(() -> store.getSession(sessionID), "deleted session");
 	}
 
+	static function jsonMigration(root:String):Void {
+		final store = new SqliteSessionStore(NodePath.join(root, "json-migration.db"));
+		final storageDir = NodePath.join(root, "legacy-storage");
+		setupLegacyStorage(storageDir);
+		writeJson(join3(storageDir, "project", "proj_filename.json"), {
+			id: "proj_stale",
+			worktree: "/test/path",
+			name: "Filename Project",
+			sandboxes: [],
+		});
+		writeJson(join4(storageDir, "session", "proj_filename", "ses_from_filename.json"), {
+			id: "ses_stale",
+			projectID: "proj_stale",
+			slug: "legacy-session",
+			directory: "/test/path",
+			title: "Legacy Session",
+			version: "1.0.0",
+			time: {created: 1700000000000, updated: 1700000001000},
+		});
+		writeJson(join4(storageDir, "message", "ses_from_filename", "msg_from_filename.json"), {
+			id: "msg_stale",
+			sessionID: "ses_stale",
+			role: "user",
+			agent: "default",
+			model: {providerID: "openai", modelID: "gpt-4"},
+			time: {created: 1700000000000},
+		});
+		writeJson(join4(storageDir, "part", "msg_from_filename", "prt_from_filename.json"), {
+			id: "prt_stale",
+			messageID: "msg_stale",
+			type: "text",
+			text: "Hello, migration!",
+		});
+
+		final stats = JsonStorageMigrationRuntime.run(storageDir, store);
+		eq(stats.projects, 1, "json migration project count");
+		eq(stats.sessions, 1, "json migration session count");
+		eq(stats.messages, 1, "json migration message count");
+		eq(stats.parts, 1, "json migration part count");
+		eq(stats.todos, 0, "json migration todo deferred count");
+		eq(stats.errors.length, 0, "json migration errors");
+
+		final sessionID = SessionID.make("ses_from_filename");
+		final migrated = store.getSession(sessionID);
+		eq(migrated.projectID, "proj_filename", "json migration uses session directory project id");
+		eq(migrated.title, "Legacy Session", "json migration session title");
+
+		final page = store.pageMessages(sessionID, 10);
+		eq(page.items.length, 1, "json migration message page length");
+		eq(messageID(page.items[0].info), "msg_from_filename", "json migration uses message filename id");
+		final part = store.getPart(sessionID, MessageID.make("msg_from_filename"), PartID.make("prt_from_filename"));
+		if (part == null)
+			throw "json migration part lookup: expected part";
+		eq(text(part), "Hello, migration!", "json migration part text");
+
+		JsonStorageMigrationRuntime.run(storageDir, store);
+		eq(store.pageMessages(sessionID, 10).items.length, 1, "json migration rerun is idempotent");
+
+		final orphanDir = NodePath.join(root, "legacy-orphan");
+		setupLegacyStorage(orphanDir);
+		writeJson(join4(orphanDir, "session", "proj_missing", "ses_orphan.json"), {
+			id: "ses_orphan",
+			projectID: "proj_missing",
+			slug: "orphan",
+			directory: "/",
+			title: "Orphan",
+			version: "1.0.0",
+			time: {created: 1, updated: 2},
+		});
+		eq(JsonStorageMigrationRuntime.run(orphanDir, store).sessions, 0, "json migration skips orphan session");
+		eq(JsonStorageMigrationRuntime.run(NodePath.join(root, "missing-storage"), store).projects, 0, "json migration missing dir");
+		store.close();
+	}
+
 	static function session(id:String, directory:String, title:String, created:Float, updated:Float):SessionInfo {
 		return {
 			id: SessionID.make(id),
@@ -158,6 +234,28 @@ class StorageSmoke {
 			case _:
 				throw "expected text part";
 		}
+	}
+
+	static function setupLegacyStorage(storageDir:String):Void {
+		for (dir in ["project", "session", "message", "part"]) {
+			Fs.mkdirSync(NodePath.join(storageDir, dir), {recursive: true});
+		}
+		Fs.mkdirSync(join3(storageDir, "session", "proj_filename"), {recursive: true});
+		Fs.mkdirSync(join3(storageDir, "session", "proj_missing"), {recursive: true});
+		Fs.mkdirSync(join3(storageDir, "message", "ses_from_filename"), {recursive: true});
+		Fs.mkdirSync(join3(storageDir, "part", "msg_from_filename"), {recursive: true});
+	}
+
+	static function writeJson<T>(path:String, value:T):Void {
+		Fs.writeFileSync(path, Json.stringify(value));
+	}
+
+	static function join3(first:String, second:String, third:String):String {
+		return NodePath.join(NodePath.join(first, second), third);
+	}
+
+	static function join4(first:String, second:String, third:String, fourth:String):String {
+		return NodePath.join(join3(first, second, third), fourth);
 	}
 
 	static function expectNotFound(run:() -> Void, label:String):Void {

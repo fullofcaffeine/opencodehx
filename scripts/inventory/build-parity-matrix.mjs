@@ -194,6 +194,7 @@ function directEvidence(path) {
       ],
     ],
     ["storage/storage.test.ts", ["partial", "src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "storage service integration beyond session/message CRUD remains deferred", "StorageSmoke"]],
+    ["storage/json-migration.test.ts", ["partial", "src/opencodehx/storage/JsonStorageMigrationRuntime.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "todo/permission/session-share tables, unreadable-file error collection, full Drizzle migration compatibility, and storage service integration remain deferred", "StorageSmoke.jsonMigration"]],
     ["storage/db.test.ts", ["ported", "src/opencodehx/storage/StorageDatabasePath.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "none", "StorageSmoke databasePath"]],
     ["config/config.test.ts", ["partial", "src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md", "real account repo/service integration, runtime plugin loading/path resolution, and live package-manager dependency install side effects remain deferred; deterministic dependency bootstrap gitignore/install success/failure is covered", "ConfigSmoke"]],
     ["config/agent-color.test.ts", ["direct", "src/opencodehx/smoke/ConfigSmoke.hx; src/opencodehx/smoke/UtilSmoke.hx; src/opencodehx/agent/AgentRuntime.hx; src/opencodehx/util/Color.hx; docs/config-port.md", "project JSON agent colors, config-backed agent lookup color propagation, and strict hex-to-ANSI conversion are covered", "ConfigSmoke agentColorConfig plus UtilSmoke color", "none"]],
