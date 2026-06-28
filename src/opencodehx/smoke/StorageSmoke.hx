@@ -179,6 +179,22 @@ class StorageSmoke {
 			type: "text",
 			text: "Hello, migration!",
 		});
+		Fs.mkdirSync(join3(storageDir, "message", "ses_missing"), {recursive: true});
+		writeJson(join4(storageDir, "message", "ses_missing", "msg_orphan.json"), {
+			id: "msg_orphan",
+			sessionID: "ses_missing",
+			role: "user",
+			agent: "default",
+			model: {providerID: "openai", modelID: "gpt-4"},
+			time: {created: 1},
+		});
+		Fs.mkdirSync(join3(storageDir, "part", "msg_missing"), {recursive: true});
+		writeJson(join4(storageDir, "part", "msg_missing", "prt_orphan.json"), {
+			id: "prt_orphan",
+			messageID: "msg_missing",
+			type: "text",
+			text: "orphan part",
+		});
 		writeJson(join3(storageDir, "todo", "ses_from_filename.json"), [
 			{content: "First todo", status: "pending", priority: "high"},
 			{content: "Skipped todo", priority: "low"},
@@ -200,6 +216,7 @@ class StorageSmoke {
 			secret: "secret",
 			url: "https://missing.example.com",
 		});
+		writeText(join3(storageDir, "project", "proj_broken.json"), "{ not json");
 
 		final stats = JsonStorageMigrationRuntime.run(storageDir, store);
 		eq(stats.projects, 1, "json migration project count");
@@ -218,7 +235,9 @@ class StorageSmoke {
 		eq(stats.shares, 1, "json migration share count");
 		eq(stats.shareItems[0].sessionID, "ses_from_filename", "json migration share session id");
 		eq(stats.shareItems[0].url, "https://share.example.com/ses_from_filename", "json migration share url");
-		eq(stats.errors.length, 0, "json migration errors");
+		eq(stats.errors.length, 1, "json migration unreadable error count");
+		expectContains(stats.errors[0], "failed to read", "json migration unreadable error label");
+		expectContains(stats.errors[0], "proj_broken.json", "json migration unreadable error path");
 
 		final sessionID = SessionID.make("ses_from_filename");
 		final migrated = store.getSession(sessionID);
@@ -321,6 +340,10 @@ class StorageSmoke {
 		Fs.writeFileSync(path, Json.stringify(value));
 	}
 
+	static function writeText(path:String, value:String):Void {
+		Fs.writeFileSync(path, value);
+	}
+
 	static function jsonString(value:genes.ts.JsonValue):String {
 		return JsonCodec.stringify(value);
 	}
@@ -360,5 +383,10 @@ class StorageSmoke {
 		if (actual != expected) {
 			throw '$label: expected ${expected}, got ${actual}';
 		}
+	}
+
+	static function expectContains(actual:String, needle:String, label:String):Void {
+		if (actual.indexOf(needle) < 0)
+			throw '$label: expected "${actual}" to contain "${needle}"';
 	}
 }

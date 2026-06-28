@@ -64,26 +64,26 @@ class JsonStorageMigrationRuntime {
 		if (!Fs.existsSync(storageDir))
 			return stats;
 
-		final projects = migrateProjects(storageDir, store);
+		final projects = migrateProjects(storageDir, store, stats.errors);
 		stats.projects = projects.count;
-		final sessions = migrateSessions(storageDir, store, projects.ids);
+		final sessions = migrateSessions(storageDir, store, projects.ids, stats.errors);
 		stats.sessions = sessions.count;
-		final messages = migrateMessages(storageDir, store);
+		final messages = migrateMessages(storageDir, store, sessions.ids, stats.errors);
 		stats.messages = messages.count;
-		stats.parts = migrateParts(storageDir, store, messages.sessionByMessage);
-		final todos = migrateTodos(storageDir, sessions.ids);
+		stats.parts = migrateParts(storageDir, store, messages.sessionByMessage, stats.errors);
+		final todos = migrateTodos(storageDir, sessions.ids, stats.errors);
 		stats.todos = todos.count;
 		stats.todoItems = todos.items;
-		final permissions = migratePermissions(storageDir, projects.ids);
+		final permissions = migratePermissions(storageDir, projects.ids, stats.errors);
 		stats.permissions = permissions.count;
 		stats.permissionFiles = permissions.items;
-		final shares = migrateShares(storageDir, sessions.ids);
+		final shares = migrateShares(storageDir, sessions.ids, stats.errors);
 		stats.shares = shares.count;
 		stats.shareItems = shares.items;
 		return stats;
 	}
 
-	static function migrateProjects(storageDir:String, store:SessionStore):ProjectMigrationResult {
+	static function migrateProjects(storageDir:String, store:SessionStore, errors:Array<String>):ProjectMigrationResult {
 		final ids = new Map<String, Bool>();
 		var count = 0;
 		final dir = NodePath.join(storageDir, "project");
@@ -91,7 +91,9 @@ class JsonStorageMigrationRuntime {
 			return {count: count, ids: ids};
 		for (file in jsonFiles(dir)) {
 			final id = jsonID(file);
-			final record = readRecord(NodePath.join(dir, file));
+			final record = readRecord(NodePath.join(dir, file), errors);
+			if (record == null)
+				continue;
 			final project:ProjectInfo = {
 				id: id,
 				worktree: stringOr(record, "worktree", ""),
@@ -104,7 +106,7 @@ class JsonStorageMigrationRuntime {
 		return {count: count, ids: ids};
 	}
 
-	static function migrateSessions(storageDir:String, store:SessionStore, projectIDs:Map<String, Bool>):SessionMigrationResult {
+	static function migrateSessions(storageDir:String, store:SessionStore, projectIDs:Map<String, Bool>, errors:Array<String>):SessionMigrationResult {
 		var count = 0;
 		final ids = new Map<String, Bool>();
 		final dir = NodePath.join(storageDir, "session");
@@ -115,7 +117,9 @@ class JsonStorageMigrationRuntime {
 				continue;
 			final projectPath = NodePath.join(dir, projectDir);
 			for (file in jsonFiles(projectPath)) {
-				final record = readRecord(NodePath.join(projectPath, file));
+				final record = readRecord(NodePath.join(projectPath, file), errors);
+				if (record == null)
+					continue;
 				final session = sessionFromRecord(record, jsonID(file), projectDir);
 				store.createSession(session);
 				ids.set(session.id.toString(), true);
@@ -125,17 +129,21 @@ class JsonStorageMigrationRuntime {
 		return {count: count, ids: ids};
 	}
 
-	static function migrateMessages(storageDir:String, store:SessionStore):MessageMigrationResult {
+	static function migrateMessages(storageDir:String, store:SessionStore, sessionIDs:Map<String, Bool>, errors:Array<String>):MessageMigrationResult {
 		var count = 0;
 		final sessionByMessage = new Map<String, String>();
 		final dir = NodePath.join(storageDir, "message");
 		if (!Fs.existsSync(dir))
 			return {count: count, sessionByMessage: sessionByMessage};
 		for (sessionDir in childDirectories(dir)) {
+			if (!sessionIDs.exists(sessionDir))
+				continue;
 			final sessionID = SessionID.make(sessionDir);
 			for (file in jsonFiles(NodePath.join(dir, sessionDir))) {
 				final messageID = jsonID(file);
-				final record = readRecord(join3(dir, sessionDir, file));
+				final record = readRecord(join3(dir, sessionDir, file), errors);
+				if (record == null)
+					continue;
 				final message = MessageCodec.decodeInfoRecord({
 					id: messageID,
 					sessionID: sessionID.toString(),
@@ -152,15 +160,19 @@ class JsonStorageMigrationRuntime {
 		return {count: count, sessionByMessage: sessionByMessage};
 	}
 
-	static function migrateParts(storageDir:String, store:SessionStore, sessionByMessage:Map<String, String>):Int {
+	static function migrateParts(storageDir:String, store:SessionStore, sessionByMessage:Map<String, String>, errors:Array<String>):Int {
 		var count = 0;
 		final dir = NodePath.join(storageDir, "part");
 		if (!Fs.existsSync(dir))
 			return count;
 		for (messageDir in childDirectories(dir)) {
+			if (!sessionByMessage.exists(messageDir))
+				continue;
+			final sessionID = sessionByMessage.get(messageDir);
 			for (file in jsonFiles(NodePath.join(dir, messageDir))) {
-				final record = readRecord(join3(dir, messageDir, file));
-				final sessionID = stringOr(record, "sessionID", sessionByMessage.exists(messageDir) ? sessionByMessage.get(messageDir) : "unknown-session");
+				final record = readRecord(join3(dir, messageDir, file), errors);
+				if (record == null)
+					continue;
 				final part = MessageCodec.decodePartRecord({
 					id: jsonID(file),
 					sessionID: sessionID,
@@ -175,7 +187,7 @@ class JsonStorageMigrationRuntime {
 		return count;
 	}
 
-	static function migrateTodos(storageDir:String, sessionIDs:Map<String, Bool>):TodoMigrationResult {
+	static function migrateTodos(storageDir:String, sessionIDs:Map<String, Bool>, errors:Array<String>):TodoMigrationResult {
 		var count = 0;
 		final items:Array<JsonStorageMigratedTodo> = [];
 		final dir = NodePath.join(storageDir, "todo");
@@ -185,7 +197,9 @@ class JsonStorageMigrationRuntime {
 			final sessionID = jsonID(file);
 			if (!sessionIDs.exists(sessionID))
 				continue;
-			final todos = readArray(NodePath.join(dir, file));
+			final todos = readArray(NodePath.join(dir, file), errors);
+			if (todos == null)
+				continue;
 			for (index in 0...todos.length) {
 				final record = UnknownNarrow.record(todos.get(index));
 				if (record == null)
@@ -208,7 +222,7 @@ class JsonStorageMigrationRuntime {
 		return {count: count, items: items};
 	}
 
-	static function migratePermissions(storageDir:String, projectIDs:Map<String, Bool>):PermissionMigrationResult {
+	static function migratePermissions(storageDir:String, projectIDs:Map<String, Bool>, errors:Array<String>):PermissionMigrationResult {
 		var count = 0;
 		final items:Array<JsonStorageMigratedPermission> = [];
 		final dir = NodePath.join(storageDir, "permission");
@@ -218,7 +232,9 @@ class JsonStorageMigrationRuntime {
 			final projectID = jsonID(file);
 			if (!projectIDs.exists(projectID))
 				continue;
-			final rules = readArray(NodePath.join(dir, file));
+			final rules = readArray(NodePath.join(dir, file), errors);
+			if (rules == null)
+				continue;
 			items.push({
 				projectID: projectID,
 				rules: rules.length,
@@ -228,7 +244,7 @@ class JsonStorageMigrationRuntime {
 		return {count: count, items: items};
 	}
 
-	static function migrateShares(storageDir:String, sessionIDs:Map<String, Bool>):ShareMigrationResult {
+	static function migrateShares(storageDir:String, sessionIDs:Map<String, Bool>, errors:Array<String>):ShareMigrationResult {
 		var count = 0;
 		final items:Array<JsonStorageMigratedShare> = [];
 		final dir = NodePath.join(storageDir, "session_share");
@@ -238,7 +254,9 @@ class JsonStorageMigrationRuntime {
 			final sessionID = jsonID(file);
 			if (!sessionIDs.exists(sessionID))
 				continue;
-			final record = readRecord(NodePath.join(dir, file));
+			final record = readRecord(NodePath.join(dir, file), errors);
+			if (record == null)
+				continue;
 			final id = optionalString(record, "id");
 			final secret = optionalString(record, "secret");
 			final url = optionalString(record, "url");
@@ -290,20 +308,38 @@ class JsonStorageMigrationRuntime {
 		};
 	}
 
-	static function readRecord(path:String):UnknownRecord {
-		final raw = Unknown.fromBoundary(Json.parse(Fs.readFileSync(path, "utf8")));
-		final record = UnknownNarrow.record(raw);
-		if (record == null)
-			throw 'legacy JSON storage file is not an object: ${path}';
-		return record;
+	static function readRecord(path:String, errors:Array<String>):Null<UnknownRecord> {
+		try {
+			final raw = Unknown.fromBoundary(Json.parse(Fs.readFileSync(path, "utf8")));
+			final record = UnknownNarrow.record(raw);
+			if (record == null) {
+				errors.push('failed to read ${path}: legacy JSON storage file is not an object');
+				return null;
+			}
+			return record;
+		} catch (error:haxe.Exception) {
+			// Legacy JSON storage is user-controlled and host fs/JSON.parse can throw
+			// host exceptions. Contain that boundary by recording text only.
+			errors.push('failed to read ${path}: ${Std.string(error)}');
+			return null;
+		}
 	}
 
-	static function readArray(path:String):UnknownArray {
-		final raw = Unknown.fromBoundary(Json.parse(Fs.readFileSync(path, "utf8")));
-		final array = UnknownNarrow.array(raw);
-		if (array == null)
-			throw 'legacy JSON storage file is not an array: ${path}';
-		return array;
+	static function readArray(path:String, errors:Array<String>):Null<UnknownArray> {
+		try {
+			final raw = Unknown.fromBoundary(Json.parse(Fs.readFileSync(path, "utf8")));
+			final array = UnknownNarrow.array(raw);
+			if (array == null) {
+				errors.push('failed to read ${path}: legacy JSON storage file is not an array');
+				return null;
+			}
+			return array;
+		} catch (error:haxe.Exception) {
+			// Legacy JSON storage is user-controlled and host fs/JSON.parse can throw
+			// host exceptions. Contain that boundary by recording text only.
+			errors.push('failed to read ${path}: ${Std.string(error)}');
+			return null;
+		}
 	}
 
 	static function jsonFiles(dir:String):Array<String> {
