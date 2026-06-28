@@ -1,11 +1,14 @@
 # Effect Runtime Parity
 
-**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`, `opencodehx-4kc`
+**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`, `opencodehx-4kc`, `opencodehx-vqu0`
 
 ## Upstream Oracle
 
 - `../opencode/packages/opencode/src/effect/observability.ts`
 - `../opencode/packages/opencode/test/effect/observability.test.ts`
+- `../opencode/packages/opencode/src/effect/app-runtime.ts`
+- `../opencode/packages/opencode/src/effect/bridge.ts`
+- `../opencode/packages/opencode/test/effect/app-runtime-logger.test.ts`
 - `../opencode/packages/opencode/src/effect/run-service.ts`
 - `../opencode/packages/opencode/test/effect/run-service.test.ts`
 - `../opencode/packages/opencode/test/effect/instance-state.test.ts`
@@ -21,6 +24,15 @@
 - Built-in OpenCode attributes are applied after env attributes, so env collisions cannot override `opencode.client` or `service.instance.id`.
 
 `EffectSmoke.observabilityResource()` covers the upstream resource parser assertions with injected env/process metadata.
+
+`opencodehx.effect.AppRuntimeLoggerRuntime` covers the stable logger/context facts from upstream AppRuntime setup without pulling in the full Effect service graph:
+
+- `Observability.layer`-style setup replaces the default logger with the OpenCode Effect logger.
+- `RunServiceRuntime` sees the same logger replacement as AppRuntime.
+- instance directory context can be attached to an AppRuntime-style run; and
+- a captured bridge preserves the logger set and instance directory across a Promise async boundary.
+
+`EffectSmoke.appRuntimeLogger()` and `EffectSmoke.appRuntimeLoggerBridge()` cover those cases.
 
 `opencodehx.effect.RuntimeMemo` and `RunServiceRuntime` cover the stable memo-map behavior from upstream `makeRuntime`: separately-created runtimes can depend on the same shared layer and see one initialized dependency. `EffectSmoke.runServiceMemoMap()` creates two runtime services over one memoized shared service, proves both return the same shared ID, and proves the dependency factory ran once.
 
@@ -41,4 +53,4 @@
 
 ## Boundary
 
-This slice does not port the full Effect observability layer, OTLP logger, OpenTelemetry trace exporter, AppRuntime logger installation, Effect `ManagedRuntime`, `Layer`, `Context.Service`, async `runPromise`/`runFork` APIs, real Effect `Scope`/`Fiber` interruption for Runner, ALS-backed `InstanceRef`, or async-boundary/high-contention instance context propagation. Those remain under the broader Effect/runtime rows.
+This slice does not port the full Effect observability layer, OTLP logger, OpenTelemetry trace exporter, Effect `ManagedRuntime`, `Layer`, `Context.Service`, `runFork`/`runCallback`, real `Logger.CurrentLoggers`, real Effect `Scope`/`Fiber` interruption for Runner, ALS-backed `InstanceRef`, or high-contention instance context propagation. Those remain under the broader Effect/runtime rows.

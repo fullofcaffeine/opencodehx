@@ -3,6 +3,7 @@ package opencodehx.smoke;
 import haxe.DynamicAccess;
 import js.lib.Error;
 import js.lib.Promise;
+import opencodehx.effect.AppRuntimeLoggerRuntime;
 import opencodehx.effect.InstanceStateRuntime;
 import opencodehx.effect.ObservabilityResource;
 import opencodehx.effect.RunnerRuntime;
@@ -35,10 +36,13 @@ class EffectSmoke {
 		observabilityResource();
 		runServiceMemoMap();
 		instanceState();
+		appRuntimeLogger();
 	}
 
+	@:async
 	public static function runAsync():Promise<Void> {
-		return runner();
+		@:await runner();
+		@:await appRuntimeLoggerBridge();
 	}
 
 	static function observabilityResource():Void {
@@ -146,6 +150,24 @@ class EffectSmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+		Fs.rmSync(root, {recursive: true, force: true});
+	}
+
+	static function appRuntimeLogger():Void {
+		final serviceRuntime = RunServiceRuntime.make(() -> AppRuntimeLoggerRuntime.make());
+		final fromRuntime = serviceRuntime.run(runtime -> runtime.current());
+		eq(fromRuntime.effectLogger, true, "app-runtime logger makeRuntime installs effect logger");
+		eq(fromRuntime.defaultLogger, false, "app-runtime logger makeRuntime removes default logger");
+
+		final appRuntime = AppRuntimeLoggerRuntime.make();
+		final fromApp = appRuntime.current();
+		eq(fromApp.effectLogger, true, "app-runtime logger installs effect logger");
+		eq(fromApp.defaultLogger, false, "app-runtime logger removes default logger");
+		eq(fromApp.size, 1, "app-runtime logger set size");
+
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-app-runtime-logger-"));
+		final attached = AppRuntimeLoggerRuntime.make(root).current();
+		eq(attached.directory, root, "app-runtime logger attaches instance directory");
 		Fs.rmSync(root, {recursive: true, force: true});
 	}
 
@@ -265,6 +287,20 @@ class EffectSmoke {
 
 	static function never():Promise<String> {
 		return new Promise<String>((_, _) -> {});
+	}
+
+	@:async
+	static function appRuntimeLoggerBridge():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-app-runtime-bridge-"));
+		final runtime = AppRuntimeLoggerRuntime.make(root);
+		final result = @:await runtime.runPromise(context -> {
+			final bridge = AppRuntimeLoggerRuntime.bridgeFor(context);
+			return Promise.resolve(true).then(_ -> bridge.promise(AppRuntimeLoggerRuntime.snapshot));
+		});
+		eq(result.directory, root, "app-runtime bridge preserves instance directory");
+		eq(result.effectLogger, true, "app-runtime bridge preserves effect logger");
+		eq(result.defaultLogger, false, "app-runtime bridge preserves logger replacement");
+		Fs.rmSync(root, {recursive: true, force: true});
 	}
 
 	static function cancelled(promise:Promise<String>):Promise<Bool> {
