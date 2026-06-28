@@ -12,6 +12,8 @@ import opencodehx.cli.AccountDisplay.AccountDisplayOrg;
 import opencodehx.cli.Cli;
 import opencodehx.cli.ErrorFormatter;
 import opencodehx.cli.GitHubRemote;
+import opencodehx.cli.CliImport;
+import opencodehx.cli.CliImport.ShareImportItem;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigError.ConfigFailure;
@@ -186,6 +188,39 @@ class CliSmoke {
 		diagnosticFormatting();
 		githubRemoteParser();
 		accountDisplayFormatting();
+		importShareHelpers();
+	}
+
+	static function importShareHelpers():Void {
+		eq(CliImport.parseShareUrl("https://opncd.ai/share/Jsj3hNIW"), "Jsj3hNIW", "import share URL opncd");
+		eq(CliImport.parseShareUrl("https://custom.example.com/share/abc123"), "abc123", "import share URL custom");
+		eq(CliImport.parseShareUrl("http://localhost:3000/share/test_id-123"), "test_id-123", "import share URL localhost");
+		eq(CliImport.parseShareUrl("https://opncd.ai/s/Jsj3hNIW"), null, "import legacy share URL rejected");
+		eq(CliImport.parseShareUrl("https://opncd.ai/share/"), null, "import empty share URL rejected");
+		eq(CliImport.parseShareUrl("https://opncd.ai/share/id/extra"), null, "import extra share path rejected");
+		eq(CliImport.parseShareUrl("not-a-url"), null, "import invalid share URL rejected");
+
+		eq(CliImport.shouldAttachShareAuthHeaders("https://control.example.com/share/abc", "https://control.example.com"), true,
+			"import same-origin auth headers");
+		eq(CliImport.shouldAttachShareAuthHeaders("https://other.example.com/share/abc", "https://control.example.com"), false,
+			"import other-origin auth headers");
+		eq(CliImport.shouldAttachShareAuthHeaders("https://control.example.com:443/share/abc", "https://control.example.com"), true,
+			"import default port same-origin auth headers");
+		eq(CliImport.shouldAttachShareAuthHeaders("not-a-url", "https://control.example.com"), false, "import invalid origin auth headers");
+
+		final transformed = CliImport.transformShareData([
+			ShareImportItem.Session({id: "sess-1", title: "Test"}),
+			ShareImportItem.Message({id: "msg-1", sessionID: "sess-1"}),
+			ShareImportItem.Part({id: "part-1", messageID: "msg-1"}),
+			ShareImportItem.Part({id: "part-2", messageID: "msg-1"}),
+		]);
+		eq(transformed == null, false, "import transformed present");
+		eq(transformed.info.id, "sess-1", "import transformed session");
+		eq(transformed.messages.length, 1, "import transformed message count");
+		eq(transformed.messages[0].parts.length, 2, "import transformed part count");
+		eq(CliImport.transformShareData([]), null, "import empty share data rejected");
+		eq(CliImport.transformShareData([ShareImportItem.Message({id: "msg-1", sessionID: "sess-1"})]), null, "import share data without session rejected");
+		eq(CliImport.transformShareData([ShareImportItem.Session({id: "sess-1"})]), null, "import share data without messages rejected");
 	}
 
 	static function accountDisplayFormatting():Void {
