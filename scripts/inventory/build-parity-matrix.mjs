@@ -324,6 +324,16 @@ function directEvidence(path) {
       ],
     ],
     [
+      "tool/skill.test.ts",
+      [
+        "partial",
+        "src/opencodehx/tool/SkillTool.hx; src/opencodehx/skill/SkillRegistry.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md",
+        "skill name decoding, local registry lookup, permission request shape, metadata.dir, skill content block, base-directory file URL, and sampled file list output are covered through the async Haxe skill tool facade; registration in the synchronous ToolRegistry/session tool loop remains deferred until async tool execution lands",
+        "ToolSmoke.skillExec",
+        m11Owners.tool,
+      ],
+    ],
+    [
       "tool/webfetch.test.ts",
       [
         "partial",

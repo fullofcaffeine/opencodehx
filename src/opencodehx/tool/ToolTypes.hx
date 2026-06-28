@@ -133,6 +133,7 @@ enum abstract KnownToolID(String) to String {
 	var Lsp = "lsp";
 	var Question = "question";
 	var Read = "read";
+	var Skill = "skill";
 	var Write = "write";
 }
 

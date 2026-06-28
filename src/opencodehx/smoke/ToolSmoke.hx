@@ -9,9 +9,11 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.host.node.NodePath;
+import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.tool.BashCommandScanner;
 import opencodehx.tool.BashCommandScanner.BashScan;
+import opencodehx.tool.SkillTool;
 import opencodehx.tool.ToolDefinition;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
@@ -51,6 +53,7 @@ class ToolSmoke {
 			applyPatchExec(registry, context(root));
 			await(webFetchExec(context(root)));
 			await(questionExec(context(root)));
+			await(skillExec(context(root)));
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			// Smoke cleanup must run for arbitrary Haxe/JS thrown values, then
@@ -661,6 +664,36 @@ class ToolSmoke {
 		await(longHeaderService.reply({requestID: longHeaderPending.id, answers: [["Dog"]]}));
 		final longHeaderResult = await(longHeaderPromise);
 		eq(longHeaderResult.output.indexOf('"What is your favorite animal?"="Dog"') != -1, true, "question tool long header output");
+	}
+
+	@:async
+	static function skillExec(ctx:ToolContext):Promise<Void> {
+		final skillDir = NodePath.join(NodePath.join(NodePath.join(ctx.directory, ".opencode"), "skill"), "tool-skill");
+		write(ctx.directory, ".opencode/skill/tool-skill/SKILL.md", '---
+name: tool-skill
+description: Skill for tool tests.
+---
+
+# Tool Skill
+
+Use this skill.
+');
+		write(ctx.directory, ".opencode/skill/tool-skill/scripts/demo.txt", "demo");
+
+		final requests:Array<ToolPermissionRequest> = [];
+		final result = await(SkillTool.executeRaw({name: "tool-skill"}, context(ctx.directory, request -> {
+			requests.push(request);
+			return {allowed: true};
+		})));
+		final file = NodePath.resolve(NodePath.join(NodePath.join(skillDir, "scripts"), "demo.txt"), "");
+		eq(requests.length, 1, "skill tool permission count");
+		eq(requests[0].permission, "skill", "skill tool permission kind");
+		eq(requests[0].patterns.indexOf("tool-skill") != -1, true, "skill tool permission patterns");
+		eq(requests[0].always.indexOf("tool-skill") != -1, true, "skill tool permission always");
+		eq(Json.stringify(result.metadata).indexOf('"dir":"' + skillDir) != -1, true, "skill tool metadata dir");
+		eq(result.output.indexOf('<skill_content name="tool-skill">') != -1, true, "skill tool content block");
+		eq(result.output.indexOf('Base directory for this skill: ${Url.pathToFileURL(skillDir).href}') != -1, true, "skill tool base url");
+		eq(result.output.indexOf('<file>${file}</file>') != -1, true, "skill tool file list");
 	}
 
 	@:async
