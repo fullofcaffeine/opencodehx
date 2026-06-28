@@ -49,6 +49,7 @@ typedef SpawnSyncResult = {
 
 typedef ChildProcessHandle = {
 	@:optional final pid:Int;
+	@:optional final stdin:NodeChildWritableStream;
 	@:optional final stdout:NodeReadableStream;
 	@:optional final stderr:NodeReadableStream;
 	@:optional final exitCode:Null<Int>;
@@ -56,6 +57,11 @@ typedef ChildProcessHandle = {
 	function kill(?signal:NodeSignal):Bool;
 	function once(event:String, listener:Dynamic->Void):ChildProcessHandle;
 	function unref():Void;
+}
+
+typedef NodeChildWritableStream = {
+	function write(value:String):Void;
+	function end():Void;
 }
 
 @:ts.type("import('node:stream').Readable")

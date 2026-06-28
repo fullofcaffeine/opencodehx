@@ -14,9 +14,12 @@ import opencodehx.effect.RuntimeMemo;
 import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.node.Process;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
+import opencodehx.util.ProcessRuntime;
 
 typedef SmokeSharedService = {
 	final id:Int;
@@ -43,6 +46,7 @@ class EffectSmoke {
 	public static function runAsync():Promise<Void> {
 		@:await runner();
 		@:await appRuntimeLoggerBridge();
+		@:await crossSpawnSpawner();
 	}
 
 	static function observabilityResource():Void {
@@ -301,6 +305,78 @@ class EffectSmoke {
 		eq(result.effectLogger, true, "app-runtime bridge preserves effect logger");
 		eq(result.defaultLogger, false, "app-runtime bridge preserves logger replacement");
 		Fs.rmSync(root, {recursive: true, force: true});
+	}
+
+	@:async
+	static function crossSpawnSpawner():Promise<Void> {
+		final out = @:await ProcessRuntime.run(node('process.stdout.write("ok")'));
+		eq(out.stdout, "ok", "cross-spawn captures stdout");
+
+		final lines = ProcessRuntime.spawn(node('console.log("line1"); console.log("line2"); console.log("line3")'));
+		eq(@:await lines.exited, 0, "cross-spawn multiple lines exit");
+		eq(StringTools.trim(lines.stdoutText()), "line1\nline2\nline3", "cross-spawn captures multiple lines");
+
+		final zero = ProcessRuntime.spawn(node("process.exit(0)"));
+		eq(@:await zero.exited, 0, "cross-spawn exit code zero");
+
+		final nonzero = ProcessRuntime.spawn(node("process.exit(42)"));
+		eq(@:await nonzero.exited, 42, "cross-spawn nonzero exit code");
+
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cross-spawn-"));
+		final cwd = @:await ProcessRuntime.run(node("process.stdout.write(process.cwd())"), {cwd: root});
+		eq(NodePath.normalize(Fs.realpathSync(cwd.stdout)), NodePath.normalize(Fs.realpathSync(root)), "cross-spawn cwd option");
+
+		final badCwd = @:await ProcessRuntime.spawn(["echo", "test"], {cwd: NodePath.join(root, "missing")}).exited.then(_ -> false).catchError(_ -> true);
+		eq(badCwd, true, "cross-spawn invalid cwd fails");
+
+		final envOut = @:await ProcessRuntime.run(node('process.stdout.write((process.env.VAR1 ?? "") + "-" + (process.env.VAR2 ?? "") + "-" + (process.env.VAR3 ?? ""))'),
+			{
+			env: env({VAR1: "one", VAR2: "two", VAR3: "three"})
+		});
+		eq(envOut.stdout, "one-two-three", "cross-spawn passes env");
+
+		final err = ProcessRuntime.spawn(node('process.stderr.write("error message")'));
+		eq(@:await err.exited, 0, "cross-spawn stderr exit");
+		eq(err.stderrText(), "error message", "cross-spawn captures stderr");
+		eq(err.allText(), "error message", "cross-spawn all captures stderr");
+
+		final both = ProcessRuntime.spawn(node('process.stdout.write("stdout\\n"); process.stderr.write("stderr\\n")'));
+		eq(@:await both.exited, 0, "cross-spawn combined exit");
+		eq(both.allText().indexOf("stdout") != -1, true, "cross-spawn all includes stdout");
+		eq(both.allText().indexOf("stderr") != -1, true, "cross-spawn all includes stderr");
+
+		final stdin = ProcessRuntime.spawn(node('process.stdin.setEncoding("utf8"); let out = ""; process.stdin.on("data", chunk => out += chunk); process.stdin.on("end", () => process.stdout.write(out))'),
+			{
+				input: "a b c",
+			});
+		eq(@:await stdin.exited, 0, "cross-spawn stdin exit");
+		eq(stdin.stdoutText(), "a b c", "cross-spawn stdin input");
+
+		final running = ProcessRuntime.spawn(node("setInterval(() => {}, 10_000)"));
+		eq(running.isRunning(), true, "cross-spawn isRunning before kill");
+		final killed = @:await running.kill("SIGTERM", 100);
+		eq(killed != 0, true, "cross-spawn kill exit code");
+		eq(running.isRunning(), false, "cross-spawn isRunning after exit");
+
+		final missing = @:await ProcessRuntime.spawn([NodePath.join(root, "missing-command")]).exited.then(_ -> false).catchError(_ -> true);
+		eq(missing, true, "cross-spawn missing command fails");
+
+		if (NodeProcess.platform() == "win32") {
+			final shellOut = @:await ProcessRuntime.run(["set", "OPENCODE_TEST_SHELL"], {shell: true, env: env({OPENCODE_TEST_SHELL: "ok"})});
+			eq(shellOut.stdout.indexOf("OPENCODE_TEST_SHELL=ok") != -1, true, "cross-spawn windows shell");
+
+			final dir = NodePath.join(root, "with space");
+			final file = NodePath.join(dir, "echo cmd.cmd");
+			Fs.mkdirSync(dir, {recursive: true});
+			Fs.writeFileSync(file, "@echo off\r\nif %~1==--stdio exit /b 0\r\nexit /b 7\r\n");
+			eq(@:await ProcessRuntime.spawn([file, "--stdio"]).exited, 0, "cross-spawn windows cmd with spaces");
+		}
+
+		Fs.rmSync(root, {recursive: true, force: true});
+	}
+
+	static function node(code:String):Array<String> {
+		return [Process.argv[0], "-e", code];
 	}
 
 	static function cancelled(promise:Promise<String>):Promise<Bool> {

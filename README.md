@@ -11,7 +11,7 @@ The project intentionally uses 0.x beta versioning until upstream OpenCode parit
 Current Beads-based completion snapshot:
 
 ```text
-[######################################--] 96% (205/214 non-epic port beads closed)
+[######################################--] 96% (206/215 non-epic port beads closed)
 ```
 
 This is an unweighted planning indicator, not a parity claim.
@@ -21,7 +21,7 @@ What runs today:
 - The generated CLI has deterministic fake-provider `run`, credential-free mock AI SDK `run`, local live AI SDK `run --model provider/model`, plain config-model live `run`, `run --file`, default and `OPENCODE_DB` session persistence, `run --session`, `run --continue`, `run --fork`, and non-interactive `export <sessionID>`.
 - Local no-network live OpenAI-compatible fixtures prove successful streaming, provider-error persistence/export, registry tool schema advertisement, bounded continuation calls, model-emitted `read`, `write`, `edit`, `apply_patch`, and `bash` tool calls, a write-then-read multi-step tool chain, config-denied live tool calls including deny precedence under `--dangerously-skip-permissions`, and skip-flag approval for config-asked writes with persisted/exported tool parts and workspace side effects.
 - The npm package smoke installs the packed binary globally in a temporary prefix and repeats the installed `run --dir`, `run --file`, mock/live run, live single-tool and multi-tool-chain calls, persistence/export/resume/continue/fork, TUI scaffold, and `serve` health/SSE/session/PTY workflows.
-- The runtime foundation includes config, auth discovery, permissions, parser-backed bash permissions, file/search tools, the standalone patch runtime, provider registry and SDK factory smokes, models.dev cache/fetch, storage, sessions, server routes, SDK-compatible create/list/resume/event flow, AppRuntime logger/context evidence, Effect runner shared-run/cancel evidence, workspace restore batching/progress evidence, MCP/ACP/LSP/plugin minimum seams, PTY lifecycle/WebSocket replay, native file-watcher evidence, performance baselines, checked artifact macros, and TUI scaffold/transcript/dialog slices.
+- The runtime foundation includes config, auth discovery, permissions, parser-backed bash permissions, file/search tools, the standalone patch runtime, provider registry and SDK factory smokes, models.dev cache/fetch, storage, sessions, server routes, SDK-compatible create/list/resume/event flow, AppRuntime logger/context evidence, cross-spawn process-handle evidence, Effect runner shared-run/cancel evidence, workspace restore batching/progress evidence, MCP/ACP/LSP/plugin minimum seams, PTY lifecycle/WebSocket replay, native file-watcher evidence, performance baselines, checked artifact macros, and TUI scaffold/transcript/dialog slices.
 
 The CLI still defaults to the deterministic fake provider when no local config model is present. The live path is real but intentionally thin: it has credential-free local provider evidence and side-effecting tool-loop evidence, but full agentic chat parity still needs richer upstream message-history construction, cancellation/retry scheduling, server-backed session orchestration, permission prompting UX, broader provider transforms/loading, live plugin installs/imports/auth/adaptors, real MCP/ACP transports and OAuth, real LSP process/download flows, live TUI behavior beyond the scaffold, and periodic upstream drift runs using the documented rebase procedure.
 

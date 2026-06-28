@@ -23,4 +23,5 @@ extern class Process {
 
 extern class NodeWritableStream {
 	function write(value:String):Void;
+	function end():Void;
 }

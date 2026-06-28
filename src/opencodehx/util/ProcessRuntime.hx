@@ -22,6 +22,7 @@ typedef ProcessRunOptions = {
 	@:optional final abort:AbortSignal;
 	@:optional final kill:NodeSignal;
 	@:optional final timeout:Int;
+	@:optional final input:String;
 	@:optional final nothrow:Bool;
 }
 
@@ -32,6 +33,7 @@ typedef ProcessSpawnOptions = {
 	@:optional final abort:AbortSignal;
 	@:optional final kill:NodeSignal;
 	@:optional final timeout:Int;
+	@:optional final input:String;
 	@:optional final stdin:String;
 	@:optional final stdout:String;
 	@:optional final stderr:String;
@@ -72,6 +74,7 @@ class ProcessRuntime {
 				abort: opts == null ? null : opts.abort,
 				kill: opts == null ? null : opts.kill,
 				timeout: opts == null ? null : opts.timeout,
+				input: opts == null ? null : opts.input,
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -102,7 +105,7 @@ class ProcessRuntime {
 
 		final options = spawnOptions(cmd[0], opts);
 		final handle = ChildProcess.spawn(cmd[0], cmd.slice(1), options);
-		return new ProcessChild(cmd, handle, abort, opts == null ? null : opts.kill, opts == null ? null : opts.timeout);
+		return new ProcessChild(cmd, handle, abort, opts == null ? null : opts.kill, opts == null ? null : opts.timeout, opts == null ? null : opts.input);
 	}
 
 	static function mergeEnv(overrides:Null<DynamicAccess<String>>):Null<DynamicAccess<String>> {
@@ -160,17 +163,24 @@ class ProcessChild {
 	final timeoutMs:Int;
 	var stdoutBuffer:String = "";
 	var stderrBuffer:String = "";
+	var allBuffer:String = "";
 	var closed = false;
 	var timer:Null<WebTimerHandle> = null;
 
 	public final exited:Promise<Int>;
 
-	public function new(cmd:Array<String>, handle:ChildProcessHandle, abort:Null<AbortSignal>, kill:Null<NodeSignal>, timeout:Null<Int>) {
+	public function new(cmd:Array<String>, handle:ChildProcessHandle, abort:Null<AbortSignal>, kill:Null<NodeSignal>, timeout:Null<Int>, input:Null<String>) {
 		this.handle = handle;
 		killSignal = kill == null ? "SIGTERM" : kill;
 		timeoutMs = timeout == null ? 5000 : timeout;
-		attachOutput(handle.stdout, chunk -> stdoutBuffer += chunk);
-		attachOutput(handle.stderr, chunk -> stderrBuffer += chunk);
+		attachOutput(handle.stdout, chunk -> {
+			stdoutBuffer += chunk;
+			allBuffer += chunk;
+		});
+		attachOutput(handle.stderr, chunk -> {
+			stderrBuffer += chunk;
+			allBuffer += chunk;
+		});
 
 		exited = new Promise<Int>((resolve, reject) -> {
 			final cleanup = () -> {
@@ -195,6 +205,9 @@ class ProcessChild {
 			if (abort.aborted)
 				abortProcess();
 		}
+
+		if (input != null)
+			writeAndEnd(input);
 	}
 
 	public function stdoutText():String {
@@ -205,6 +218,48 @@ class ProcessChild {
 		return stderrBuffer;
 	}
 
+	public function allText():String {
+		return allBuffer;
+	}
+
+	public function pid():Null<Int> {
+		return handle.pid;
+	}
+
+	public function isRunning():Bool {
+		return handle.exitCode == null && handle.signalCode == null;
+	}
+
+	public function kill(?signal:NodeSignal, ?forceKillAfter:Int):Promise<Int> {
+		if (!isRunning())
+			return exited;
+		closed = true;
+		handle.kill(signal == null ? killSignal : signal);
+		final delay = forceKillAfter == null ? timeoutMs : forceKillAfter;
+		if (delay > 0) {
+			timer = WebTimers.setTimeout(() -> {
+				if (isRunning())
+					handle.kill("SIGKILL");
+			}, delay);
+		}
+		return exited;
+	}
+
+	public function writeStdin(value:String):Void {
+		if (handle.stdin != null)
+			handle.stdin.write(value);
+	}
+
+	public function endStdin():Void {
+		if (handle.stdin != null)
+			handle.stdin.end();
+	}
+
+	public function writeAndEnd(value:String):Void {
+		writeStdin(value);
+		endStdin();
+	}
+
 	function abortProcess(?_:Dynamic):Void {
 		if (closed || handle.exitCode != null || handle.signalCode != null)
 			return;
@@ -212,7 +267,10 @@ class ProcessChild {
 		handle.kill(killSignal);
 		if (timeoutMs <= 0)
 			return;
-		timer = WebTimers.setTimeout(() -> handle.kill("SIGKILL"), timeoutMs);
+		timer = WebTimers.setTimeout(() -> {
+			if (isRunning())
+				handle.kill("SIGKILL");
+		}, timeoutMs);
 	}
 
 	static function attachOutput(stream:Null<NodeReadableStream>, append:String->Void):Void {

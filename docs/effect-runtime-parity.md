@@ -1,6 +1,6 @@
 # Effect Runtime Parity
 
-**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`, `opencodehx-4kc`, `opencodehx-vqu0`
+**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`, `opencodehx-4kc`, `opencodehx-vqu0`, `opencodehx-bfo1`
 
 ## Upstream Oracle
 
@@ -9,6 +9,8 @@
 - `../opencode/packages/opencode/src/effect/app-runtime.ts`
 - `../opencode/packages/opencode/src/effect/bridge.ts`
 - `../opencode/packages/opencode/test/effect/app-runtime-logger.test.ts`
+- `../opencode/packages/opencode/src/effect/cross-spawn-spawner.ts`
+- `../opencode/packages/opencode/test/effect/cross-spawn-spawner.test.ts`
 - `../opencode/packages/opencode/src/effect/run-service.ts`
 - `../opencode/packages/opencode/test/effect/run-service.test.ts`
 - `../opencode/packages/opencode/test/effect/instance-state.test.ts`
@@ -34,6 +36,18 @@
 
 `EffectSmoke.appRuntimeLogger()` and `EffectSmoke.appRuntimeLoggerBridge()` cover those cases.
 
+`opencodehx.util.ProcessRuntime` now also exposes the typed process-handle features needed for the first upstream cross-spawn spawner evidence:
+
+- stdout, stderr, and combined `all` capture;
+- zero and nonzero exit codes;
+- cwd and env options;
+- stdin input;
+- kill and running-state observation;
+- invalid cwd and missing command failure; and
+- Windows shell and `.cmd` script behavior when the smoke runs on Windows.
+
+`EffectSmoke.crossSpawnSpawner()` covers those cases while reusing the Node host seam from `util/process.test.ts`.
+
 `opencodehx.effect.RuntimeMemo` and `RunServiceRuntime` cover the stable memo-map behavior from upstream `makeRuntime`: separately-created runtimes can depend on the same shared layer and see one initialized dependency. `EffectSmoke.runServiceMemoMap()` creates two runtime services over one memoized shared service, proves both return the same shared ID, and proves the dependency factory ran once.
 
 `opencodehx.effect.InstanceStateRuntime` covers the stable instance-state lifecycle: values are cached per instance directory, isolated across directories, invalidated on `InstanceRuntime.reload`, and disposed on `InstanceRuntime.disposeAll`.
@@ -53,4 +67,4 @@
 
 ## Boundary
 
-This slice does not port the full Effect observability layer, OTLP logger, OpenTelemetry trace exporter, Effect `ManagedRuntime`, `Layer`, `Context.Service`, `runFork`/`runCallback`, real `Logger.CurrentLoggers`, real Effect `Scope`/`Fiber` interruption for Runner, ALS-backed `InstanceRef`, or high-contention instance context propagation. Those remain under the broader Effect/runtime rows.
+This slice does not port the full Effect observability layer, OTLP logger, OpenTelemetry trace exporter, Effect `ManagedRuntime`, `Layer`, `Context.Service`, `runFork`/`runCallback`, real `Logger.CurrentLoggers`, real Effect `Scope`/`Fiber` interruption for Runner, full `ChildProcessSpawner` service integration, Effect `Stream` byte chunks, scoped child cleanup, multi-stage `pipeTo` helpers, ALS-backed `InstanceRef`, or high-contention instance context propagation. Those remain under the broader Effect/runtime rows.
