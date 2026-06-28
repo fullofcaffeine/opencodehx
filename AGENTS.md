@@ -81,6 +81,8 @@ When OpenCodeHX exposes a compiler limitation:
 
 Before changing `../genes`, read `../genes/AGENTS.md` and follow that repository's local workflow, test, commit, push, and Beads conventions in addition to this repo's compiler-improvement loop. Treat `../genes` as an independent project with its own rules, even when compiler work is discovered from OpenCodeHX. Once work moves into `../genes`, scope Beads there too: create, claim, update, close, and sync the relevant `genes` issues from the `../genes` checkout rather than tracking compiler implementation only in OpenCodeHX.
 
+It is normal for multiple downstream Haxe ports, such as OpenCodeHX and PiMonoHX, to advance the shared `../genes` compiler checkout. Keep that healthy by making every compiler change project-neutral, validating it in `../genes`, then updating each downstream's pin only after that downstream's relevant gates pass. Do not assume another project's pin move automatically validates OpenCodeHX, and do not block generic compiler improvements merely because they were first discovered by another consumer.
+
 Generated TS quality problems are compiler work, not source contortion work, when the Haxe source is otherwise a good model.
 
 The high-level goal is deliberately twofold: build the best Haxe-native, future-portable OpenCodeHX, and build the best Haxe-to-JS/TS compiler in `genes-ts`. These goals reinforce each other only when compiler improvements remain project-agnostic. If an OpenCodeHX case tempts a special-case compiler patch, stop and extract the underlying generic language/codegen rule instead.
