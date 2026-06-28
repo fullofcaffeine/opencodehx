@@ -17,7 +17,7 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 768,
+    "Dynamic": 759,
     "DynamicAccess": 560,
     "cast": 253,
     "untyped": 6,
@@ -460,9 +460,6 @@
       "Reflect.field": 19,
       "Reflect.hasField": 1,
       "Reflect.setField": 19
-    },
-    "src/opencodehx/session/MessageTypes.hx": {
-      "Dynamic": 9
     },
     "src/opencodehx/session/SessionExport.hx": {
       "Dynamic": 8,

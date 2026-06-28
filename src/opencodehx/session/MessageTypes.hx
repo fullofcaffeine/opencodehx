@@ -3,6 +3,20 @@ package opencodehx.session;
 import genes.ts.Unknown;
 import opencodehx.tool.ToolTypes.ToolCallInput;
 
+abstract MessageJson(Unknown) from Unknown to Unknown {
+	inline function new(value:Unknown) {
+		this = value;
+	}
+
+	@:from public static inline function fromBoundary<T>(value:T):MessageJson {
+		return new MessageJson(Unknown.fromBoundary(value));
+	}
+
+	public static inline function emptyObject():MessageJson {
+		return fromBoundary({});
+	}
+}
+
 abstract ToolStateMetadata(Unknown) from Unknown to Unknown {
 	inline function new(value:Unknown) {
 		this = value;
@@ -60,7 +74,7 @@ typedef FileSourceData = {
 typedef SymbolSourceData = {
 	final text:TextSelection;
 	final path:String;
-	final range:Dynamic;
+	final range:MessageJson;
 	final name:String;
 	final kind:Int;
 }
@@ -79,7 +93,7 @@ enum FilePartSource {
 
 enum OutputFormat {
 	OutputText;
-	OutputJsonSchema(schema:Dynamic, retryCount:Int);
+	OutputJsonSchema(schema:MessageJson, retryCount:Int);
 }
 
 typedef UserModelSelection = {
@@ -91,7 +105,7 @@ typedef UserModelSelection = {
 typedef UserSummary = {
 	@:optional final title:String;
 	@:optional final body:String;
-	final diffs:Array<Dynamic>;
+	final diffs:MessageJson;
 }
 
 typedef UserMessage = {
@@ -104,7 +118,7 @@ typedef UserMessage = {
 	final agent:String;
 	final model:UserModelSelection;
 	@:optional final system:String;
-	@:optional final tools:Dynamic;
+	@:optional final tools:MessageJson;
 }
 
 typedef AssistantPath = {
@@ -117,7 +131,7 @@ typedef AssistantMessage = {
 	final sessionID:SessionID;
 	final role:String;
 	final time:CreatedTime;
-	@:optional final error:Dynamic;
+	@:optional final error:MessageJson;
 	final parentID:MessageID;
 	final modelID:String;
 	final providerID:String;
@@ -127,7 +141,7 @@ typedef AssistantMessage = {
 	@:optional final summary:Bool;
 	final cost:Float;
 	final tokens:TokenUsage;
-	@:optional final structured:Dynamic;
+	@:optional final structured:MessageJson;
 	@:optional final variant:String;
 	@:optional final finish:String;
 }
@@ -163,7 +177,7 @@ typedef TextPartData = {
 	@:optional final synthetic:Bool;
 	@:optional final ignored:Bool;
 	@:optional final time:TimeRange;
-	@:optional final metadata:Dynamic;
+	@:optional final metadata:MessageJson;
 }
 
 typedef ReasoningPartData = {
@@ -172,7 +186,7 @@ typedef ReasoningPartData = {
 	final messageID:MessageID;
 	final type:String;
 	final text:String;
-	@:optional final metadata:Dynamic;
+	@:optional final metadata:MessageJson;
 	final time:TimeRange;
 }
 
@@ -229,7 +243,7 @@ typedef RetryPartData = {
 	final messageID:MessageID;
 	final type:String;
 	final attempt:Float;
-	final error:Dynamic;
+	final error:MessageJson;
 	final time:CreatedTime;
 }
 
