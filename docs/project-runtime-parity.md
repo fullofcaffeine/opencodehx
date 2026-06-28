@@ -112,6 +112,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - typed remote workspace HTTP route construction for `/global/event`, `/sync/history`, and `/sync/replay`,
   - remote history/replay request header preservation, JSON body construction, and abort-signal forwarding, and
   - remote history/replay HTTP failure diagnostics that include response status and body text,
+  - workspace session restore batching that appends the upstream-shaped `session.updated.1` workspace event and replays local or remote batches of 10, and
+  - restore progress events for steps `0..total`,
   - chunked `ReadableStream<Uint8Array>` SSE parsing with incomplete trailing-frame suppression, and
   - deterministic workspace stream application with connected/disconnected status transitions, and
   - bounded remote loop sequencing across SSE connect, history sync, stream application, disconnect, and planned reconnect delay recording, and
@@ -125,7 +127,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - Broader watcher service behavior beyond git HEAD updates, including full root file watching, config ignore integration, protected paths, and upstream `@parcel/watcher` backend parity.
 - Concrete share/snapshot service internals, live plugin imports/installs, and real LSP process service boot inside the instance graph; the current graph records upstream order and lifecycle hooks without claiming those unported service bodies.
 - Native Windows fsmonitor daemon behavior remains host-conditional: the smoke branch runs only on Windows and exits early when the installed Git does not support a running fsmonitor daemon.
-- Full workspace control-plane routing/service integration beyond the covered sync/proxy seams.
+- Full workspace control-plane routing/service integration beyond the covered sync/proxy/restore seams.
+- Workspace restore database/AppRuntime integration, persisted session workspace updates, and real `Workspace.create` lifecycle remain deferred; `WorkspaceRestoreRuntime` starts from already-collected typed sync events and a resolved target.
 
 ## Boundary Notes
 

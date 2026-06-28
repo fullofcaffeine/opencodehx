@@ -22,7 +22,7 @@ Live CLI and packaging evidence:
 Provider, config, and runtime foundations:
 
 - `provider-registry-port.md` covers the typed provider registry, AI SDK factory smokes, provider transforms, registry-derived tool schemas, and models.dev cache/fetch behavior.
-- `config-port.md`, `permission-model-port.md`, `bash-shell-seam.md`, `patch-runtime.md`, `project-runtime-parity.md`, `formatter-port.md`, and `effect-runtime-parity.md` cover config loading, permissions, parser-backed bash permissions, the standalone patch namespace, project/git/sync foundations, formatting, observability resources, run-service memo behavior, instance state, and Runner shared-run/cancel behavior.
+- `config-port.md`, `permission-model-port.md`, `bash-shell-seam.md`, `patch-runtime.md`, `project-runtime-parity.md`, `formatter-port.md`, and `effect-runtime-parity.md` cover config loading, permissions, parser-backed bash permissions, the standalone patch namespace, project/git/sync/workspace-restore foundations, formatting, observability resources, run-service memo behavior, instance state, and Runner shared-run/cancel behavior.
 - `resource-imports.md`, `bus-runtime-parity.md`, `pty-runtime.md`, and `fixture-smoke-parity.md` cover host/runtime resources, event delivery, PTY lifecycle/WebSocket replay, and smoke tmpdir parity.
 
 Protocol, plugin, and UI foundations:

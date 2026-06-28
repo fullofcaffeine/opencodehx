@@ -185,4 +185,4 @@ util/process.test.ts,test,util,P2,ported,src/opencodehx/util/ProcessRuntime.hx; 
 util/timeout.test.ts,test,util,P2,ported,src/opencodehx/util/Timeout.hx; src/opencodehx/smoke/UtilSmoke.hx#timeout; docs/util-port.md,none,UtilSmoke.timeout,none
 util/which.test.ts,test,util,P2,ported,src/opencodehx/util/Which.hx; src/opencodehx/smoke/UtilSmoke.hx#which; docs/util-port.md,none,UtilSmoke.which,none
 util/wildcard.test.ts,test,util,P2,ported,src/opencodehx/util/Wildcard.hx; src/opencodehx/smoke/UtilSmoke.hx#wildcard; docs/util-port.md,none,UtilSmoke.wildcard,none
-workspace/workspace-restore.test.ts,test,workspace,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.11
+workspace/workspace-restore.test.ts,test,workspace,P2,partial,src/opencodehx/controlplane/WorkspaceRestoreRuntime.hx; src/opencodehx/smoke/ControlPlaneSmoke.hx; docs/project-runtime-parity.md,full database/AppRuntime/Workspace service integration and persisted session workspace updates remain deferred,ControlPlaneSmoke.workspaceRestoreRemote/workspaceRestoreLocal,opencodehx-000.11
