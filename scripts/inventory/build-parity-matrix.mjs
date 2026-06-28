@@ -374,9 +374,9 @@ function directEvidence(path) {
       "permission/next.test.ts",
       [
         "partial",
-        "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md",
-        "pure rule/config/merge/disabled semantics and sync ask/allow/deny/reject behavior are covered; async pending queues, bus events, persistence, directory isolation, and dispose/reload rejection remain deferred",
-        "PermissionSmoke fromConfigAndEvaluate/mergeAndEvaluate/disabledTools/runtimeAskReply/toolIntegration",
+        "src/opencodehx/permission/PermissionAsyncRuntime.hx; src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md",
+        "pure rule/config/merge/disabled semantics, sync ask/allow/deny/reject behavior, and focused async pending lifecycle are covered; real bus publication, database persistence, and live async session/tool graph integration remain deferred",
+        "PermissionSmoke fromConfigAndEvaluate/mergeAndEvaluate/disabledTools/runtimeAskReply/toolIntegration/runAsync",
       ],
     ],
     ["permission/arity.test.ts", ["direct", "src/opencodehx/permission/BashArity.hx; src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "upstream bash arity prefix cases are covered, including unknown commands, arity-1/2/3 commands, longest-match nested prefixes, exact-length matches, and edge cases", "PermissionSmoke.bashArityPrefix", "none"]],

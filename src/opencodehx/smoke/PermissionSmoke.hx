@@ -1,13 +1,23 @@
 package opencodehx.smoke;
 
+import genes.js.Async.await;
+import js.lib.Promise;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Fs;
 import opencodehx.config.ConfigLoader;
 import opencodehx.host.node.NodePath;
 import opencodehx.permission.BashArity;
+import opencodehx.permission.PermissionAsyncRuntime;
+import opencodehx.permission.PermissionAsyncRuntime.PermissionCorrectedError;
+import opencodehx.permission.PermissionAsyncRuntime.PermissionDeniedError;
+import opencodehx.permission.PermissionAsyncRuntime.PermissionRejectedError;
 import opencodehx.permission.PermissionRules;
 import opencodehx.permission.PermissionRuntime;
 import opencodehx.permission.PermissionTypes.PermissionRule;
+import opencodehx.project.InstanceRuntime;
+import opencodehx.project.InstanceRuntime.InstanceContext;
+import opencodehx.project.InstanceRuntime.InstanceServiceID;
+import opencodehx.project.ProjectRuntime;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolRegistry;
@@ -24,6 +34,21 @@ class PermissionSmoke {
 		disabledTools();
 		runtimeAskReply();
 		toolIntegration();
+	}
+
+	@:async
+	public static function runAsync():Promise<Void> {
+		ProjectRuntime.reset();
+		InstanceRuntime.reset();
+		PermissionAsyncRuntime.reset();
+		await(asyncAskListReply());
+		await(asyncRejectAndAlways());
+		await(asyncDirectoryIsolation());
+		await(asyncDisposeReload());
+		await(asyncRuleShortCircuit());
+		PermissionAsyncRuntime.reset();
+		InstanceRuntime.reset();
+		ProjectRuntime.reset();
 	}
 
 	static function bashArityPrefix():Void {
@@ -254,6 +279,124 @@ class PermissionSmoke {
 		}
 	}
 
+	@:async
+	static function asyncAskListReply():Promise<Void> {
+		final context = bootTempContext("permission-async-basic");
+		final service = PermissionAsyncRuntime.forContext(context);
+		final promise = service.ask(askInput("per_async_1", "ses_async", "bash", ["ls"], [], [], {
+			messageID: "msg_perm_async",
+			callID: "call_perm_async",
+		}));
+
+		final pending = await(service.list());
+		eq(pending.length, 1, "async permission pending count");
+		eq(pending[0].sessionID, "ses_async", "async permission pending session");
+		eq(pending[0].permission, "bash", "async permission pending permission");
+		eq(pending[0].patterns.join(","), "ls", "async permission pending patterns");
+		eq(requireAsyncTool(pending[0]).callID, "call_perm_async", "async permission pending tool");
+
+		await(service.reply({requestID: "per_async_1", reply: {reply: "once"}}));
+		eq(await(promise), true, "async permission once resolves");
+		eq((await(service.list())).length, 0, "async permission once removes pending");
+		await(service.reply({requestID: "per_missing", reply: {reply: "once"}}));
+		InstanceRuntime.dispose(context.directory);
+	}
+
+	@:async
+	static function asyncRejectAndAlways():Promise<Void> {
+		final context = bootTempContext("permission-async-reply");
+		final service = PermissionAsyncRuntime.forContext(context);
+
+		final first = service.ask(askInput("per_reject_a", "ses_reject", "bash", ["ls"], [], []));
+		final second = service.ask(askInput("per_reject_b", "ses_reject", "edit", ["src/a.ts"], [], []));
+		final other = service.ask(askInput("per_reject_other", "ses_other", "bash", ["pwd"], [], []));
+		eq((await(service.list())).length, 3, "async permission reject pending count");
+		await(service.reply({requestID: "per_reject_a", reply: {reply: "reject"}}));
+		eq(await(permissionOutcome(first)), "rejected", "async permission reject first");
+		eq(await(permissionOutcome(second)), "rejected", "async permission reject same session");
+		eq((await(service.list())).length, 1, "async permission reject keeps other session");
+		await(service.reply({requestID: "per_reject_other", reply: {reply: "reject", message: "Use a safer command"}}));
+		eq(await(permissionOutcome(other)), "corrected", "async permission reject message");
+
+		final alwaysA = service.ask(askInput("per_always_a", "ses_always", "bash", ["ls"], ["ls"], []));
+		final alwaysB = service.ask(askInput("per_always_b", "ses_always", "bash", ["ls"], [], []));
+		final alwaysOther = service.ask(askInput("per_always_other", "ses_always_other", "bash", ["ls"], [], []));
+		eq((await(service.list())).length, 3, "async permission always pending count");
+		await(service.reply({requestID: "per_always_a", reply: {reply: "always"}}));
+		eq(await(alwaysA), true, "async permission always selected resolves");
+		eq(await(alwaysB), true, "async permission always matching same session resolves");
+		final remaining = await(service.list());
+		eq(remaining.length, 1, "async permission always keeps other session");
+		eq(remaining[0].id, "per_always_other", "async permission always remaining id");
+		eq(await(service.ask(askInput(null, "ses_after_always", "bash", ["ls"], [], []))), true, "async permission always persists approval");
+		await(service.reply({requestID: "per_always_other", reply: {reply: "reject"}}));
+		eq(await(permissionOutcome(alwaysOther)), "rejected", "async permission cleanup other session");
+		InstanceRuntime.dispose(context.directory);
+	}
+
+	@:async
+	static function asyncDirectoryIsolation():Promise<Void> {
+		final one = bootTempContext("permission-async-one");
+		final two = bootTempContext("permission-async-two");
+		final serviceOne = PermissionAsyncRuntime.forContext(one);
+		final serviceTwo = PermissionAsyncRuntime.forContext(two);
+		final a = serviceOne.ask(askInput("per_dir_a", "ses_dir_a", "bash", ["ls"], [], []));
+		final b = serviceTwo.ask(askInput("per_dir_b", "ses_dir_b", "bash", ["pwd"], [], []));
+
+		final onePending = await(serviceOne.list());
+		final twoPending = await(serviceTwo.list());
+		eq(onePending.length, 1, "async permission directory one count");
+		eq(twoPending.length, 1, "async permission directory two count");
+		eq(onePending[0].id, "per_dir_a", "async permission directory one id");
+		eq(twoPending[0].id, "per_dir_b", "async permission directory two id");
+
+		await(serviceOne.reply({requestID: "per_dir_a", reply: {reply: "reject"}}));
+		await(serviceTwo.reply({requestID: "per_dir_b", reply: {reply: "reject"}}));
+		eq(await(permissionOutcome(a)), "rejected", "async permission directory one reject");
+		eq(await(permissionOutcome(b)), "rejected", "async permission directory two reject");
+		InstanceRuntime.dispose(one.directory);
+		InstanceRuntime.dispose(two.directory);
+	}
+
+	@:async
+	static function asyncDisposeReload():Promise<Void> {
+		final disposed = bootTempContext("permission-async-dispose");
+		final disposeService = PermissionAsyncRuntime.forContext(disposed);
+		final disposePromise = disposeService.ask(askInput("per_dispose", "ses_dispose", "bash", ["ls"], [], []));
+		eq((await(disposeService.list())).length, 1, "async permission dispose pending");
+		InstanceRuntime.dispose(disposed.directory);
+		eq(await(permissionOutcome(disposePromise)), "rejected", "async permission dispose rejects");
+
+		final reloaded = bootTempContext("permission-async-reload");
+		final reloadService = PermissionAsyncRuntime.forContext(reloaded);
+		final reloadPromise = reloadService.ask(askInput("per_reload", "ses_reload", "bash", ["ls"], [], []));
+		eq((await(reloadService.list())).length, 1, "async permission reload pending");
+		final project = ProjectRuntime.fromDirectory(reloaded.directory).project;
+		InstanceRuntime.reload({
+			directory: reloaded.directory,
+			worktree: reloaded.worktree,
+			project: project,
+			services: [ctx->{id: InstanceServiceID.Command}],
+		});
+		eq(await(permissionOutcome(reloadPromise)), "rejected", "async permission reload rejects");
+		InstanceRuntime.dispose(reloaded.directory);
+	}
+
+	@:async
+	static function asyncRuleShortCircuit():Promise<Void> {
+		final context = bootTempContext("permission-async-rules");
+		final service = PermissionAsyncRuntime.forContext(context);
+		final denied = service.ask(askInput("per_deny", "ses_deny", "bash", ["echo hello", "rm -rf /"], [], [
+			{permission: "bash", pattern: "echo *", action: "ask"},
+			{permission: "bash", pattern: "rm *", action: "deny"},
+		]));
+		eq(await(permissionOutcome(denied)), "denied", "async permission deny beats earlier ask");
+		eq((await(service.list())).length, 0, "async permission deny leaves no pending");
+		eq(await(service.ask(askInput("per_allow", "ses_allow", "bash", ["echo hello", "ls -la"], [], [{permission: "bash", pattern: "*", action: "allow"}]))),
+			true, "async permission all allow resolves");
+		InstanceRuntime.dispose(context.directory);
+	}
+
 	static function context(root:String, runtime:PermissionRuntime):ToolContext {
 		return {
 			directory: root,
@@ -282,6 +425,53 @@ class PermissionSmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	static function bootTempContext(label:String):InstanceContext {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), 'opencodehx-${label}-'));
+		final project = ProjectRuntime.fromDirectory(root).project;
+		final context = InstanceRuntime.boot({
+			directory: root,
+			worktree: root,
+			project: project,
+			services: [ctx->{id: InstanceServiceID.Command}],
+		});
+		if (context == null)
+			throw '${label}: expected instance context';
+		return context;
+	}
+
+	static function askInput(id:Null<String>, sessionID:String, permission:String, patterns:Array<String>, always:Array<String>,
+			ruleset:Array<PermissionRule>,
+			?tool:opencodehx.permission.PermissionAsyncRuntime.PermissionToolRef):opencodehx.permission.PermissionAsyncRuntime.PermissionAskInput {
+		return {
+			id: id,
+			sessionID: sessionID,
+			permission: permission,
+			patterns: patterns,
+			metadata: ToolPermissionMetadata.checked({}),
+			always: always,
+			ruleset: ruleset,
+			tool: tool,
+		};
+	}
+
+	static function requireAsyncTool(request:opencodehx.permission.PermissionTypes.PermissionAskRecord):opencodehx.permission.PermissionAsyncRuntime.PermissionToolRef {
+		final tool = request.tool;
+		if (tool == null)
+			throw "async permission expected tool metadata";
+		return {messageID: tool.messageID, callID: tool.callID};
+	}
+
+	static function permissionOutcome(promise:Promise<Bool>):Promise<String> {
+		return promise.then(_ -> "resolved").catchError(error -> {
+			// JavaScript Promise rejection reasons are arbitrary host values.
+			if (Std.isOfType(error, PermissionDeniedError))
+				return "denied";
+			if (Std.isOfType(error, PermissionCorrectedError))
+				return "corrected";
+			return Std.isOfType(error, PermissionRejectedError) ? "rejected" : "other";
+		});
 	}
 
 	static function expectToolFailure(run:() -> Void, matches:ToolFailure->Bool, label:String):Void {

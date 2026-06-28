@@ -107,6 +107,9 @@ class Main {
 				MessageSmoke.run();
 				log("message-smoke:ok");
 				PermissionSmoke.run();
+				return PermissionSmoke.runAsync();
+			})
+			.then(_ -> {
 				log("permission-smoke:ok");
 				StorageSmoke.run();
 				log("storage-smoke:ok");
