@@ -16,6 +16,8 @@ OpenCodeHX now has a shared user-facing error normalization path:
 
 `fixtures/resources/errors/diagnostics.golden.json` is the checked-in golden for representative util and CLI diagnostics. `UtilSmoke.errorTools()` and `CliSmoke.diagnosticFormatting()` compare generated runtime output against it.
 
+The current upstream `cli/error.test.ts` file contains one assertion group: `AccountTransportError` should format the unreachable `POST https://console.opencode.ai/auth/device/code` case clearly. `CliSmoke.diagnosticFormatting()` covers that exact text through the golden, so the file-level matrix row is direct.
+
 The async CLI smoke also proves live provider-registry stderr now uses the upstream-style model-not-found diagnostic with the suggested `opencode models` action line.
 
 Current gate:
@@ -27,4 +29,4 @@ npm run smoke
 
 ## Boundary
 
-This is representative diagnostics parity, not the final complete taxonomy. Full yargs validation output, Effect/NamedError coverage beyond the provider/config/account cases above, MCP/provider initialization errors, and TUI rendering of diagnostics remain later surface-specific slices.
+This is representative diagnostics parity, not the final complete taxonomy. Full yargs validation output, Effect/NamedError coverage beyond the provider/config/account cases above, MCP/provider initialization errors, and TUI rendering of diagnostics remain later surface-specific slices even though the current `cli/error.test.ts` assertions are covered.
