@@ -201,6 +201,7 @@ class PatchRuntime {
 		}
 	}
 
+	@:genesLowerPrivateHelper
 	private static function verifyBody(args:ApplyPatchArgs, cwd:String):MaybeApplyPatchVerified {
 		final effectiveCwd = args.workdir == null ? cwd : NodePath.resolve(cwd, args.workdir);
 		final changes:Array<PatchActionChange> = [];
@@ -248,6 +249,7 @@ class PatchRuntime {
 		});
 	}
 
+	@:genesLowerPrivateHelper
 	private static function parseBody(patch:String):MaybeApplyPatch {
 		return try {
 			Body({patch: patch, hunks: parsePatch(patch).hunks});
@@ -258,10 +260,12 @@ class PatchRuntime {
 		}
 	}
 
+	@:genesLowerPrivateHelper
 	private static function isApplyPatchCommand(command:String):Bool {
 		return command == "apply_patch" || command == "applypatch";
 	}
 
+	@:genesLowerPrivateHelper
 	private static function extractApplyPatchHeredoc(script:String):Null<String> {
 		final normalized = StringTools.replace(script, "\r\n", "\n");
 		final lines = normalized.split("\n");
@@ -285,6 +289,7 @@ class PatchRuntime {
 		return null;
 	}
 
+	@:genesLowerPrivateHelper
 	private static function heredocMarker(firstLine:String):Null<String> {
 		final markerStart = firstLine.indexOf("<<");
 		if (markerStart == -1)
@@ -301,6 +306,7 @@ class PatchRuntime {
 		return parts[0];
 	}
 
+	@:genesLowerPrivateHelper
 	private static function parseAdd(lines:Array<String>, start:Int, endIdx:Int):{content:String, next:Int} {
 		final content:Array<String> = [];
 		var i = start;
@@ -312,6 +318,7 @@ class PatchRuntime {
 		return {content: content.join("\n"), next: i};
 	}
 
+	@:genesLowerPrivateHelper
 	private static function parseChunks(lines:Array<String>, start:Int, endIdx:Int):{chunks:Array<PatchChunk>, next:Int} {
 		final chunks:Array<PatchChunk> = [];
 		var i = start;
@@ -353,6 +360,7 @@ class PatchRuntime {
 		return {chunks: chunks, next: i};
 	}
 
+	@:genesLowerPrivateHelper
 	private static function deriveNewContent(filePath:String, oldContent:String, chunks:Array<PatchChunk>):String {
 		final original = TextDiff.splitLines(oldContent);
 		final replacements:Array<{start:Int, remove:Int, insert:Array<String>}> = [];
@@ -399,6 +407,7 @@ class PatchRuntime {
 		return next.join("\n");
 	}
 
+	@:genesLowerPrivateHelper
 	private static function seekSequence(lines:Array<String>, pattern:Array<String>, startIndex:Int, eof:Bool):Int {
 		if (pattern.length == 0)
 			return -1;
@@ -414,6 +423,7 @@ class PatchRuntime {
 		return tryMatch(lines, pattern, startIndex, eof, (a, b) -> normalizeUnicode(StringTools.trim(a)) == normalizeUnicode(StringTools.trim(b)));
 	}
 
+	@:genesLowerPrivateHelper
 	private static function tryMatch(lines:Array<String>, pattern:Array<String>, startIndex:Int, eof:Bool, compare:(String, String) -> Bool):Int {
 		if (eof) {
 			final fromEnd = lines.length - pattern.length;
@@ -427,6 +437,7 @@ class PatchRuntime {
 		return -1;
 	}
 
+	@:genesLowerPrivateHelper
 	private static function matchesAt(lines:Array<String>, pattern:Array<String>, start:Int, compare:(String, String) -> Bool):Bool {
 		for (i in 0...pattern.length) {
 			if (!compare(lines[start + i], pattern[i]))
@@ -435,6 +446,7 @@ class PatchRuntime {
 		return true;
 	}
 
+	@:genesLowerPrivateHelper
 	private static function rstrip(value:String):String {
 		var end = value.length;
 		while (end > 0) {
@@ -446,6 +458,7 @@ class PatchRuntime {
 		return value.substr(0, end);
 	}
 
+	@:genesLowerPrivateHelper
 	private static function normalizeUnicode(value:String):String {
 		var out = value;
 		for (quote in ["\u2018", "\u2019", "\u201A", "\u201B"])
@@ -459,6 +472,7 @@ class PatchRuntime {
 		return out;
 	}
 
+	@:genesLowerPrivateHelper
 	private static function stripHeredoc(input:String):String {
 		final lines = input.split("\n");
 		if (lines.length < 3)
@@ -474,6 +488,7 @@ class PatchRuntime {
 		return lines.slice(1, lines.length - 1).join("\n");
 	}
 
+	@:genesLowerPrivateHelper
 	private static function indexOfLine(lines:Array<String>, needle:String):Int {
 		for (i in 0...lines.length) {
 			if (StringTools.trim(lines[i]) == needle)
@@ -482,6 +497,7 @@ class PatchRuntime {
 		return -1;
 	}
 
+	@:genesLowerPrivateHelper
 	private static function writeText(path:String, content:String):Void {
 		final dir = NodePath.dirname(path);
 		try {
@@ -495,6 +511,7 @@ class PatchRuntime {
 		}
 	}
 
+	@:genesLowerPrivateHelper
 	private static function startsWithBom(content:String):Bool {
 		return content.length > 0 && content.charCodeAt(0) == 0xfeff;
 	}
