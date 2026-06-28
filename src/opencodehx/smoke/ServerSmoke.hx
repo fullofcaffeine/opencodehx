@@ -1064,7 +1064,7 @@ class ServerSmoke {
 			if (reloaded == null)
 				throw "project init reloaded instance: expected instance context";
 			eq(instanceServiceIDs(reloaded).indexOf("snapshot") != -1, true, "project init attaches snapshot service");
-			eq(StringTools.startsWith(SnapshotRuntime.track(reloaded), "snap_"), true, "project init snapshot track");
+			eq(SnapshotRuntime.track(reloaded) != "", true, "project init snapshot track");
 
 			final alreadyGit = await(jsonResponse(await(server.app.request("/project/git/init", {
 				method: "POST",

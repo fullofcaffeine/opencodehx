@@ -45,6 +45,7 @@ import opencodehx.smoke.ServerSmoke;
 import opencodehx.smoke.SessionPersistenceSmoke;
 import opencodehx.smoke.SessionProcessorSmoke;
 import opencodehx.smoke.SkillSmoke;
+import opencodehx.smoke.SnapshotSmoke;
 import opencodehx.smoke.StorageSmoke;
 import opencodehx.smoke.ToolSmoke;
 import opencodehx.smoke.UtilSmoke;
@@ -115,6 +116,8 @@ class Main {
 				log("tool-smoke:ok");
 				PatchSmoke.run();
 				log("patch-smoke:ok");
+				SnapshotSmoke.run();
+				log("snapshot-smoke:ok");
 				ProviderSmoke.run();
 				return ProviderSmoke.runRemote();
 			})

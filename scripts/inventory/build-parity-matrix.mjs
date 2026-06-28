@@ -314,6 +314,16 @@ function directEvidence(path) {
     ["tool/tool-define.test.ts", ["partial", "src/opencodehx/tool/ToolDefinition.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "fresh init snapshots for object-defined and factory-defined Haxe tool definitions are covered; upstream Effect/Zod Tool.define wrapping remains deferred", "ToolSmoke.toolDefinitionFresh", m11Owners.tool]],
     ["tool/truncation.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md; docs/bash-shell-seam.md", "read, bash, glob, and grep expose truncation metadata/output in representative tool paths; full Truncate service file-spill, cleanup, direction, byte/line limit, and Task-tool hint behavior remains deferred", "ToolSmoke read/bash/glob/grep truncation fixtures", m11Owners.tool]],
     [
+      "snapshot/snapshot.test.ts",
+      [
+        "partial",
+        "src/opencodehx/snapshot/SnapshotRuntime.hx; src/opencodehx/smoke/SnapshotSmoke.hx; docs/snapshot-runtime.md",
+        "focused snapshot runtime covers deterministic track hashes, patch detection for added/modified/deleted files, revert restore/delete behavior, empty-directory no-op, invalid-hash empty patch, large added-file skip/stable hash, gitignore filtering, and simple diff/diffFull evidence; persistent separate Git-dir lifecycle, full restore semantics, rich diffFull patch metadata, worktree isolation, symlink/binary edge cases, cleanup/prune, and concurrency behavior remain deferred",
+        "SnapshotSmoke",
+        m11Owners.foundation,
+      ],
+    ],
+    [
       "tool/question.test.ts",
       [
         "partial",
