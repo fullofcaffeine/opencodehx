@@ -91,7 +91,21 @@ class PermissionRuntime {
 
 	function makeRecord(input:ToolPermissionRequest):PermissionAskRecord {
 		nextID++;
-		final record:Dynamic = {
+		if (messageID != null && callID != null) {
+			return {
+				id: "permission_" + StringTools.lpad(Std.string(nextID), "0", 6),
+				sessionID: sessionID,
+				permission: input.permission,
+				patterns: input.patterns.copy(),
+				metadata: input.metadata,
+				always: input.always.copy(),
+				tool: {
+					messageID: messageID,
+					callID: callID
+				},
+			};
+		}
+		return {
 			id: "permission_" + StringTools.lpad(Std.string(nextID), "0", 6),
 			sessionID: sessionID,
 			permission: input.permission,
@@ -99,10 +113,6 @@ class PermissionRuntime {
 			metadata: input.metadata,
 			always: input.always.copy(),
 		};
-		if (messageID != null && callID != null) {
-			Reflect.setField(record, "tool", {messageID: messageID, callID: callID});
-		}
-		return cast record;
 	}
 
 	function remove(id:String):Void {

@@ -304,7 +304,15 @@ function directEvidence(path) {
     ["tool/external-directory.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "external workdir denial is covered for bash; full permission surface remains deferred", "ToolSmoke.bashExec external directory case"]],
     ["tool/registry.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "builtin registry and errors are covered; .opencode custom tool loading remains deferred", "ToolSmoke.registrySurface"]],
     ["permission-task.test.ts", ["ported", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "none", "PermissionSmoke.taskPermissionRules"]],
-    ["permission/next.test.ts", ["partial", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "sync ask/allow/deny is covered; full async session prompt lifecycle remains deferred", "PermissionSmoke.runtimeAskReply/toolIntegration"]],
+    [
+      "permission/next.test.ts",
+      [
+        "partial",
+        "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md",
+        "pure rule/config/merge/disabled semantics and sync ask/allow/deny/reject behavior are covered; async pending queues, bus events, persistence, directory isolation, and dispose/reload rejection remain deferred",
+        "PermissionSmoke fromConfigAndEvaluate/mergeAndEvaluate/disabledTools/runtimeAskReply/toolIntegration",
+      ],
+    ],
     ["permission/arity.test.ts", ["direct", "src/opencodehx/permission/BashArity.hx; src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "upstream bash arity prefix cases are covered, including unknown commands, arity-1/2/3 commands, longest-match nested prefixes, exact-length matches, and edge cases", "PermissionSmoke.bashArityPrefix", "none"]],
     ["provider/provider.test.ts", ["partial", "src/opencodehx/smoke/ProviderSmoke.hx; src/opencodehx/smoke/AiSdkProviderSmoke.hx; src/opencodehx/smoke/ProviderTransformSmoke.hx; docs/provider-registry-port.md", "broader live provider loading, external credential chains, and full upstream provider service lifecycle remain deferred", "ProviderSmoke registry/env/config/auth/filter/model fixtures plus AiSdkProviderSmoke factory paths and ProviderTransformSmoke request/message transforms"]],
     ["provider/amazon-bedrock.test.ts", ["partial", "src/opencodehx/smoke/ProviderSmoke.hx; src/opencodehx/smoke/ProviderTransformSmoke.hx; docs/provider-registry-port.md", "Bedrock credential provider chain internals remain deferred; no-network factory resolution and model-prefix selection are covered", "ProviderSmoke Bedrock config/env/auth/prefix fixtures plus ProviderTransformSmoke Bedrock provider-option/cache/variant fixtures"]],
