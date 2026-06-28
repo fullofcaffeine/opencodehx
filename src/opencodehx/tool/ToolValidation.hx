@@ -1,6 +1,7 @@
 package opencodehx.tool;
 
 import genes.ts.Unknown;
+import genes.ts.UnknownArray;
 import genes.ts.UnknownNarrow;
 import genes.ts.UnknownRecord;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
@@ -15,6 +16,32 @@ class ToolValidation {
 
 	public static function requireString(args:UnknownRecord, field:String, issues:Array<String>):String {
 		return requireStringWithEmpty(args, field, issues, false);
+	}
+
+	public static function requireRecord(args:UnknownRecord, field:String, issues:Array<String>):Null<UnknownRecord> {
+		if (!args.hasOwn(field) || absent(args.get(field))) {
+			issues.push('${field}: expected object');
+			return null;
+		}
+		final value = UnknownNarrow.record(args.get(field));
+		if (value == null) {
+			issues.push('${field}: expected object');
+			return null;
+		}
+		return value;
+	}
+
+	public static function requireArray(args:UnknownRecord, field:String, issues:Array<String>):Null<UnknownArray> {
+		if (!args.hasOwn(field) || absent(args.get(field))) {
+			issues.push('${field}: expected array');
+			return null;
+		}
+		final value = UnknownNarrow.array(args.get(field));
+		if (value == null) {
+			issues.push('${field}: expected array');
+			return null;
+		}
+		return value;
 	}
 
 	public static function requireStringAllowEmpty(args:UnknownRecord, field:String, issues:Array<String>):String {

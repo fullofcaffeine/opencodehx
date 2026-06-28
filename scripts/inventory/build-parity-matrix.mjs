@@ -314,6 +314,16 @@ function directEvidence(path) {
     ["tool/tool-define.test.ts", ["partial", "src/opencodehx/tool/ToolDefinition.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "fresh init snapshots for object-defined and factory-defined Haxe tool definitions are covered; upstream Effect/Zod Tool.define wrapping remains deferred", "ToolSmoke.toolDefinitionFresh", m11Owners.tool]],
     ["tool/truncation.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md; docs/bash-shell-seam.md", "read, bash, glob, and grep expose truncation metadata/output in representative tool paths; full Truncate service file-spill, cleanup, direction, byte/line limit, and Task-tool hint behavior remains deferred", "ToolSmoke read/bash/glob/grep truncation fixtures", m11Owners.tool]],
     [
+      "tool/question.test.ts",
+      [
+        "partial",
+        "src/opencodehx/tool/QuestionTool.hx; src/opencodehx/question/QuestionRuntime.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md",
+        "question parameter decoding, pending request creation with tool metadata, reply resolution, long-header preservation, formatted output, and answer metadata are covered through the async Haxe question tool facade; registration in the synchronous ToolRegistry/session tool loop remains deferred until async tool execution lands",
+        "ToolSmoke.questionExec",
+        m11Owners.tool,
+      ],
+    ],
+    [
       "tool/webfetch.test.ts",
       [
         "partial",

@@ -23,7 +23,10 @@ import opencodehx.tool.ToolTypes.ToolIDs;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.ToolTypes.ToolPermissionDecision;
 import opencodehx.tool.ToolTypes.ToolPermissionRequest;
+import opencodehx.tool.QuestionTool;
 import opencodehx.tool.WebFetchTool;
+import opencodehx.question.QuestionRuntime.QuestionRequest;
+import opencodehx.question.QuestionRuntime.QuestionService;
 
 class ToolSmoke {
 	@:async
@@ -47,6 +50,7 @@ class ToolSmoke {
 			editExec(registry, context(root));
 			applyPatchExec(registry, context(root));
 			await(webFetchExec(context(root)));
+			await(questionExec(context(root)));
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
 			// Smoke cleanup must run for arbitrary Haxe/JS thrown values, then
@@ -616,12 +620,67 @@ class ToolSmoke {
 		eq(StringTools.startsWith(image.attachments[0].url, "data:image/png;base64,"), true, "webfetch image attachment data url");
 	}
 
+	@:async
+	static function questionExec(ctx:ToolContext):Promise<Void> {
+		final service = new QuestionService();
+		final resultPromise = QuestionTool.executeRaw({
+			questions: [
+				{
+					question: "What is your favorite color?",
+					header: "Color",
+					options: [
+						{label: "Red", description: "The color of passion"},
+						{label: "Blue", description: "The color of sky"},
+					],
+					multiple: false,
+				}
+			],
+		}, ctx, service);
+		final pending = await(pendingQuestion(service, "question tool pending"));
+		eq(pending.questions[0].question, "What is your favorite color?", "question tool request text");
+		eq(pending.tool.callID, "call_tool", "question tool call metadata");
+		eq(pending.tool.messageID.toString(), "msg_tool", "question tool message metadata");
+		await(service.reply({requestID: pending.id, answers: [["Red"]]}));
+		final result = await(resultPromise);
+		eq(result.title, "Asked 1 question", "question tool title");
+		eq(result.output.indexOf('"What is your favorite color?"="Red"') != -1, true, "question tool output answer");
+		eq(Json.stringify(result.metadata).indexOf('"Red"') != -1, true, "question tool metadata answers");
+
+		final longHeaderService = new QuestionService();
+		final longHeaderPromise = QuestionTool.executeRaw({
+			questions: [
+				{
+					question: "What is your favorite animal?",
+					header: "This Header is Over 12",
+					options: [{label: "Dog", description: "Man's best friend"}],
+				}
+			],
+		}, ctx, longHeaderService);
+		final longHeaderPending = await(pendingQuestion(longHeaderService, "question tool long header pending"));
+		eq(longHeaderPending.questions[0].header, "This Header is Over 12", "question tool long header preserved");
+		await(longHeaderService.reply({requestID: longHeaderPending.id, answers: [["Dog"]]}));
+		final longHeaderResult = await(longHeaderPromise);
+		eq(longHeaderResult.output.indexOf('"What is your favorite animal?"="Dog"') != -1, true, "question tool long header output");
+	}
+
+	@:async
+	static function pendingQuestion(service:QuestionService, label:String):Promise<QuestionRequest> {
+		for (attempt in 0...20) {
+			final pending = await(service.list());
+			if (pending.length > 0)
+				return pending[0];
+			await(sleep(10));
+		}
+		throw '${label}: timed out';
+	}
+
 	static function context(root:String, ?ask:(ToolPermissionRequest) -> ToolPermissionDecision):ToolContext {
 		return {
 			directory: root,
 			worktree: root,
 			sessionID: "ses_tool",
 			messageID: "msg_tool",
+			callID: "call_tool",
 			agent: "build",
 			ask: ask,
 		};

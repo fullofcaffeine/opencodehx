@@ -131,6 +131,7 @@ enum abstract KnownToolID(String) to String {
 	var Grep = "grep";
 	var Invalid = "invalid";
 	var Lsp = "lsp";
+	var Question = "question";
 	var Read = "read";
 	var Write = "write";
 }
