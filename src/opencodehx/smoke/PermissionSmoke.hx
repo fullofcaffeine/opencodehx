@@ -2,6 +2,8 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import js.lib.Promise;
+import opencodehx.bus.BusRuntime;
+import opencodehx.bus.GlobalBusRuntime;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Fs;
 import opencodehx.config.ConfigLoader;
@@ -11,6 +13,7 @@ import opencodehx.permission.PermissionAsyncRuntime;
 import opencodehx.permission.PermissionAsyncRuntime.PermissionCorrectedError;
 import opencodehx.permission.PermissionAsyncRuntime.PermissionDeniedError;
 import opencodehx.permission.PermissionAsyncRuntime.PermissionRejectedError;
+import opencodehx.permission.PermissionAsyncRuntime.PermissionAsyncService;
 import opencodehx.permission.PermissionRules;
 import opencodehx.permission.PermissionRuntime;
 import opencodehx.permission.PermissionTypes.PermissionRule;
@@ -41,12 +44,16 @@ class PermissionSmoke {
 		ProjectRuntime.reset();
 		InstanceRuntime.reset();
 		PermissionAsyncRuntime.reset();
+		BusRuntime.disposeAllScopes();
+		GlobalBusRuntime.clear();
 		await(asyncAskListReply());
 		await(asyncRejectAndAlways());
 		await(asyncDirectoryIsolation());
 		await(asyncDisposeReload());
 		await(asyncRuleShortCircuit());
 		PermissionAsyncRuntime.reset();
+		BusRuntime.disposeAllScopes();
+		GlobalBusRuntime.clear();
 		InstanceRuntime.reset();
 		ProjectRuntime.reset();
 	}
@@ -283,6 +290,12 @@ class PermissionSmoke {
 	static function asyncAskListReply():Promise<Void> {
 		final context = bootTempContext("permission-async-basic");
 		final service = PermissionAsyncRuntime.forContext(context);
+		final scoped = BusRuntime.scope(context.directory);
+		final asked:Array<String> = [];
+		final replied:Array<String> = [];
+		final offAsked = scoped.subscribe(PermissionAsyncService.AskedEvent, event -> asked.push(event.properties.id + ":" + event.properties.permission));
+		final offReplied = scoped.subscribe(PermissionAsyncService.RepliedEvent,
+			event -> replied.push(event.properties.requestID + ":" + event.properties.reply));
 		final promise = service.ask(askInput("per_async_1", "ses_async", "bash", ["ls"], [], [], {
 			messageID: "msg_perm_async",
 			callID: "call_perm_async",
@@ -294,10 +307,20 @@ class PermissionSmoke {
 		eq(pending[0].permission, "bash", "async permission pending permission");
 		eq(pending[0].patterns.join(","), "ls", "async permission pending patterns");
 		eq(requireAsyncTool(pending[0]).callID, "call_perm_async", "async permission pending tool");
+		eq(asked.join(","), "per_async_1:bash", "async permission asked bus event");
 
 		await(service.reply({requestID: "per_async_1", reply: {reply: "once"}}));
 		eq(await(promise), true, "async permission once resolves");
 		eq((await(service.list())).length, 0, "async permission once removes pending");
+		eq(replied.join(","), "per_async_1:once", "async permission replied bus event");
+		eq(scoped.snapshot()[0].type, "permission.asked", "async permission scoped asked type");
+		eq(scoped.snapshot()[1].type, "permission.replied", "async permission scoped replied type");
+		final global = GlobalBusRuntime.snapshot();
+		eq(global[0].directory, context.directory, "async permission global directory");
+		eq(global[0].payload.type, "permission.asked", "async permission global asked type");
+		eq(global[1].payload.type, "permission.replied", "async permission global replied type");
+		offAsked();
+		offReplied();
 		await(service.reply({requestID: "per_missing", reply: {reply: "once"}}));
 		InstanceRuntime.dispose(context.directory);
 	}
@@ -306,6 +329,10 @@ class PermissionSmoke {
 	static function asyncRejectAndAlways():Promise<Void> {
 		final context = bootTempContext("permission-async-reply");
 		final service = PermissionAsyncRuntime.forContext(context);
+		final scoped = BusRuntime.scope(context.directory);
+		final replies:Array<String> = [];
+		final offReplied = scoped.subscribe(PermissionAsyncService.RepliedEvent,
+			event -> replies.push(event.properties.requestID + ":" + event.properties.reply));
 
 		final first = service.ask(askInput("per_reject_a", "ses_reject", "bash", ["ls"], [], []));
 		final second = service.ask(askInput("per_reject_b", "ses_reject", "edit", ["src/a.ts"], [], []));
@@ -314,6 +341,7 @@ class PermissionSmoke {
 		await(service.reply({requestID: "per_reject_a", reply: {reply: "reject"}}));
 		eq(await(permissionOutcome(first)), "rejected", "async permission reject first");
 		eq(await(permissionOutcome(second)), "rejected", "async permission reject same session");
+		eq(replies.join(","), "per_reject_a:reject,per_reject_b:reject", "async permission reject bus replies");
 		eq((await(service.list())).length, 1, "async permission reject keeps other session");
 		await(service.reply({requestID: "per_reject_other", reply: {reply: "reject", message: "Use a safer command"}}));
 		eq(await(permissionOutcome(other)), "corrected", "async permission reject message");
@@ -325,12 +353,14 @@ class PermissionSmoke {
 		await(service.reply({requestID: "per_always_a", reply: {reply: "always"}}));
 		eq(await(alwaysA), true, "async permission always selected resolves");
 		eq(await(alwaysB), true, "async permission always matching same session resolves");
+		eq(replies.slice(3).join(","), "per_always_a:always,per_always_b:always", "async permission always bus replies");
 		final remaining = await(service.list());
 		eq(remaining.length, 1, "async permission always keeps other session");
 		eq(remaining[0].id, "per_always_other", "async permission always remaining id");
 		eq(await(service.ask(askInput(null, "ses_after_always", "bash", ["ls"], [], []))), true, "async permission always persists approval");
 		await(service.reply({requestID: "per_always_other", reply: {reply: "reject"}}));
 		eq(await(permissionOutcome(alwaysOther)), "rejected", "async permission cleanup other session");
+		offReplied();
 		InstanceRuntime.dispose(context.directory);
 	}
 

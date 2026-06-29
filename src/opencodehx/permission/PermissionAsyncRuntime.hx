@@ -2,6 +2,8 @@ package opencodehx.permission;
 
 import js.lib.Error;
 import js.lib.Promise;
+import opencodehx.bus.BusRuntime;
+import opencodehx.bus.BusRuntime.BusEventDefinition;
 import opencodehx.permission.PermissionTypes.PermissionAskRecord;
 import opencodehx.permission.PermissionTypes.PermissionReply;
 import opencodehx.permission.PermissionTypes.PermissionRule;
@@ -12,6 +14,12 @@ import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
 typedef PermissionToolRef = {
 	final messageID:String;
 	final callID:String;
+}
+
+typedef PermissionRepliedPayload = {
+	final sessionID:String;
+	final requestID:String;
+	final reply:String;
 }
 
 typedef PermissionAskInput = {
@@ -73,14 +81,20 @@ class PermissionCorrectedError extends Error {
  * isolation, and instance disposal cleanup.
  */
 class PermissionAsyncService {
+	public static final AskedEvent:BusEventDefinition<PermissionAskRecord> = BusRuntime.define("permission.asked");
+	public static final RepliedEvent:BusEventDefinition<PermissionRepliedPayload> = BusRuntime.define("permission.replied");
+
 	final pending:Map<String, PendingPermission> = new Map();
 	final order:Array<String> = [];
 	final approved:Array<PermissionRule> = [];
 	final events:Array<PermissionAsyncEvent> = [];
+	final bus:BusRuntime;
 	var nextID = 1;
 	var disposed = false;
 
-	public function new() {}
+	public function new(bus:BusRuntime) {
+		this.bus = bus;
+	}
 
 	public function ask(input:PermissionAskInput):Promise<Bool> {
 		if (disposed)
@@ -101,6 +115,7 @@ class PermissionAsyncService {
 			});
 			order.push(request.id);
 			events.push(PermissionAsked(request));
+			bus.publish(AskedEvent, request);
 		});
 	}
 
@@ -177,6 +192,11 @@ class PermissionAsyncService {
 	function resolvePending(existing:PendingPermission, reply:String):Void {
 		remove(existing.info.id);
 		events.push(PermissionReplied(existing.info.sessionID, existing.info.id, reply));
+		bus.publish(RepliedEvent, {
+			sessionID: existing.info.sessionID,
+			requestID: existing.info.id,
+			reply: reply,
+		});
 		existing.resolve(true);
 	}
 
@@ -201,6 +221,11 @@ class PermissionAsyncService {
 	function rejectPending(existing:PendingPermission, error:Error):Void {
 		remove(existing.info.id);
 		events.push(PermissionRejected(existing.info.sessionID, existing.info.id));
+		bus.publish(RepliedEvent, {
+			sessionID: existing.info.sessionID,
+			requestID: existing.info.id,
+			reply: "reject",
+		});
 		existing.reject(error);
 	}
 
@@ -268,7 +293,7 @@ class PermissionAsyncRuntime {
 		final existing = services.get(key);
 		if (existing != null)
 			return existing;
-		final service = new PermissionAsyncService();
+		final service = new PermissionAsyncService(BusRuntime.scope(key));
 		services.set(key, service);
 		return service;
 	}
