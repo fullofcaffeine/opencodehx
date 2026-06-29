@@ -317,6 +317,8 @@ class SessionProcessor {
 				topK: streamOptions.topK,
 				headers: streamOptions.headers,
 				providerOptions: streamOptions.providerOptions,
+				providerModel: input.model,
+				transformOptions: streamOptions.options,
 				maxRetries: streamOptions.maxRetries,
 			});
 			streamAborted = stream.aborted;
@@ -369,6 +371,8 @@ class SessionProcessor {
 				topK: streamOptions.topK,
 				headers: streamOptions.headers,
 				providerOptions: streamOptions.providerOptions,
+				providerModel: input.model,
+				transformOptions: streamOptions.options,
 				maxRetries: streamOptions.maxRetries,
 			});
 			streamAborted = continuation.aborted;

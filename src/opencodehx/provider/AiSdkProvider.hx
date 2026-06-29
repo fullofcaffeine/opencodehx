@@ -5,12 +5,19 @@ import genes.ts.Unknown;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
 import haxe.extern.EitherType;
+import js.Syntax;
 import js.lib.Promise;
 import js.lib.Error as JsError;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.externs.ai.AiSdk.AiJsonSchemaObject;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelCallOptions;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelMiddleware;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelUsage;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelPrompt;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelSpecificationVersion;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelTransformParams;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelTransformType;
 import opencodehx.externs.ai.AiSdk.AiModelMessages;
 import opencodehx.externs.ai.AiSdk.AiProviderFinishReason;
 import opencodehx.externs.ai.AiSdk.AiProviderStreamPart;
@@ -27,6 +34,8 @@ import opencodehx.externs.ai.AiSdk.AiTool;
 import opencodehx.externs.ai.AiSdk.MockLanguageModelV3;
 import opencodehx.externs.web.AbortControllerWithReason;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
+import opencodehx.provider.ProviderTypes.ProviderMessage;
+import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolRegistry.ToolFilter;
@@ -54,6 +63,8 @@ typedef AiSdkStreamInput = {
 	@:optional final topK:Undefinable<Float>;
 	@:optional final headers:ProviderHeaders;
 	@:optional final providerOptions:ProviderOptions;
+	@:optional final providerModel:ProviderModel;
+	@:optional final transformOptions:ProviderOptions;
 	@:optional final maxRetries:Int;
 }
 
@@ -85,7 +96,7 @@ class AiSdkProvider {
 		final controller = input.abortImmediately == true ? new AbortControllerWithReason() : null;
 		final prompt:EitherType<String, AiModelMessages> = input.messages == null ? input.prompt : input.messages;
 		final options:AiStreamTextOptions = {
-			model: input.model,
+			model: streamModel(input.model, input.providerModel, input.transformOptions),
 			prompt: prompt,
 			tools: toolsOrAbsent(input.tools),
 			maxRetries: input.maxRetries == null ? 0 : input.maxRetries,
@@ -300,6 +311,48 @@ class AiSdkProvider {
 			inputTokenDetails: {},
 			outputTokenDetails: {},
 		};
+	}
+
+	static function streamModel(model:AiLanguageModel, providerModel:Null<ProviderModel>, transformOptions:Null<ProviderOptions>):AiLanguageModel {
+		if (providerModel == null || transformOptions == null)
+			return model;
+		if (model.specificationVersion != AiLanguageModelSpecificationVersion.V3)
+			return model;
+		return AiSdk.wrapLanguageModel({
+			model: model,
+			middleware: providerTransformMiddleware(providerModel, transformOptions),
+		});
+	}
+
+	static function providerTransformMiddleware(model:ProviderModel, options:ProviderOptions):AiLanguageModelMiddleware {
+		return {
+			specificationVersion: AiLanguageModelSpecificationVersion.V3,
+			transformParams: args -> transformProviderParams(args, model, options),
+		};
+	}
+
+	static function transformProviderParams(args:AiLanguageModelTransformParams, model:ProviderModel,
+			options:ProviderOptions):Promise<AiLanguageModelCallOptions> {
+		if (args.type != AiLanguageModelTransformType.Stream)
+			return Promise.resolve(args.params);
+		final params = args.params;
+		params.prompt = aiPrompt(ProviderTransform.message(providerPrompt(params.prompt), model, options));
+		return Promise.resolve(params);
+	}
+
+	static inline function providerPrompt(prompt:AiLanguageModelPrompt):Array<ProviderMessage> {
+		// The SDK prompt is the stricter version of ProviderTransform's prompt
+		// record. Haxe still sees distinct named DTOs, so this input-side
+		// assertion is contained at the middleware boundary.
+		return cast prompt;
+	}
+
+	static inline function aiPrompt(prompt:Array<ProviderMessage>):AiLanguageModelPrompt {
+		// The AI SDK V3 provider prompt is assignable to ProviderTransform's
+		// wider prompt record on input. ProviderTransform returns that wider
+		// Haxe record, so TypeScript needs one local assertion when the same
+		// runtime prompt shape crosses back into the SDK's discriminated union.
+		return Syntax.code("({0} as import('@ai-sdk/provider').LanguageModelV3Prompt)", prompt);
 	}
 }
 

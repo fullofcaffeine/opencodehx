@@ -89,6 +89,7 @@ typedef LlmStreamTextOptions = {
 	final temperature:Undefinable<Float>;
 	final topP:Undefinable<Float>;
 	final topK:Undefinable<Float>;
+	final options:ProviderOptions;
 	final providerOptions:ProviderOptions;
 	final activeTools:Array<String>;
 	@:optional var toolChoice:String;
@@ -414,6 +415,7 @@ class SessionLlm {
 			temperature: input.params.temperature,
 			topP: input.params.topP,
 			topK: input.params.topK,
+			options: input.params.options,
 			providerOptions: ProviderTransform.providerOptions(input.model, input.params.options),
 			activeTools: activeToolNames(input.tools),
 			maxOutputTokens: input.params.maxOutputTokens,

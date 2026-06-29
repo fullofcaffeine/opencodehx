@@ -19,9 +19,9 @@
   "totals": {
     "Dynamic": 728,
     "DynamicAccess": 559,
-    "cast": 215,
+    "cast": 216,
     "untyped": 5,
-    "Syntax.code": 27,
+    "Syntax.code": 28,
     "@:ts.type": 81,
     "Reflect.field": 450,
     "Reflect.hasField": 46,
@@ -302,7 +302,8 @@
     "src/opencodehx/provider/AiSdkProvider.hx": {
       "Dynamic": 3,
       "DynamicAccess": 10,
-      "cast": 4
+      "cast": 5,
+      "Syntax.code": 1
     },
     "src/opencodehx/provider/CloudflareAiGatewayLoader.hx": {
       "Dynamic": 2

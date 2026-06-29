@@ -812,6 +812,42 @@ description: Review workflow.
 			options: optionMap(),
 			headers: source.headers,
 			release_date: source.release_date,
+			variants: source.variants,
+		};
+	}
+
+	static function modelWithInputCapabilities(providerID:String, apiID:String, npm:String, image:Bool, pdf:Bool):ProviderModel {
+		final source = new FakeProvider().model;
+		return {
+			id: apiID,
+			providerID: ProviderID.make(providerID),
+			name: source.name,
+			capabilities: {
+				toolcall: source.capabilities.toolcall,
+				attachment: image || pdf,
+				reasoning: source.capabilities.reasoning,
+				temperature: source.capabilities.temperature,
+				interleaved: source.capabilities.interleaved,
+				input: {
+					text: source.capabilities.input.text,
+					image: image,
+					audio: source.capabilities.input.audio,
+					video: source.capabilities.input.video,
+					pdf: pdf,
+				},
+				output: source.capabilities.output,
+			},
+			api: {
+				id: apiID,
+				url: source.api.url,
+				npm: npm,
+			},
+			cost: source.cost,
+			limit: source.limit,
+			status: source.status,
+			options: optionMap(),
+			headers: source.headers,
+			release_date: source.release_date,
 			variants: new DynamicAccess<ProviderOptions>(),
 		};
 	}
@@ -949,12 +985,30 @@ description: Review workflow.
 				prompt: "Continue with recovered tool and file context.",
 				directory: root,
 				provider: fixture.info,
-				model: fixture.model,
+				model: modelWithInputCapabilities("openai", "gpt-5.2", "@ai-sdk/openai", true, false),
 				language: richHistoryRuntime.language,
 				history: recoveredAiSdkTool.messages,
 			});
 			eq(richHistoryRun.messages.length, 2, "ai sdk rich history message count");
 			assertSdkRichHistoryPrompt(richHistoryRuntime.mock.doStreamCalls[0].prompt, "ai sdk rich recovered history prompt");
+
+			final transformModel = modelWithOptionsVariants("anthropic", "claude-sonnet-4", "@ai-sdk/anthropic", optionMap(),
+				new FakeProvider().model.variants);
+			final transformRuntime = AiSdkMockModel.inspectableText(["Provider transform reached stream."]);
+			final transformRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_provider_message_transform",
+				prompt: "Use provider message transform.",
+				directory: root,
+				provider: fixture.info,
+				model: transformModel,
+				language: transformRuntime.language,
+				system: [""],
+			});
+			eq(transformRun.messages.length, 2, "ai sdk provider transform message count");
+			final transformedPrompt:Array<AiLanguageModelPromptMessage> = transformRuntime.mock.doStreamCalls[0].prompt;
+			eq(transformedPrompt.length, 1, "ai sdk provider transform filters empty system");
+			eq(transformedPrompt[0].role, AiLanguageModelPromptRole.User, "ai sdk provider transform keeps user");
+			eq(promptContentText(transformedPrompt[0]), "Use provider message transform.", "ai sdk provider transform user text");
 
 			Fs.mkdirSync(NodePath.join(root, "feature/nested"), {recursive: true});
 			final featureInstructions = NodePath.join(root, "feature/AGENTS.md");

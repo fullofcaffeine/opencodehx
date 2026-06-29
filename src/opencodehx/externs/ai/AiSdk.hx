@@ -122,6 +122,30 @@ typedef AiStreamTextOptions = {
 	final onAbort:AiStreamAbortEvent->Void;
 }
 
+enum abstract AiLanguageModelTransformType(String) from String to String {
+	final Generate = "generate";
+	final Stream = "stream";
+}
+
+typedef AiLanguageModelTransformParams = {
+	final type:AiLanguageModelTransformType;
+	final params:AiLanguageModelCallOptions;
+	final model:AiLanguageModelV3;
+}
+
+typedef AiLanguageModelMiddlewareShape = {
+	final specificationVersion:AiLanguageModelSpecificationVersion;
+	final transformParams:AiLanguageModelTransformParams->Thenable<AiLanguageModelCallOptions>;
+}
+
+@:forward(specificationVersion, transformParams)
+abstract AiLanguageModelMiddleware(AiLanguageModelMiddlewareShape) from AiLanguageModelMiddlewareShape to AiLanguageModelMiddlewareShape {}
+
+typedef AiWrapLanguageModelOptions = {
+	final model:AiLanguageModel;
+	final middleware:AiLanguageModelMiddleware;
+}
+
 typedef AiStreamTextResult = {
 	final text:Thenable<String>;
 	final finishReason:Thenable<AiFinishReason>;
@@ -672,7 +696,7 @@ typedef AiLanguageModelToolChoiceShape = {
 abstract AiLanguageModelToolChoice(AiLanguageModelToolChoiceShape) from AiLanguageModelToolChoiceShape to AiLanguageModelToolChoiceShape {}
 
 typedef AiLanguageModelCallOptionsShape = {
-	final prompt:AiLanguageModelPrompt;
+	var prompt:AiLanguageModelPrompt;
 	@:optional final maxOutputTokens:Float;
 	@:optional final temperature:Float;
 	@:optional final stopSequences:Array<String>;
@@ -1187,6 +1211,7 @@ extern class AiSdk {
 	static function streamText(options:AiStreamTextOptions):AiStreamTextResult;
 	static function tool<I, O>(options:AiToolOptions<I, O>):AiTool;
 	static function jsonSchema(schema:AiJsonSchemaObject):AiJsonSchema;
+	static function wrapLanguageModel(options:AiWrapLanguageModelOptions):AiLanguageModelV3;
 }
 
 @:jsRequire("ai/test", "MockLanguageModelV3")
