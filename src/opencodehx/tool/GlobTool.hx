@@ -18,6 +18,8 @@ import opencodehx.tool.ToolSearchPaths.ToolSearchPath;
 import opencodehx.tool.ToolSearchPaths.fromNullable;
 import opencodehx.tool.ToolSearchPaths.resolve;
 import opencodehx.tool.ToolSearchPaths.toNullable;
+import opencodehx.tool.ToolExternalDirectory.ExternalDirectoryKind;
+import opencodehx.tool.ToolExternalDirectory.requireExternalDirectory;
 
 typedef GlobToolInput = {
 	final pattern:String;
@@ -69,6 +71,7 @@ class GlobTool {
 		final search = resolve(root, input.path);
 		if (Fs.existsSync(search) && Fs.statSync(search).isFile())
 			throw new ToolException(ExecutionFailed(KnownToolID.Glob, 'glob path must be a directory: ${search}'));
+		requireExternalDirectory(KnownToolID.Glob, ctx, search, ExternalDirectoryKind.ExternalDirectory);
 		if (!Fs.existsSync(search) || !Fs.statSync(search).isDirectory())
 			throw new ToolException(ExecutionFailed(KnownToolID.Glob, 'No such directory: ${search}'));
 

@@ -429,8 +429,7 @@ class ToolSmoke {
 	static function globExec(registry:ToolRegistry, ctx:ToolContext):Void {
 		final globRequests:Array<ToolPermissionRequest> = [];
 		final allowedCtx = context(ctx.directory, request -> {
-			if (request.permission == "glob")
-				globRequests.push(request);
+			globRequests.push(request);
 			return {allowed: true};
 		});
 
@@ -443,6 +442,36 @@ class ToolSmoke {
 		final globMetadata = Json.stringify(globRequests[0].metadata);
 		eq(globMetadata.indexOf('"pattern":"*.ts"') != -1, true, "glob permission metadata pattern");
 		eq(globMetadata.indexOf('"path":"src"') != -1, true, "glob permission metadata path");
+
+		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-glob-outside-"));
+		write(outsideDir, "external.ts", "export const outside = 1;\n");
+		final outsideRequests:Array<ToolPermissionRequest> = [];
+		final outside = registry.execute(ToolIDs.known("glob"), {pattern: "*.ts", path: outsideDir}, context(ctx.directory, request -> {
+			outsideRequests.push(request);
+			return {allowed: true};
+		}));
+		eq(outside.output.indexOf("external.ts") != -1, true, "glob external directory output");
+		eq(outsideRequests.length, 2, "glob external permission count");
+		eq(outsideRequests[1].permission, "external_directory", "glob external permission kind");
+		final outsidePattern = ToolPaths.normalize(NodePath.join(outsideDir, "*"));
+		eq(outsideRequests[1].patterns.join(","), outsidePattern, "glob external permission pattern");
+		eq(outsideRequests[1].always.join(","), outsidePattern, "glob external permission always");
+		final outsideMetadata = Json.stringify(outsideRequests[1].metadata);
+		eq(outsideMetadata.indexOf('"filepath":"' + jsonPath(outsideDir) + '"') != -1, true, "glob external metadata filepath");
+		eq(outsideMetadata.indexOf('"parentDir":"' + jsonPath(outsideDir) + '"') != -1, true, "glob external metadata parent");
+
+		final deniedExternalCtx = context(ctx.directory, request -> {
+			if (request.permission == "external_directory")
+				return {allowed: false, reason: "glob outside blocked"};
+			return {allowed: true};
+		});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("glob"), {pattern: "*.ts", path: outsideDir}, deniedExternalCtx), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "glob" && message.indexOf("glob outside blocked") != -1;
+				case _: false;
+			}
+		}, "glob external directory denied");
+		Fs.rmSync(outsideDir, {recursive: true, force: true});
 
 		final deniedCtx = context(ctx.directory, request -> {
 			if (request.permission == "glob")
@@ -473,8 +502,7 @@ class ToolSmoke {
 	static function grepExec(registry:ToolRegistry, ctx:ToolContext):Void {
 		final grepRequests:Array<ToolPermissionRequest> = [];
 		final allowedCtx = context(ctx.directory, request -> {
-			if (request.permission == "grep")
-				grepRequests.push(request);
+			grepRequests.push(request);
 			return {allowed: true};
 		});
 
@@ -488,6 +516,37 @@ class ToolSmoke {
 		eq(grepMetadata.indexOf('"pattern":"needle"') != -1, true, "grep permission metadata pattern");
 		eq(grepMetadata.indexOf('"path":"src"') != -1, true, "grep permission metadata path");
 		eq(grepMetadata.indexOf('"include":"*.ts"') != -1, true, "grep permission metadata include");
+
+		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-grep-outside-"));
+		final outsideFile = NodePath.join(outsideDir, "external.txt");
+		Fs.writeFileSync(outsideFile, "needle outside\n", "utf8");
+		final outsideRequests:Array<ToolPermissionRequest> = [];
+		final outside = registry.execute(ToolIDs.known("grep"), {pattern: "needle", path: outsideFile}, context(ctx.directory, request -> {
+			outsideRequests.push(request);
+			return {allowed: true};
+		}));
+		eq(outside.output.indexOf("needle outside") != -1, true, "grep external file output");
+		eq(outsideRequests.length, 2, "grep external permission count");
+		eq(outsideRequests[1].permission, "external_directory", "grep external permission kind");
+		final outsidePattern = ToolPaths.normalize(NodePath.join(outsideDir, "*"));
+		eq(outsideRequests[1].patterns.join(","), outsidePattern, "grep external permission pattern");
+		eq(outsideRequests[1].always.join(","), outsidePattern, "grep external permission always");
+		final outsideMetadata = Json.stringify(outsideRequests[1].metadata);
+		eq(outsideMetadata.indexOf('"filepath":"' + jsonPath(outsideFile) + '"') != -1, true, "grep external metadata filepath");
+		eq(outsideMetadata.indexOf('"parentDir":"' + jsonPath(outsideDir) + '"') != -1, true, "grep external metadata parent");
+
+		final deniedExternalCtx = context(ctx.directory, request -> {
+			if (request.permission == "external_directory")
+				return {allowed: false, reason: "grep outside blocked"};
+			return {allowed: true};
+		});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("grep"), {pattern: "needle", path: outsideFile}, deniedExternalCtx), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "grep" && message.indexOf("grep outside blocked") != -1;
+				case _: false;
+			}
+		}, "grep external file denied");
+		Fs.rmSync(outsideDir, {recursive: true, force: true});
 
 		final deniedCtx = context(ctx.directory, request -> {
 			if (request.permission == "grep")
@@ -868,6 +927,10 @@ Use this skill.
 		final path = NodePath.join(root, relative);
 		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
 		Fs.writeFileSync(path, content);
+	}
+
+	static function jsonPath(path:String):String {
+		return StringTools.replace(path, "\\", "\\\\");
 	}
 
 	static function expectToolFailure(run:() -> Void, matches:ToolFailure->Bool, label:String):Void {

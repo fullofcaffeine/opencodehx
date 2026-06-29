@@ -19,6 +19,8 @@ import opencodehx.tool.ToolSearchPaths.ToolSearchPath;
 import opencodehx.tool.ToolSearchPaths.fromNullable;
 import opencodehx.tool.ToolSearchPaths.resolve;
 import opencodehx.tool.ToolSearchPaths.toNullable;
+import opencodehx.tool.ToolExternalDirectory.ExternalDirectoryKind;
+import opencodehx.tool.ToolExternalDirectory.requireExternalDirectory;
 
 typedef GrepToolInput = {
 	final pattern:String;
@@ -84,6 +86,8 @@ class GrepTool {
 		final stat = Fs.statSync(search);
 		final cwd = stat.isDirectory() ? search : NodePath.dirname(search);
 		final files:Null<Array<String>> = stat.isDirectory() ? null : [NodePath.relative(cwd, search)];
+		requireExternalDirectory(KnownToolID.Grep, ctx, search,
+			stat.isDirectory() ? ExternalDirectoryKind.ExternalDirectory : ExternalDirectoryKind.ExternalFile);
 		final result = Ripgrep.search({
 			cwd: cwd,
 			pattern: input.pattern,
