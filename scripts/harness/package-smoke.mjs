@@ -607,10 +607,13 @@ try {
 			"Hello from installed live.",
 			"installed configured live AI SDK assistant text",
 		);
+		writeFileSync(path.join(projectDir, "AGENTS.md"), "# Installed Project Instructions\nUse installed project rules.");
+		writeFileSync(path.join(projectDir, "installed-instructions.md"), "# Installed Config Instructions\nUse installed config rules.");
 		writeFileSync(
 			path.join(liveConfigRoot, "opencode", "opencode.json"),
 			JSON.stringify({
 				$schema: "https://opencode.ai/config.json",
+				instructions: [path.join(projectDir, "installed-instructions.md")],
 				default_agent: "reviewer",
 				provider: {
 					"installed-live": {
@@ -650,6 +653,16 @@ try {
 			"installed agent-configured system prompt",
 		);
 		assert.equal(agentConfiguredLiveTranscript.request.system[0].includes("Working directory:"), true, "installed agent-configured env prompt");
+		assert.equal(
+			agentConfiguredLiveTranscript.request.system[0].includes("Use installed project rules."),
+			true,
+			"installed agent-configured project instructions",
+		);
+		assert.equal(
+			agentConfiguredLiveTranscript.request.system[0].includes("Use installed config rules."),
+			true,
+			"installed agent-configured config instructions",
+		);
 		assert.equal(agentConfiguredLiveTranscript.request.tools.includes("write"), false, "installed agent-configured hides write");
 		assert.equal(agentConfiguredLiveTranscript.messages[0].info.agent, "reviewer", "installed agent-configured user agent");
 		assert.equal(
@@ -658,6 +671,8 @@ try {
 			"installed agent-configured request body system",
 		);
 		assert.equal(observed.body.messages[0].content.includes("Working directory:"), true, "installed agent-configured body env prompt");
+		assert.equal(observed.body.messages[0].content.includes("Use installed project rules."), true, "installed request body project instructions");
+		assert.equal(observed.body.messages[0].content.includes("Use installed config rules."), true, "installed request body config instructions");
 		const installedAgentToolNames = (observed.body.tools ?? []).map((tool) => tool.function.name);
 		assert.equal(installedAgentToolNames.includes("read"), true, "installed agent-configured advertises read");
 		assert.equal(installedAgentToolNames.includes("write"), false, "installed agent-configured hides write from body");

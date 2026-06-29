@@ -34,7 +34,12 @@ class SessionSystemPrompt {
 		final header = input.agent != null && hasText(input.agent.prompt) ? [StringTools.trim(input.agent.prompt)] : provider(input.model);
 		final environmentPrompt = environment(input.model, input.directory, project.worktree, project.vcs == ProjectVcs.GitVcs);
 		final skillsPrompt = skills(input.directory, project.worktree, input.config, input.agent);
-		final parts = header.concat(environmentPrompt).concat(skillsPrompt);
+		final instructionPrompt = SessionInstruction.system({
+			directory: input.directory,
+			worktree: project.worktree,
+			config: input.config,
+		});
+		final parts = header.concat(environmentPrompt).concat(skillsPrompt).concat(instructionPrompt);
 		if (hasText(input.userSystem))
 			parts.push(StringTools.trim(input.userSystem));
 		return [parts.join("\n")];

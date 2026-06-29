@@ -36,6 +36,7 @@ import opencodehx.session.SessionID;
 import opencodehx.session.SessionLlm;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionRetry.SessionProviderError;
+import opencodehx.session.SessionInstruction;
 import opencodehx.session.SessionSystemPrompt;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.tool.ToolRegistry;
@@ -659,13 +660,25 @@ description: Review workflow.
 
 # Review
 ');
+		Fs.writeFileSync(NodePath.join(root, "AGENTS.md"), "# Project Instructions\nUse project rules.");
+		Fs.writeFileSync(NodePath.join(root, "local-instructions.md"), "# Local Instructions\nUse local config rules.");
+		final config = ConfigInfo.empty("session-system-smoke");
+		config.instructions = ["local-instructions.md"];
 		final variants = new FakeProvider().model.variants;
 		final model = modelWithOptionsVariants("openai", "gpt-5.2", "@ai-sdk/openai", optionMap(), variants);
+		final instructionPaths = SessionInstruction.systemPaths({
+			directory: root,
+			worktree: root,
+			config: config,
+		});
+		eq(instructionPaths.length, 2, "session instruction path count");
+		eq(instructionPaths[0], NodePath.join(root, "AGENTS.md"), "session instruction project path");
+		eq(instructionPaths[1], NodePath.join(root, "local-instructions.md"), "session instruction config path");
 		final prompt = SessionSystemPrompt.build({
 			directory: root,
 			model: model,
 			agent: {name: "reviewer", prompt: "Agent reviewer prompt."},
-			config: ConfigInfo.empty("session-system-smoke"),
+			config: config,
 		});
 		eq(prompt.length, 1, "session system prompt count");
 		contains(prompt[0], "Agent reviewer prompt.", "session system agent prompt");
@@ -673,6 +686,10 @@ description: Review workflow.
 		contains(prompt[0], "Workspace root folder:", "session system worktree");
 		contains(prompt[0], "<available_skills>", "session system skills block");
 		contains(prompt[0], "<name>review</name>", "session system skill name");
+		contains(prompt[0], "Instructions from: " + NodePath.join(root, "AGENTS.md"), "session system project instructions source");
+		contains(prompt[0], "Use project rules.", "session system project instructions content");
+		contains(prompt[0], "Instructions from: " + NodePath.join(root, "local-instructions.md"), "session system config instructions source");
+		contains(prompt[0], "Use local config rules.", "session system config instructions content");
 
 		final providerFallback = SessionSystemPrompt.build({
 			directory: root,

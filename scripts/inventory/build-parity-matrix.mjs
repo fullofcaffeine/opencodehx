@@ -190,6 +190,15 @@ function directEvidence(path) {
     ["fake/provider.ts", ["ported", "src/opencodehx/provider/FakeProvider.hx; scripts/harness/transcript-parity.mjs; docs/fake-provider-transcript-harness.md", "none", "FakeProvider plus one-turn golden transcript"]],
     ["fixture/fixture.test.ts", ["ported", "src/opencodehx/smoke/SmokeTmpDir.hx; src/opencodehx/smoke/FixtureSmoke.hx; docs/fixture-smoke-parity.md", "none", "FixtureSmoke.tmpdir"]],
     ["session/message-v2.test.ts", ["partial", "src/opencodehx/smoke/MessageSmoke.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; docs/message-v2-port.md; docs/session-processor-one-turn.md", "full upstream model-message conversion and provider-transform cases remain partial; live AI SDK recovered history now covers text, user file parts, and assistant tool-call/tool-result parts", "MessageSmoke codec/part/cursor fixtures plus SessionProcessorSmoke rich recovered-history prompt"]],
+    [
+      "session/instruction.test.ts",
+      [
+        "partial",
+        "src/opencodehx/session/SessionInstruction.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; scripts/harness/cli-smoke.mjs; scripts/harness/package-smoke.mjs; docs/session-processor-one-turn.md",
+        "nearby read-tool instruction claims, clear/dedup lifecycle, and remote instruction URL fetching remain deferred",
+        "SessionInstruction systemPaths/system smoke covers project/root AGENTS.md lookup, config.instructions local file entries, non-git containment, and live CLI/package request-body instruction evidence",
+      ],
+    ],
     ["session/processor-effect.test.ts", ["partial", "src/opencodehx/smoke/SessionProcessorSmoke.hx; docs/session-processor-one-turn.md", "current processor is one-turn and synchronous; upstream Effect streaming lifecycle remains deferred", "SessionProcessorSmoke"]],
     [
       "session/llm.test.ts",
@@ -243,7 +252,15 @@ function directEvidence(path) {
     ["question/question.test.ts", ["partial", "src/opencodehx/question/QuestionRuntime.hx; src/opencodehx/smoke/QuestionSmoke.hx; docs/question-runtime.md", "typed ask/list/reply/reject behavior, directory isolation, and dispose/reload rejection are covered; Effect Layer/Deferred integration, question server routes, question tool wrapper, and UI prompts remain deferred", "QuestionSmoke", m11Owners.session]],
     ["skill/skill.test.ts", ["partial", "src/opencodehx/smoke/SkillSmoke.hx; docs/skill-registry-port.md", "Effect service integration and binary remote skill resources remain deferred", "SkillRegistry local/remote discovery and availability smoke"]],
     ["skill/discovery.test.ts", ["partial", "src/opencodehx/smoke/SkillSmoke.hx; docs/skill-registry-port.md", "Effect service integration and binary remote skill resources remain deferred", "SkillRemoteDiscovery cache/download smoke"]],
-    ["session/system.test.ts", ["partial", "src/opencodehx/smoke/SkillSmoke.hx; docs/skill-registry-port.md", "full SystemPrompt service integration remains deferred", "SkillRegistry sorted verbose and permission-filtered availability smoke"]],
+    [
+      "session/system.test.ts",
+      [
+        "partial",
+        "src/opencodehx/session/SessionSystemPrompt.hx; src/opencodehx/session/SessionInstruction.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; src/opencodehx/smoke/SkillSmoke.hx; scripts/harness/cli-smoke.mjs; scripts/harness/package-smoke.mjs; docs/session-processor-one-turn.md",
+        "plugin system transforms, reminder prompt insertion, nearby read-tool instruction claims, and remote instruction URL fetching remain deferred",
+        "SessionSystemPrompt provider/environment/skills/instruction assembly plus SkillRegistry sorted verbose and permission-filtered availability smoke; generated CLI and package smokes prove assembled system prompt reaches request body",
+      ],
+    ],
     ["bus/bus.test.ts", ["ported", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx; docs/bus-runtime-parity.md", "none", "BusSmoke callback and scoped lifecycle fixtures"]],
     ["bus/bus-integration.test.ts", ["ported", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx; docs/bus-runtime-parity.md", "none", "BusSmoke callback and scoped lifecycle fixtures"]],
     [
