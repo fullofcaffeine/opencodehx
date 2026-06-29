@@ -17,15 +17,15 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 759,
+    "Dynamic": 741,
     "DynamicAccess": 560,
-    "cast": 253,
+    "cast": 222,
     "untyped": 6,
     "Syntax.code": 27,
     "@:ts.type": 77,
-    "Reflect.field": 528,
+    "Reflect.field": 481,
     "Reflect.hasField": 47,
-    "Reflect.setField": 72,
+    "Reflect.setField": 52,
     "Any": 0
   },
   "files": {
@@ -283,11 +283,6 @@
       "cast": 1,
       "Reflect.field": 1
     },
-    "src/opencodehx/permission/PermissionRuntime.hx": {
-      "Dynamic": 1,
-      "cast": 1,
-      "Reflect.setField": 1
-    },
     "src/opencodehx/plugin/PluginCodex.hx": {
       "Dynamic": 1
     },
@@ -461,11 +456,6 @@
       "Reflect.hasField": 1,
       "Reflect.setField": 19
     },
-    "src/opencodehx/session/SessionExport.hx": {
-      "Dynamic": 8,
-      "Reflect.field": 1,
-      "Reflect.setField": 19
-    },
     "src/opencodehx/session/SessionInfo.hx": {
       "Dynamic": 2
     },
@@ -567,9 +557,7 @@
       "Dynamic": 2
     },
     "src/opencodehx/smoke/PermissionSmoke.hx": {
-      "Dynamic": 2,
-      "cast": 17,
-      "Reflect.field": 2
+      "Dynamic": 2
     },
     "src/opencodehx/smoke/PluginSmoke.hx": {
       "Dynamic": 2
@@ -605,9 +593,7 @@
       "Reflect.field": 67
     },
     "src/opencodehx/smoke/SessionPersistenceSmoke.hx": {
-      "Dynamic": 7,
-      "cast": 13,
-      "Reflect.field": 39
+      "Dynamic": 1
     },
     "src/opencodehx/smoke/SessionProcessorSmoke.hx": {
       "Dynamic": 6,
@@ -637,7 +623,7 @@
     "src/opencodehx/smoke/ToolSmoke.hx": {
       "Dynamic": 5,
       "cast": 3,
-      "Reflect.field": 9
+      "Reflect.field": 6
     },
     "src/opencodehx/smoke/UtilSmoke.hx": {
       "Dynamic": 11,
@@ -678,16 +664,8 @@
     "src/opencodehx/tool/EditTool.hx": {
       "Dynamic": 1
     },
-    "src/opencodehx/tool/GlobTool.hx": {
-      "Dynamic": 1,
-      "Reflect.field": 1
-    },
-    "src/opencodehx/tool/GrepTool.hx": {
-      "Dynamic": 1,
-      "Reflect.field": 1
-    },
     "src/opencodehx/tool/ReadTool.hx": {
-      "Dynamic": 3,
+      "Dynamic": 2,
       "Reflect.field": 3
     },
     "src/opencodehx/tool/WriteTool.hx": {
