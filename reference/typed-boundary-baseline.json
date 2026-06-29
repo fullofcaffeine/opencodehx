@@ -22,7 +22,7 @@
     "cast": 216,
     "untyped": 5,
     "Syntax.code": 28,
-    "@:ts.type": 81,
+    "@:ts.type": 82,
     "Reflect.field": 450,
     "Reflect.hasField": 46,
     "Reflect.setField": 47,
@@ -127,7 +127,7 @@
     "src/opencodehx/externs/ai/AiSdk.hx": {
       "Dynamic": 6,
       "DynamicAccess": 28,
-      "@:ts.type": 59
+      "@:ts.type": 60
     },
     "src/opencodehx/externs/aws/AwsCredentialProviders.hx": {
       "@:ts.type": 1

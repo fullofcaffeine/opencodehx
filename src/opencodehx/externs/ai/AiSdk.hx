@@ -461,6 +461,7 @@ typedef AiModelToolCallPartShape = {
 @:ts.type("'text' | 'json' | 'content' | 'execution-denied' | 'error-text' | 'error-json'")
 enum abstract AiModelToolResultOutputType(String) from String to String {
 	final Text = "text";
+	final Content = "content";
 	final ErrorText = "error-text";
 }
 
@@ -476,9 +477,20 @@ typedef AiModelFilePartShape = {
 	final mediaType:String;
 }
 
+typedef AiModelToolResultMediaPartShape = {
+	final type:String;
+	final mediaType:String;
+	final data:String;
+}
+
+@:ts.type("{ type: 'media'; mediaType: string; data: string }")
+abstract AiModelToolResultMediaPart(AiModelToolResultMediaPartShape) from AiModelToolResultMediaPartShape to AiModelToolResultMediaPartShape {}
+
+typedef AiModelToolResultContentPart = EitherType<AiModelTextPart, AiModelToolResultMediaPart>;
+
 typedef AiModelToolResultOutputShape = {
 	final type:AiModelToolResultOutputType;
-	@:optional final value:String;
+	@:optional final value:EitherType<String, Array<AiModelToolResultContentPart>>;
 	@:optional final reason:String;
 }
 

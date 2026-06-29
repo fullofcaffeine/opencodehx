@@ -17,6 +17,8 @@ import opencodehx.externs.ai.AiSdk.AiModelAssistantMessagePart;
 import opencodehx.externs.ai.AiSdk.AiModelMessage;
 import opencodehx.externs.ai.AiSdk.AiModelTextPart;
 import opencodehx.externs.ai.AiSdk.AiModelToolCallPart;
+import opencodehx.externs.ai.AiSdk.AiModelToolResultContentPart;
+import opencodehx.externs.ai.AiSdk.AiModelToolResultMediaPart;
 import opencodehx.externs.ai.AiSdk.AiModelToolMessagePart;
 import opencodehx.externs.ai.AiSdk.AiModelToolResultPart;
 import opencodehx.externs.ai.AiSdk.AiModelToolResultTurn;
@@ -37,6 +39,7 @@ import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TextPartData;
 import opencodehx.session.MessageTypes.TokenUsage;
 import opencodehx.session.MessageTypes.ToolState;
+import opencodehx.session.MessageTypes.ToolStateCompletedData;
 import opencodehx.session.MessageTypes.ToolStateMetadata;
 import opencodehx.session.MessageTypes.UserMessage;
 import opencodehx.session.MessageTypes.WithParts;
@@ -300,7 +303,7 @@ class SessionProcessor {
 		var toolOutcome:Null<SessionToolOutcome> = null;
 		var retry:Null<SessionRetryStatus> = null;
 		var providerError:Null<SessionProviderError> = null;
-		final messageHistory = modelHistory(input.history);
+		final messageHistory = modelHistory(input.history, input.model);
 		final loadedInstructions = input.history == null ? [] : SessionInstruction.loadedFromHistory(input.history);
 		final tools = AiSdkProvider.toolsFromRegistry(registry, toolFilter);
 		final streamOptions = aiSdkStreamOptions(input, sessionIDText, projectID, provider.system, registry, toolFilter);
@@ -563,16 +566,17 @@ class SessionProcessor {
 		return {info: UserInfo(info), parts: parts};
 	}
 
-	static function modelHistory(history:Null<Array<WithParts>>):Array<AiModelMessage> {
+	static function modelHistory(history:Null<Array<WithParts>>, model:ProviderModel):Array<AiModelMessage> {
 		final out:Array<AiModelMessage> = [];
 		if (history == null)
 			return out;
+		final preserveMediaToolResults = supportsMediaInToolResults(model);
 		for (message in history) {
 			switch message.info {
 				case UserInfo(_):
 					pushUserModelMessage(out, message.parts);
 				case AssistantInfo(_):
-					pushAssistantModelMessages(out, message.parts);
+					pushAssistantModelMessages(out, message.parts, preserveMediaToolResults);
 			}
 		}
 		return out;
@@ -599,7 +603,7 @@ class SessionProcessor {
 			out.push({role: "user", content: content});
 	}
 
-	static function pushAssistantModelMessages(out:Array<AiModelMessage>, parts:Array<Part>):Void {
+	static function pushAssistantModelMessages(out:Array<AiModelMessage>, parts:Array<Part>, preserveMediaToolResults:Bool):Void {
 		final content:Array<AiModelAssistantMessagePart> = [];
 		final toolResults:Array<AiModelMessage> = [];
 		for (part in parts) {
@@ -611,7 +615,7 @@ class SessionProcessor {
 					switch tool.state {
 						case ToolCompleted(data):
 							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
-							toolResults.push(toolTextResultModelMessage(tool.callID, tool.tool, data.output));
+							toolResults.push(completedToolResultModelMessage(tool.callID, tool.tool, data, preserveMediaToolResults));
 						case ToolErrored(data):
 							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
 							final interruptedOutput = interruptedToolOutput(data.metadata);
@@ -697,6 +701,25 @@ class SessionProcessor {
 		return toolResultModelMessage(part);
 	}
 
+	static function completedToolResultModelMessage(callID:String, toolName:String, data:ToolStateCompletedData, preserveMediaToolResults:Bool):AiModelMessage {
+		if (!preserveMediaToolResults || data.attachments == null || data.attachments.length == 0)
+			return toolTextResultModelMessage(callID, toolName, data.output);
+		final value:Array<AiModelToolResultContentPart> = [modelToolResultTextPart(data.output)];
+		for (attachment in data.attachments) {
+			if (isMediaFile(attachment))
+				value.push(modelToolResultMediaPart(attachment));
+		}
+		if (value.length == 1)
+			return toolTextResultModelMessage(callID, toolName, data.output);
+		final part:AiModelToolResultPart = {
+			type: "tool-result",
+			toolCallId: callID,
+			toolName: toolName,
+			output: {type: "content", value: value},
+		};
+		return toolResultModelMessage(part);
+	}
+
 	static function toolErrorResultModelMessage(callID:String, toolName:String, outputValue:String):AiModelMessage {
 		final part:AiModelToolResultPart = {
 			type: "tool-result",
@@ -717,6 +740,46 @@ class SessionProcessor {
 		if (record == null || UnknownNarrow.bool(record.get("interrupted")) != true)
 			return null;
 		return UnknownNarrow.string(record.get("output"));
+	}
+
+	static function modelToolResultTextPart(text:String):AiModelToolResultContentPart {
+		final part:AiModelTextPart = {type: "text", text: text};
+		return part;
+	}
+
+	static function modelToolResultMediaPart(file:FilePartData):AiModelToolResultContentPart {
+		final part:AiModelToolResultMediaPart = {
+			type: "media",
+			mediaType: file.mime,
+			data: modelToolResultMediaData(file.url),
+		};
+		return part;
+	}
+
+	static function modelToolResultMediaData(url:String):String {
+		if (StringTools.startsWith(url, "data:")) {
+			final comma = url.indexOf(",");
+			return comma == -1 ? url : url.substr(comma + 1);
+		}
+		return url;
+	}
+
+	static function supportsMediaInToolResults(model:ProviderModel):Bool {
+		final npm = model.api.npm;
+		if (npm == "@ai-sdk/anthropic"
+			|| npm == "@ai-sdk/openai"
+			|| npm == "@ai-sdk/amazon-bedrock"
+			|| npm == "@ai-sdk/google-vertex/anthropic")
+			return true;
+		if (npm == "@ai-sdk/google") {
+			final id = model.api.id.toLowerCase();
+			return id.indexOf("gemini-3") != -1 && id.indexOf("gemini-2") == -1;
+		}
+		return false;
+	}
+
+	static function isMediaFile(file:FilePartData):Bool {
+		return StringTools.startsWith(file.mime, "image/") || file.mime == "application/pdf";
 	}
 
 	static function toolResultModelMessage(part:AiModelToolResultPart):AiModelMessage {

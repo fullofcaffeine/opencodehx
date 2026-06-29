@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownArray;
 import genes.ts.UnknownNarrow;
 import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
@@ -1013,6 +1014,33 @@ description: Review workflow.
 					throw "session processor async: expected recovered assistant message";
 			}
 			recoveredAssistant.parts.push(ToolPart({
+				id: PartID.make("prt_history_media_tool"),
+				sessionID: SessionID.make("ses_ai_sdk_tool_persisted"),
+				messageID: recoveredAssistantID,
+				type: "tool",
+				callID: "call_media_history",
+				tool: "read",
+				state: ToolCompleted({
+					status: "completed",
+					input: ToolCallInput.fromBoundary({filePath: "history-image.png"}),
+					output: "Recovered image output",
+					title: "Read",
+					metadata: ToolStateMetadata.empty(),
+					time: {start: 8, end: 9},
+					attachments: [
+						{
+							id: PartID.make("prt_history_media_attachment"),
+							sessionID: SessionID.make("ses_ai_sdk_tool_persisted"),
+							messageID: recoveredAssistantID,
+							type: "file",
+							mime: "image/png",
+							filename: "tool-history.png",
+							url: "data:image/png;base64,dG9vbC1pbWFnZQ==",
+						}
+					],
+				}),
+			}));
+			recoveredAssistant.parts.push(ToolPart({
 				id: PartID.make("prt_history_interrupted_tool"),
 				sessionID: SessionID.make("ses_ai_sdk_tool_persisted"),
 				messageID: recoveredAssistantID,
@@ -1777,6 +1805,7 @@ description: Review workflow.
 		final toolCall = firstPromptPart(assistantParts, AiLanguageModelPromptPartType.ToolCall, label + " recovered tool call");
 		eq(toolCall.toolCallId, "tool_1", label + " tool-call id");
 		eq(toolCall.toolName, "read", label + " tool-call name");
+		eq(hasPromptToolCall(assistantParts, "call_media_history", "read"), true, label + " media tool call");
 		eq(hasPromptToolCall(assistantParts, "call_interrupted_history", "bash"), true, label + " interrupted tool call");
 		eq(hasPromptToolCall(assistantParts, "call_error_history", "read"), true, label + " error tool call");
 
@@ -1790,6 +1819,8 @@ description: Review workflow.
 		eq(toolResult.output.type, "text", label + " tool-result output type");
 		if (Std.string(toolResult.output.value).indexOf("ai sdk tool fixture") == -1)
 			throw label + ": missing recovered tool output";
+		final media = promptToolResult(toolResults, "call_media_history", label + " media result");
+		assertContentToolResult(media.output, "Recovered image output", "image/png", "dG9vbC1pbWFnZQ==", label + " media result");
 		final interrupted = promptToolResult(toolResults, "call_interrupted_history", label + " interrupted result");
 		eq(interrupted.output.type, "text", label + " interrupted result output type");
 		eq(Std.string(interrupted.output.value), "partial interrupted output", label + " interrupted result output");
@@ -1818,6 +1849,29 @@ description: Review workflow.
 			}
 		}
 		throw label + ": expected tool result";
+	}
+
+	static function assertContentToolResult(output:opencodehx.externs.ai.AiSdk.AiLanguageModelToolResultOutput, text:String, mediaType:String, data:String,
+			label:String):Void {
+		eq(output.type, "content", label + " output type");
+		final value = UnknownNarrow.array(Unknown.fromBoundary(output.value));
+		if (value == null)
+			throw label + ": expected content array";
+		eq(value.length, 2, label + " content length");
+		final textPart = requireRecordAt(value, 0, label + " text part");
+		eq(UnknownNarrow.string(textPart.get("type")), "text", label + " text part type");
+		eq(UnknownNarrow.string(textPart.get("text")), text, label + " text part text");
+		final mediaPart = requireRecordAt(value, 1, label + " media part");
+		eq(UnknownNarrow.string(mediaPart.get("type")), "image-data", label + " media part type");
+		eq(UnknownNarrow.string(mediaPart.get("mediaType")), mediaType, label + " media type");
+		eq(UnknownNarrow.string(mediaPart.get("data")), data, label + " media data");
+	}
+
+	static function requireRecordAt(array:UnknownArray, index:Int, label:String):UnknownRecord {
+		final record = UnknownNarrow.record(array.get(index));
+		if (record == null)
+			throw label + ": expected record";
+		return record;
 	}
 
 	static function firstPromptPart(parts:Array<AiLanguageModelPromptPart>, type:AiLanguageModelPromptPartType, label:String):AiLanguageModelPromptPart {
