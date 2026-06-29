@@ -1,5 +1,7 @@
 package opencodehx.bus;
 
+import opencodehx.bus.GlobalBusRuntime;
+
 typedef BusEventDefinition<TProperties> = {
 	final type:String;
 }
@@ -79,6 +81,12 @@ class BusRuntime {
 			if (entry.type == null || entry.type == event.type)
 				entry.deliver(event);
 		}
+		GlobalBusRuntime.emit({
+			directory: directory,
+			project: null,
+			workspace: null,
+			payload: event,
+		});
 	}
 
 	public function subscribe<TProperties>(definition:BusEventDefinition<TProperties>, listener:BusEvent<TProperties>->Void):BusUnsubscribe {

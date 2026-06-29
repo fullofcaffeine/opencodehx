@@ -3,6 +3,8 @@ package opencodehx.smoke;
 import opencodehx.bus.BusRuntime;
 import opencodehx.bus.BusRuntime.BusEventDefinition;
 import opencodehx.bus.BusStreamRuntime;
+import opencodehx.bus.GlobalBusRuntime;
+import opencodehx.bus.GlobalBusRuntime.GlobalBusEvent;
 
 typedef PingPayload = {
 	final value:Int;
@@ -14,6 +16,7 @@ typedef PongPayload = {
 
 class BusSmoke {
 	public static function run():Void {
+		GlobalBusRuntime.clear();
 		publishSubscribe();
 		typeFilter();
 		noSubscribers();
@@ -21,9 +24,11 @@ class BusSmoke {
 		subscribeAllReceivesEveryType();
 		multipleSubscribers();
 		streamDelivery();
+		globalBusEmit();
 		instanceIsolation();
 		instanceDisposal();
 		snapshotCopiesHistory();
+		GlobalBusRuntime.clear();
 	}
 
 	static function publishSubscribe():Void {
@@ -111,6 +116,34 @@ class BusSmoke {
 		eq(all.join(","), "test.stream.pong,test.stream.ping,test.stream.ping", "bus stream subscribeAll receives all types");
 		eq(a.join(","), "1,2", "bus stream first subscriber");
 		eq(b.join(","), "1,2", "bus stream second subscriber");
+	}
+
+	static function globalBusEmit():Void {
+		GlobalBusRuntime.clear();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.global.ping");
+		final manual:BusEventDefinition<PongPayload> = BusRuntime.define("test.global.manual");
+		final received:Array<String> = [];
+		final listener:GlobalBusEvent->Void = event -> received.push('${event.directory}:${event.project}:${event.workspace}:${event.payload.type}');
+		final unsubscribe = GlobalBusRuntime.on(listener);
+
+		GlobalBusRuntime.emit({
+			directory: "manual-dir",
+			project: "proj_1",
+			workspace: "workspace_1",
+			payload: {type: manual.type, properties: {message: "hi"}},
+		});
+		final scoped = new BusRuntime("scoped-dir");
+		scoped.publish(ping, {value: 5});
+		unsubscribe();
+		unsubscribe();
+		scoped.publish(ping, {value: 6});
+
+		eq(received.join("|"), "manual-dir:proj_1:workspace_1:test.global.manual|scoped-dir:null:null:test.global.ping", "global bus delivery");
+		eq(GlobalBusRuntime.snapshot().length, 3, "global bus history includes post-unsubscribe emit");
+		final copied = GlobalBusRuntime.snapshot();
+		copied.resize(0);
+		eq(GlobalBusRuntime.snapshot().length, 3, "global bus snapshot is copy");
+		GlobalBusRuntime.clear();
 	}
 
 	static function instanceIsolation():Void {
