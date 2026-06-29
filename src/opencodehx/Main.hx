@@ -44,6 +44,7 @@ import opencodehx.smoke.SdkCompatSmoke;
 import opencodehx.smoke.ServerSmoke;
 import opencodehx.smoke.SessionPersistenceSmoke;
 import opencodehx.smoke.SessionProcessorSmoke;
+import opencodehx.smoke.ShareSmoke;
 import opencodehx.smoke.SkillSmoke;
 import opencodehx.smoke.SnapshotSmoke;
 import opencodehx.smoke.StorageSmoke;
@@ -106,6 +107,8 @@ class Main {
 				log("resource-smoke:ok");
 				MessageSmoke.run();
 				log("message-smoke:ok");
+				ShareSmoke.run();
+				log("share-smoke:ok");
 				PermissionSmoke.run();
 				return PermissionSmoke.runAsync();
 			})
