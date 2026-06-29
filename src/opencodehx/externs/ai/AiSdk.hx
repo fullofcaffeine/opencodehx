@@ -103,12 +103,20 @@ typedef AiJsonSchemaObject = {
 	@:optional final additionalProperties:Bool;
 }
 
+typedef AiStreamHeaders = DynamicAccess<Undefinable<String>>;
+
 typedef AiStreamTextOptions = {
 	final model:AiLanguageModel;
 	final prompt:EitherType<String, AiModelMessages>;
 	final tools:Undefinable<DynamicAccess<AiTool>>;
 	final maxRetries:Int;
 	final abortSignal:Undefinable<AbortSignal>;
+	final maxOutputTokens:Undefinable<Float>;
+	final temperature:Undefinable<Float>;
+	final topP:Undefinable<Float>;
+	final topK:Undefinable<Float>;
+	final headers:Undefinable<AiStreamHeaders>;
+	final providerOptions:Undefinable<AiSharedProviderOptions>;
 	final onChunk:AiStreamChunkEvent->Void;
 	final onError:AiStreamErrorEvent->Void;
 	final onAbort:AiStreamAbortEvent->Void;
@@ -339,6 +347,19 @@ typedef AiCopilotCacheControl = {
  */
 @:ts.type("import('@ai-sdk/provider').SharedV3ProviderOptions")
 abstract AiProviderOptions(AiProviderOptionsMap) from AiProviderOptionsMap to AiProviderOptionsMap {}
+
+typedef AiSharedProviderOptionsMap = DynamicAccess<AiJsonObject>;
+
+/**
+ * Open provider-options bridge for `streamText(...)` request assembly.
+ *
+ * Product code owns provider-specific validation before values enter this
+ * record. This abstraction only preserves the AI SDK's open
+ * `SharedV3ProviderOptions` boundary without weakening Copilot's narrower
+ * `AiProviderOptions` readers.
+ */
+@:ts.type("import('@ai-sdk/provider').SharedV3ProviderOptions")
+abstract AiSharedProviderOptions(AiSharedProviderOptionsMap) from AiSharedProviderOptionsMap to AiSharedProviderOptionsMap {}
 
 /**
  * AI SDK metadata objects are JSON-shaped, not arbitrary JS objects.

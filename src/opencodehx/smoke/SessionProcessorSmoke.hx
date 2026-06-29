@@ -3,8 +3,10 @@ package opencodehx.smoke;
 import genes.js.Async.await;
 import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelCallOptions;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPart;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPartType;
@@ -938,6 +940,32 @@ class SessionProcessorSmoke {
 			assertToolOutcome(toolResult.tool);
 			assertAssistantParts(toolResult.messages[1].parts, "ai sdk tool", "tool_1", "The file says: ai sdk tool fixture.");
 
+			final liveOptions = optionMap();
+			liveOptions.set("setCacheKey", true);
+			final liveModel = modelWithOptionsVariants("google", "gemini-2.5-pro", "@ai-sdk/google", liveOptions, new FakeProvider().model.variants);
+			liveModel.variants.set("high", record2("reasoningEffort", "high", "variantFlag", true));
+			liveModel.headers.set("x-model-header", "live-model");
+			liveModel.headers.set("x-request-header", "live-request");
+			final optionRuntime = AiSdkMockModel.inspectableToolThenText("Request options reached continuation.", "read", "{\"filePath\":\"src/input.txt\"}");
+			final optionRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_options",
+				projectID: "proj_ai_sdk_options",
+				prompt: "Read with request options.",
+				directory: root,
+				provider: fixture.info,
+				model: liveModel,
+				language: optionRuntime.language,
+				providerOptions: record1("setCacheKey", true),
+				agentOptions: record1("textVerbosity", "medium"),
+				agentTemperature: 0.42,
+				agentTopP: 0.77,
+				variant: "high",
+			});
+			eq(optionRun.provider.modelID, "gemini-2.5-pro", "ai sdk option run model");
+			eq(optionRuntime.mock.doStreamCalls.length, 2, "ai sdk option continuation call count");
+			assertLiveAiSdkRequestOptions(optionRuntime.mock.doStreamCalls[0], "initial");
+			assertLiveAiSdkRequestOptions(optionRuntime.mock.doStreamCalls[1], "continuation");
+
 			final disabledRuntime = AiSdkMockModel.inspectableToolThenText("This continuation should not run.", "read", "{\"filePath\":\"src/input.txt\"}");
 			final disabledContinuation = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_tool_no_continue",
@@ -1238,6 +1266,39 @@ class SessionProcessorSmoke {
 			throw "session processor: expected tool outcome";
 		eq(outcome.success, true, "tool outcome success");
 		eq(outcome.call.tool, "read", "tool outcome name");
+	}
+
+	static function assertLiveAiSdkRequestOptions(call:AiLanguageModelCallOptions, label:String):Void {
+		eq(call.maxOutputTokens, 10000.0, 'ai sdk ${label} max output tokens');
+		eq(call.temperature, 0.42, 'ai sdk ${label} temperature');
+		eq(call.topP, 0.77, 'ai sdk ${label} topP');
+		eq(call.topK, 64.0, 'ai sdk ${label} topK');
+		eq(callHeader(call, "x-session-affinity", label), "ses_ai_sdk_options", 'ai sdk ${label} affinity header');
+		eq(callHeader(call, "x-model-header", label), "live-model", 'ai sdk ${label} model header');
+		eq(callHeader(call, "x-request-header", label), "live-request", 'ai sdk ${label} request header');
+		final google = sdkProviderOptions(call.providerOptions, "google", label);
+		eq(UnknownNarrow.string(google.get("promptCacheKey")), "ses_ai_sdk_options", 'ai sdk ${label} prompt cache key');
+		eq(UnknownNarrow.string(google.get("reasoningEffort")), "high", 'ai sdk ${label} variant option');
+		eq(UnknownNarrow.bool(google.get("variantFlag")), true, 'ai sdk ${label} variant flag');
+		eq(UnknownNarrow.string(google.get("textVerbosity")), "medium", 'ai sdk ${label} agent option');
+	}
+
+	static function callHeader(call:AiLanguageModelCallOptions, key:String, label:String):Null<String> {
+		final headers = call.headers;
+		if (headers == null)
+			throw 'ai sdk ${label} headers: expected headers';
+		final value = headers.get(key);
+		return value == null ? null : value.orNull();
+	}
+
+	static function sdkProviderOptions(options:Null<opencodehx.externs.ai.AiSdk.AiProviderOptions>, key:String, label:String):UnknownRecord {
+		final root = UnknownNarrow.record(Unknown.fromBoundary(options));
+		if (root == null)
+			throw 'ai sdk ${label} provider options: expected root record';
+		final provider = UnknownNarrow.record(root.get(key));
+		if (provider == null)
+			throw 'ai sdk ${label} provider options: expected ${key} record';
+		return provider;
 	}
 
 	static function hasLanguageTool(tools:Null<Array<AiLanguageModelTool>>, name:String):Bool {

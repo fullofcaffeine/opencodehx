@@ -20,6 +20,7 @@ import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
 import opencodehx.provider.ProviderTypes.ProviderMessage;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
+import opencodehx.provider.ProviderOptionAccess;
 import opencodehx.provider.ProviderTransform;
 import opencodehx.util.ErrorTools;
 import opencodehx.util.Wildcard;
@@ -448,7 +449,7 @@ class SessionLlm {
 	public static function requiresNoopTool(model:ProviderModel):Bool {
 		final providerID = model.providerID.toString().toLowerCase();
 		final apiID = model.api.id.toLowerCase();
-		final litellmOption:Null<Bool> = Reflect.field(model.options, "litellmProxy");
+		final litellmOption = ProviderOptionAccess.bool(model.options, "litellmProxy", null);
 		return litellmOption == true
 			|| providerID.indexOf("litellm") != -1
 			|| apiID.indexOf("litellm") != -1

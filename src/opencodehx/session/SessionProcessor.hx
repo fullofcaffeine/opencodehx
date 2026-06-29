@@ -15,7 +15,9 @@ import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
 import opencodehx.provider.FakeProvider;
 import opencodehx.provider.FakeProvider.FakeProviderEvent;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
+import opencodehx.provider.ProviderTypes.ProviderHeaders;
 import opencodehx.provider.ProviderTypes.ProviderModel;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.session.MessageTypes.AssistantMessage;
 import opencodehx.session.MessageTypes.FilePartData;
 import opencodehx.session.MessageTypes.Info;
@@ -128,6 +130,12 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final abortStreamImmediately:Bool;
 	@:optional final files:Array<SessionFileInput>;
 	@:optional final history:Array<WithParts>;
+	@:optional final providerOptions:ProviderOptions;
+	@:optional final agentOptions:ProviderOptions;
+	@:optional final agentTemperature:Float;
+	@:optional final agentTopP:Float;
+	@:optional final headers:ProviderHeaders;
+	@:optional final variant:String;
 }
 
 typedef SessionProcessorResult = {
@@ -271,6 +279,8 @@ class SessionProcessor {
 		var modelToolCall:Null<SessionToolCall> = null;
 		var toolOutcome:Null<SessionToolOutcome> = null;
 		final messageHistory = textModelHistory(input.history);
+		final tools = AiSdkProvider.toolsFromRegistry(registry);
+		final streamOptions = aiSdkStreamOptions(input, sessionIDText, projectID, provider.system, registry);
 		if (aborted) {
 			events.push({type: "start"});
 			events.push({type: "abort", message: "User aborted the request"});
@@ -281,8 +291,15 @@ class SessionProcessor {
 				model: input.language,
 				prompt: prompt,
 				messages: requestMessages,
-				tools: AiSdkProvider.toolsFromRegistry(registry),
+				tools: tools,
 				abortImmediately: input.abortStreamImmediately,
+				maxOutputTokens: streamOptions.maxOutputTokens,
+				temperature: streamOptions.temperature,
+				topP: streamOptions.topP,
+				topK: streamOptions.topK,
+				headers: streamOptions.headers,
+				providerOptions: streamOptions.providerOptions,
+				maxRetries: streamOptions.maxRetries,
 			});
 			streamAborted = stream.aborted;
 			tokens = tokenUsageFromAiSdk(stream.totalUsage);
@@ -325,8 +342,15 @@ class SessionProcessor {
 				model: input.language,
 				prompt: prompt,
 				messages: continuationMessages,
-				tools: AiSdkProvider.toolsFromRegistry(registry),
+				tools: tools,
 				abortImmediately: input.abortStreamImmediately,
+				maxOutputTokens: streamOptions.maxOutputTokens,
+				temperature: streamOptions.temperature,
+				topP: streamOptions.topP,
+				topK: streamOptions.topK,
+				headers: streamOptions.headers,
+				providerOptions: streamOptions.providerOptions,
+				maxRetries: streamOptions.maxRetries,
 			});
 			streamAborted = continuation.aborted;
 			wasAborted = wasAborted || streamAborted;
@@ -368,6 +392,43 @@ class SessionProcessor {
 			aborted: wasAborted ? true : null,
 			tool: toolOutcome,
 		};
+	}
+
+	static function aiSdkStreamOptions(input:SessionAiSdkProcessorInput, sessionIDText:String, projectID:String, system:Array<String>,
+			registry:ToolRegistry):SessionLlm.LlmStreamTextOptions {
+		final requestOptions = SessionLlm.requestOptions({
+			model: input.model,
+			sessionID: sessionIDText,
+			small: false,
+			isOpenaiOauth: false,
+			system: system,
+			providerOptions: input.providerOptions,
+			agentOptions: input.agentOptions,
+			variant: input.variant,
+		});
+		final params = SessionLlm.requestParams({
+			model: input.model,
+			options: requestOptions,
+			agentTemperature: input.agentTemperature,
+			agentTopP: input.agentTopP,
+		});
+		final headers = SessionLlm.requestHeaders({
+			model: input.model,
+			sessionID: sessionIDText,
+			userID: scoped(partBase(USER_ID, input.turnID), sessionIDText),
+			projectID: projectID,
+			client: "opencodehx",
+			installationVersion: BuildInfo.version,
+			parentSessionID: input.parentSessionID,
+			headers: input.headers,
+		});
+		return SessionLlm.streamTextOptions({
+			model: input.model,
+			params: params,
+			tools: AiSdkProvider.toolsFromRegistry(registry),
+			headers: headers,
+			retries: 0,
+		});
 	}
 
 	public static function recover(store:SessionStore, sessionIDText:String, ?limit:Int):SessionRecovery {

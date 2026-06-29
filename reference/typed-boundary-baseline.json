@@ -18,12 +18,12 @@
   ],
   "totals": {
     "Dynamic": 728,
-    "DynamicAccess": 560,
+    "DynamicAccess": 562,
     "cast": 215,
     "untyped": 5,
     "Syntax.code": 27,
-    "@:ts.type": 77,
-    "Reflect.field": 451,
+    "@:ts.type": 78,
+    "Reflect.field": 450,
     "Reflect.hasField": 46,
     "Reflect.setField": 47,
     "Any": 0
@@ -126,8 +126,8 @@
     },
     "src/opencodehx/externs/ai/AiSdk.hx": {
       "Dynamic": 6,
-      "DynamicAccess": 26,
-      "@:ts.type": 55
+      "DynamicAccess": 28,
+      "@:ts.type": 56
     },
     "src/opencodehx/externs/aws/AwsCredentialProviders.hx": {
       "@:ts.type": 1
@@ -452,7 +452,7 @@
       "Dynamic": 11,
       "DynamicAccess": 18,
       "cast": 1,
-      "Reflect.field": 5
+      "Reflect.field": 4
     },
     "src/opencodehx/session/SessionProcessor.hx": {
       "Dynamic": 4,

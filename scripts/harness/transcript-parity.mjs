@@ -27,6 +27,13 @@ function canonical(value) {
   return `${JSON.stringify(value, Object.keys(flattenKeys(value)).sort(), 2)}\n`;
 }
 
+function normalizeFreshRunSession(value) {
+  const sessionID = value?.request?.sessionID;
+  if (!sessionID || sessionID === "ses_fake_one") return value;
+  const encoded = JSON.stringify(value).replaceAll(`_${sessionID}`, "").replaceAll(sessionID, "ses_fake_one");
+  return JSON.parse(encoded);
+}
+
 function flattenKeys(value, keys = {}) {
   if (Array.isArray(value)) {
     for (const item of value) flattenKeys(item, keys);
@@ -51,7 +58,7 @@ const golden = JSON.parse(readFileSync(goldenPath, "utf8"));
 
 assert.equal(canonical(upstream), canonical(golden), "upstream oracle drifted from golden transcript");
 assert.equal(canonical(hx), canonical(golden), "OpenCodeHX transcript drifted from golden transcript");
-assert.equal(canonical(hxRun), canonical(golden), "OpenCodeHX run transcript drifted from golden transcript");
+assert.equal(canonical(normalizeFreshRunSession(hxRun)), canonical(golden), "OpenCodeHX run transcript drifted from golden transcript");
 assert.equal(canonical(hx), canonical(upstream), "OpenCodeHX transcript differs from upstream oracle");
 
 console.log("transcript-parity:ok");

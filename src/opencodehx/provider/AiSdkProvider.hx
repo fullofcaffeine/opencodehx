@@ -16,12 +16,18 @@ import opencodehx.externs.ai.AiSdk.AiProviderFinishReason;
 import opencodehx.externs.ai.AiSdk.AiProviderStreamPart;
 import opencodehx.externs.ai.AiSdk.AiProviderStreamResult;
 import opencodehx.externs.ai.AiSdk.AiProviderUsage;
+import opencodehx.externs.ai.AiSdk.AiJsonObject;
 import opencodehx.externs.ai.AiSdk.AiSdk;
 import opencodehx.externs.ai.AiSdk.AiSdkTest;
+import opencodehx.externs.ai.AiSdk.AiSharedProviderOptionsMap;
+import opencodehx.externs.ai.AiSdk.AiSharedProviderOptions;
+import opencodehx.externs.ai.AiSdk.AiStreamHeaders;
 import opencodehx.externs.ai.AiSdk.AiStreamTextOptions;
 import opencodehx.externs.ai.AiSdk.AiTool;
 import opencodehx.externs.ai.AiSdk.MockLanguageModelV3;
 import opencodehx.externs.web.AbortControllerWithReason;
+import opencodehx.provider.ProviderTypes.ProviderHeaders;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolParameter;
@@ -41,6 +47,13 @@ typedef AiSdkStreamInput = {
 	@:optional final tools:DynamicAccess<AiTool>;
 	@:optional final messages:AiModelMessages;
 	@:optional final abortImmediately:Bool;
+	@:optional final maxOutputTokens:Float;
+	@:optional final temperature:Undefinable<Float>;
+	@:optional final topP:Undefinable<Float>;
+	@:optional final topK:Undefinable<Float>;
+	@:optional final headers:ProviderHeaders;
+	@:optional final providerOptions:ProviderOptions;
+	@:optional final maxRetries:Int;
 }
 
 typedef AiSdkStreamResult = {
@@ -74,8 +87,14 @@ class AiSdkProvider {
 			model: input.model,
 			prompt: prompt,
 			tools: toolsOrAbsent(input.tools),
-			maxRetries: 0,
+			maxRetries: input.maxRetries == null ? 0 : input.maxRetries,
 			abortSignal: controller == null ? Undefinable.absent() : controller.signal,
+			maxOutputTokens: numberOrAbsent(input.maxOutputTokens),
+			temperature: undefinableNumberOrAbsent(input.temperature),
+			topP: undefinableNumberOrAbsent(input.topP),
+			topK: undefinableNumberOrAbsent(input.topK),
+			headers: headersOrAbsent(input.headers),
+			providerOptions: providerOptionsOrAbsent(input.providerOptions),
 			onChunk: streamChunkHandler(events),
 			onError: streamErrorHandler(events, errors),
 			onAbort: streamAbortHandler(events),
@@ -156,6 +175,44 @@ class AiSdkProvider {
 
 	static function toolsOrAbsent(tools:Null<DynamicAccess<AiTool>>):Undefinable<DynamicAccess<AiTool>> {
 		return tools == null ? Undefinable.absent() : tools;
+	}
+
+	static function numberOrAbsent(value:Null<Float>):Undefinable<Float> {
+		return value == null ? Undefinable.absent() : value;
+	}
+
+	static function undefinableNumberOrAbsent(value:Null<Undefinable<Float>>):Undefinable<Float> {
+		return value == null ? Undefinable.absent() : value;
+	}
+
+	static function headersOrAbsent(headers:Null<ProviderHeaders>):Undefinable<AiStreamHeaders> {
+		if (headers == null)
+			return Undefinable.absent();
+		final out = new AiStreamHeaders();
+		for (key in headers.keys()) {
+			final value = headers.get(key);
+			if (value != null)
+				out.set(key, value);
+		}
+		return out;
+	}
+
+	static function providerOptionsOrAbsent(options:Null<ProviderOptions>):Undefinable<AiSharedProviderOptions> {
+		if (options == null)
+			return Undefinable.absent();
+		final out = new AiSharedProviderOptionsMap();
+		for (key in options.keys()) {
+			// ProviderOptions is upstream's provider-SDK passthrough boundary.
+			// At this bridge the top-level values are per-provider JSON option
+			// objects produced by SessionLlm/ProviderTransform. Preserve the
+			// SDK's JSONObject contract in one place instead of weakening the
+			// session path with broad casts.
+			final value = options.get(key);
+			if (value != null)
+				out.set(key, AiJsonObject.fromBoundary(value));
+		}
+		final shared:AiSharedProviderOptions = out;
+		return shared;
 	}
 
 	static function streamChunkHandler(events:Array<AiSdkStreamEvent>):opencodehx.externs.ai.AiSdk.AiStreamChunkEvent->Void {

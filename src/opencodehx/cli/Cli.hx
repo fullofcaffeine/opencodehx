@@ -177,6 +177,7 @@ class Cli {
 			return runCommand(args);
 		final format = option(args, "--format", "default");
 		final model = option(args, "--model", option(args, "-m", FAKE_MODEL));
+		final variant = option(args, "--variant", "");
 		if (format != "default" && format != "json")
 			return fail('Invalid --format "${format}". Expected "default" or "json".');
 		if (model != FAKE_MODEL)
@@ -212,6 +213,7 @@ class Cli {
 				language: AiSdkMockModel.text(["Hello ", "from the AI SDK session."]),
 				files: filesResult.files,
 				history: resume.history,
+				variant: variant == "" ? null : variant,
 			});
 			closeStore(persistence.store);
 			return formatRunResult(processed, format);
@@ -227,6 +229,7 @@ class Cli {
 			return ok(runHelp());
 		final format = option(args, "--format", "default");
 		final modelText = option(args, "--model", option(args, "-m", ""));
+		final variant = option(args, "--variant", "");
 		if (format != "default" && format != "json")
 			return fail('Invalid --format "${format}". Expected "default" or "json".');
 		final directoryResult = liveDirectory(args);
@@ -289,6 +292,7 @@ class Cli {
 				files: filesResult.files,
 				history: resume.history,
 				permission: permission,
+				variant: variant == "" ? null : variant,
 			});
 			closeStore(persistence.store);
 			return formatRunResult(processed, format);
