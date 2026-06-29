@@ -11,6 +11,7 @@ import opencodehx.cli.AccountDisplay.AccountDisplayAccount;
 import opencodehx.cli.AccountDisplay.AccountDisplayOrg;
 import opencodehx.cli.Cli;
 import opencodehx.cli.ErrorFormatter;
+import opencodehx.cli.GitHubAction;
 import opencodehx.cli.GitHubRemote;
 import opencodehx.cli.CliImport;
 import opencodehx.cli.CliImport.ShareImportItem;
@@ -29,6 +30,7 @@ import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.resource.Resources;
 import opencodehx.resource.Resources.ResourcePaths;
 import opencodehx.session.MessageCodec;
+import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.SessionID;
 import opencodehx.storage.SqliteSessionStore;
 
@@ -187,8 +189,144 @@ class CliSmoke {
 
 		diagnosticFormatting();
 		githubRemoteParser();
+		githubActionHelpers();
 		accountDisplayFormatting();
 		importShareHelpers();
+	}
+
+	static function githubActionHelpers():Void {
+		eq(GitHubAction.extractResponseText([textPart("prt_text", "Hello world")]), "Hello world", "github action text part");
+		eq(GitHubAction.extractResponseText([textPart("prt_first", "First"), textPart("prt_last", "Last"),]), "Last", "github action last text part");
+		eq(GitHubAction.extractResponseText([
+			textPart("prt_help", "I'll help with that."),
+			toolPart("prt_todo", "todowrite", "3 todos", "completed"),
+		]), "I'll help with that.", "github action text before tool");
+		eq(GitHubAction.extractResponseText([reasoningPart("prt_reasoning", "Let me think about this...")]), null, "github action reasoning only");
+		eq(GitHubAction.extractResponseText([toolPart("prt_tool", "todowrite", "8 todos", "completed")]), null, "github action tool only");
+		eq(GitHubAction.extractResponseText([
+			toolPart("prt_read", "read", "src/file.ts", "completed"),
+			toolPart("prt_edit", "edit", "src/file.ts", "completed"),
+			toolPart("prt_bash", "bash", "bun test", "completed"),
+		]), null, "github action multiple tools only");
+		eq(GitHubAction.extractResponseText([toolPart("prt_running", "bash", "", "running")]), null, "github action running tool only");
+		expectThrows(() -> GitHubAction.extractResponseText([]), "no parts returned", "github action empty parts");
+		eq(GitHubAction.extractResponseText([stepStartPart("prt_step_start")]), null, "github action step-start only");
+		eq(GitHubAction.extractResponseText([stepFinishPart("prt_step_finish")]), null, "github action step-finish only");
+		eq(GitHubAction.extractResponseText([stepStartPart("prt_step_start2"), stepFinishPart("prt_step_finish2")]), null, "github action step parts only");
+		eq(GitHubAction.extractResponseText([
+			stepStartPart("prt_step_start3"),
+			toolPart("prt_step_tool", "read", "src/file.ts", "completed"),
+			textPart("prt_done", "Done"),
+			stepFinishPart("prt_step_finish3"),
+		]), "Done", "github action multi-step text");
+		eq(GitHubAction.extractResponseText([
+			reasoningPart("prt_internal", "Internal thinking..."),
+			textPart("prt_final", "Final answer"),
+		]), "Final answer", "github action text over reasoning");
+		eq(GitHubAction.extractResponseText([
+			toolPart("prt_tool_first", "read", "src/file.ts", "completed"),
+			textPart("prt_found", "Here's what I found"),
+		]), "Here's what I found", "github action text over tools");
+
+		eq(GitHubAction.formatPromptTooLargeError([]), "PROMPT_TOO_LARGE: The prompt exceeds the model's context limit.",
+			"github action prompt too large no files");
+		final withFiles = GitHubAction.formatPromptTooLargeError([
+			{filename: "screenshot.png", content: repeat("a", 400 * 1024)},
+			{filename: "diagram.png", content: repeat("b", 200 * 1024)},
+		]);
+		contains(withFiles, "PROMPT_TOO_LARGE: The prompt exceeds the model's context limit.", "github action prompt prefix");
+		contains(withFiles, "Files in prompt:", "github action prompt file heading");
+		contains(withFiles, "screenshot.png (300 KB)", "github action prompt screenshot size");
+		contains(withFiles, "diagram.png (150 KB)", "github action prompt diagram size");
+		final multiple = GitHubAction.formatPromptTooLargeError([
+			{filename: "img1.png", content: repeat("x", 4 * 1024)},
+			{filename: "img2.jpg", content: repeat("y", 8 * 1024)},
+			{filename: "img3.gif", content: repeat("z", 12 * 1024)},
+		]);
+		contains(multiple, "img1.png (3 KB)", "github action prompt img1 size");
+		contains(multiple, "img2.jpg (6 KB)", "github action prompt img2 size");
+		contains(multiple, "img3.gif (9 KB)", "github action prompt img3 size");
+	}
+
+	static function textPart(id:String, text:String):Part {
+		return MessageCodec.decodePartRecord({
+			id: id,
+			sessionID: "ses_github_action",
+			messageID: "msg_github_action",
+			type: "text",
+			text: text,
+		}, 'github action ${id}');
+	}
+
+	static function reasoningPart(id:String, text:String):Part {
+		return MessageCodec.decodePartRecord({
+			id: id,
+			sessionID: "ses_github_action",
+			messageID: "msg_github_action",
+			type: "reasoning",
+			text: text,
+			time: {start: 0},
+		}, 'github action ${id}');
+	}
+
+	static function stepStartPart(id:String):Part {
+		return MessageCodec.decodePartRecord({
+			id: id,
+			sessionID: "ses_github_action",
+			messageID: "msg_github_action",
+			type: "step-start",
+		}, 'github action ${id}');
+	}
+
+	static function stepFinishPart(id:String):Part {
+		return MessageCodec.decodePartRecord({
+			id: id,
+			sessionID: "ses_github_action",
+			messageID: "msg_github_action",
+			type: "step-finish",
+			reason: "done",
+			cost: 0,
+			tokens: {
+				input: 0,
+				output: 0,
+				reasoning: 0,
+				cache: {read: 0, write: 0}
+			},
+		}, 'github action ${id}');
+	}
+
+	static function toolPart(id:String, tool:String, title:String, status:String):Part {
+		if (status == "running") {
+			return MessageCodec.decodePartRecord({
+				id: id,
+				sessionID: "ses_github_action",
+				messageID: "msg_github_action",
+				type: "tool",
+				callID: 'call_${id}',
+				tool: tool,
+				state: {
+					status: "running",
+					input: {},
+					time: {start: 0},
+				},
+			}, 'github action ${id}');
+		}
+		return MessageCodec.decodePartRecord({
+			id: id,
+			sessionID: "ses_github_action",
+			messageID: "msg_github_action",
+			type: "tool",
+			callID: 'call_${id}',
+			tool: tool,
+			state: {
+				status: "completed",
+				input: {},
+				output: "",
+				title: title,
+				metadata: {},
+				time: {start: 0, end: 1},
+			},
+		}, 'github action ${id}');
 	}
 
 	static function importShareHelpers():Void {
@@ -953,5 +1091,28 @@ class CliSmoke {
 		if (actual != expected) {
 			throw '$label: expected ${expected}, got ${actual}';
 		}
+	}
+
+	static function contains(actual:String, needle:String, label:String):Void {
+		if (actual.indexOf(needle) < 0)
+			throw '$label: expected "${actual}" to contain "${needle}"';
+	}
+
+	static function expectThrows(run:() -> Void, needle:String, label:String):Void {
+		try {
+			run();
+		} catch (error:haxe.Exception) {
+			if (Std.string(error).indexOf(needle) >= 0)
+				return;
+			throw '$label: wrong error ${Std.string(error)}';
+		}
+		throw '$label: expected throw';
+	}
+
+	static function repeat(value:String, count:Int):String {
+		final out = new StringBuf();
+		for (_ in 0...count)
+			out.add(value);
+		return out.toString();
 	}
 }
