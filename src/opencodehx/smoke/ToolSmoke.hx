@@ -623,6 +623,42 @@ class ToolSmoke {
 		eq(bomContent.charCodeAt(0), 0xfeff, "write preserves existing BOM");
 		eq(bomContent.substr(1), "using Up;\n", "write replaces content after BOM");
 		eq(Json.stringify(bomResult.metadata).indexOf('"exists":true') != -1, true, "write BOM existed metadata");
+
+		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-write-outside-"));
+		final outsideFile = NodePath.join(outsideDir, "outside.txt");
+		final outsideRequests:Array<ToolPermissionRequest> = [];
+		registry.execute(ToolIDs.known("write"), {filePath: outsideFile, content: "external write\n"}, context(ctx.directory, request -> {
+			outsideRequests.push(request);
+			return {allowed: true};
+		}));
+		eq(Fs.readFileSync(outsideFile, "utf8"), "external write\n", "write external file content");
+		eq(outsideRequests.length, 2, "write external permission count");
+		eq(outsideRequests[0].permission, "external_directory", "write external permission kind");
+		final outsidePattern = ToolPaths.normalize(NodePath.join(outsideDir, "*"));
+		eq(outsideRequests[0].patterns.join(","), outsidePattern, "write external permission pattern");
+		eq(outsideRequests[0].always.join(","), outsidePattern, "write external permission always");
+		final outsideMetadata = Json.stringify(outsideRequests[0].metadata);
+		eq(outsideMetadata.indexOf('"filepath":"' + jsonPath(outsideFile) + '"') != -1, true, "write external metadata filepath");
+		eq(outsideMetadata.indexOf('"parentDir":"' + jsonPath(outsideDir) + '"') != -1, true, "write external metadata parent");
+		eq(outsideRequests[1].permission, "edit", "write external edit permission kind");
+		eq(outsideRequests[1].patterns.join(","), ToolPaths.relative(ctx, outsideFile), "write external edit permission pattern");
+
+		final deniedExternalCtx = context(ctx.directory, request -> {
+			if (request.permission == "external_directory")
+				return {allowed: false, reason: "write outside blocked"};
+			return {allowed: true};
+		});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("write"), {
+			filePath: NodePath.join(outsideDir, "blocked.txt"),
+			content: "blocked\n"
+		}, deniedExternalCtx), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "write" && message.indexOf("write outside blocked") != -1;
+				case _: false;
+			}
+		}, "write external directory denied");
+		eq(Fs.existsSync(NodePath.join(outsideDir, "blocked.txt")), false, "write external denied avoids file write");
+		Fs.rmSync(outsideDir, {recursive: true, force: true});
 	}
 
 	static function editExec(registry:ToolRegistry, ctx:ToolContext):Void {

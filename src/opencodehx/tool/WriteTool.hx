@@ -3,6 +3,8 @@ package opencodehx.tool;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolExternalDirectory.ExternalDirectoryKind;
+import opencodehx.tool.ToolExternalDirectory.requireExternalDirectory;
 import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
@@ -49,6 +51,7 @@ class WriteTool {
 
 	static function execute(input:WriteToolInput, ctx:ToolContext):ToolResult {
 		final absolute = resolve(KnownToolID.Write, ctx, input.filePath);
+		requireExternalDirectory(KnownToolID.Write, ctx, absolute, ExternalDirectoryKind.ExternalFile);
 		final existed = Fs.existsSync(absolute);
 		final source = existed && Fs.statSync(absolute).isFile() ? ToolBom.split(Fs.readFileSync(absolute, "utf8")) : ToolBom.split("");
 		final next = ToolBom.split(input.content);
@@ -87,7 +90,7 @@ class WriteTool {
 
 	static function resolve(id:String, ctx:ToolContext, rawPath:String):String {
 		try {
-			return ToolPaths.resolve(ctx, rawPath);
+			return ToolPaths.resolveAny(ctx, rawPath);
 		} catch (error:Dynamic) {
 			throw new ToolException(ExecutionFailed(id, Std.string(error)));
 		}
