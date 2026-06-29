@@ -25,7 +25,7 @@
     "@:ts.type": 77,
     "Reflect.field": 479,
     "Reflect.hasField": 46,
-    "Reflect.setField": 52,
+    "Reflect.setField": 51,
     "Any": 0
   },
   "files": {
@@ -467,8 +467,7 @@
     },
     "src/opencodehx/session/SessionProcessor.hx": {
       "Dynamic": 4,
-      "cast": 2,
-      "Reflect.setField": 1
+      "cast": 2
     },
     "src/opencodehx/session/SessionRetry.hx": {
       "Dynamic": 1,

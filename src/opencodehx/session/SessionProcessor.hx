@@ -570,16 +570,27 @@ class SessionProcessor {
 			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>, turnID:Null<String>,
 			turnTime:Null<Float>):SessionToolOutcome {
 		events.push({type: "tool-call-start", callID: call.id, tool: call.tool});
-		final ctx:ToolContext = {
-			directory: directory,
-			worktree: directory,
-			sessionID: sessionID.toString(),
-			messageID: messageID.toString(),
-			callID: call.id,
-			agent: agent,
-		};
-		if (permission != null)
-			Reflect.setField(ctx, "ask", permission.toToolAsk());
+		final ctx:ToolContext = switch permission {
+			case null:
+				{
+					directory: directory,
+					worktree: directory,
+					sessionID: sessionID.toString(),
+					messageID: messageID.toString(),
+					callID: call.id,
+					agent: agent,
+				};
+			case runtime:
+				{
+					directory: directory,
+					worktree: directory,
+					sessionID: sessionID.toString(),
+					messageID: messageID.toString(),
+					callID: call.id,
+					agent: agent,
+					ask: runtime.toToolAsk(),
+				};
+		}
 		try {
 			final toolResult = registry.execute(call.tool, call.input, ctx);
 			final part = completedToolPart(sessionID, messageID, call, toolResult, turnID, turnTime);
