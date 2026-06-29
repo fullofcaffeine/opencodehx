@@ -17,15 +17,15 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 735,
+    "Dynamic": 734,
     "DynamicAccess": 560,
-    "cast": 220,
+    "cast": 219,
     "untyped": 5,
     "Syntax.code": 27,
     "@:ts.type": 77,
     "Reflect.field": 479,
     "Reflect.hasField": 46,
-    "Reflect.setField": 51,
+    "Reflect.setField": 50,
     "Any": 0
   },
   "files": {
@@ -628,11 +628,11 @@
       "Reflect.field": 14
     },
     "src/opencodehx/storage/SqliteSessionStore.hx": {
-      "Dynamic": 23,
-      "cast": 4,
+      "Dynamic": 22,
+      "cast": 3,
       "Reflect.field": 4,
       "Reflect.hasField": 1,
-      "Reflect.setField": 15
+      "Reflect.setField": 14
     },
     "src/opencodehx/storage/StorageDatabasePath.hx": {
       "DynamicAccess": 3

@@ -132,18 +132,21 @@ class SqliteSessionStore implements SessionStore {
 		final items = hydrate(slice);
 		items.reverse();
 		final tail = slice[slice.length - 1];
-		final result:Dynamic = {
-			items: items,
-			more: more,
-		};
 		if (more && tail != null) {
 			final cursor:Cursor = {
 				id: MessageID.make(requiredString(tail, "id")),
 				time: requiredFloat(tail, "time_created"),
 			};
-			Reflect.setField(result, "cursor", MessageCodec.encodeCursor(cursor));
+			return {
+				items: items,
+				more: more,
+				cursor: MessageCodec.encodeCursor(cursor),
+			};
 		}
-		return cast result;
+		return {
+			items: items,
+			more: more,
+		};
 	}
 
 	function hydrate(rows:Array<Dynamic>):Array<WithParts> {
