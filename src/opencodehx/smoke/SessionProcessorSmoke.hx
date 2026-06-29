@@ -956,6 +956,43 @@ description: Review workflow.
 			eq(richHistoryRun.messages.length, 2, "ai sdk rich history message count");
 			assertSdkRichHistoryPrompt(richHistoryRuntime.mock.doStreamCalls[0].prompt, "ai sdk rich recovered history prompt");
 
+			Fs.mkdirSync(NodePath.join(root, "feature/nested"), {recursive: true});
+			final featureInstructions = NodePath.join(root, "feature/AGENTS.md");
+			Fs.writeFileSync(featureInstructions, "# Feature Instructions\nUse feature rules.\n");
+			Fs.writeFileSync(NodePath.join(root, "feature/nested/first.txt"), "first feature\n");
+			Fs.writeFileSync(NodePath.join(root, "feature/nested/second.txt"), "second feature\n");
+			final loadedRuntime = AiSdkMockModel.inspectableToolThenText("Loaded feature instructions.", "read", "{\"filePath\":\"feature/nested/first.txt\"}");
+			final loadedPersisted = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_loaded_instruction",
+				prompt: "Read the first feature file.",
+				directory: root,
+				store: store,
+				provider: fixture.info,
+				model: fixture.model,
+				language: loadedRuntime.language,
+			});
+			assertToolOutcome(loadedPersisted.tool);
+			final loadedResult = requireToolResult(loadedPersisted.tool, "ai sdk loaded instruction");
+			eq(loadedResult.output.indexOf("<system-reminder>") != -1, true, "ai sdk loaded instruction initial reminder");
+			final recoveredLoaded = SessionProcessor.recover(store, "ses_ai_sdk_loaded_instruction", 10);
+			final loadedPaths = SessionInstruction.loadedFromHistory(recoveredLoaded.messages);
+			eq(loadedPaths.indexOf(featureInstructions) != -1, true, "ai sdk recovered loaded instruction path");
+			final loadedHistoryRuntime = AiSdkMockModel.inspectableToolThenText("Skipped repeated instructions.", "read",
+				"{\"filePath\":\"feature/nested/second.txt\"}");
+			final loadedHistoryRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_loaded_instruction_history",
+				prompt: "Read the second feature file.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: loadedHistoryRuntime.language,
+				history: recoveredLoaded.messages,
+			});
+			assertToolOutcome(loadedHistoryRun.tool);
+			final loadedHistoryResult = requireToolResult(loadedHistoryRun.tool, "ai sdk loaded-history instruction");
+			eq(loadedHistoryResult.output.indexOf("<system-reminder>") == -1, true, "ai sdk loaded-history skips repeated reminder");
+			eq(haxe.Json.stringify(loadedHistoryResult.metadata).indexOf('"loaded":[]') != -1, true, "ai sdk loaded-history metadata");
+
 			final errorResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_error",
 				prompt: "Fail through the SDK runtime.",
@@ -1430,6 +1467,12 @@ description: Review workflow.
 			throw "session processor: expected tool outcome";
 		eq(outcome.success, true, "tool outcome success");
 		eq(outcome.call.tool, "read", "tool outcome name");
+	}
+
+	static function requireToolResult(outcome:Null<opencodehx.session.SessionProcessor.SessionToolOutcome>, label:String):opencodehx.tool.ToolTypes.ToolResult {
+		if (outcome == null || outcome.result == null)
+			throw '${label}: expected tool result';
+		return outcome.result;
 	}
 
 	static function assertLiveAiSdkRequestOptions(call:AiLanguageModelCallOptions, label:String):Void {

@@ -1,5 +1,8 @@
 package opencodehx.session;
 
+import genes.ts.JsonValue;
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import js.lib.Promise;
 import opencodehx.config.ConfigInfo;
 import opencodehx.externs.web.GlobalFetch;
@@ -8,6 +11,11 @@ import opencodehx.file.AppFileSystem;
 import opencodehx.host.node.GlobalPaths;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.session.MessageTypes.Part;
+import opencodehx.session.MessageTypes.ToolState;
+import opencodehx.session.MessageTypes.ToolStateMetadata;
+import opencodehx.session.MessageTypes.WithParts;
+import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.util.Abort;
 
 typedef SessionInstructionContext = {
@@ -36,9 +44,9 @@ typedef SessionInstructionFile = {
  * This ports the deterministic file-backed subset of upstream
  * `session/instruction.ts`: project/root instruction files, global profile
  * instructions, local `config.instructions` entries, async remote instruction
- * URLs for live prompts, and nearby read-tool instruction discovery with
- * per-assistant-message claim dedupe. Extraction of already-loaded instruction
- * paths from stored Message V2 tool metadata remains a later decoder slice.
+ * URLs for live prompts, nearby read-tool instruction discovery with
+ * per-assistant-message claim dedupe, and completed read-tool metadata
+ * extraction from recovered Message V2 history.
  */
 class SessionInstruction {
 	static final PROJECT_FILES:Array<String> = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md"];
@@ -150,8 +158,48 @@ class SessionInstruction {
 		return out;
 	}
 
+	public static function loadedFromHistory(messages:Array<WithParts>):Array<String> {
+		final out:Array<String> = [];
+		for (message in messages) {
+			for (part in message.parts) {
+				switch part {
+					case ToolPart(tool):
+						if (tool.tool != KnownToolID.Read)
+							continue;
+						switch tool.state {
+							case ToolCompleted(data):
+								if (data.time.compacted != null)
+									continue;
+								addLoadedMetadata(out, data.metadata);
+							case _:
+						}
+					case _:
+				}
+			}
+		}
+		return out;
+	}
+
 	static function projectFiles():Array<String> {
 		return claudePromptDisabled() ? ["AGENTS.md", "CONTEXT.md"] : PROJECT_FILES.copy();
+	}
+
+	static function addLoadedMetadata(out:Array<String>, metadata:ToolStateMetadata):Void {
+		final json:JsonValue = metadata;
+		// Tool metadata is intentionally open JSON. This extractor narrows only
+		// upstream's read-tool `metadata.loaded: string[]` field and returns
+		// plain paths so JSON boundary access cannot leak into app logic.
+		final record = UnknownNarrow.record(Unknown.fromBoundary(json));
+		if (record == null)
+			return;
+		final loaded = UnknownNarrow.array(record.get("loaded"));
+		if (loaded == null)
+			return;
+		for (index in 0...loaded.length) {
+			final path = UnknownNarrow.string(loaded.get(index));
+			if (path != null)
+				addPath(out, path);
+		}
 	}
 
 	static function globalFiles():Array<String> {

@@ -195,8 +195,8 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/session/SessionInstruction.hx; src/opencodehx/session/SessionInstructionClaims.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; src/opencodehx/smoke/ToolSmoke.hx; scripts/harness/cli-smoke.mjs; scripts/harness/package-smoke.mjs; docs/session-processor-one-turn.md",
-        "stored Message V2 read-tool metadata loaded-history extraction remains deferred",
-        "SessionInstruction systemPaths/system smoke covers project/root AGENTS.md lookup, config.instructions local file entries, remote instruction URL fetch/failed-fetch omission for async live prompts, non-git containment, live CLI/package request-body instruction evidence, read-tool nearby instruction discovery, and per-message claim dedupe/clear for repeated reads",
+        "full upstream Effect service/prompt lifecycle integration remains deferred",
+        "SessionInstruction systemPaths/system smoke covers project/root AGENTS.md lookup, config.instructions local file entries, remote instruction URL fetch/failed-fetch omission for async live prompts, non-git containment, live CLI/package request-body instruction evidence, read-tool nearby instruction discovery, per-message claim dedupe/clear for repeated reads, and completed read-tool metadata loaded-history extraction from recovered messages",
       ],
     ],
     ["session/processor-effect.test.ts", ["partial", "src/opencodehx/smoke/SessionProcessorSmoke.hx; docs/session-processor-one-turn.md", "current processor is one-turn and synchronous; upstream Effect streaming lifecycle remains deferred", "SessionProcessorSmoke"]],
@@ -257,8 +257,8 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/session/SessionSystemPrompt.hx; src/opencodehx/session/SessionInstruction.hx; src/opencodehx/session/SessionInstructionClaims.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; src/opencodehx/smoke/SkillSmoke.hx; src/opencodehx/smoke/ToolSmoke.hx; scripts/harness/cli-smoke.mjs; scripts/harness/package-smoke.mjs; docs/session-processor-one-turn.md",
-        "plugin system transforms, reminder prompt insertion, and stored read-tool instruction loaded-history extraction remain deferred",
-        "SessionSystemPrompt provider/environment/skills/instruction assembly including async remote instruction URL bodies plus SkillRegistry sorted verbose and permission-filtered availability smoke; generated CLI and package smokes prove assembled system prompt reaches request body; ToolSmoke proves read-tool per-message instruction claim dedupe/clear",
+        "plugin system transforms and reminder prompt insertion remain deferred",
+        "SessionSystemPrompt provider/environment/skills/instruction assembly including async remote instruction URL bodies plus SkillRegistry sorted verbose and permission-filtered availability smoke; generated CLI and package smokes prove assembled system prompt reaches request body; ToolSmoke proves read-tool per-message instruction claim dedupe/clear; SessionProcessorSmoke proves recovered read-tool loaded metadata suppresses repeated nearby reminders",
       ],
     ],
     ["bus/bus.test.ts", ["ported", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx; docs/bus-runtime-parity.md", "none", "BusSmoke callback and scoped lifecycle fixtures"]],
