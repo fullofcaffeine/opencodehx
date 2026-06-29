@@ -1125,6 +1125,21 @@ description: Review workflow.
 			eq(transformedPrompt[0].role, AiLanguageModelPromptRole.User, "ai sdk provider transform keeps user");
 			eq(promptContentText(transformedPrompt[0]), "Use provider message transform.", "ai sdk provider transform user text");
 
+			final transformHistoryRuntime = AiSdkMockModel.inspectableText(["Provider transform history reached stream."]);
+			final transformHistoryRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_provider_history_transform",
+				prompt: "Continue after provider history transform.",
+				directory: root,
+				provider: fixture.info,
+				model: transformModel,
+				language: transformHistoryRuntime.language,
+				system: [""],
+				history: recoveredAiSdkTool.messages,
+			});
+			eq(transformHistoryRun.messages.length, 2, "ai sdk provider history transform message count");
+			assertSdkAnthropicTransformHistoryPrompt(transformHistoryRuntime.mock.doStreamCalls[0].prompt,
+				"ai sdk provider transformed recovered history prompt");
+
 			Fs.mkdirSync(NodePath.join(root, "feature/nested"), {recursive: true});
 			final featureInstructions = NodePath.join(root, "feature/AGENTS.md");
 			Fs.writeFileSync(featureInstructions, "# Feature Instructions\nUse feature rules.\n");
@@ -1888,6 +1903,36 @@ description: Review workflow.
 
 		eq(prompt[5].role, AiLanguageModelPromptRole.User, label + " current user role");
 		eq(promptContentText(prompt[5]), "Continue after injected media.", label + " current user text");
+	}
+
+	static function assertSdkAnthropicTransformHistoryPrompt(prompt:Array<AiLanguageModelPromptMessage>, label:String):Void {
+		eq(prompt.length, 5, label + " count");
+		eq(prompt[0].role, AiLanguageModelPromptRole.User, label + " recovered user role");
+		final userParts = promptContentPartsAny(prompt[0], label + " recovered user content");
+		eq(hasPromptTextPart(userParts, "Persist this AI SDK tool turn."), true, label + " recovered user text");
+		eq(hasPromptTextPart(userParts, "What did we do so far?"), true, label + " compaction prompt");
+		eq(hasPromptTextPart(userParts, "The following tool was executed by the user"), true, label + " subtask prompt");
+
+		eq(prompt[1].role, AiLanguageModelPromptRole.Assistant, label + " recovered assistant text role");
+		final assistantTextParts = promptContentPartsAny(prompt[1], label + " recovered assistant text content");
+		eq(hasPromptTextPart(assistantTextParts, "Recovered file says: ai sdk tool fixture."), true, label + " recovered assistant text");
+		eq(hasPromptTextPart(assistantTextParts, "Recovered provider metadata text."), true, label + " recovered metadata text");
+		eq(hasPromptToolCall(assistantTextParts, "tool_1", "read"), false, label + " text message has no tool calls");
+
+		eq(prompt[2].role, AiLanguageModelPromptRole.Assistant, label + " recovered assistant tool role");
+		final assistantToolParts = promptContentPartsAny(prompt[2], label + " recovered assistant tool content");
+		eq(hasPromptToolCall(assistantToolParts, "tool_1", "read"), true, label + " recovered tool call");
+		eq(hasPromptToolCall(assistantToolParts, "call_media_history", "read"), true, label + " media tool call");
+		eq(hasPromptToolCall(assistantToolParts, "call_interrupted_history", "bash"), true, label + " interrupted tool call");
+		eq(hasPromptToolCall(assistantToolParts, "call_error_history", "read"), true, label + " error tool call");
+
+		eq(prompt[3].role, AiLanguageModelPromptRole.Tool, label + " recovered tool role");
+		final toolResults = promptContentPartsAny(prompt[3], label + " recovered tool content");
+		final media = promptToolResult(toolResults, "call_media_history", label + " media result");
+		assertContentToolResult(media.output, "Recovered image output", "image/png", "dG9vbC1pbWFnZQ==", label + " media result");
+
+		eq(prompt[4].role, AiLanguageModelPromptRole.User, label + " current user role");
+		eq(promptContentText(prompt[4]), "Continue after provider history transform.", label + " current user text");
 	}
 
 	static function hasPromptToolCall(parts:Array<AiLanguageModelPromptPart>, callID:String, toolName:String):Bool {
