@@ -3,6 +3,8 @@ package opencodehx.smoke;
 import genes.js.Async.await;
 import haxe.Json;
 import js.lib.Promise;
+import opencodehx.externs.node.Buffer;
+import opencodehx.externs.node.Buffer.NodeBufferData;
 import opencodehx.externs.node.ChildProcess;
 import opencodehx.externs.node.ChildProcess.ChildProcessHandle;
 import opencodehx.externs.node.Fs;
@@ -22,9 +24,11 @@ import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolIDs;
-import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.ToolTypes.ToolPermissionDecision;
 import opencodehx.tool.ToolTypes.ToolPermissionRequest;
+import opencodehx.tool.ToolTypes.ToolResult;
+import opencodehx.tool.ToolTypes.ToolResultAttachment;
+import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.QuestionTool;
 import opencodehx.tool.WebFetchTool;
 import opencodehx.question.QuestionRuntime.QuestionRequest;
@@ -404,6 +408,24 @@ class ToolSmoke {
 		final instructedMetadata = Json.stringify(instructed.metadata);
 		eq(instructedMetadata.indexOf('"loaded":["' + jsonPath(NodePath.join(ctx.directory, "feature/AGENTS.md")) + '"]') != -1, true,
 			"read nearby instruction metadata");
+
+		write(ctx.directory, "feature/nested/manual.pdf", "%PDF-1.4\n% smoke pdf\n");
+		final pdf = registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/manual.pdf"}, ctx);
+		eq(pdf.output, "PDF read successfully", "read pdf output");
+		eq(Json.stringify(pdf.metadata).indexOf('"truncated":false') != -1, true, "read pdf not truncated");
+		eq(Json.stringify(pdf.metadata).indexOf('"loaded":["' + jsonPath(NodePath.join(ctx.directory, "feature/AGENTS.md")) + '"]') != -1, true,
+			"read pdf instruction metadata");
+		final pdfAttachment = onlyAttachment(pdf, "read pdf");
+		eq(pdfAttachment.type, "file", "read pdf attachment type");
+		eq(pdfAttachment.mime, "application/pdf", "read pdf attachment mime");
+		eq(StringTools.startsWith(pdfAttachment.url, "data:application/pdf;base64,"), true, "read pdf attachment data url");
+
+		writeBytes(ctx.directory, "feature/nested/image.bin", Buffer.from("/9j/4AAQSkZJRgAB", "base64"));
+		final image = registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/image.bin"}, ctx);
+		eq(image.output, "Image read successfully", "read sniffed image output");
+		final imageAttachment = onlyAttachment(image, "read sniffed image");
+		eq(imageAttachment.mime, "image/jpeg", "read sniffed image attachment mime");
+		eq(StringTools.startsWith(imageAttachment.url, "data:image/jpeg;base64,"), true, "read sniffed image data url");
 
 		final dir = registry.execute(ToolIDs.known("read"), {filePath: "src"}, ctx);
 		eq(dir.output.indexOf("<type>directory</type>") != -1, true, "read directory type");
@@ -1103,6 +1125,20 @@ Use this skill.
 		final path = NodePath.join(root, relative);
 		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
 		Fs.writeFileSync(path, content);
+	}
+
+	static function writeBytes(root:String, relative:String, content:NodeBufferData):Void {
+		final path = NodePath.join(root, relative);
+		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
+		Fs.writeFileSync(path, content);
+	}
+
+	static function onlyAttachment(result:ToolResult, label:String):ToolResultAttachment {
+		final attachments = result.attachments;
+		if (attachments == null)
+			throw '${label}: expected attachment';
+		eq(attachments.length, 1, '${label} attachment count');
+		return attachments[0];
 	}
 
 	static function jsonPath(path:String):String {

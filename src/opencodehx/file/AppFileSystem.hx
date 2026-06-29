@@ -193,6 +193,8 @@ class AppFileSystem {
 			case "jpg" | "jpeg": "image/jpeg";
 			case "gif": "image/gif";
 			case "webp": "image/webp";
+			case "bmp": "image/bmp";
+			case "pdf": "application/pdf";
 			case "txt": "text/plain";
 			case "html": "text/html";
 			case "svg": "image/svg+xml";

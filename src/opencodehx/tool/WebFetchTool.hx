@@ -10,6 +10,8 @@ import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
+import opencodehx.util.Media.contentTypeMime;
+import opencodehx.util.Media.isImageAttachment;
 
 enum abstract WebFetchFormat(String) from String to String {
 	var Text = "text";
@@ -60,7 +62,7 @@ class WebFetchTool {
 		if (!response.ok)
 			throw new ToolException(ExecutionFailed("webfetch", 'Fetch failed with HTTP ${response.status}'));
 
-		final mime = mediaType(response.headers.get("content-type"));
+		final mime = contentTypeMime(response.headers.get("content-type"), "text/plain");
 		final formatText:String = input.format;
 		if (isImageAttachment(mime)) {
 			final bytes = await(response.arrayBuffer());
@@ -98,15 +100,5 @@ class WebFetchTool {
 			case _:
 				null;
 		}
-	}
-
-	static function mediaType(contentType:Null<String>):String {
-		if (contentType == null || contentType == "")
-			return "text/plain";
-		return contentType.split(";")[0].toLowerCase();
-	}
-
-	static function isImageAttachment(mime:String):Bool {
-		return StringTools.startsWith(mime, "image/") && mime != "image/svg+xml";
 	}
 }

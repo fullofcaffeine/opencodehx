@@ -3,6 +3,8 @@ package opencodehx.tool;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Fs.FsDirent;
 import opencodehx.externs.node.Fs.FsStats;
+import opencodehx.file.AppFileSystem;
+import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
 import opencodehx.session.SessionInstruction;
 import opencodehx.tool.ToolError.ToolException;
@@ -16,6 +18,9 @@ import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
+import opencodehx.util.Media.isPdfAttachment;
+import opencodehx.util.Media.isAttachmentMedia;
+import opencodehx.util.Media.sniffAttachmentMime;
 
 typedef ReadToolInput = {
 	final filePath:String;
@@ -27,6 +32,7 @@ class ReadTool {
 	static inline final DEFAULT_READ_LIMIT = 2000;
 	static inline final MAX_LINE_LENGTH = 2000;
 	static inline final MAX_BYTES = 50 * 1024;
+	static inline final SAMPLE_BYTES = 4096;
 
 	public static function define():ToolDef {
 		return ToolDefinition.typed(KnownToolID.Read, "Read a file or list a directory.", {
@@ -99,9 +105,9 @@ class ReadTool {
 			final isDirectory = entry.isDirectory();
 			rows.push(name + (isDirectory ? "/" : ""));
 		}
-		rows.sort(Reflect.compare);
-		final offset = offsetArg == null ? 1 : offsetArg;
-		final limit = limitArg == null ? DEFAULT_READ_LIMIT : limitArg;
+		rows.sort(compareStrings);
+		final offset = intOr(offsetArg, 1);
+		final limit = intOr(limitArg, DEFAULT_READ_LIMIT);
 		if (offset < 1)
 			throw new ToolException(ExecutionFailed(KnownToolID.Read, "offset must be greater than or equal to 1"));
 		if (limit < 1)
@@ -131,6 +137,28 @@ class ReadTool {
 			worktree: ctx.worktree == null ? ctx.directory : ctx.worktree,
 			filepath: absolute,
 		});
+		final bytes = Fs.readFileBufferSync(absolute);
+		final mime = sniffAttachmentMime(NodeBuffer.prefixBytes(bytes, SAMPLE_BYTES), AppFileSystem.mimeType(absolute));
+		if (isAttachmentMedia(mime)) {
+			final message = isPdfAttachment(mime) ? "PDF read successfully" : "Image read successfully";
+			return {
+				title: ToolPaths.relative(ctx, absolute),
+				metadata: ToolResultMetadata.checked({
+					preview: message,
+					truncated: false,
+					loaded: [for (item in loaded) item.filepath]
+				}),
+				output: message,
+				attachments: [
+					{
+						type: "file",
+						mime: mime,
+						url: 'data:${mime};base64,${bytes.toString("base64")}'
+					}
+				],
+			};
+		}
+
 		final content = Fs.readFileSync(absolute, "utf8");
 		if (looksBinary(content))
 			throw new ToolException(ExecutionFailed(KnownToolID.Read, 'Cannot read binary file: ${absolute}'));
@@ -138,8 +166,8 @@ class ReadTool {
 		final lines = StringTools.replace(content, "\r\n", "\n").split("\n");
 		if (lines.length > 0 && lines[lines.length - 1] == "")
 			lines.pop();
-		final offset = offsetArg == null ? 1 : offsetArg;
-		final limit = limitArg == null ? DEFAULT_READ_LIMIT : limitArg;
+		final offset = intOr(offsetArg, 1);
+		final limit = intOr(limitArg, DEFAULT_READ_LIMIT);
 		if (offset < 1)
 			throw new ToolException(ExecutionFailed(KnownToolID.Read, "offset must be greater than or equal to 1"));
 		if (limit < 1)
@@ -204,7 +232,7 @@ class ReadTool {
 		}
 		if (suggestions.length == 0)
 			return 'File not found: ${absolute}';
-		suggestions.sort(Reflect.compare);
+		suggestions.sort(compareStrings);
 		return 'File not found: ${absolute}. Did you mean ${suggestions.join(", ")}?';
 	}
 
@@ -224,5 +252,19 @@ class ReadTool {
 		} catch (error:Dynamic) {
 			throw new ToolException(ExecutionFailed(id, Std.string(error)));
 		}
+	}
+
+	static function compareStrings(left:String, right:String):Int {
+		if (left < right)
+			return -1;
+		if (left > right)
+			return 1;
+		return 0;
+	}
+
+	static function intOr(value:Null<Int>, fallback:Int):Int {
+		if (value == null)
+			return fallback;
+		return value;
 	}
 }
