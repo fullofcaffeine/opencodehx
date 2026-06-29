@@ -645,6 +645,31 @@ try {
 		assert.equal(liveForkExportJson.info.parentID, liveJson.request.sessionID);
 		assert.equal(liveForkExportJson.messages.length, 2);
 		assert.equal(liveForkExportJson.messages[0].parts[0].text, "Fork live.");
+		writeFileSync(
+			path.join(project, "opencode.json"),
+			JSON.stringify({
+				$schema: "https://opencode.ai/config.json",
+				default_agent: "reviewer",
+				provider: {
+					"local-live": {
+						npm: "@ai-sdk/openai-compatible",
+						name: "Local Live",
+						options: { baseURL: `${localUrl}/v1`, apiKey: "test-key" },
+						models: { chat: { name: "Chat" } },
+					},
+				},
+				agent: {
+					reviewer: {
+						model: "local-live/chat",
+						prompt: "Agent prompt from generated config.",
+						temperature: 0.21,
+						top_p: 0.81,
+						tools: { write: false },
+						options: { textVerbosity: "low" },
+					},
+				},
+			}),
+		);
 		const configuredLiveEnv = { ...env, XDG_DATA_HOME: path.join(tempRoot, "configured-live-data") };
 		const configuredLive = await runAsync(["run", "--format", "json", "--dir", project, "Hello", "configured", "live."], {
 			env: configuredLiveEnv,
@@ -653,7 +678,15 @@ try {
 		const configuredLiveJson = JSON.parse(configuredLive.stdout);
 		assert.equal(configuredLiveJson.provider.id, "local-live");
 		assert.equal(configuredLiveJson.request.prompt, "Hello configured live.");
+		assert.equal(configuredLiveJson.request.system[0], "Agent prompt from generated config.");
+		assert.equal(configuredLiveJson.request.tools.includes("write"), false);
+		assert.equal(configuredLiveJson.messages[0].info.agent, "reviewer");
 		assert.equal(configuredLiveJson.messages[1].parts.find((part) => part.type === "text").text, "Hello from local live.");
+		assert.equal(observed.body.messages[0].role, "system");
+		assert.equal(observed.body.messages[0].content, "Agent prompt from generated config.");
+		const configuredToolNames = (observed.body.tools ?? []).map((tool) => tool.function.name);
+		assert.equal(configuredToolNames.includes("read"), true);
+		assert.equal(configuredToolNames.includes("write"), false);
 	});
 	await withToolOpenAICompatibleServer(
 		{

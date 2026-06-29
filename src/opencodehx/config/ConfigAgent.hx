@@ -3,9 +3,10 @@ package opencodehx.config;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo.AgentInfo;
 import opencodehx.config.ConfigInfo.AgentMap;
-import opencodehx.config.ConfigInfo.OpenConfigValue;
 import opencodehx.config.ConfigInfo.PermissionConfig;
 import opencodehx.config.ConfigInfo.PermissionConfigValue;
+import opencodehx.provider.ProviderOpenRecords;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
 
 class ConfigAgent {
 	static final KNOWN_KEYS = [
@@ -81,8 +82,8 @@ class ConfigAgent {
 		};
 	}
 
-	static function options(data:DynamicAccess<ConfigMarkdown.MarkdownValue>):DynamicAccess<OpenConfigValue> {
-		final result = new DynamicAccess<OpenConfigValue>();
+	static function options(data:DynamicAccess<ConfigMarkdown.MarkdownValue>):ProviderOptions {
+		final result = ProviderOpenRecords.options();
 		final explicit = objectField(data, "options");
 		if (explicit != null) {
 			for (key in explicit.keys())

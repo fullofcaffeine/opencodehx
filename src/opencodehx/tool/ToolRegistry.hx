@@ -36,21 +36,27 @@ class ToolRegistry {
 		byId.set(def.id, def);
 	}
 
-	public function ids():Array<String> {
+	public function ids(?filter:ToolFilter):Array<String> {
+		final disabled = filter == null || filter.disabled == null ? [] : filter.disabled;
 		final result:Array<String> = [];
-		for (id in byId.keys())
-			result.push(id);
-		result.sort(Reflect.compare);
+		for (id in byId.keys()) {
+			if (disabled.indexOf(id) == -1)
+				result.push(id);
+		}
+		result.sort((a, b) -> {
+			if (a < b)
+				return -1;
+			if (a > b)
+				return 1;
+			return 0;
+		});
 		return result;
 	}
 
 	public function all(?filter:ToolFilter):Array<ToolDef> {
-		final disabled = filter == null || filter.disabled == null ? [] : filter.disabled;
 		final result:Array<ToolDef> = [];
-		for (id in ids()) {
-			if (disabled.indexOf(id) == -1)
-				result.push(byId.get(id));
-		}
+		for (id in ids(filter))
+			result.push(byId.get(id));
 		return result;
 	}
 

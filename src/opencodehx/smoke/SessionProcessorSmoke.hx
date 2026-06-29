@@ -985,6 +985,47 @@ class SessionProcessorSmoke {
 			assertLiveAiSdkRequestOptions(optionRuntime.mock.doStreamCalls[0], "initial");
 			assertLiveAiSdkRequestOptions(optionRuntime.mock.doStreamCalls[1], "continuation");
 
+			final agentModel = modelWithOptionsVariants("google", "gemini-2.5-flash", "@ai-sdk/google", optionMap(), new FakeProvider().model.variants);
+			agentModel.variants.set("high", record1("agentVariant", "high"));
+			final agentRuntime = AiSdkMockModel.inspectableToolThenText("Agent config reached continuation.", "read", "{\"filePath\":\"src/input.txt\"}");
+			final agentRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_agent_config",
+				projectID: "proj_ai_sdk_agent_config",
+				prompt: "Read with selected agent config.",
+				directory: root,
+				provider: fixture.info,
+				model: agentModel,
+				language: agentRuntime.language,
+				agent: "reviewer",
+				system: ["Agent prompt from config."],
+				agentOptions: record1("textVerbosity", "agent-config"),
+				agentTemperature: 0.31,
+				agentTopP: 0.62,
+				disabledTools: ["write"],
+				variant: "high",
+			});
+			assertUserAgent(agentRun.messages[0].info, "reviewer", "ai sdk agent config user agent");
+			eq(agentRun.request.system[0], "Agent prompt from config.", "ai sdk agent config request system");
+			eq(agentRun.request.tools.indexOf("write"), -1, "ai sdk agent config request hides write");
+			eq(agentRuntime.mock.doStreamCalls.length, 2, "ai sdk agent config continuation count");
+			assertAgentConfigAiSdkCall(agentRuntime.mock.doStreamCalls[0], "initial");
+			assertAgentConfigAiSdkCall(agentRuntime.mock.doStreamCalls[1], "continuation");
+
+			final disabledToolRuntime = AiSdkMockModel.inspectableToolThenText("Disabled tool should not continue.", "read",
+				"{\"filePath\":\"src/input.txt\"}");
+			final disabledToolRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_agent_disabled_tool",
+				prompt: "Try a disabled read.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: disabledToolRuntime.language,
+				disabledTools: ["read"],
+			});
+			eq(disabledToolRuntime.mock.doStreamCalls.length, 1, "ai sdk disabled tool call count");
+			eq(hasLanguageTool(disabledToolRuntime.mock.doStreamCalls[0].tools, "read"), false, "ai sdk disabled tool not advertised");
+			assertDisabledToolOutcome(disabledToolRun.tool, "read");
+
 			final disabledRuntime = AiSdkMockModel.inspectableToolThenText("This continuation should not run.", "read", "{\"filePath\":\"src/input.txt\"}");
 			final disabledContinuation = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_tool_no_continue",
@@ -1154,6 +1195,15 @@ class SessionProcessorSmoke {
 		}
 	}
 
+	static function assertUserAgent(info:Info, expected:String, label:String):Void {
+		switch info {
+			case UserInfo(user):
+				eq(user.agent, expected, label);
+			case _:
+				throw label + ": expected user info";
+		}
+	}
+
 	static function assertAssistantParts(parts:Array<Part>, label:String, expectedCallID:String, expectedText:String):Void {
 		eq(parts.length, 4, label + " assistant part count");
 		switch parts[0] {
@@ -1300,6 +1350,26 @@ class SessionProcessorSmoke {
 		eq(UnknownNarrow.string(google.get("reasoningEffort")), "high", 'ai sdk ${label} variant option');
 		eq(UnknownNarrow.bool(google.get("variantFlag")), true, 'ai sdk ${label} variant flag');
 		eq(UnknownNarrow.string(google.get("textVerbosity")), "medium", 'ai sdk ${label} agent option');
+	}
+
+	static function assertAgentConfigAiSdkCall(call:AiLanguageModelCallOptions, label:String):Void {
+		eq(call.maxOutputTokens, 10000.0, 'ai sdk agent ${label} max output tokens');
+		eq(call.temperature, 0.31, 'ai sdk agent ${label} temperature');
+		eq(call.topP, 0.62, 'ai sdk agent ${label} topP');
+		eq(hasLanguageTool(call.tools, "read"), true, 'ai sdk agent ${label} advertises read');
+		eq(hasLanguageTool(call.tools, "write"), false, 'ai sdk agent ${label} hides write');
+		eq(promptContentText(call.prompt[0]), "Agent prompt from config.", 'ai sdk agent ${label} system prompt');
+		final google = sdkProviderOptions(call.providerOptions, "google", 'agent ${label}');
+		eq(UnknownNarrow.string(google.get("agentVariant")), "high", 'ai sdk agent ${label} variant option');
+		eq(UnknownNarrow.string(google.get("textVerbosity")), "agent-config", 'ai sdk agent ${label} provider option');
+	}
+
+	static function assertDisabledToolOutcome(outcome:Null<opencodehx.session.SessionProcessor.SessionToolOutcome>, expectedTool:String):Void {
+		if (outcome == null)
+			throw "session processor: expected disabled tool outcome";
+		eq(outcome.success, false, "disabled tool outcome success");
+		eq(outcome.call.tool, expectedTool, "disabled tool outcome name");
+		eq(outcome.error, 'Tool is disabled: ${expectedTool}', "disabled tool outcome error");
 	}
 
 	static function callHeader(call:AiLanguageModelCallOptions, key:String, label:String):Null<String> {

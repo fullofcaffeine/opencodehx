@@ -29,6 +29,7 @@ import opencodehx.externs.web.AbortControllerWithReason;
 import opencodehx.provider.ProviderTypes.ProviderHeaders;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.tool.ToolRegistry;
+import opencodehx.tool.ToolRegistry.ToolFilter;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolParameter;
 
@@ -140,9 +141,9 @@ class AiSdkProvider {
 		});
 	}
 
-	public static function toolsFromRegistry(registry:ToolRegistry):DynamicAccess<AiTool> {
+	public static function toolsFromRegistry(registry:ToolRegistry, ?filter:ToolFilter):DynamicAccess<AiTool> {
 		final tools = new DynamicAccess<AiTool>();
-		for (def in registry.all()) {
+		for (def in registry.all(filter)) {
 			tools.set(def.id, AiSdk.tool({
 				description: def.description,
 				inputSchema: AiSdk.jsonSchema(toolInputSchema(def)),

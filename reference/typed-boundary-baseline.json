@@ -18,7 +18,7 @@
   ],
   "totals": {
     "Dynamic": 728,
-    "DynamicAccess": 562,
+    "DynamicAccess": 559,
     "cast": 215,
     "untyped": 5,
     "Syntax.code": 27,
@@ -53,7 +53,7 @@
     },
     "src/opencodehx/config/ConfigAgent.hx": {
       "Dynamic": 1,
-      "DynamicAccess": 19,
+      "DynamicAccess": 17,
       "cast": 12,
       "Reflect.field": 4
     },
@@ -66,7 +66,7 @@
     },
     "src/opencodehx/config/ConfigInfo.hx": {
       "Dynamic": 12,
-      "DynamicAccess": 10,
+      "DynamicAccess": 9,
       "cast": 6,
       "Reflect.field": 5,
       "Reflect.setField": 2

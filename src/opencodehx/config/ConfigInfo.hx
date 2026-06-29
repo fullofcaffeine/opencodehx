@@ -124,8 +124,9 @@ typedef AgentInfo = {
 	@:optional final mode:String;
 	@:optional final hidden:Bool;
 	// Boundary debt: agent-specific provider options and unknown frontmatter keys
-	// are passthrough values until provider/agent schemas own them precisely.
-	@:optional final options:DynamicAccess<OpenConfigValue>;
+	// are provider-SDK passthrough values until provider/agent schemas own them
+	// precisely.
+	@:optional final options:ProviderOptions;
 	@:optional final color:String;
 	@:optional final steps:Int;
 	@:optional final maxSteps:Int;

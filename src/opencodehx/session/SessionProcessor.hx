@@ -46,6 +46,7 @@ import opencodehx.session.SessionRetry.SessionRetryStatus;
 import opencodehx.storage.SessionStore;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolRegistry;
+import opencodehx.tool.ToolRegistry.ToolFilter;
 import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolResult;
@@ -139,6 +140,8 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final abortStreamImmediately:Bool;
 	@:optional final files:Array<SessionFileInput>;
 	@:optional final history:Array<WithParts>;
+	@:optional final system:Array<String>;
+	@:optional final disabledTools:Array<String>;
 	@:optional final providerOptions:ProviderOptions;
 	@:optional final agentOptions:ProviderOptions;
 	@:optional final agentTemperature:Float;
@@ -279,8 +282,10 @@ class SessionProcessor {
 		final sessionIDText = fallback(input.sessionID, SESSION_ID);
 		final projectID = fallback(input.projectID, "proj_fixture");
 		final agent = fallback(input.agent, "primary");
-		final provider = providerIdentity(input.provider, input.model, ["You are an AI SDK provider runtime."]);
+		final system = input.system == null ? ["You are an AI SDK provider runtime."] : input.system;
+		final provider = providerIdentity(input.provider, input.model, system);
 		final registry:ToolRegistry = input.registry == null ? new ToolRegistry() : input.registry;
+		final toolFilter = sessionToolFilter(input.disabledTools);
 		final events:Array<SessionEvent> = [];
 		final aborted = input.aborted == true;
 		var streamAborted = false;
@@ -288,8 +293,8 @@ class SessionProcessor {
 		var modelToolCall:Null<SessionToolCall> = null;
 		var toolOutcome:Null<SessionToolOutcome> = null;
 		final messageHistory = modelHistory(input.history);
-		final tools = AiSdkProvider.toolsFromRegistry(registry);
-		final streamOptions = aiSdkStreamOptions(input, sessionIDText, projectID, provider.system, registry);
+		final tools = AiSdkProvider.toolsFromRegistry(registry, toolFilter);
+		final streamOptions = aiSdkStreamOptions(input, sessionIDText, projectID, provider.system, registry, toolFilter);
 		if (aborted) {
 			events.push({type: "start"});
 			events.push({type: "abort", message: "User aborted the request"});
@@ -323,7 +328,7 @@ class SessionProcessor {
 		final text = wasAborted ? "Request aborted." : assistantText;
 		final toolCall = input.toolCall == null ? modelToolCall : input.toolCall;
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, toolCall, registry,
-			input.permission, events, null, null, wasAborted, tokens, input.turnID, input.turnTime);
+			input.permission, events, null, null, wasAborted, tokens, input.turnID, input.turnTime, toolFilter);
 		toolOutcome = assistantMessage.tool;
 		var continuationLimit = DEFAULT_TOOL_CONTINUATIONS;
 		final configuredContinuationLimit = input.maxToolContinuations;
@@ -370,7 +375,7 @@ class SessionProcessor {
 			final nextToolCall = firstModelToolCall(continuation.events);
 			if (nextToolCall != null) {
 				toolOutcome = appendAssistantTool(assistantMessage.message, sessionIDText, input.directory, agent, nextToolCall, registry, input.permission,
-					events, input.turnID, input.turnTime);
+					events, input.turnID, input.turnTime, toolFilter);
 			} else {
 				if (continuedText != "")
 					replaceAssistantText(assistantMessage.message, continuedText);
@@ -392,7 +397,7 @@ class SessionProcessor {
 				sessionID: sessionIDText,
 				prompt: prompt,
 				system: provider.system,
-				tools: registry.ids(),
+				tools: registry.ids(toolFilter),
 			},
 			events: events,
 			messages: [userMessage, assistantMessage.message],
@@ -403,8 +408,8 @@ class SessionProcessor {
 		};
 	}
 
-	static function aiSdkStreamOptions(input:SessionAiSdkProcessorInput, sessionIDText:String, projectID:String, system:Array<String>,
-			registry:ToolRegistry):SessionLlm.LlmStreamTextOptions {
+	static function aiSdkStreamOptions(input:SessionAiSdkProcessorInput, sessionIDText:String, projectID:String, system:Array<String>, registry:ToolRegistry,
+			filter:Null<ToolFilter>):SessionLlm.LlmStreamTextOptions {
 		final requestOptions = SessionLlm.requestOptions({
 			model: input.model,
 			sessionID: sessionIDText,
@@ -434,10 +439,16 @@ class SessionProcessor {
 		return SessionLlm.streamTextOptions({
 			model: input.model,
 			params: params,
-			tools: AiSdkProvider.toolsFromRegistry(registry),
+			tools: AiSdkProvider.toolsFromRegistry(registry, filter),
 			headers: headers,
 			retries: 0,
 		});
+	}
+
+	static function sessionToolFilter(disabledTools:Null<Array<String>>):Null<ToolFilter> {
+		if (disabledTools == null || disabledTools.length == 0)
+			return null;
+		return {disabled: disabledTools.copy()};
 	}
 
 	public static function recover(store:SessionStore, sessionIDText:String, ?limit:Int):SessionRecovery {
@@ -662,7 +673,7 @@ class SessionProcessor {
 	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:SessionProviderIdentity,
 			toolCall:Null<SessionToolCall>, registry:ToolRegistry, permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>,
 			retry:Null<SessionRetryStatus>, providerError:Null<SessionProviderError>, aborted:Bool, tokens:TokenUsage, turnID:Null<String>,
-			turnTime:Null<Float>):{
+			turnTime:Null<Float>, ?filter:ToolFilter):{
 		final message:WithParts;
 		final tool:Null<SessionToolOutcome>;
 	} {
@@ -710,7 +721,7 @@ class SessionProcessor {
 				messageID: messageID,
 				type: "step-start",
 			}));
-			toolOutcome = executeTool(sessionID, messageID, directory, agent, toolCall, registry, permission, events, turnID, turnTime);
+			toolOutcome = executeTool(sessionID, messageID, directory, agent, toolCall, registry, permission, events, turnID, turnTime, filter);
 			parts.push(toolOutcome.part);
 		}
 
@@ -745,8 +756,8 @@ class SessionProcessor {
 	}
 
 	static function executeTool(sessionID:SessionID, messageID:MessageID, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,
-			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>, turnID:Null<String>,
-			turnTime:Null<Float>):SessionToolOutcome {
+			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>, turnID:Null<String>, turnTime:Null<Float>,
+			?filter:ToolFilter):SessionToolOutcome {
 		events.push({type: "tool-call-start", callID: call.id, tool: call.tool});
 		final ctx:ToolContext = switch permission {
 			case null:
@@ -770,7 +781,7 @@ class SessionProcessor {
 				};
 		}
 		try {
-			final toolResult = registry.execute(call.tool, call.input, ctx);
+			final toolResult = registry.execute(call.tool, call.input, ctx, filter);
 			final part = completedToolPart(sessionID, messageID, call, toolResult, turnID, turnTime);
 			events.push({
 				type: "tool-call-finish",
@@ -1065,11 +1076,11 @@ class SessionProcessor {
 	}
 
 	static function appendAssistantTool(message:WithParts, sessionIDText:String, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,
-			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>, turnID:Null<String>,
-			turnTime:Null<Float>):SessionToolOutcome {
+			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>, turnID:Null<String>, turnTime:Null<Float>,
+			?filter:ToolFilter):SessionToolOutcome {
 		final sessionID = SessionID.make(sessionIDText);
 		final messageID = MessageID.make(scoped(partBase(ASSISTANT_ID, turnID), sessionIDText));
-		final outcome = executeTool(sessionID, messageID, directory, agent, call, registry, permission, events, turnID, turnTime);
+		final outcome = executeTool(sessionID, messageID, directory, agent, call, registry, permission, events, turnID, turnTime, filter);
 		insertBeforeAssistantText(message, outcome.part);
 		return outcome;
 	}

@@ -9,6 +9,7 @@ import opencodehx.account.AccountStore;
 import opencodehx.auth.AuthStore;
 import opencodehx.cli.ErrorFormatter;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigInfo.AgentInfo;
 import opencodehx.config.ConfigLoader;
 import opencodehx.config.ConfigWriter;
 import opencodehx.externs.node.Crypto;
@@ -20,9 +21,11 @@ import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
 import opencodehx.permission.PermissionRules;
 import opencodehx.permission.PermissionRuntime;
+import opencodehx.permission.PermissionTypes.PermissionRule;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
 import opencodehx.provider.ProviderRegistry;
+import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.session.MessageTypes.WithParts;
@@ -56,6 +59,12 @@ typedef RunPersistence = {
 	final sessionID:Null<String>;
 	final turnID:Null<String>;
 	final turnTime:Null<Float>;
+}
+
+typedef RunAgentSelection = {
+	final name:Null<String>;
+	final info:Null<AgentInfo>;
+	final error:Null<String>;
 }
 
 typedef RunFilesResult = {
@@ -266,7 +275,11 @@ class Cli {
 				env: env,
 				auth: auth,
 			});
-			final resolvedModelText = modelText != "" ? modelText : mergedConfig.model;
+			final selectedAgent = runAgentSelection(mergedConfig, args);
+			final agentError = selectedAgent.error;
+			if (agentError != null)
+				return fail(agentError);
+			final resolvedModelText = runModelText(modelText, mergedConfig, selectedAgent.info);
 			if (resolvedModelText == null || resolvedModelText == "")
 				return fail("Live AI SDK runs require --model provider/model or config model for now.");
 			final parsed = ProviderRegistry.parseModel(resolvedModelText);
@@ -277,7 +290,8 @@ class Cli {
 			final language = registry.getLanguage(model);
 			persistence = runPersistence(resume.sessionID, resume.forkParentID);
 			final runSessionID = resume.sessionID == null ? persistence.sessionID : resume.sessionID;
-			final permission = permissionRuntime(mergedConfig, args, runSessionID);
+			final permission = permissionRuntime(mergedConfig, args, runSessionID, selectedAgent.info);
+			final selectedVariant = runVariantText(variant, selectedAgent.info);
 			final processed = @:await SessionProcessor.runAiSdk({
 				prompt: prompt,
 				directory: resume.directory,
@@ -292,7 +306,13 @@ class Cli {
 				files: filesResult.files,
 				history: resume.history,
 				permission: permission,
-				variant: variant == "" ? null : variant,
+				agent: selectedAgent.name,
+				system: runAgentSystem(selectedAgent.info),
+				agentOptions: runAgentOptions(selectedAgent.info),
+				agentTemperature: selectedAgent.info == null ? null : selectedAgent.info.temperature,
+				agentTopP: selectedAgent.info == null ? null : selectedAgent.info.top_p,
+				disabledTools: runAgentDisabledTools(selectedAgent.info),
+				variant: selectedVariant == "" ? null : selectedVariant,
 			});
 			closeStore(persistence.store);
 			return formatRunResult(processed, format);
@@ -548,8 +568,14 @@ class Cli {
 		return {files: files, error: null};
 	}
 
-	static function permissionRuntime(config:ConfigInfo, args:Array<String>, sessionID:Null<String>):Null<PermissionRuntime> {
-		final rules = PermissionRules.fromConfig(config.permission);
+	static function permissionRuntime(config:ConfigInfo, args:Array<String>, sessionID:Null<String>, ?agent:AgentInfo):Null<PermissionRuntime> {
+		final rulesets:Array<Array<PermissionRule>> = [];
+		if (agent != null)
+			rulesets.push(PermissionRules.fromConfig(agent.permission));
+		rulesets.push(PermissionRules.fromConfig(config.permission));
+		// PermissionRules uses last-match semantics, so config-level rules are
+		// appended after agent defaults and can still enforce global denies.
+		final rules = PermissionRules.merge(rulesets);
 		if (rules.length == 0 && !has(args, "--dangerously-skip-permissions"))
 			return null;
 		return new PermissionRuntime({
@@ -557,6 +583,72 @@ class Cli {
 			sessionID: sessionID == null ? "" : sessionID,
 			prompt: has(args, "--dangerously-skip-permissions") ? (_->{reply: "once"}) : null,
 		});
+	}
+
+	static function runAgentSelection(config:ConfigInfo, args:Array<String>):RunAgentSelection {
+		var name = option(args, "--agent", "");
+		if (name == "" && config.defaultAgent != null)
+			name = config.defaultAgent;
+		if (name == "")
+			return {name: null, info: null, error: null};
+		final agents = config.agent;
+		if (agents == null)
+			return {name: name, info: null, error: 'Agent not available for live AI SDK run: ${name}'};
+		final agent = agents.get(name);
+		if (agent == null)
+			return {name: name, info: null, error: 'Agent not available for live AI SDK run: ${name}'};
+		if (agent.disable == true)
+			return {name: name, info: null, error: 'Agent is disabled for live AI SDK run: ${name}'};
+		return {name: name, info: agent, error: null};
+	}
+
+	static function runModelText(cliModel:String, config:ConfigInfo, agent:Null<AgentInfo>):Null<String> {
+		if (cliModel != "")
+			return cliModel;
+		if (agent != null && agent.model != null && agent.model != "")
+			return agent.model;
+		return config.model;
+	}
+
+	static function runVariantText(cliVariant:String, agent:Null<AgentInfo>):String {
+		if (cliVariant != "")
+			return cliVariant;
+		if (agent != null && agent.variant != null)
+			return agent.variant;
+		return "";
+	}
+
+	static function runAgentSystem(agent:Null<AgentInfo>):Null<Array<String>> {
+		if (agent == null || agent.prompt == null)
+			return null;
+		final prompt = StringTools.trim(agent.prompt);
+		return prompt == "" ? null : [prompt];
+	}
+
+	static function runAgentOptions(agent:Null<AgentInfo>):Null<ProviderOptions> {
+		if (agent == null || agent.options == null)
+			return null;
+		return agent.options;
+	}
+
+	static function runAgentDisabledTools(agent:Null<AgentInfo>):Null<Array<String>> {
+		if (agent == null || agent.tools == null)
+			return null;
+		final disabled:Array<String> = [];
+		for (tool in agent.tools.keys()) {
+			if (agent.tools.get(tool) == false)
+				pushUnique(disabled, normalizedToolID(tool));
+		}
+		return disabled.length == 0 ? null : disabled;
+	}
+
+	static function normalizedToolID(tool:String):String {
+		return tool == "patch" ? "apply_patch" : tool;
+	}
+
+	static function pushUnique(values:Array<String>, value:String):Void {
+		if (values.indexOf(value) == -1)
+			values.push(value);
 	}
 
 	static function liveDirectory(args:Array<String>):{final directory:String; final error:Null<String>;} {
@@ -682,7 +774,9 @@ class Cli {
 			return {live: false, error: null};
 		try {
 			final config = loadLocalRunConfig(directoryResult.directory, NodeProcess.env());
-			return {live: config.model != null && config.model != "" && config.model != FAKE_MODEL, error: null};
+			final selectedAgent = runAgentSelection(config, args);
+			final model = runModelText("", config, selectedAgent.info);
+			return {live: model != null && model != "" && model != FAKE_MODEL, error: null};
 		} catch (error:haxe.Exception) {
 			return {live: false, error: ErrorFormatter.format(Unknown.fromBoundary(error))};
 		}

@@ -607,6 +607,50 @@ try {
 			"Hello from installed live.",
 			"installed configured live AI SDK assistant text",
 		);
+		writeFileSync(
+			path.join(liveConfigRoot, "opencode", "opencode.json"),
+			JSON.stringify({
+				$schema: "https://opencode.ai/config.json",
+				default_agent: "reviewer",
+				provider: {
+					"installed-live": {
+						npm: "@ai-sdk/openai-compatible",
+						name: "Installed Live",
+						options: { baseURL: `${localUrl}/v1`, apiKey: "installed-live-key" },
+						models: { chat: { name: "Chat" } },
+					},
+				},
+				agent: {
+					reviewer: {
+						model: "installed-live/chat",
+						prompt: "Installed agent prompt from config.",
+						tools: { write: false },
+						options: { textVerbosity: "low" },
+					},
+				},
+			}),
+		);
+		const agentConfiguredLiveEnv = {
+			...liveEnv,
+			XDG_DATA_HOME: path.join(tempRoot, "installed-live-agent-configured-data"),
+		};
+		const agentConfiguredLive = await expectOkAsync(
+			runAsync(
+				bin,
+				["run", "--format", "json", "--dir", projectDir, "Hello", "configured", "installed", "agent."],
+				{ env: agentConfiguredLiveEnv },
+			),
+			"installed agent-configured live AI SDK run",
+		);
+		const agentConfiguredLiveTranscript = JSON.parse(agentConfiguredLive.stdout);
+		assert.equal(agentConfiguredLiveTranscript.provider.id, "installed-live", "installed agent-configured live provider");
+		assert.equal(agentConfiguredLiveTranscript.request.system[0], "Installed agent prompt from config.", "installed agent-configured system prompt");
+		assert.equal(agentConfiguredLiveTranscript.request.tools.includes("write"), false, "installed agent-configured hides write");
+		assert.equal(agentConfiguredLiveTranscript.messages[0].info.agent, "reviewer", "installed agent-configured user agent");
+		assert.equal(observed.body.messages[0].content, "Installed agent prompt from config.", "installed agent-configured request body system");
+		const installedAgentToolNames = (observed.body.tools ?? []).map((tool) => tool.function.name);
+		assert.equal(installedAgentToolNames.includes("read"), true, "installed agent-configured advertises read");
+		assert.equal(installedAgentToolNames.includes("write"), false, "installed agent-configured hides write from body");
 	});
 	await withToolOpenAICompatibleServer(
 		{
