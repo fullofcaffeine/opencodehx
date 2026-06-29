@@ -76,6 +76,11 @@ async function withLiveOpenAICompatibleServer(fn) {
 			body += chunk;
 		});
 		req.on("end", () => {
+			if (req.method === "GET" && req.url === "/instructions/installed.md") {
+				res.writeHead(200, { "content-type": "text/markdown" });
+				res.end("# Remote Installed Instructions\nUse installed remote rules.");
+				return;
+			}
 			observed.body = body ? JSON.parse(body) : null;
 			if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
 				res.writeHead(404);
@@ -613,7 +618,7 @@ try {
 			path.join(liveConfigRoot, "opencode", "opencode.json"),
 			JSON.stringify({
 				$schema: "https://opencode.ai/config.json",
-				instructions: [path.join(projectDir, "installed-instructions.md")],
+				instructions: [path.join(projectDir, "installed-instructions.md"), `${localUrl}/instructions/installed.md`, `${localUrl}/instructions/missing.md`],
 				default_agent: "reviewer",
 				provider: {
 					"installed-live": {
@@ -663,6 +668,11 @@ try {
 			true,
 			"installed agent-configured config instructions",
 		);
+		assert.equal(
+			agentConfiguredLiveTranscript.request.system[0].includes("Use installed remote rules."),
+			true,
+			"installed agent-configured remote instructions",
+		);
 		assert.equal(agentConfiguredLiveTranscript.request.tools.includes("write"), false, "installed agent-configured hides write");
 		assert.equal(agentConfiguredLiveTranscript.messages[0].info.agent, "reviewer", "installed agent-configured user agent");
 		assert.equal(
@@ -673,6 +683,8 @@ try {
 		assert.equal(observed.body.messages[0].content.includes("Working directory:"), true, "installed agent-configured body env prompt");
 		assert.equal(observed.body.messages[0].content.includes("Use installed project rules."), true, "installed request body project instructions");
 		assert.equal(observed.body.messages[0].content.includes("Use installed config rules."), true, "installed request body config instructions");
+		assert.equal(observed.body.messages[0].content.includes("Use installed remote rules."), true, "installed request body remote instructions");
+		assert.equal(observed.body.messages[0].content.includes("missing.md"), false, "installed request body failed remote omitted");
 		const installedAgentToolNames = (observed.body.tools ?? []).map((tool) => tool.function.name);
 		assert.equal(installedAgentToolNames.includes("read"), true, "installed agent-configured advertises read");
 		assert.equal(installedAgentToolNames.includes("write"), false, "installed agent-configured hides write from body");

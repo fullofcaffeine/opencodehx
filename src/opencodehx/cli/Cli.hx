@@ -308,7 +308,7 @@ class Cli {
 				history: resume.history,
 				permission: permission,
 				agent: selectedAgent.name,
-				system: SessionSystemPrompt.build({
+				system: @:await SessionSystemPrompt.buildAsync({
 					directory: resume.directory,
 					model: model,
 					agent: selectedAgent.info,

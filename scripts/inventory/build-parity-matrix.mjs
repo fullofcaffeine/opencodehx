@@ -195,8 +195,8 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/session/SessionInstruction.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; scripts/harness/cli-smoke.mjs; scripts/harness/package-smoke.mjs; docs/session-processor-one-turn.md",
-        "per-message clear/dedup lifecycle and remote instruction URL fetching remain deferred",
-        "SessionInstruction systemPaths/system smoke covers project/root AGENTS.md lookup, config.instructions local file entries, non-git containment, live CLI/package request-body instruction evidence, and read-tool nearby instruction discovery",
+        "per-message clear/dedup lifecycle remains deferred",
+        "SessionInstruction systemPaths/system smoke covers project/root AGENTS.md lookup, config.instructions local file entries, remote instruction URL fetch/failed-fetch omission for async live prompts, non-git containment, live CLI/package request-body instruction evidence, and read-tool nearby instruction discovery",
       ],
     ],
     ["session/processor-effect.test.ts", ["partial", "src/opencodehx/smoke/SessionProcessorSmoke.hx; docs/session-processor-one-turn.md", "current processor is one-turn and synchronous; upstream Effect streaming lifecycle remains deferred", "SessionProcessorSmoke"]],
@@ -257,8 +257,8 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/session/SessionSystemPrompt.hx; src/opencodehx/session/SessionInstruction.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; src/opencodehx/smoke/SkillSmoke.hx; scripts/harness/cli-smoke.mjs; scripts/harness/package-smoke.mjs; docs/session-processor-one-turn.md",
-        "plugin system transforms, reminder prompt insertion, read-tool instruction clear/dedup lifecycle, and remote instruction URL fetching remain deferred",
-        "SessionSystemPrompt provider/environment/skills/instruction assembly plus SkillRegistry sorted verbose and permission-filtered availability smoke; generated CLI and package smokes prove assembled system prompt reaches request body",
+        "plugin system transforms, reminder prompt insertion, and read-tool instruction clear/dedup lifecycle remain deferred",
+        "SessionSystemPrompt provider/environment/skills/instruction assembly including async remote instruction URL bodies plus SkillRegistry sorted verbose and permission-filtered availability smoke; generated CLI and package smokes prove assembled system prompt reaches request body",
       ],
     ],
     ["bus/bus.test.ts", ["ported", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx; docs/bus-runtime-parity.md", "none", "BusSmoke callback and scoped lifecycle fixtures"]],

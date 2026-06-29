@@ -198,6 +198,8 @@ class SmokeFetchStub {
 		final headers = init == null || init.headers == null ? new Headers() : new Headers(init.headers);
 		liveAuthValue = headers.get("authorization");
 		liveRequestBodyValue = init == null ? null : init.body;
+		if (StringTools.endsWith(text, "/remote-instructions.md"))
+			return Promise.resolve(new Response("# Remote Instructions\nUse remote instruction rules.", {status: 200}));
 		if (StringTools.endsWith(text, "/chat/completions"))
 			return Promise.resolve(streamResponse([
 				"data: " + Json.stringify({

@@ -30,6 +30,7 @@ extern typedef GlobalFetchInit = {
 	@:optional final method:String;
 	@:optional final headers:DynamicAccess<String>;
 	@:optional final body:String;
+	@:optional final signal:AbortSignal;
 }
 
 @:ts.type("RequestRedirect")

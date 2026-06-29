@@ -848,6 +848,7 @@ description: Review workflow.
 
 	@:async
 	public static function runAsync():Promise<Void> {
+		@:await sessionSystemPromptAsync();
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-session-processor-async-"));
 		var asyncStore:Null<SqliteSessionStore> = null;
 		try {
@@ -1173,6 +1174,40 @@ description: Review workflow.
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	@:async
+	static function sessionSystemPromptAsync():Promise<Void> {
+		final tmp = SmokeTmpDir.create();
+		final originalFetch = SmokeFetchStub.installCliLiveSuccess();
+		try {
+			final root = tmp.path;
+			Fs.writeFileSync(NodePath.join(root, "AGENTS.md"), "# Project Instructions\nUse async project rules.");
+			final config = ConfigInfo.empty("session-system-async-smoke");
+			config.instructions = [
+				"https://local.test/remote-instructions.md",
+				"https://local.test/missing-instructions.md"
+			];
+			final model = new FakeProvider().model;
+			final prompt = @:await SessionSystemPrompt.buildAsync({
+				directory: root,
+				model: model,
+				config: config,
+			});
+			eq(prompt.length, 1, "session system async prompt count");
+			contains(prompt[0], "Use async project rules.", "session system async local instructions");
+			contains(prompt[0], "Instructions from: https://local.test/remote-instructions.md", "session system async remote source");
+			contains(prompt[0], "Use remote instruction rules.", "session system async remote content");
+			eq(prompt[0].indexOf("missing-instructions") == -1, true, "session system async failed remote omitted");
+		} catch (error:haxe.Exception) {
+			// Smoke cleanup must catch arbitrary Haxe/JS assertion failures so
+			// the monkey-patched fetch and temp directory are restored.
+			SmokeFetchStub.restore(originalFetch);
+			tmp.dispose();
+			throw error;
+		}
+		SmokeFetchStub.restore(originalFetch);
+		tmp.dispose();
 	}
 
 	static function retryOverflowAndRecovery(store:SqliteSessionStore, root:String):Void {

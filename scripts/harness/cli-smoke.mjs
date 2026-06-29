@@ -124,6 +124,11 @@ async function withLiveOpenAICompatibleServer(fn) {
 			body += chunk;
 		});
 		req.on("end", () => {
+			if (req.method === "GET" && req.url === "/instructions/live.md") {
+				res.writeHead(200, { "content-type": "text/markdown" });
+				res.end("# Remote Generated Instructions\nUse generated remote rules.");
+				return;
+			}
 			observed.body = body ? JSON.parse(body) : null;
 			if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
 				res.writeHead(404);
@@ -651,7 +656,7 @@ try {
 			path.join(project, "opencode.json"),
 			JSON.stringify({
 				$schema: "https://opencode.ai/config.json",
-				instructions: ["configured-instructions.md"],
+				instructions: ["configured-instructions.md", `${localUrl}/instructions/live.md`, `${localUrl}/instructions/missing.md`],
 				default_agent: "reviewer",
 				provider: {
 					"local-live": {
@@ -686,6 +691,7 @@ try {
 		assert.equal(configuredLiveJson.request.system[0].includes("The exact model ID is local-live/chat"), true);
 		assert.equal(configuredLiveJson.request.system[0].includes("Use generated project rules."), true);
 		assert.equal(configuredLiveJson.request.system[0].includes("Use configured instruction rules."), true);
+		assert.equal(configuredLiveJson.request.system[0].includes("Use generated remote rules."), true);
 		assert.equal(configuredLiveJson.request.tools.includes("write"), false);
 		assert.equal(configuredLiveJson.messages[0].info.agent, "reviewer");
 		assert.equal(configuredLiveJson.messages[1].parts.find((part) => part.type === "text").text, "Hello from local live.");
@@ -694,6 +700,8 @@ try {
 		assert.equal(observed.body.messages[0].content.includes("Working directory:"), true);
 		assert.equal(observed.body.messages[0].content.includes("Use generated project rules."), true);
 		assert.equal(observed.body.messages[0].content.includes("Use configured instruction rules."), true);
+		assert.equal(observed.body.messages[0].content.includes("Use generated remote rules."), true);
+		assert.equal(observed.body.messages[0].content.includes("missing.md"), false);
 		const configuredToolNames = (observed.body.tools ?? []).map((tool) => tool.function.name);
 		assert.equal(configuredToolNames.includes("read"), true);
 		assert.equal(configuredToolNames.includes("write"), false);

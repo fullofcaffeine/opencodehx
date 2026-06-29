@@ -1,11 +1,14 @@
 package opencodehx.session;
 
+import js.lib.Promise;
 import opencodehx.config.ConfigInfo;
+import opencodehx.externs.web.GlobalFetch;
 import opencodehx.externs.node.Os;
 import opencodehx.file.AppFileSystem;
 import opencodehx.host.node.GlobalPaths;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.util.Abort;
 
 typedef SessionInstructionContext = {
 	final directory:String;
@@ -29,17 +32,36 @@ typedef SessionInstructionFile = {
  *
  * This ports the deterministic file-backed subset of upstream
  * `session/instruction.ts`: project/root instruction files, global profile
- * instructions, and local `config.instructions` entries. Per-message nearby
- * read-tool claims and remote instruction URL fetching are later session slices.
+ * instructions, local `config.instructions` entries, async remote instruction
+ * URLs for live prompts, and nearby read-tool instruction discovery.
+ * Per-message claim clearing/dedup across completed read-tool history remains a
+ * later session slice.
  */
 class SessionInstruction {
 	static final PROJECT_FILES:Array<String> = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md"];
+	static inline final REMOTE_TIMEOUT_MS = 5000;
 
 	public static function system(input:SessionInstructionContext):Array<String> {
 		return [
 			for (file in systemFiles(input))
 				'Instructions from: ${file.filepath}\n${file.content}'
 		];
+	}
+
+	@:async
+	public static function systemAsync(input:SessionInstructionContext):Promise<Array<String>> {
+		final out = system(input);
+		final instructions = input.config == null ? null : input.config.instructions;
+		if (instructions == null)
+			return out;
+		for (raw in instructions) {
+			if (!isRemote(raw))
+				continue;
+			final content = StringTools.trim(@:await fetchRemote(raw));
+			if (content != "")
+				out.push('Instructions from: ${raw}\n${content}');
+		}
+		return out;
 	}
 
 	public static function systemFiles(input:SessionInstructionContext):Array<SessionInstructionFile> {
@@ -166,6 +188,23 @@ class SessionInstruction {
 
 	static function isRemote(path:String):Bool {
 		return StringTools.startsWith(path, "https://") || StringTools.startsWith(path, "http://");
+	}
+
+	@:async
+	static function fetchRemote(url:String):Promise<String> {
+		final timeout = Abort.abortAfter(REMOTE_TIMEOUT_MS);
+		try {
+			final response = @:await GlobalFetch.response(url, {signal: timeout.signal});
+			timeout.clearTimeout();
+			if (!response.ok)
+				return "";
+			return @:await response.text();
+		} catch (_:haxe.Exception) {
+			// Remote instruction fetch failures are intentionally treated like
+			// absent instructions, matching upstream's prompt assembly behavior.
+			timeout.clearTimeout();
+			return "";
+		}
 	}
 
 	static function addPath(paths:Array<String>, filepath:String):Void {

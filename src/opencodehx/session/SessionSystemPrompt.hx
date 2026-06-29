@@ -1,5 +1,6 @@
 package opencodehx.session;
 
+import js.lib.Promise;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.AgentInfo;
 import opencodehx.host.node.NodeProcess;
@@ -31,7 +32,8 @@ class SessionSystemPrompt {
 	public static function build(input:SessionSystemPromptInput):Array<String> {
 		final discovery = ProjectRuntime.fromDirectory(input.directory);
 		final project = discovery.project;
-		final header = input.agent != null && hasText(input.agent.prompt) ? [StringTools.trim(input.agent.prompt)] : provider(input.model);
+		final agentPrompt = input.agent == null ? null : trimmed(input.agent.prompt);
+		final header = agentPrompt == null ? provider(input.model) : [agentPrompt];
 		final environmentPrompt = environment(input.model, input.directory, project.worktree, project.vcs == ProjectVcs.GitVcs);
 		final skillsPrompt = skills(input.directory, project.worktree, input.config, input.agent);
 		final instructionPrompt = SessionInstruction.system({
@@ -39,9 +41,31 @@ class SessionSystemPrompt {
 			worktree: project.worktree,
 			config: input.config,
 		});
+		return assemble(input, header, environmentPrompt, skillsPrompt, instructionPrompt);
+	}
+
+	@:async
+	public static function buildAsync(input:SessionSystemPromptInput):Promise<Array<String>> {
+		final discovery = ProjectRuntime.fromDirectory(input.directory);
+		final project = discovery.project;
+		final agentPrompt = input.agent == null ? null : trimmed(input.agent.prompt);
+		final header = agentPrompt == null ? provider(input.model) : [agentPrompt];
+		final environmentPrompt = environment(input.model, input.directory, project.worktree, project.vcs == ProjectVcs.GitVcs);
+		final skillsPrompt = skills(input.directory, project.worktree, input.config, input.agent);
+		final instructionPrompt = @:await SessionInstruction.systemAsync({
+			directory: input.directory,
+			worktree: project.worktree,
+			config: input.config,
+		});
+		return assemble(input, header, environmentPrompt, skillsPrompt, instructionPrompt);
+	}
+
+	static function assemble(input:SessionSystemPromptInput, header:Array<String>, environmentPrompt:Array<String>, skillsPrompt:Array<String>,
+			instructionPrompt:Array<String>):Array<String> {
 		final parts = header.concat(environmentPrompt).concat(skillsPrompt).concat(instructionPrompt);
-		if (hasText(input.userSystem))
-			parts.push(StringTools.trim(input.userSystem));
+		final userSystem = trimmed(input.userSystem);
+		if (userSystem != null)
+			parts.push(userSystem);
 		return [parts.join("\n")];
 	}
 
@@ -102,6 +126,13 @@ class SessionSystemPrompt {
 	}
 
 	static function hasText(value:Null<String>):Bool {
-		return value != null && StringTools.trim(value) != "";
+		return trimmed(value) != null;
+	}
+
+	static function trimmed(value:Null<String>):Null<String> {
+		if (value == null)
+			return null;
+		final text = StringTools.trim(value);
+		return text == "" ? null : text;
 	}
 }

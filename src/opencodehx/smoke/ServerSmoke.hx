@@ -5,6 +5,7 @@ import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.Json;
+import js.html.AbortSignal;
 import js.html.Request;
 import js.html.Response;
 import js.lib.Error;
@@ -62,6 +63,7 @@ typedef SmokeFetchInit = {
 	final method:String;
 	final headers:DynamicAccess<String>;
 	final body:String;
+	@:optional final signal:AbortSignal;
 }
 
 typedef WorkspaceHttpCapture = {
