@@ -246,6 +246,24 @@ class ConfigSmoke {
 			"tui legacy migration strips moved keys from source");
 		eq(Fs.readFileSync(NodePath.join(nested, "tui.json"), "utf8").indexOf("ignored") == -1, true, "tui legacy migration drops unknown nested keys");
 
+		final readonlyDir = directory(root, "tui-readonly-migration");
+		final readonlySource = NodePath.join(readonlyDir, "opencode.json");
+		write(readonlyDir, "opencode.json", '{"theme":"readonly-theme","tui":{"scroll_speed":5}}');
+		Fs.chmodSync(readonlySource, 0x124);
+		try {
+			final readonly = ConfigTui.load(readonlyDir, {globalConfigDir: directory(root, "tui-empty-readonly-global"), worktree: readonlyDir});
+			eq(readonly.theme, "readonly-theme", "tui readonly migration loads generated tui config");
+			eq(readonly.scrollSpeed, 5.0, "tui readonly migration moves nested scroll speed");
+			eq(Fs.existsSync(NodePath.join(readonlyDir, "tui.json")), true, "tui readonly migration writes tui.json");
+			final preserved = Fs.readFileSync(readonlySource, "utf8");
+			eq(preserved.indexOf("readonly-theme") != -1, true, "tui readonly migration keeps source when strip fails");
+			eq(preserved.indexOf("scroll_speed") != -1, true, "tui readonly migration keeps nested source when strip fails");
+		} catch (error:haxe.Exception) {
+			Fs.chmodSync(readonlySource, 0x1a4);
+			throw error;
+		}
+		Fs.chmodSync(readonlySource, 0x1a4);
+
 		final envDir = directory(root, "tui-env");
 		write(envDir, "theme.txt", "env-theme");
 		write(envDir, "key.txt", "ctrl+e");
