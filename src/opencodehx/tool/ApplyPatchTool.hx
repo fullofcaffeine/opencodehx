@@ -3,6 +3,8 @@ package opencodehx.tool;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolExternalDirectory.ExternalDirectoryKind;
+import opencodehx.tool.ToolExternalDirectory.requireExternalDirectory;
 import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
@@ -201,33 +203,39 @@ class ApplyPatchTool {
 	static function planChange(ctx:ToolContext, hunk:PatchHunk):PatchChange {
 		return switch hunk {
 			case AddFile(path, contents):
-				final absolute = resolve(KnownToolID.ApplyPatch, ctx, path);
+				final absolute = resolvePatchTarget(ctx, path);
 				final oldContent = "";
 				final next = ToolBom.split(contents == "" || StringTools.endsWith(contents, "\n") ? contents : contents + "\n");
 				makeChange(ctx, "add", absolute, null, oldContent, next.text, next.bom);
 			case DeleteFile(path):
-				final absolute = resolve(KnownToolID.ApplyPatch, ctx, path);
+				final absolute = resolvePatchTarget(ctx, path);
 				if (!Fs.existsSync(absolute) || !Fs.statSync(absolute).isFile())
 					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
 						'apply_patch verification failed: Failed to read file to delete: ${absolute}'));
 				final source = ToolBom.split(Fs.readFileSync(absolute, "utf8"));
 				makeChange(ctx, "delete", absolute, null, source.text, "", source.bom);
 			case UpdateFile(path, movePath, chunks):
-				final absolute = resolve(KnownToolID.ApplyPatch, ctx, path);
+				final absolute = resolvePatchTarget(ctx, path);
 				if (!Fs.existsSync(absolute) || !Fs.statSync(absolute).isFile())
 					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
 						'apply_patch verification failed: Failed to read file to update: ${absolute}'));
 				final source = ToolBom.split(Fs.readFileSync(absolute, "utf8"));
 				final oldContent = source.text;
 				final next = ToolBom.split(deriveNewContent(absolute, oldContent, chunks));
-				final resolvedMove = movePath == null ? null : resolve(KnownToolID.ApplyPatch, ctx, movePath);
+				final resolvedMove = movePath == null ? null : resolvePatchTarget(ctx, movePath);
 				makeChange(ctx, resolvedMove == null ? "update" : "move", absolute, resolvedMove, oldContent, next.text, source.bom || next.bom);
 		}
 	}
 
+	static function resolvePatchTarget(ctx:ToolContext, rawPath:String):String {
+		final absolute = resolve(KnownToolID.ApplyPatch, ctx, rawPath);
+		requireExternalDirectory(KnownToolID.ApplyPatch, ctx, absolute, ExternalDirectoryKind.ExternalFile);
+		return absolute;
+	}
+
 	static function makeChange(ctx:ToolContext, kind:String, filePath:String, movePath:Null<String>, oldContent:String, newContent:String,
 			bom:Bool):PatchChange {
-		final target = movePath == null ? filePath : movePath;
+		final target:String = movePath == null ? filePath : movePath;
 		final relative = ToolPaths.relative(ctx, target);
 		final diff = TextDiff.unified(filePath, oldContent, newContent);
 		return {
@@ -250,13 +258,15 @@ class ApplyPatchTool {
 				Fs.mkdirSync(NodePath.dirname(change.filePath), {recursive: true});
 				Fs.writeFileSync(change.filePath, ToolBom.join(change.newContent, change.bom), "utf8");
 			case "move":
-				final target:Null<String> = change.movePath;
-				if (target == null)
-					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
-						'apply_patch verification failed: missing move target for ${change.filePath}'));
-				Fs.mkdirSync(NodePath.dirname(target), {recursive: true});
-				Fs.writeFileSync(target, ToolBom.join(change.newContent, change.bom), "utf8");
-				Fs.rmSync(change.filePath, {force: true});
+				switch change.movePath {
+					case null:
+						throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
+							'apply_patch verification failed: missing move target for ${change.filePath}'));
+					case target:
+						Fs.mkdirSync(NodePath.dirname(target), {recursive: true});
+						Fs.writeFileSync(target, ToolBom.join(change.newContent, change.bom), "utf8");
+						Fs.rmSync(change.filePath, {force: true});
+				}
 			case "delete":
 				Fs.rmSync(change.filePath, {force: true});
 			case _:
@@ -403,7 +413,7 @@ class ApplyPatchTool {
 
 	static function resolve(id:String, ctx:ToolContext, rawPath:String):String {
 		try {
-			return ToolPaths.resolve(ctx, rawPath);
+			return ToolPaths.resolveAny(ctx, rawPath);
 		} catch (error:Dynamic) {
 			throw new ToolException(ExecutionFailed(id, Std.string(error)));
 		}

@@ -882,6 +882,69 @@ class ToolSmoke {
 		eq(bomMetadata.indexOf("-using System;") == -1, true, "patch BOM diff avoids first-line churn");
 		eq(bomMetadata.indexOf("+using System;") == -1, true, "patch BOM diff avoids first-line add churn");
 
+		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-patch-outside-"));
+		final outsideAdd = NodePath.join(outsideDir, "added.txt");
+		final outsideRequests:Array<ToolPermissionRequest> = [];
+		registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: ["*** Begin Patch", '*** Add File: ${outsideAdd}', "+outside", "*** End Patch",].join("\n")
+		}, context(ctx.directory, request -> {
+			outsideRequests.push(request);
+			return {allowed: true};
+		}));
+		eq(Fs.readFileSync(outsideAdd, "utf8"), "outside\n", "patch external add content");
+		eq(outsideRequests.length, 2, "patch external add permission count");
+		eq(outsideRequests[0].permission, "external_directory", "patch external add permission kind");
+		final outsidePattern = ToolPaths.normalize(NodePath.join(outsideDir, "*"));
+		eq(outsideRequests[0].patterns.join(","), outsidePattern, "patch external add permission pattern");
+		eq(outsideRequests[0].always.join(","), outsidePattern, "patch external add permission always");
+		final outsideMetadata = Json.stringify(outsideRequests[0].metadata);
+		eq(outsideMetadata.indexOf('"filepath":"' + jsonPath(outsideAdd) + '"') != -1, true, "patch external add metadata filepath");
+		eq(outsideMetadata.indexOf('"parentDir":"' + jsonPath(outsideDir) + '"') != -1, true, "patch external add metadata parent");
+		eq(outsideRequests[1].permission, "edit", "patch external add edit permission kind");
+		eq(outsideRequests[1].patterns.join(","), ToolPaths.relative(ctx, outsideAdd), "patch external add edit permission pattern");
+
+		final outsideMove = NodePath.join(outsideDir, "moved.txt");
+		write(ctx.directory, "src/patch-external-move.txt", "move outside\n");
+		final moveRequests:Array<ToolPermissionRequest> = [];
+		registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/patch-external-move.txt",
+				'*** Move to: ${outsideMove}',
+				"@@",
+				"-move outside",
+				"+moved outside",
+				"*** End Patch",
+			].join("\n")
+		}, context(ctx.directory, request -> {
+			moveRequests.push(request);
+			return {allowed: true};
+		}));
+		eq(Fs.existsSync(NodePath.join(ctx.directory, "src/patch-external-move.txt")), false, "patch external move removes source");
+		eq(Fs.readFileSync(outsideMove, "utf8"), "moved outside\n", "patch external move target content");
+		eq(moveRequests.length, 2, "patch external move permission count");
+		eq(moveRequests[0].permission, "external_directory", "patch external move permission kind");
+		eq(moveRequests[0].patterns.join(","), outsidePattern, "patch external move permission pattern");
+		eq(moveRequests[1].permission, "edit", "patch external move edit permission kind");
+		eq(moveRequests[1].patterns.join(","), ToolPaths.relative(ctx, outsideMove), "patch external move edit permission pattern");
+
+		final deniedAdd = NodePath.join(outsideDir, "denied.txt");
+		final deniedExternalCtx = context(ctx.directory, request -> {
+			if (request.permission == "external_directory")
+				return {allowed: false, reason: "patch outside blocked"};
+			return {allowed: true};
+		});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: ["*** Begin Patch", '*** Add File: ${deniedAdd}', "+blocked", "*** End Patch",].join("\n")
+		}, deniedExternalCtx), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "apply_patch" && message.indexOf("patch outside blocked") != -1;
+				case _: false;
+			}
+		}, "patch external directory denied");
+		eq(Fs.existsSync(deniedAdd), false, "patch external denied avoids file write");
+		Fs.rmSync(outsideDir, {recursive: true, force: true});
+
 		expectToolFailure(() -> registry.execute(ToolIDs.known("apply_patch"), {patchText: "*** Begin Patch\n*** Frobnicate File: foo\n*** End Patch"}, ctx),
 			function(failure) {
 				return switch failure {
