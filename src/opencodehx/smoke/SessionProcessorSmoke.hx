@@ -1059,12 +1059,30 @@ description: Review workflow.
 			eq(errorResult.events[1].message, "fixture provider error", "ai sdk error event message");
 			eq(errorResult.events[2].type, "finish", "ai sdk error finish event");
 			eq(errorResult.events[2].reason, "error", "ai sdk error finish reason");
+			eq(errorResult.retry == null, true, "ai sdk non-retryable error has no retry");
 			switch errorResult.messages[1].info {
 				case AssistantInfo(assistant):
 					eq(assistant.finish, "error", "ai sdk error assistant finish");
 				case _:
 					throw "session processor async: expected error assistant info";
 			}
+
+			final retryResult = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_retryable_error",
+				prompt: "Hit a retryable provider error.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: AiSdkMockModel.error("Rate limit exceeded"),
+			});
+			if (retryResult.retry == null)
+				throw "session processor async: expected ai sdk retry status";
+			eq(retryResult.retry.message, "Rate limit exceeded", "ai sdk retry message");
+			eq(retryResult.retry.nextDelay, 2000.0, "ai sdk retry delay");
+			eq(retryResult.events[3].type, "retry", "ai sdk retry event type");
+			eq(retryResult.events[3].attempt, 1, "ai sdk retry event attempt");
+			eq(retryResult.events[3].message, "Rate limit exceeded", "ai sdk retry event message");
+			assertRetryPart(retryResult.messages[1].parts, "ai sdk retry part", 1.0, "Error");
 
 			final abortResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_abort",
@@ -1339,13 +1357,13 @@ description: Review workflow.
 		eq(result.compaction.overflow, true, "compaction overflow");
 		eq(result.compaction.count, 191000.0, "compaction token count");
 		assertCompactionPart(result.messages[0].parts, "runtime compaction part");
-		assertRetryPart(result.messages[1].parts, "runtime retry part");
+		assertRetryPart(result.messages[1].parts, "runtime retry part", 2.0, "APIError");
 
 		final recovered = SessionProcessor.recover(store, "ses_retry_overflow", 10);
 		eq(recovered.session.id.toString(), "ses_retry_overflow", "recovered retry session id");
 		eq(recovered.messages.length, 2, "recovered retry messages");
 		assertCompactionPart(recovered.messages[0].parts, "recovered compaction part");
-		assertRetryPart(recovered.messages[1].parts, "recovered retry part");
+		assertRetryPart(recovered.messages[1].parts, "recovered retry part", 2.0, "APIError");
 	}
 
 	static function abortFlow(root:String):Void {
@@ -1739,12 +1757,12 @@ description: Review workflow.
 		throw label + ": expected compaction part";
 	}
 
-	static function assertRetryPart(parts:Array<Part>, label:String):Void {
+	static function assertRetryPart(parts:Array<Part>, label:String, expectedAttempt:Float, expectedName:String):Void {
 		for (part in parts) {
 			switch part {
 				case RetryPart(retry):
-					eq(retry.attempt, 2.0, label + " attempt");
-					eq(jsonStringField(Unknown.fromBoundary(retry.error), "name", label + " error"), "APIError", label + " error");
+					eq(retry.attempt, expectedAttempt, label + " attempt");
+					eq(jsonStringField(Unknown.fromBoundary(retry.error), "name", label + " error"), expectedName, label + " error");
 					return;
 				case _:
 			}

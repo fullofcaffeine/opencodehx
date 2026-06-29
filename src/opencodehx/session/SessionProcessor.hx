@@ -149,6 +149,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final agentTopP:Float;
 	@:optional final headers:ProviderHeaders;
 	@:optional final variant:String;
+	@:optional final retryAttempt:Int;
 }
 
 typedef SessionProcessorResult = {
@@ -295,6 +296,8 @@ class SessionProcessor {
 		var tokens = tokenUsage();
 		var modelToolCall:Null<SessionToolCall> = null;
 		var toolOutcome:Null<SessionToolOutcome> = null;
+		var retry:Null<SessionRetryStatus> = null;
+		var providerError:Null<SessionProviderError> = null;
 		final messageHistory = modelHistory(input.history);
 		final loadedInstructions = input.history == null ? [] : SessionInstruction.loadedFromHistory(input.history);
 		final tools = AiSdkProvider.toolsFromRegistry(registry, toolFilter);
@@ -326,6 +329,16 @@ class SessionProcessor {
 			modelToolCall = firstModelToolCall(stream.events);
 			for (event in encodeAiSdkEvents(stream.events))
 				events.push(event);
+			providerError = firstAiSdkProviderError(stream.errors);
+			retry = providerError == null ? null : SessionRetry.status(providerError, retryAttempt(input.retryAttempt));
+			if (retry != null) {
+				events.push({
+					type: "retry",
+					attempt: retry.attempt,
+					message: retry.message,
+					nextDelay: retry.nextDelay,
+				});
+			}
 		}
 
 		final assistantText = collectText(events);
@@ -335,7 +348,8 @@ class SessionProcessor {
 		final toolCall = input.toolCall == null ? modelToolCall : input.toolCall;
 		final instructionClaims = new SessionInstructionClaims();
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, toolCall, registry,
-			input.permission, events, null, null, wasAborted, tokens, input.turnID, input.turnTime, instructionClaims, loadedInstructions, toolFilter);
+			input.permission, events, retry, providerError, wasAborted, tokens, input.turnID, input.turnTime, instructionClaims, loadedInstructions,
+			toolFilter);
 		toolOutcome = assistantMessage.tool;
 		var continuationLimit = DEFAULT_TOOL_CONTINUATIONS;
 		final configuredContinuationLimit = input.maxToolContinuations;
@@ -411,11 +425,21 @@ class SessionProcessor {
 			},
 			events: events,
 			messages: [userMessage, assistantMessage.message],
-			retry: null,
+			retry: retry,
 			compaction: null,
 			aborted: wasAborted ? true : null,
 			tool: toolOutcome,
 		};
+	}
+
+	static function retryAttempt(configured:Null<Int>):Int {
+		return configured == null ? 1 : configured;
+	}
+
+	static function firstAiSdkProviderError(errors:Array<String>):Null<SessionProviderError> {
+		if (errors.length == 0)
+			return null;
+		return SessionProviderError.Message(errors[0]);
 	}
 
 	static function aiSdkStreamOptions(input:SessionAiSdkProcessorInput, sessionIDText:String, projectID:String, system:Array<String>, registry:ToolRegistry,
