@@ -52,6 +52,7 @@ This is not the full upstream Effect session loop yet. Live provider streaming, 
 
 - `SessionToolCall` and `SessionToolOutcome` are typed records rather than broad `Dynamic`, while individual tool inputs remain dynamic at the npm/OpenCode boundary.
 - Retryable provider failures are a typed Haxe enum first; only the final retry-part error payload is serialized into the upstream JSON shape.
+- Retry JSON message classification treats parsed provider text as `genes.ts.Unknown`, narrows through `UnknownRecord`, and copies out only the string fields needed for the upstream retry labels.
 - Compaction decisions are pure Haxe functions over typed `ConfigInfo`, `ProviderModel`, and `TokenUsage` records, so overflow behavior can be retargeted without TypeScript runtime assumptions.
 - Assistant tool lifecycle uses the existing `ToolState` enum so illegal status strings do not leak into Haxe source.
 - Session stream/status events are a typed structural record (`SessionEvent`) rather than broad `Dynamic`, while still encoding the upstream JSON event field names. This keeps generated TypeScript at `SessionEvent[]` instead of `any[]` for normal event handling.

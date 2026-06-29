@@ -17,14 +17,14 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 741,
+    "Dynamic": 735,
     "DynamicAccess": 560,
-    "cast": 222,
-    "untyped": 6,
+    "cast": 220,
+    "untyped": 5,
     "Syntax.code": 27,
     "@:ts.type": 77,
-    "Reflect.field": 481,
-    "Reflect.hasField": 47,
+    "Reflect.field": 479,
+    "Reflect.hasField": 46,
     "Reflect.setField": 52,
     "Any": 0
   },
@@ -471,12 +471,8 @@
       "Reflect.setField": 1
     },
     "src/opencodehx/session/SessionRetry.hx": {
-      "Dynamic": 7,
-      "DynamicAccess": 2,
-      "cast": 2,
-      "untyped": 1,
-      "Reflect.field": 1,
-      "Reflect.hasField": 1
+      "Dynamic": 1,
+      "DynamicAccess": 2
     },
     "src/opencodehx/skill/SkillRegistry.hx": {
       "DynamicAccess": 4,
@@ -599,7 +595,7 @@
       "Dynamic": 6,
       "DynamicAccess": 25,
       "cast": 1,
-      "Reflect.field": 11
+      "Reflect.field": 10
     },
     "src/opencodehx/smoke/SkillSmoke.hx": {
       "Dynamic": 2,

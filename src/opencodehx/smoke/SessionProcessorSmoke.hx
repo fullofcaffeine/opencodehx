@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
@@ -1347,7 +1348,7 @@ class SessionProcessorSmoke {
 			switch part {
 				case RetryPart(retry):
 					eq(retry.attempt, 2.0, label + " attempt");
-					eq(Reflect.field(retry.error, "name"), "APIError", label + " error");
+					eq(jsonStringField(Unknown.fromBoundary(retry.error), "name", label + " error"), "APIError", label + " error");
 					return;
 				case _:
 			}
@@ -1359,5 +1360,15 @@ class SessionProcessorSmoke {
 		if (actual != expected) {
 			throw '$label: expected ${expected}, got ${actual}';
 		}
+	}
+
+	static function jsonStringField(value:Unknown, field:String, label:String):String {
+		final record = UnknownNarrow.record(value);
+		if (record == null)
+			throw label + ": expected object";
+		final text = UnknownNarrow.string(record.get(field));
+		if (text == null)
+			throw label + ": expected string field";
+		return text;
 	}
 }

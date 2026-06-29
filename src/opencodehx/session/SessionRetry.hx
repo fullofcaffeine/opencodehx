@@ -1,5 +1,8 @@
 package opencodehx.session;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import haxe.Json;
 import opencodehx.host.Clock;
@@ -133,9 +136,15 @@ class SessionRetry {
 	}
 
 	static function retryableApi(error:SessionApiError):Null<String> {
-		final status = error.statusCode;
-		if (!error.isRetryable && !(status != null && status >= 500))
-			return null;
+		if (!error.isRetryable) {
+			switch error.statusCode {
+				case null:
+					return null;
+				case status if (status < 500):
+					return null;
+				case _:
+			}
+		}
 		if (error.responseBody != null && error.responseBody.indexOf("FreeUsageLimitError") != -1)
 			return GO_UPSELL_MESSAGE;
 		return error.message.indexOf("Overloaded") != -1 ? "Provider is overloaded" : error.message;
@@ -165,28 +174,31 @@ class SessionRetry {
 		return null;
 	}
 
-	static function parseJsonObject(message:String):Null<Dynamic> {
+	static function parseJsonObject(message:String):Null<UnknownRecord> {
 		try {
-			// haxe.Json returns Dynamic because JSON is an untyped runtime
-			// boundary. Access stays inside stringAt(), which checks field
-			// presence and string shape before returning typed data.
-			final parsed:Dynamic = Json.parse(message);
-			return parsed;
+			final parsed = Unknown.fromBoundary(Json.parse(message));
+			return UnknownNarrow.record(parsed);
 		} catch (_:Dynamic) {
 			return null;
 		}
 	}
 
-	static function stringAt(data:Dynamic, path:Array<String>):Null<String> {
-		// Dynamic is contained to walking parsed JSON by field name. The final
-		// cast happens only after Std.isOfType proves the leaf is a String.
-		var current:Dynamic = data;
-		for (field in path) {
-			if (current == null || !Reflect.hasField(current, field))
+	static function stringAt(data:UnknownRecord, path:Array<String>):Null<String> {
+		var current:Unknown = data.get(path[0]);
+		if (!data.hasOwn(path[0]))
+			return null;
+		if (path.length == 1)
+			return UnknownNarrow.string(current);
+		for (index in 1...path.length) {
+			final record = UnknownNarrow.record(current);
+			if (record == null)
 				return null;
-			current = Reflect.field(current, field);
+			final field = path[index];
+			if (!record.hasOwn(field))
+				return null;
+			current = record.get(field);
 		}
-		return Std.isOfType(current, String) ? cast current : null;
+		return UnknownNarrow.string(current);
 	}
 
 	static function exponential(attempt:Int):Float {
