@@ -11,6 +11,16 @@ extern typedef FsStats = {
 	@:optional final mtimeMs:Float;
 }
 
+extern typedef FsDirent = {
+	final name:String;
+	function isDirectory():Bool;
+	function isFile():Bool;
+}
+
+extern typedef FsReaddirDirentOptions = {
+	final withFileTypes:Bool;
+}
+
 extern typedef FsWatchOptions = {
 	@:optional final persistent:Bool;
 	@:optional final recursive:Bool;
@@ -38,6 +48,7 @@ extern class Fs {
 	static function mkdtempSync(prefix:String):String;
 	static function rmSync(path:String, ?options:Dynamic):Void;
 	static function readdirSync(path:String, ?options:Dynamic):Array<Dynamic>;
+	@:native("readdirSync") static function readdirDirentsSync(path:String, options:FsReaddirDirentOptions):Array<FsDirent>;
 	@:native("readdirSync") static function readdirNamesSync(path:String):Array<String>;
 	static function statSync(path:String):FsStats;
 	static function realpathSync(path:String):String;

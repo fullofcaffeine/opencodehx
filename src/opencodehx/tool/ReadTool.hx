@@ -1,6 +1,7 @@
 package opencodehx.tool;
 
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Fs.FsDirent;
 import opencodehx.externs.node.Fs.FsStats;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
@@ -88,13 +89,13 @@ class ReadTool {
 	}
 
 	static function readDirectory(ctx:ToolContext, absolute:String, offsetArg:Null<Int>, limitArg:Null<Int>):ToolResult {
-		final entries:Array<Dynamic> = Fs.readdirSync(absolute, {withFileTypes: true});
+		final entries:Array<FsDirent> = Fs.readdirDirentsSync(absolute, {withFileTypes: true});
 		final rows:Array<String> = [];
 		for (entry in entries) {
-			final name = Std.string(Reflect.field(entry, "name"));
+			final name = entry.name;
 			if (name == ".git" || name == ".DS_Store")
 				continue;
-			final isDirectory:Bool = Reflect.callMethod(entry, Reflect.field(entry, "isDirectory"), []);
+			final isDirectory = entry.isDirectory();
 			rows.push(name + (isDirectory ? "/" : ""));
 		}
 		rows.sort(Reflect.compare);
@@ -188,8 +189,8 @@ class ReadTool {
 			return 'File not found: ${absolute}';
 		final wanted = NodePath.basename(absolute).toLowerCase();
 		final suggestions:Array<String> = [];
-		for (entry in Fs.readdirSync(parent, {withFileTypes: true})) {
-			final name = Std.string(Reflect.field(entry, "name"));
+		for (entry in Fs.readdirDirentsSync(parent, {withFileTypes: true})) {
+			final name = entry.name;
 			if (name.toLowerCase().indexOf(wanted) != -1 || wanted.indexOf(name.toLowerCase()) != -1)
 				suggestions.push(name);
 		}
