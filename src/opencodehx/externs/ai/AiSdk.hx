@@ -1,5 +1,6 @@
 package opencodehx.externs.ai;
 
+import genes.Register;
 import genes.ts.Unknown;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
@@ -395,7 +396,11 @@ abstract AiSharedProviderOptions(AiSharedProviderOptionsMap) from AiSharedProvid
 @:ts.type("import('@ai-sdk/provider').JSONObject")
 abstract AiJsonObject(Unknown) from Unknown to Unknown {
 	public static inline function fromBoundary<T>(value:T):AiJsonObject {
-		return Unknown.fromBoundary(value);
+		// AI SDK's JSONObject and genes.ts.JsonObject are equivalent native JSON
+		// runtime shapes, but TypeScript cannot prove their separate recursive
+		// aliases compatible. Callers must validate or construct JSON before this
+		// SDK bridge; keep the assertion here so product call sites stay typed.
+		return Register.unsafeCast(value);
 	}
 }
 
@@ -456,6 +461,7 @@ typedef AiModelToolCallPartShape = {
 	final toolCallId:String;
 	final toolName:String;
 	final input:Unknown;
+	@:optional final providerOptions:AiSharedProviderOptions;
 }
 
 @:ts.type("'text' | 'json' | 'content' | 'execution-denied' | 'error-text' | 'error-json'")
@@ -468,6 +474,7 @@ enum abstract AiModelToolResultOutputType(String) from String to String {
 typedef AiModelTextPartShape = {
 	final type:String;
 	final text:String;
+	@:optional final providerOptions:AiSharedProviderOptions;
 }
 
 typedef AiModelFilePartShape = {
@@ -499,13 +506,14 @@ typedef AiModelToolResultPartShape = {
 	final toolCallId:String;
 	final toolName:String;
 	final output:AiModelToolResultOutput;
+	@:optional final providerOptions:AiSharedProviderOptions;
 }
 
-@:forward(type, toolCallId, toolName, input)
+@:forward(type, toolCallId, toolName, input, providerOptions)
 @:ts.type("import('ai').ToolCallPart")
 abstract AiModelToolCallPart(AiModelToolCallPartShape) from AiModelToolCallPartShape to AiModelToolCallPartShape {}
 
-@:forward(type, text)
+@:forward(type, text, providerOptions)
 @:ts.type("import('ai').TextPart")
 abstract AiModelTextPart(AiModelTextPartShape) from AiModelTextPartShape to AiModelTextPartShape {}
 
@@ -517,7 +525,7 @@ abstract AiModelFilePart(AiModelFilePartShape) from AiModelFilePartShape to AiMo
 @:ts.type("import('@ai-sdk/provider-utils').ToolResultOutput")
 abstract AiModelToolResultOutput(AiModelToolResultOutputShape) from AiModelToolResultOutputShape to AiModelToolResultOutputShape {}
 
-@:forward(type, toolCallId, toolName, output)
+@:forward(type, toolCallId, toolName, output, providerOptions)
 @:ts.type("import('ai').ToolResultPart")
 abstract AiModelToolResultPart(AiModelToolResultPartShape) from AiModelToolResultPartShape to AiModelToolResultPartShape {}
 

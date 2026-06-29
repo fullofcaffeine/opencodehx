@@ -30,6 +30,7 @@ import opencodehx.provider.ProviderTypes.ProviderMessageRole;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.session.MessageTypes.Info;
+import opencodehx.session.MessageTypes.MessageJson;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TokenUsage;
 import opencodehx.session.MessageTypes.ToolState;
@@ -1013,6 +1014,16 @@ description: Review workflow.
 				case _:
 					throw "session processor async: expected recovered assistant message";
 			}
+			recoveredAssistant.parts.push(TextPart({
+				id: PartID.make("prt_history_metadata_text"),
+				sessionID: SessionID.make("ses_ai_sdk_tool_persisted"),
+				messageID: recoveredAssistantID,
+				type: "text",
+				text: "Recovered provider metadata text.",
+				metadata: MessageJson.checked({
+					openai: {assistant: "meta"}
+				}),
+			}));
 			recoveredAssistant.parts.push(ToolPart({
 				id: PartID.make("prt_history_media_tool"),
 				sessionID: SessionID.make("ses_ai_sdk_tool_persisted"),
@@ -1039,6 +1050,7 @@ description: Review workflow.
 						}
 					],
 				}),
+				metadata: ToolStateMetadata.checked({providerExecuted: true, openai: {tool: "media-meta"}}),
 			}));
 			recoveredAssistant.parts.push(ToolPart({
 				id: PartID.make("prt_history_interrupted_tool"),
@@ -1815,10 +1827,13 @@ description: Review workflow.
 		eq(prompt[2].role, AiLanguageModelPromptRole.Assistant, label + " recovered assistant role");
 		final assistantParts = promptContentPartsAny(prompt[2], label + " recovered assistant content");
 		eq(hasPromptTextPart(assistantParts, "Recovered file says: ai sdk tool fixture."), true, label + " recovered assistant text");
+		final metadataText = promptTextPart(assistantParts, "Recovered provider metadata text.", label + " metadata text");
+		assertPromptProviderOptions(Unknown.fromBoundary(metadataText.providerOptions), "openai", "assistant", "meta", label + " text metadata");
 		final toolCall = firstPromptPart(assistantParts, AiLanguageModelPromptPartType.ToolCall, label + " recovered tool call");
 		eq(toolCall.toolCallId, "tool_1", label + " tool-call id");
 		eq(toolCall.toolName, "read", label + " tool-call name");
-		eq(hasPromptToolCall(assistantParts, "call_media_history", "read"), true, label + " media tool call");
+		final mediaToolCall = promptToolCall(assistantParts, "call_media_history", "read", label + " media tool call");
+		assertPromptProviderOptions(Unknown.fromBoundary(mediaToolCall.providerOptions), "openai", "tool", "media-meta", label + " tool-call metadata");
 		eq(hasPromptToolCall(assistantParts, "call_interrupted_history", "bash"), true, label + " interrupted tool call");
 		eq(hasPromptToolCall(assistantParts, "call_error_history", "read"), true, label + " error tool call");
 
@@ -1834,6 +1849,7 @@ description: Review workflow.
 			throw label + ": missing recovered tool output";
 		final media = promptToolResult(toolResults, "call_media_history", label + " media result");
 		assertContentToolResult(media.output, "Recovered image output", "image/png", "dG9vbC1pbWFnZQ==", label + " media result");
+		assertPromptProviderOptions(Unknown.fromBoundary(media.providerOptions), "openai", "tool", "media-meta", label + " tool-result metadata");
 		final interrupted = promptToolResult(toolResults, "call_interrupted_history", label + " interrupted result");
 		eq(interrupted.output.type, "text", label + " interrupted result output type");
 		eq(Std.string(interrupted.output.value), "partial interrupted output", label + " interrupted result output");
@@ -1851,11 +1867,15 @@ description: Review workflow.
 		eq(prompt[1].role, AiLanguageModelPromptRole.User, label + " recovered user role");
 		eq(prompt[2].role, AiLanguageModelPromptRole.Assistant, label + " recovered assistant role");
 		final assistantParts = promptContentPartsAny(prompt[2], label + " recovered assistant content");
-		eq(hasPromptToolCall(assistantParts, "call_media_history", "read"), true, label + " media tool call");
+		final metadataText = promptTextPart(assistantParts, "Recovered provider metadata text.", label + " metadata text");
+		eq(metadataText.providerOptions == null, true, label + " different-model text metadata omitted");
+		final mediaToolCall = promptToolCall(assistantParts, "call_media_history", "read", label + " media tool call");
+		eq(mediaToolCall.providerOptions == null, true, label + " different-model tool-call metadata omitted");
 
 		eq(prompt[3].role, AiLanguageModelPromptRole.Tool, label + " recovered tool role");
 		final toolResults = promptContentPartsAny(prompt[3], label + " recovered tool content");
 		final media = promptToolResult(toolResults, "call_media_history", label + " unsupported media result");
+		eq(media.providerOptions == null, true, label + " different-model tool-result metadata omitted");
 		eq(media.output.type, "text", label + " unsupported media result output type");
 		eq(Std.string(media.output.value), "Recovered image output", label + " unsupported media result text");
 
@@ -1876,6 +1896,32 @@ description: Review workflow.
 				return true;
 		}
 		return false;
+	}
+
+	static function promptTextPart(parts:Array<AiLanguageModelPromptPart>, text:String, label:String):AiLanguageModelPromptPart {
+		for (part in parts) {
+			if (part.type == AiLanguageModelPromptPartType.Text && part.text == text)
+				return part;
+		}
+		throw label + ": expected text part";
+	}
+
+	static function promptToolCall(parts:Array<AiLanguageModelPromptPart>, callID:String, toolName:String, label:String):AiLanguageModelPromptPart {
+		for (part in parts) {
+			if (part.type == AiLanguageModelPromptPartType.ToolCall && part.toolCallId == callID && part.toolName == toolName)
+				return part;
+		}
+		throw label + ": expected tool call";
+	}
+
+	static function assertPromptProviderOptions(options:Unknown, provider:String, key:String, value:String, label:String):Void {
+		final root = UnknownNarrow.record(options);
+		if (root == null)
+			throw label + ": expected provider options record";
+		final providerRecord = UnknownNarrow.record(root.get(provider));
+		if (providerRecord == null)
+			throw label + ": expected provider options";
+		eq(UnknownNarrow.string(providerRecord.get(key)), value, label + " value");
 	}
 
 	static function promptToolResult(parts:Array<AiLanguageModelPromptPart>, callID:String, label:String):AiLanguageModelPromptPart {

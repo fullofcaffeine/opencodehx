@@ -2,6 +2,7 @@ package opencodehx.session;
 
 import genes.js.Async.await;
 import genes.ts.JsonValue;
+import genes.ts.JsonCodec;
 import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
 import haxe.Json;
@@ -15,6 +16,9 @@ import opencodehx.externs.ai.AiSdk.AiLanguageModelUsage;
 import opencodehx.externs.ai.AiSdk.AiModelFilePart;
 import opencodehx.externs.ai.AiSdk.AiModelAssistantMessagePart;
 import opencodehx.externs.ai.AiSdk.AiModelMessage;
+import opencodehx.externs.ai.AiSdk.AiSharedProviderOptions;
+import opencodehx.externs.ai.AiSdk.AiSharedProviderOptionsMap;
+import opencodehx.externs.ai.AiSdk.AiJsonObject;
 import opencodehx.externs.ai.AiSdk.AiModelTextPart;
 import opencodehx.externs.ai.AiSdk.AiModelToolCallPart;
 import opencodehx.externs.ai.AiSdk.AiModelToolResultContentPart;
@@ -576,11 +580,15 @@ class SessionProcessor {
 			switch message.info {
 				case UserInfo(_):
 					pushUserModelMessage(out, message.parts);
-				case AssistantInfo(_):
-					pushAssistantModelMessages(out, message.parts, preserveMediaToolResults);
+				case AssistantInfo(assistant):
+					pushAssistantModelMessages(out, message.parts, preserveMediaToolResults, sameProviderModel(assistant, model));
 			}
 		}
 		return out;
+	}
+
+	static function sameProviderModel(assistant:AssistantMessage, model:ProviderModel):Bool {
+		return assistant.providerID == model.providerID.toString() && assistant.modelID == model.id.toString();
 	}
 
 	static function pushUserModelMessage(out:Array<AiModelMessage>, parts:Array<Part>):Void {
@@ -604,7 +612,7 @@ class SessionProcessor {
 			out.push({role: "user", content: content});
 	}
 
-	static function pushAssistantModelMessages(out:Array<AiModelMessage>, parts:Array<Part>, preserveMediaToolResults:Bool):Void {
+	static function pushAssistantModelMessages(out:Array<AiModelMessage>, parts:Array<Part>, preserveMediaToolResults:Bool, preserveProviderOptions:Bool):Void {
 		final content:Array<AiModelAssistantMessagePart> = [];
 		final toolResults:Array<AiModelMessage> = [];
 		final injectedMedia:Array<FilePartData> = [];
@@ -612,26 +620,28 @@ class SessionProcessor {
 			switch part {
 				case TextPart(text):
 					if (text.ignored != true && StringTools.trim(text.text) != "")
-						content.push(modelAssistantTextPart(text.text));
+						content.push(modelAssistantTextPart(text.text, preserveProviderOptions ? providerOptionsFromMessageMetadata(text.metadata) : null));
 				case ToolPart(tool):
+					final providerOptions = preserveProviderOptions ? providerOptionsFromToolMetadata(tool.metadata) : null;
 					switch tool.state {
 						case ToolCompleted(data):
-							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
-							toolResults.push(completedToolResultModelMessage(tool.callID, tool.tool, data, preserveMediaToolResults, injectedMedia));
+							content.push(toolCallModelPart(tool.callID, tool.tool, data.input, providerOptions));
+							toolResults.push(completedToolResultModelMessage(tool.callID, tool.tool, data, preserveMediaToolResults, injectedMedia,
+								providerOptions));
 						case ToolErrored(data):
-							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
+							content.push(toolCallModelPart(tool.callID, tool.tool, data.input, providerOptions));
 							final interruptedOutput = interruptedToolOutput(data.metadata);
 							if (interruptedOutput == null) {
-								toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, data.error));
+								toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, data.error, providerOptions));
 							} else {
-								toolResults.push(toolTextResultModelMessage(tool.callID, tool.tool, interruptedOutput));
+								toolResults.push(toolTextResultModelMessage(tool.callID, tool.tool, interruptedOutput, providerOptions));
 							}
 						case ToolPending(data):
-							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
-							toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, "[Tool execution was interrupted]"));
+							content.push(toolCallModelPart(tool.callID, tool.tool, data.input, providerOptions));
+							toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, "[Tool execution was interrupted]", providerOptions));
 						case ToolRunning(data):
-							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
-							toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, "[Tool execution was interrupted]"));
+							content.push(toolCallModelPart(tool.callID, tool.tool, data.input, providerOptions));
+							toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, "[Tool execution was interrupted]", providerOptions));
 					}
 				case _:
 			}
@@ -672,8 +682,8 @@ class SessionProcessor {
 		return part;
 	}
 
-	static function modelAssistantTextPart(text:String):AiModelAssistantMessagePart {
-		final part:AiModelTextPart = {type: "text", text: text};
+	static function modelAssistantTextPart(text:String, providerOptions:Null<AiSharedProviderOptions>):AiModelAssistantMessagePart {
+		final part:AiModelTextPart = providerOptions == null ? {type: "text", text: text} : {type: "text", text: text, providerOptions: providerOptions};
 		return part;
 	}
 
@@ -685,36 +695,43 @@ class SessionProcessor {
 		return new URL(url);
 	}
 
-	static function toolCallModelPart(callID:String, toolName:String, input:ToolCallInput):AiModelAssistantMessagePart {
-		final part:AiModelToolCallPart = {
-			type: "tool-call",
-			toolCallId: callID,
-			toolName: toolName,
-			input: input.unknown(),
-		};
+	static function toolCallModelPart(callID:String, toolName:String, input:ToolCallInput,
+			providerOptions:Null<AiSharedProviderOptions>):AiModelAssistantMessagePart {
+		final part:AiModelToolCallPart = if (providerOptions == null) {
+			{
+				type: "tool-call",
+				toolCallId: callID,
+				toolName: toolName,
+				input: input.unknown(),
+			};
+		} else {
+			{
+				type: "tool-call",
+				toolCallId: callID,
+				toolName: toolName,
+				input: input.unknown(),
+				providerOptions: providerOptions,
+			};
+		}
 		return part;
 	}
 
-	static function toolTextResultModelMessage(callID:String, toolName:String, outputValue:String):AiModelMessage {
-		final part:AiModelToolResultPart = {
-			type: "tool-result",
-			toolCallId: callID,
-			toolName: toolName,
-			output: {type: "text", value: outputValue},
-		};
+	static function toolTextResultModelMessage(callID:String, toolName:String, outputValue:String,
+			?providerOptions:Null<AiSharedProviderOptions>):AiModelMessage {
+		final part:AiModelToolResultPart = toolResultPart(callID, toolName, {type: "text", value: outputValue}, providerOptions);
 		return toolResultModelMessage(part);
 	}
 
 	static function completedToolResultModelMessage(callID:String, toolName:String, data:ToolStateCompletedData, preserveMediaToolResults:Bool,
-			injectedMedia:Array<FilePartData>):AiModelMessage {
+			injectedMedia:Array<FilePartData>, providerOptions:Null<AiSharedProviderOptions>):AiModelMessage {
 		if (data.attachments == null || data.attachments.length == 0)
-			return toolTextResultModelMessage(callID, toolName, data.output);
+			return toolTextResultModelMessage(callID, toolName, data.output, providerOptions);
 		if (!preserveMediaToolResults) {
 			for (attachment in data.attachments) {
 				if (isMediaFile(attachment))
 					injectedMedia.push(attachment);
 			}
-			return toolTextResultModelMessage(callID, toolName, data.output);
+			return toolTextResultModelMessage(callID, toolName, data.output, providerOptions);
 		}
 		final value:Array<AiModelToolResultContentPart> = [modelToolResultTextPart(data.output)];
 		for (attachment in data.attachments) {
@@ -722,13 +739,8 @@ class SessionProcessor {
 				value.push(modelToolResultMediaPart(attachment));
 		}
 		if (value.length == 1)
-			return toolTextResultModelMessage(callID, toolName, data.output);
-		final part:AiModelToolResultPart = {
-			type: "tool-result",
-			toolCallId: callID,
-			toolName: toolName,
-			output: {type: "content", value: value},
-		};
+			return toolTextResultModelMessage(callID, toolName, data.output, providerOptions);
+		final part = toolResultPart(callID, toolName, {type: "content", value: value}, providerOptions);
 		return toolResultModelMessage(part);
 	}
 
@@ -739,14 +751,26 @@ class SessionProcessor {
 		return {role: "user", content: content};
 	}
 
-	static function toolErrorResultModelMessage(callID:String, toolName:String, outputValue:String):AiModelMessage {
-		final part:AiModelToolResultPart = {
+	static function toolErrorResultModelMessage(callID:String, toolName:String, outputValue:String,
+			?providerOptions:Null<AiSharedProviderOptions>):AiModelMessage {
+		final part = toolResultPart(callID, toolName, {type: "error-text", value: outputValue}, providerOptions);
+		return toolResultModelMessage(part);
+	}
+
+	static function toolResultPart(callID:String, toolName:String, output:opencodehx.externs.ai.AiSdk.AiModelToolResultOutput,
+			providerOptions:Null<AiSharedProviderOptions>):AiModelToolResultPart {
+		return providerOptions == null ? {
 			type: "tool-result",
 			toolCallId: callID,
 			toolName: toolName,
-			output: {type: "error-text", value: outputValue},
-		};
-		return toolResultModelMessage(part);
+			output: output,
+		} : {
+			type: "tool-result",
+			toolCallId: callID,
+			toolName: toolName,
+			output: output,
+			providerOptions: providerOptions,
+			};
 	}
 
 	static function interruptedToolOutput(metadata:Null<ToolStateMetadata>):Null<String> {
@@ -759,6 +783,40 @@ class SessionProcessor {
 		if (record == null || UnknownNarrow.bool(record.get("interrupted")) != true)
 			return null;
 		return UnknownNarrow.string(record.get("output"));
+	}
+
+	static function providerOptionsFromMessageMetadata(metadata:Null<MessageJson>):Null<AiSharedProviderOptions> {
+		if (metadata == null)
+			return null;
+		return providerOptionsFromUnknown(Unknown.fromBoundary(metadata));
+	}
+
+	static function providerOptionsFromToolMetadata(metadata:Null<ToolStateMetadata>):Null<AiSharedProviderOptions> {
+		if (metadata == null)
+			return null;
+		return providerOptionsFromUnknown(Unknown.fromBoundary(metadata));
+	}
+
+	static function providerOptionsFromUnknown(metadata:Unknown):Null<AiSharedProviderOptions> {
+		final record = UnknownNarrow.record(metadata);
+		if (record == null)
+			return null;
+		final out = new AiSharedProviderOptionsMap();
+		var copied = false;
+		for (key in record.keys()) {
+			if (key == "providerExecuted")
+				continue;
+			final value = record.get(key);
+			final providerValue = JsonCodec.narrowObject(value);
+			if (providerValue != null) {
+				out.set(key, AiJsonObject.fromBoundary(providerValue));
+				copied = true;
+			}
+		}
+		if (!copied)
+			return null;
+		final options:AiSharedProviderOptions = out;
+		return options;
 	}
 
 	static function modelToolResultTextPart(text:String):AiModelToolResultContentPart {
