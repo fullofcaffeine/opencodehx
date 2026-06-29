@@ -325,7 +325,7 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
-        "representative exact/replace-all/multiple-match, tolerant fallback behavior, and BOM preservation are covered; full upstream Effect/LSP/event matrix remains deferred",
+        "representative exact/replace-all/multiple-match, tolerant fallback behavior, BOM preservation, and external-directory edit permission shape are covered; full upstream Effect/LSP/event matrix remains deferred",
         "ToolSmoke.editExec",
       ],
     ],
@@ -386,7 +386,7 @@ function directEvidence(path) {
     ["pty/pty-session.test.ts", ["direct", "src/opencodehx/smoke/PtySmoke.hx; src/opencodehx/smoke/ServerSmoke.hx; docs/pty-runtime.md", "created/exited/deleted lifecycle plus PTY HTTP/WebSocket routes are covered; full Effect service integration remains deferred", "PtySmoke lifecycle fixtures plus ServerSmoke PTY routes/WebSocket", "none"]],
     ["pty/pty-shell.test.ts", ["direct", "src/opencodehx/pty/PtyService.hx; src/opencodehx/smoke/PtySmoke.hx; scripts/harness/windows-shell-smoke.mjs; docs/pty-runtime.md", "deterministic smoke covers PowerShell empty args and Git Bash login args; Windows CI smoke repeats the behavior against native shells when available", "PtySmoke ptyShellArgsParity plus windows:shell:smoke", "none"]],
     ["shell/shell.test.ts", ["direct", "src/opencodehx/host/node/NodeProcess.hx; src/opencodehx/smoke/PtySmoke.hx; scripts/harness/windows-shell-smoke.mjs; docs/bash-shell-seam.md", "deterministic smoke covers shell names, login/posix classification, blacklisted Windows shells, Git Bash normalization, /usr/bin/bash Git Bash resolution, and bare PowerShell resolution; Windows CI smoke covers native execution and kill-tree teardown", "PtySmoke shellSelectionParity plus windows:shell:smoke", "none"]],
-    ["tool/external-directory.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md; docs/core-file-tools-port.md", "external workdir denial is covered for bash, and canonical external-directory request/denial shape is covered for read file, write file, glob directory, and grep file targets; edit/apply_patch mutating file-tool permission surface remains deferred", "ToolSmoke bashExec/readExec/writeExec/globExec/grepExec external directory cases"]],
+    ["tool/external-directory.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md; docs/core-file-tools-port.md", "external workdir denial is covered for bash, and canonical external-directory request/denial shape is covered for read file, write file, edit file, glob directory, and grep file targets; apply_patch mutating file-tool permission surface remains deferred", "ToolSmoke bashExec/readExec/writeExec/editExec/globExec/grepExec external directory cases"]],
     ["tool/registry.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "builtin registry and errors are covered; .opencode custom tool loading remains deferred", "ToolSmoke.registrySurface"]],
     ["permission-task.test.ts", ["ported", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "none", "PermissionSmoke.taskPermissionRules"]],
     [

@@ -3,6 +3,8 @@ package opencodehx.tool;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolExternalDirectory.ExternalDirectoryKind;
+import opencodehx.tool.ToolExternalDirectory.requireExternalDirectory;
 import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
@@ -73,6 +75,7 @@ class EditTool {
 			throw new ToolException(ExecutionFailed(KnownToolID.Edit, "No changes to apply: oldString and newString are identical."));
 
 		final absolute = resolve(KnownToolID.Edit, ctx, input.filePath);
+		requireExternalDirectory(KnownToolID.Edit, ctx, absolute, ExternalDirectoryKind.ExternalFile);
 		final existed = Fs.existsSync(absolute);
 		if (existed && Fs.statSync(absolute).isDirectory())
 			throw new ToolException(ExecutionFailed(KnownToolID.Edit, 'Path is a directory, not a file: ${absolute}'));
@@ -84,7 +87,7 @@ class EditTool {
 		final ending = detectLineEnding(oldContent);
 		final normalizedOld = convertToLineEnding(normalizeLineEndings(input.oldString), ending);
 		final normalizedNew = convertToLineEnding(normalizeLineEndings(input.newString), ending);
-		final replaceAll = input.replaceAll == null ? false : input.replaceAll;
+		final replaceAll:Bool = input.replaceAll == null ? false : input.replaceAll;
 		final next = input.oldString == "" ? ToolBom.split(normalizedNew) : ToolBom.split(replace(oldContent, normalizedOld, normalizedNew, replaceAll));
 		final desiredBom = source.bom || next.bom;
 		final nextContent = next.text;
@@ -464,7 +467,7 @@ class EditTool {
 
 	static function resolve(id:String, ctx:ToolContext, rawPath:String):String {
 		try {
-			return ToolPaths.resolve(ctx, rawPath);
+			return ToolPaths.resolveAny(ctx, rawPath);
 		} catch (error:Dynamic) {
 			throw new ToolException(ExecutionFailed(id, Std.string(error)));
 		}

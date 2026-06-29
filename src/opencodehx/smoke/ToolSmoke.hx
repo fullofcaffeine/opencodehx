@@ -747,6 +747,48 @@ class ToolSmoke {
 		final createdBomContent = Fs.readFileSync(bomCreate, "utf8");
 		eq(createdBomContent.charCodeAt(0), 0xfeff, "edit preserves incoming BOM on create");
 		eq(createdBomContent.substr(1), "using Created;\n", "edit strips incoming BOM from logical content");
+
+		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-edit-outside-"));
+		final outsideFile = NodePath.join(outsideDir, "outside.txt");
+		Fs.writeFileSync(outsideFile, "alpha\n", "utf8");
+		final outsideRequests:Array<ToolPermissionRequest> = [];
+		registry.execute(ToolIDs.known("edit"), {
+			filePath: outsideFile,
+			oldString: "alpha",
+			newString: "beta"
+		}, context(ctx.directory, request -> {
+			outsideRequests.push(request);
+			return {allowed: true};
+		}));
+		eq(Fs.readFileSync(outsideFile, "utf8"), "beta\n", "edit external file content");
+		eq(outsideRequests.length, 2, "edit external permission count");
+		eq(outsideRequests[0].permission, "external_directory", "edit external permission kind");
+		final outsidePattern = ToolPaths.normalize(NodePath.join(outsideDir, "*"));
+		eq(outsideRequests[0].patterns.join(","), outsidePattern, "edit external permission pattern");
+		eq(outsideRequests[0].always.join(","), outsidePattern, "edit external permission always");
+		final outsideMetadata = Json.stringify(outsideRequests[0].metadata);
+		eq(outsideMetadata.indexOf('"filepath":"' + jsonPath(outsideFile) + '"') != -1, true, "edit external metadata filepath");
+		eq(outsideMetadata.indexOf('"parentDir":"' + jsonPath(outsideDir) + '"') != -1, true, "edit external metadata parent");
+		eq(outsideRequests[1].permission, "edit", "edit external edit permission kind");
+		eq(outsideRequests[1].patterns.join(","), ToolPaths.relative(ctx, outsideFile), "edit external edit permission pattern");
+
+		final deniedExternalCtx = context(ctx.directory, request -> {
+			if (request.permission == "external_directory")
+				return {allowed: false, reason: "edit outside blocked"};
+			return {allowed: true};
+		});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("edit"), {
+			filePath: outsideFile,
+			oldString: "beta",
+			newString: "blocked"
+		}, deniedExternalCtx), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "edit" && message.indexOf("edit outside blocked") != -1;
+				case _: false;
+			}
+		}, "edit external directory denied");
+		eq(Fs.readFileSync(outsideFile, "utf8"), "beta\n", "edit external denied avoids file mutation");
+		Fs.rmSync(outsideDir, {recursive: true, force: true});
 	}
 
 	static function applyPatchExec(registry:ToolRegistry, ctx:ToolContext):Void {
