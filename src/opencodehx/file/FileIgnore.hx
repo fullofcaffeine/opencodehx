@@ -48,7 +48,7 @@ class FileIgnore {
 
 	public static function match(filepath:String, ?options:{@:optional final extra:Array<String>; @:optional final whitelist:Array<String>;}):Bool {
 		final normalized = normalize(filepath);
-		final whitelist = stringArray(options == null ? null : Reflect.field(options, "whitelist"));
+		final whitelist = options == null || options.whitelist == null ? [] : options.whitelist;
 		for (pattern in whitelist) {
 			if (glob(pattern, normalized))
 				return false;
@@ -59,7 +59,7 @@ class FileIgnore {
 				return true;
 		}
 
-		final extra = stringArray(options == null ? null : Reflect.field(options, "extra"));
+		final extra = options == null || options.extra == null ? [] : options.extra;
 		for (pattern in FILES.concat(extra)) {
 			if (glob(pattern, normalized))
 				return true;
@@ -120,9 +120,5 @@ class FileIgnore {
 
 	static function normalize(path:String):String {
 		return StringTools.replace(path, "\\", "/");
-	}
-
-	static function stringArray(value:Dynamic):Array<String> {
-		return value == null ? [] : cast value;
 	}
 }
