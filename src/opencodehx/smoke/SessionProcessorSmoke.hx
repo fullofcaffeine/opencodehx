@@ -32,6 +32,7 @@ import opencodehx.session.MessageTypes.Info;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TokenUsage;
 import opencodehx.session.MessageTypes.ToolState;
+import opencodehx.session.MessageTypes.ToolStateMetadata;
 import opencodehx.session.PartID;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionLlm;
@@ -41,6 +42,7 @@ import opencodehx.session.SessionInstruction;
 import opencodehx.session.SessionSystemPrompt;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.tool.ToolRegistry;
+import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import js.lib.Promise;
@@ -1003,6 +1005,42 @@ description: Review workflow.
 				description: "Delegated review",
 				agent: "reviewer",
 			}));
+			final recoveredAssistant = recoveredAiSdkTool.messages[1];
+			final recoveredAssistantID = switch recoveredAssistant.info {
+				case AssistantInfo(assistant):
+					assistant.id;
+				case _:
+					throw "session processor async: expected recovered assistant message";
+			}
+			recoveredAssistant.parts.push(ToolPart({
+				id: PartID.make("prt_history_interrupted_tool"),
+				sessionID: SessionID.make("ses_ai_sdk_tool_persisted"),
+				messageID: recoveredAssistantID,
+				type: "tool",
+				callID: "call_interrupted_history",
+				tool: "bash",
+				state: ToolErrored({
+					status: "error",
+					input: ToolCallInput.fromBoundary({command: "long running command"}),
+					error: "Tool execution aborted",
+					metadata: ToolStateMetadata.checked({interrupted: true, output: "partial interrupted output"}),
+					time: {start: 10, end: 11},
+				}),
+			}));
+			recoveredAssistant.parts.push(ToolPart({
+				id: PartID.make("prt_history_error_tool"),
+				sessionID: SessionID.make("ses_ai_sdk_tool_persisted"),
+				messageID: recoveredAssistantID,
+				type: "tool",
+				callID: "call_error_history",
+				tool: "read",
+				state: ToolErrored({
+					status: "error",
+					input: ToolCallInput.fromBoundary({filePath: "missing.txt"}),
+					error: "File not found",
+					time: {start: 12, end: 13},
+				}),
+			}));
 			final richHistoryRuntime = AiSdkMockModel.inspectableText(["Rich history aware."]);
 			final richHistoryRun = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_rich_history",
@@ -1739,9 +1777,12 @@ description: Review workflow.
 		final toolCall = firstPromptPart(assistantParts, AiLanguageModelPromptPartType.ToolCall, label + " recovered tool call");
 		eq(toolCall.toolCallId, "tool_1", label + " tool-call id");
 		eq(toolCall.toolName, "read", label + " tool-call name");
+		eq(hasPromptToolCall(assistantParts, "call_interrupted_history", "bash"), true, label + " interrupted tool call");
+		eq(hasPromptToolCall(assistantParts, "call_error_history", "read"), true, label + " error tool call");
 
 		eq(prompt[3].role, AiLanguageModelPromptRole.Tool, label + " recovered tool role");
-		final toolResult = promptContentParts(prompt[3], label + " recovered tool content")[0];
+		final toolResults = promptContentPartsAny(prompt[3], label + " recovered tool content");
+		final toolResult = toolResults[0];
 		eq(toolResult.type, AiLanguageModelPromptPartType.ToolResult, label + " tool-result type");
 		eq(toolResult.toolCallId, "tool_1", label + " tool-result id");
 		if (toolResult.output == null)
@@ -1749,9 +1790,34 @@ description: Review workflow.
 		eq(toolResult.output.type, "text", label + " tool-result output type");
 		if (Std.string(toolResult.output.value).indexOf("ai sdk tool fixture") == -1)
 			throw label + ": missing recovered tool output";
+		final interrupted = promptToolResult(toolResults, "call_interrupted_history", label + " interrupted result");
+		eq(interrupted.output.type, "text", label + " interrupted result output type");
+		eq(Std.string(interrupted.output.value), "partial interrupted output", label + " interrupted result output");
+		final errored = promptToolResult(toolResults, "call_error_history", label + " error result");
+		eq(errored.output.type, "error-text", label + " normal error result output type");
+		eq(Std.string(errored.output.value), "File not found", label + " normal error result output");
 
 		eq(prompt[4].role, AiLanguageModelPromptRole.User, label + " current user role");
 		eq(promptContentText(prompt[4]), "Continue with recovered tool and file context.", label + " current user text");
+	}
+
+	static function hasPromptToolCall(parts:Array<AiLanguageModelPromptPart>, callID:String, toolName:String):Bool {
+		for (part in parts) {
+			if (part.type == AiLanguageModelPromptPartType.ToolCall && part.toolCallId == callID && part.toolName == toolName)
+				return true;
+		}
+		return false;
+	}
+
+	static function promptToolResult(parts:Array<AiLanguageModelPromptPart>, callID:String, label:String):AiLanguageModelPromptPart {
+		for (part in parts) {
+			if (part.type == AiLanguageModelPromptPartType.ToolResult && part.toolCallId == callID) {
+				if (part.output == null)
+					throw label + ": expected output";
+				return part;
+			}
+		}
+		throw label + ": expected tool result";
 	}
 
 	static function firstPromptPart(parts:Array<AiLanguageModelPromptPart>, type:AiLanguageModelPromptPartType, label:String):AiLanguageModelPromptPart {

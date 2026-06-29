@@ -1,7 +1,9 @@
 package opencodehx.session;
 
 import genes.js.Async.await;
+import genes.ts.JsonValue;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.Json;
 import js.html.URL;
 import js.lib.Promise;
@@ -612,7 +614,12 @@ class SessionProcessor {
 							toolResults.push(toolTextResultModelMessage(tool.callID, tool.tool, data.output));
 						case ToolErrored(data):
 							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
-							toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, data.error));
+							final interruptedOutput = interruptedToolOutput(data.metadata);
+							if (interruptedOutput == null) {
+								toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, data.error));
+							} else {
+								toolResults.push(toolTextResultModelMessage(tool.callID, tool.tool, interruptedOutput));
+							}
 						case ToolPending(data):
 							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
 							toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, "[Tool execution was interrupted]"));
@@ -698,6 +705,18 @@ class SessionProcessor {
 			output: {type: "error-text", value: outputValue},
 		};
 		return toolResultModelMessage(part);
+	}
+
+	static function interruptedToolOutput(metadata:Null<ToolStateMetadata>):Null<String> {
+		if (metadata == null)
+			return null;
+		final json:JsonValue = metadata;
+		// Tool state metadata is open JSON. Narrow only the upstream interrupted
+		// output fields needed to recover partial tool output, then return String.
+		final record = UnknownNarrow.record(Unknown.fromBoundary(json));
+		if (record == null || UnknownNarrow.bool(record.get("interrupted")) != true)
+			return null;
+		return UnknownNarrow.string(record.get("output"));
 	}
 
 	static function toolResultModelMessage(part:AiModelToolResultPart):AiModelMessage {
