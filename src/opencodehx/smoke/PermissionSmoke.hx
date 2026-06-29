@@ -258,7 +258,7 @@ class PermissionSmoke {
 			final allow = new PermissionRuntime({
 				sessionID: "ses_perm",
 				ruleset: [
-					{permission: "read", pattern: "src/*", action: "allow"},
+					{permission: "read", pattern: NodePath.join(root, "src/*"), action: "allow"},
 					{permission: "bash", pattern: "printf *", action: "allow"},
 				]
 			});

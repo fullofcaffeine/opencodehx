@@ -1,8 +1,11 @@
 package opencodehx.tool;
 
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Fs.FsStats;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
+import opencodehx.tool.ToolExternalDirectory.ExternalDirectoryKind;
+import opencodehx.tool.ToolExternalDirectory.requireExternalDirectory;
 import opencodehx.tool.ToolTypes.KnownToolID;
 import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
@@ -61,18 +64,21 @@ class ReadTool {
 
 	static function execute(input:ReadToolInput, ctx:ToolContext):ToolResult {
 		final absolute = resolve(KnownToolID.Read, ctx, input.filePath);
+		final exists = Fs.existsSync(absolute);
+		final stat:Null<FsStats> = exists ? Fs.statSync(absolute) : null;
+		requireExternalDirectory(KnownToolID.Read, ctx,
+			absolute, stat != null && stat.isDirectory() ? ExternalDirectoryKind.ExternalDirectory : ExternalDirectoryKind.ExternalFile);
 		final relative = ToolPaths.relative(ctx, absolute);
 		ToolPermission.require(KnownToolID.Read, ctx, {
 			permission: "read",
-			patterns: [relative],
+			patterns: [absolute],
 			always: ["*"],
 			metadata: ToolPermissionMetadata.checked({filepath: absolute})
 		});
 
-		if (!Fs.existsSync(absolute))
+		if (!exists)
 			throw new ToolException(ExecutionFailed(KnownToolID.Read, missingMessage(ctx, absolute)));
 
-		final stat:Dynamic = Fs.statSync(absolute);
 		if (stat.isDirectory())
 			return readDirectory(ctx, absolute, input.offset, input.limit);
 		if (!stat.isFile())
@@ -205,7 +211,7 @@ class ReadTool {
 
 	static function resolve(id:String, ctx:ToolContext, rawPath:String):String {
 		try {
-			return ToolPaths.resolve(ctx, rawPath);
+			return ToolPaths.resolveAny(ctx, rawPath);
 		} catch (error:Dynamic) {
 			throw new ToolException(ExecutionFailed(id, Std.string(error)));
 		}

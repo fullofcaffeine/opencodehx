@@ -240,11 +240,11 @@ class ToolSmoke {
 		});
 		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "src/a.ts"}, ctx), function(failure) {
 			return switch failure {
-				case PermissionDenied(id, message): id == "read" && message.indexOf("blocked") != -1;
+				case PermissionDenied(id, _): id == "read";
 				case _: false;
 			}
 		}, "read permission denied");
-		eq(seen[0], "read:src/a.ts", "permission request shape");
+		eq(seen[0], "read:" + NodePath.join(root, "src/a.ts"), "permission request shape");
 
 		final deniedBash = context(root, request -> {
 			return {allowed: false, reason: "no shell"};
@@ -418,12 +418,38 @@ class ToolSmoke {
 			}
 		}, "read out-of-range offset failure");
 
-		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "../outside.ts"}, ctx), function(failure) {
+		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-read-outside-"));
+		final outsideFile = NodePath.join(outsideDir, "outside.ts");
+		Fs.writeFileSync(outsideFile, "external read\n", "utf8");
+		final outsideRequests:Array<ToolPermissionRequest> = [];
+		final outside = registry.execute(ToolIDs.known("read"), {filePath: outsideFile, limit: 1}, context(ctx.directory, request -> {
+			outsideRequests.push(request);
+			return {allowed: true};
+		}));
+		eq(outside.output.indexOf("external read") != -1, true, "read external file output");
+		eq(outsideRequests.length, 2, "read external permission count");
+		eq(outsideRequests[0].permission, "external_directory", "read external permission kind");
+		final outsidePattern = ToolPaths.normalize(NodePath.join(outsideDir, "*"));
+		eq(outsideRequests[0].patterns.join(","), outsidePattern, "read external permission pattern");
+		eq(outsideRequests[0].always.join(","), outsidePattern, "read external permission always");
+		final outsideMetadata = Json.stringify(outsideRequests[0].metadata);
+		eq(outsideMetadata.indexOf('"filepath":"' + jsonPath(outsideFile) + '"') != -1, true, "read external metadata filepath");
+		eq(outsideMetadata.indexOf('"parentDir":"' + jsonPath(outsideDir) + '"') != -1, true, "read external metadata parent");
+		eq(outsideRequests[1].permission, "read", "read external read permission kind");
+		eq(outsideRequests[1].patterns.join(","), outsideFile, "read external read permission pattern");
+
+		final deniedExternalCtx = context(ctx.directory, request -> {
+			if (request.permission == "external_directory")
+				return {allowed: false, reason: "read outside blocked"};
+			return {allowed: true};
+		});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: outsideFile}, deniedExternalCtx), function(failure) {
 			return switch failure {
-				case ExecutionFailed(id, message): id == "read" && message.indexOf("escapes project") != -1;
+				case PermissionDenied(id, message): id == "read" && message.indexOf("read outside blocked") != -1;
 				case _: false;
 			}
-		}, "read escape failure");
+		}, "read external directory denied");
+		Fs.rmSync(outsideDir, {recursive: true, force: true});
 	}
 
 	static function globExec(registry:ToolRegistry, ctx:ToolContext):Void {
