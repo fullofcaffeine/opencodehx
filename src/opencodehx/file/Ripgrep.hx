@@ -1,5 +1,9 @@
 package opencodehx.file;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownArray;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.Json;
 import opencodehx.externs.node.ChildProcess;
 import opencodehx.externs.node.Fs;
@@ -27,7 +31,7 @@ typedef SearchMatch = {
 	final line:String;
 	final lineNumber:Int;
 	final absoluteOffset:Int;
-	final submatches:Array<Dynamic>;
+	final submatches:UnknownArray;
 }
 
 typedef SearchResult = {
@@ -61,17 +65,10 @@ class Ripgrep {
 		for (line in result.stdout.split("\n")) {
 			if (line == "")
 				continue;
-			final event:Dynamic = Json.parse(line);
-			if (Reflect.field(event, "type") != "match")
+			final event = UnknownNarrow.record(Unknown.fromBoundary(Json.parse(line)));
+			if (event == null || UnknownNarrow.string(event.get("type")) != "match")
 				continue;
-			final data = Reflect.field(event, "data");
-			items.push({
-				path: clean(Reflect.field(Reflect.field(data, "path"), "text")),
-				line: Reflect.field(Reflect.field(data, "lines"), "text"),
-				lineNumber: Std.int(Reflect.field(data, "line_number")),
-				absoluteOffset: Std.int(Reflect.field(data, "absolute_offset")),
-				submatches: cast Reflect.field(data, "submatches"),
-			});
+			items.push(decodeMatch(event));
 		}
 		return {items: items, partial: result.code == 2};
 	}
@@ -166,8 +163,50 @@ class Ripgrep {
 		return new EReg("^\\./", "").replace(NodePath.normalize(file).split("\\").join("/"), "");
 	}
 
+	static function decodeMatch(event:UnknownRecord):SearchMatch {
+		final data = requireRecord(event, "data");
+		final lineNumber = requireNumber(data, "line_number");
+		final absoluteOffset = requireNumber(data, "absolute_offset");
+		final submatches = UnknownNarrow.array(data.get("submatches"));
+		if (submatches == null)
+			throw invalidJson("submatches");
+		return {
+			path: clean(requireTextRecord(data, "path")),
+			line: requireTextRecord(data, "lines"),
+			lineNumber: Std.int(lineNumber),
+			absoluteOffset: Std.int(absoluteOffset),
+			submatches: submatches,
+		};
+	}
+
+	static function requireTextRecord(record:UnknownRecord, field:String):String {
+		final nested = requireRecord(record, field);
+		final text = UnknownNarrow.string(nested.get("text"));
+		if (text == null)
+			throw invalidJson(field + ".text");
+		return text;
+	}
+
+	static function requireRecord(record:UnknownRecord, field:String):UnknownRecord {
+		final value = UnknownNarrow.record(record.get(field));
+		if (value == null)
+			throw invalidJson(field);
+		return value;
+	}
+
+	static function requireNumber(record:UnknownRecord, field:String):Float {
+		final value = UnknownNarrow.number(record.get(field));
+		if (value == null)
+			throw invalidJson(field);
+		return value;
+	}
+
 	static function error(stderr:String, code:Int):haxe.Exception {
 		final message = StringTools.trim(stderr) == "" ? 'ripgrep failed with code ${code}' : StringTools.trim(stderr);
 		return new haxe.Exception(message);
+	}
+
+	static function invalidJson(field:String):haxe.Exception {
+		return new haxe.Exception('invalid ripgrep JSON match event: ${field}');
 	}
 }

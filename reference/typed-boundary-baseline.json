@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 731,
+    "Dynamic": 729,
     "DynamicAccess": 560,
-    "cast": 217,
+    "cast": 216,
     "untyped": 5,
     "Syntax.code": 27,
     "@:ts.type": 77,
-    "Reflect.field": 460,
+    "Reflect.field": 451,
     "Reflect.hasField": 46,
     "Reflect.setField": 50,
     "Any": 0
@@ -211,9 +211,7 @@
       "Dynamic": 2
     },
     "src/opencodehx/file/Ripgrep.hx": {
-      "Dynamic": 3,
-      "cast": 1,
-      "Reflect.field": 9
+      "Dynamic": 1
     },
     "src/opencodehx/format/FormatRuntime.hx": {
       "Dynamic": 8,
