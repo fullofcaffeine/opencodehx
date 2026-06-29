@@ -111,8 +111,7 @@ class Ripgrep {
 		if (input.maxDepth != null)
 			args.push('--max-depth=${input.maxDepth}');
 		if (input.glob != null) {
-			final globs = stringArray(Reflect.field(input, "glob"));
-			for (glob in globs)
+			for (glob in input.glob)
 				args.push('--glob=${glob}');
 		}
 		args.push(".");
@@ -124,8 +123,7 @@ class Ripgrep {
 		if (input.follow == true)
 			args.push("--follow");
 		if (input.glob != null) {
-			final globs = stringArray(Reflect.field(input, "glob"));
-			for (glob in globs)
+			for (glob in input.glob)
 				args.push('--glob=${glob}');
 		}
 		if (input.limit != null)
@@ -133,8 +131,7 @@ class Ripgrep {
 		args.push("--");
 		args.push(input.pattern);
 		if (input.file != null) {
-			final files = stringArray(Reflect.field(input, "file"));
-			for (file in files)
+			for (file in input.file)
 				args.push(file);
 		} else {
 			args.push(".");
@@ -172,9 +169,5 @@ class Ripgrep {
 	static function error(stderr:String, code:Int):haxe.Exception {
 		final message = StringTools.trim(stderr) == "" ? 'ripgrep failed with code ${code}' : StringTools.trim(stderr);
 		return new haxe.Exception(message);
-	}
-
-	static function stringArray(value:Dynamic):Array<String> {
-		return value == null ? [] : cast value;
 	}
 }
