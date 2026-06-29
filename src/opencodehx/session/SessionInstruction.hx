@@ -20,6 +20,9 @@ typedef NearbyInstructionInput = {
 	final directory:String;
 	final worktree:String;
 	final filepath:String;
+	@:optional final messageID:String;
+	@:optional final claims:SessionInstructionClaims;
+	@:optional final previouslyLoaded:Array<String>;
 }
 
 typedef SessionInstructionFile = {
@@ -33,9 +36,9 @@ typedef SessionInstructionFile = {
  * This ports the deterministic file-backed subset of upstream
  * `session/instruction.ts`: project/root instruction files, global profile
  * instructions, local `config.instructions` entries, async remote instruction
- * URLs for live prompts, and nearby read-tool instruction discovery.
- * Per-message claim clearing/dedup across completed read-tool history remains a
- * later session slice.
+ * URLs for live prompts, and nearby read-tool instruction discovery with
+ * per-assistant-message claim dedupe. Extraction of already-loaded instruction
+ * paths from stored Message V2 tool metadata remains a later decoder slice.
  */
 class SessionInstruction {
 	static final PROJECT_FILES:Array<String> = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md"];
@@ -114,6 +117,7 @@ class SessionInstruction {
 			directory: input.directory,
 			worktree: input.worktree,
 		});
+		final previouslyLoaded:Array<String> = input.previouslyLoaded == null ? [] : input.previouslyLoaded;
 		final out:Array<SessionInstructionFile> = [];
 		final root = NodePath.resolve(input.directory, ".");
 		final target = NodePath.resolve(input.filepath, ".");
@@ -125,9 +129,18 @@ class SessionInstruction {
 				continue;
 			}
 			final filepath:String = found;
-			if (filepath == target || system.indexOf(filepath) != -1) {
+			if (filepath == target || system.indexOf(filepath) != -1 || previouslyLoaded.indexOf(filepath) != -1) {
 				current = NodePath.dirname(current);
 				continue;
+			}
+			final claims = input.claims;
+			final messageID = input.messageID;
+			if (claims != null && messageID != null) {
+				if (claims.has(messageID, filepath)) {
+					current = NodePath.dirname(current);
+					continue;
+				}
+				claims.claim(messageID, filepath);
 			}
 			final content = StringTools.trim(AppFileSystem.readFileString(filepath));
 			if (content != "")

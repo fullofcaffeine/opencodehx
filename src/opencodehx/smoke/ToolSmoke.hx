@@ -13,6 +13,7 @@ import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.host.node.NodePath;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.session.SessionInstructionClaims;
 import opencodehx.tool.BashCommandScanner;
 import opencodehx.tool.BashCommandScanner.BashScan;
 import opencodehx.tool.SkillTool;
@@ -408,6 +409,23 @@ class ToolSmoke {
 		final instructedMetadata = Json.stringify(instructed.metadata);
 		eq(instructedMetadata.indexOf('"loaded":["' + jsonPath(NodePath.join(ctx.directory, "feature/AGENTS.md")) + '"]') != -1, true,
 			"read nearby instruction metadata");
+
+		write(ctx.directory, "feature/nested/second.ts", "export const second = true;\n");
+		final claims = new SessionInstructionClaims();
+		final firstClaimed = registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/file.ts"},
+			contextWithInstructionClaims(ctx.directory, "msg_claim_one", claims));
+		eq(firstClaimed.output.indexOf("<system-reminder>") != -1, true, "read claimed first reminder");
+		final secondClaimed = registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/second.ts"},
+			contextWithInstructionClaims(ctx.directory, "msg_claim_one", claims));
+		eq(secondClaimed.output.indexOf("<system-reminder>") == -1, true, "read claimed same-message dedupe");
+		eq(Json.stringify(secondClaimed.metadata).indexOf('"loaded":[]') != -1, true, "read claimed same-message metadata");
+		final differentMessage = registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/second.ts"},
+			contextWithInstructionClaims(ctx.directory, "msg_claim_two", claims));
+		eq(differentMessage.output.indexOf("<system-reminder>") != -1, true, "read claimed different-message reload");
+		claims.clear("msg_claim_one");
+		final afterClear = registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/file.ts"},
+			contextWithInstructionClaims(ctx.directory, "msg_claim_one", claims));
+		eq(afterClear.output.indexOf("<system-reminder>") != -1, true, "read claimed clear reload");
 
 		write(ctx.directory, "feature/nested/manual.pdf", "%PDF-1.4\n% smoke pdf\n");
 		final pdf = registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/manual.pdf"}, ctx);
@@ -1118,6 +1136,18 @@ Use this skill.
 			callID: "call_tool",
 			agent: "build",
 			ask: ask,
+		};
+	}
+
+	static function contextWithInstructionClaims(root:String, messageID:String, claims:SessionInstructionClaims):ToolContext {
+		return {
+			directory: root,
+			worktree: root,
+			sessionID: "ses_tool",
+			messageID: messageID,
+			callID: "call_tool",
+			agent: "build",
+			instructionClaims: claims,
 		};
 	}
 

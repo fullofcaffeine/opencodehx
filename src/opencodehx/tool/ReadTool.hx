@@ -136,6 +136,9 @@ class ReadTool {
 			directory: ctx.directory,
 			worktree: ctx.worktree == null ? ctx.directory : ctx.worktree,
 			filepath: absolute,
+			messageID: ctx.messageID,
+			claims: ctx.instructionClaims,
+			previouslyLoaded: ctx.loadedInstructions,
 		});
 		final bytes = Fs.readFileBufferSync(absolute);
 		final mime = sniffAttachmentMime(NodeBuffer.prefixBytes(bytes, SAMPLE_BYTES), AppFileSystem.mimeType(absolute));

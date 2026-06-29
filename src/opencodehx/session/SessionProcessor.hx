@@ -41,6 +41,7 @@ import opencodehx.session.MessageTypes.WithParts;
 import opencodehx.session.SessionCompaction.SessionCompactionCheck;
 import opencodehx.session.SessionCompaction.SessionCompactionResult;
 import opencodehx.session.SessionInfo.SessionInfo;
+import opencodehx.session.SessionInstructionClaims;
 import opencodehx.session.SessionRetry.SessionProviderError;
 import opencodehx.session.SessionRetry.SessionRetryStatus;
 import opencodehx.storage.SessionStore;
@@ -248,8 +249,10 @@ class SessionProcessor {
 		}
 		final text = aborted ? "Request aborted." : assistantText;
 		final tokens = tokenUsage();
+		final instructionClaims = new SessionInstructionClaims();
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, input.toolCall, registry,
-			input.permission, events, retry, input.providerError, aborted, tokens, input.turnID, input.turnTime);
+			input.permission, events, retry, input.providerError, aborted, tokens, input.turnID, input.turnTime, instructionClaims);
+		instructionClaims.clear(userID(assistantMessage.message.info).toString());
 
 		if (input.store != null) {
 			persist(input.store, projectID, sessionIDText, input.directory, input.parentSessionID, userMessage, assistantMessage.message);
@@ -327,8 +330,9 @@ class SessionProcessor {
 		var wasAborted = aborted || streamAborted;
 		final text = wasAborted ? "Request aborted." : assistantText;
 		final toolCall = input.toolCall == null ? modelToolCall : input.toolCall;
+		final instructionClaims = new SessionInstructionClaims();
 		final assistantMessage = assistantWithParts(sessionIDText, userMessage.info, text, input.directory, agent, provider, toolCall, registry,
-			input.permission, events, null, null, wasAborted, tokens, input.turnID, input.turnTime, toolFilter);
+			input.permission, events, null, null, wasAborted, tokens, input.turnID, input.turnTime, instructionClaims, toolFilter);
 		toolOutcome = assistantMessage.tool;
 		var continuationLimit = DEFAULT_TOOL_CONTINUATIONS;
 		final configuredContinuationLimit = input.maxToolContinuations;
@@ -375,13 +379,14 @@ class SessionProcessor {
 			final nextToolCall = firstModelToolCall(continuation.events);
 			if (nextToolCall != null) {
 				toolOutcome = appendAssistantTool(assistantMessage.message, sessionIDText, input.directory, agent, nextToolCall, registry, input.permission,
-					events, input.turnID, input.turnTime, toolFilter);
+					events, input.turnID, input.turnTime, instructionClaims, toolFilter);
 			} else {
 				if (continuedText != "")
 					replaceAssistantText(assistantMessage.message, continuedText);
 				break;
 			}
 		}
+		instructionClaims.clear(userID(assistantMessage.message.info).toString());
 
 		if (input.store != null) {
 			persist(input.store, projectID, sessionIDText, input.directory, input.parentSessionID, userMessage, assistantMessage.message);
@@ -673,7 +678,7 @@ class SessionProcessor {
 	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:SessionProviderIdentity,
 			toolCall:Null<SessionToolCall>, registry:ToolRegistry, permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>,
 			retry:Null<SessionRetryStatus>, providerError:Null<SessionProviderError>, aborted:Bool, tokens:TokenUsage, turnID:Null<String>,
-			turnTime:Null<Float>, ?filter:ToolFilter):{
+			turnTime:Null<Float>, instructionClaims:SessionInstructionClaims, ?filter:ToolFilter):{
 		final message:WithParts;
 		final tool:Null<SessionToolOutcome>;
 	} {
@@ -721,7 +726,8 @@ class SessionProcessor {
 				messageID: messageID,
 				type: "step-start",
 			}));
-			toolOutcome = executeTool(sessionID, messageID, directory, agent, toolCall, registry, permission, events, turnID, turnTime, filter);
+			toolOutcome = executeTool(sessionID, messageID, directory, agent, toolCall, registry, permission, events, turnID, turnTime, instructionClaims,
+				filter);
 			parts.push(toolOutcome.part);
 		}
 
@@ -757,7 +763,7 @@ class SessionProcessor {
 
 	static function executeTool(sessionID:SessionID, messageID:MessageID, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,
 			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>, turnID:Null<String>, turnTime:Null<Float>,
-			?filter:ToolFilter):SessionToolOutcome {
+			instructionClaims:SessionInstructionClaims, ?filter:ToolFilter):SessionToolOutcome {
 		events.push({type: "tool-call-start", callID: call.id, tool: call.tool});
 		final ctx:ToolContext = switch permission {
 			case null:
@@ -768,6 +774,7 @@ class SessionProcessor {
 					messageID: messageID.toString(),
 					callID: call.id,
 					agent: agent,
+					instructionClaims: instructionClaims,
 				};
 			case runtime:
 				{
@@ -777,6 +784,7 @@ class SessionProcessor {
 					messageID: messageID.toString(),
 					callID: call.id,
 					agent: agent,
+					instructionClaims: instructionClaims,
 					ask: runtime.toToolAsk(),
 				};
 		}
@@ -1077,10 +1085,10 @@ class SessionProcessor {
 
 	static function appendAssistantTool(message:WithParts, sessionIDText:String, directory:String, agent:String, call:SessionToolCall, registry:ToolRegistry,
 			permission:Null<opencodehx.permission.PermissionRuntime>, events:Array<SessionEvent>, turnID:Null<String>, turnTime:Null<Float>,
-			?filter:ToolFilter):SessionToolOutcome {
+			instructionClaims:SessionInstructionClaims, ?filter:ToolFilter):SessionToolOutcome {
 		final sessionID = SessionID.make(sessionIDText);
 		final messageID = MessageID.make(scoped(partBase(ASSISTANT_ID, turnID), sessionIDText));
-		final outcome = executeTool(sessionID, messageID, directory, agent, call, registry, permission, events, turnID, turnTime, filter);
+		final outcome = executeTool(sessionID, messageID, directory, agent, call, registry, permission, events, turnID, turnTime, instructionClaims, filter);
 		insertBeforeAssistantText(message, outcome.part);
 		return outcome;
 	}

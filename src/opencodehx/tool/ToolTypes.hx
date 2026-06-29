@@ -3,6 +3,7 @@ package opencodehx.tool;
 import genes.ts.Json;
 import genes.ts.JsonValue;
 import genes.ts.Unknown;
+import opencodehx.session.SessionInstructionClaims;
 #if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
@@ -16,6 +17,8 @@ typedef ToolContext = {
 	@:optional final messageID:String;
 	@:optional final agent:String;
 	@:optional final callID:String;
+	@:optional final instructionClaims:SessionInstructionClaims;
+	@:optional final loadedInstructions:Array<String>;
 	@:optional final ask:(ToolPermissionRequest) -> ToolPermissionDecision;
 }
 
