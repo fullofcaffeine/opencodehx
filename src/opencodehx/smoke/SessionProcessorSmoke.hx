@@ -32,6 +32,7 @@ import opencodehx.session.MessageTypes.Info;
 import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.MessageTypes.TokenUsage;
 import opencodehx.session.MessageTypes.ToolState;
+import opencodehx.session.PartID;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionLlm;
 import opencodehx.session.SessionProcessor;
@@ -979,6 +980,29 @@ description: Review workflow.
 			final recoveredAiSdkTool = SessionProcessor.recover(store, "ses_ai_sdk_tool_persisted", 10);
 			eq(recoveredAiSdkTool.messages.length, 2, "ai sdk recovered tool message count");
 			assertAssistantParts(recoveredAiSdkTool.messages[1].parts, "ai sdk recovered tool", "tool_1", "Recovered file says: ai sdk tool fixture.");
+			final recoveredUser = recoveredAiSdkTool.messages[0];
+			final recoveredUserID = switch recoveredUser.info {
+				case UserInfo(user):
+					user.id;
+				case _:
+					throw "session processor async: expected recovered user message";
+			}
+			recoveredUser.parts.push(CompactionPart({
+				id: PartID.make("prt_history_compaction"),
+				sessionID: SessionID.make("ses_ai_sdk_tool_persisted"),
+				messageID: recoveredUserID,
+				type: "compaction",
+				auto: true,
+			}));
+			recoveredUser.parts.push(SubtaskPart({
+				id: PartID.make("prt_history_subtask"),
+				sessionID: SessionID.make("ses_ai_sdk_tool_persisted"),
+				messageID: recoveredUserID,
+				type: "subtask",
+				prompt: "Review a delegated tool.",
+				description: "Delegated review",
+				agent: "reviewer",
+			}));
 			final richHistoryRuntime = AiSdkMockModel.inspectableText(["Rich history aware."]);
 			final richHistoryRun = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_rich_history",
@@ -1706,6 +1730,8 @@ description: Review workflow.
 		eq(file.mediaType, "image/png", label + " file media type");
 		eq(file.filename, "history.png", label + " file name");
 		eq(Std.string(file.data), "aW1hZ2U=", label + " file data");
+		eq(hasPromptTextPart(userParts, "What did we do so far?"), true, label + " compaction prompt");
+		eq(hasPromptTextPart(userParts, "The following tool was executed by the user"), true, label + " subtask prompt");
 
 		eq(prompt[2].role, AiLanguageModelPromptRole.Assistant, label + " recovered assistant role");
 		final assistantParts = promptContentPartsAny(prompt[2], label + " recovered assistant content");

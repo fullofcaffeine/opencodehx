@@ -586,6 +586,10 @@ class SessionProcessor {
 				case FilePart(file):
 					if (isModelFile(file))
 						content.push(modelUserFilePart(file));
+				case CompactionPart(_):
+					content.push(modelUserTextPart("What did we do so far?"));
+				case SubtaskPart(_):
+					content.push(modelUserTextPart("The following tool was executed by the user"));
 				case _:
 			}
 		}
