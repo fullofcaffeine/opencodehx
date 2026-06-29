@@ -15,9 +15,9 @@ This starts the Haxe-owned Session/Message V2 DTO layer:
 
 ## Current Evidence
 
-`SessionProcessorSmoke` now also exercises Message V2 records after storage recovery in the live AI SDK path. The recovered prompt carries text parts, compaction/subtask synthetic prompts, non-text/non-directory user file parts, assistant tool-call/tool-result history, media-capable completed tool-result attachments, interrupted tool output, and normal tool errors through public AI SDK `ModelMessage[]` into the converted provider prompt.
+`SessionProcessorSmoke` now also exercises Message V2 records after storage recovery in the live AI SDK path. The recovered prompt carries text parts, compaction/subtask synthetic prompts, non-text/non-directory user file parts, assistant tool-call/tool-result history, media-capable completed tool-result attachments, unsupported-provider synthetic media injection, interrupted tool output, and normal tool errors through public AI SDK `ModelMessage[]` into the converted provider prompt.
 
-Full upstream `MessageV2.toModelMessages(...)` parity is still partial. Remaining edges include provider metadata preservation, unsupported-provider media extraction behavior, and provider-transform message cases beyond the focused live recovered-history smoke.
+Full upstream `MessageV2.toModelMessages(...)` parity is still partial. Remaining edges include provider metadata preservation and provider-transform message cases beyond the focused live recovered-history smoke.
 
 ## Deliberate Boundaries
 

@@ -1082,6 +1082,19 @@ description: Review workflow.
 			eq(richHistoryRun.messages.length, 2, "ai sdk rich history message count");
 			assertSdkRichHistoryPrompt(richHistoryRuntime.mock.doStreamCalls[0].prompt, "ai sdk rich recovered history prompt");
 
+			final unsupportedMediaRuntime = AiSdkMockModel.inspectableText(["Unsupported media history aware."]);
+			final unsupportedMediaRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_rich_history_unsupported_media",
+				prompt: "Continue after injected media.",
+				directory: root,
+				provider: fixture.info,
+				model: modelWithInputCapabilities("openai", "gpt-oss", "@ai-sdk/openai-compatible", true, false),
+				language: unsupportedMediaRuntime.language,
+				history: recoveredAiSdkTool.messages,
+			});
+			eq(unsupportedMediaRun.messages.length, 2, "ai sdk unsupported-media history message count");
+			assertSdkUnsupportedMediaHistoryPrompt(unsupportedMediaRuntime.mock.doStreamCalls[0].prompt, "ai sdk unsupported-media recovered history prompt");
+
 			final transformModel = modelWithOptionsVariants("anthropic", "claude-sonnet-4", "@ai-sdk/anthropic", optionMap(),
 				new FakeProvider().model.variants);
 			final transformRuntime = AiSdkMockModel.inspectableText(["Provider transform reached stream."]);
@@ -1830,6 +1843,31 @@ description: Review workflow.
 
 		eq(prompt[4].role, AiLanguageModelPromptRole.User, label + " current user role");
 		eq(promptContentText(prompt[4]), "Continue with recovered tool and file context.", label + " current user text");
+	}
+
+	static function assertSdkUnsupportedMediaHistoryPrompt(prompt:Array<AiLanguageModelPromptMessage>, label:String):Void {
+		eq(prompt.length, 6, label + " count");
+		eq(prompt[0].role, AiLanguageModelPromptRole.System, label + " system role");
+		eq(prompt[1].role, AiLanguageModelPromptRole.User, label + " recovered user role");
+		eq(prompt[2].role, AiLanguageModelPromptRole.Assistant, label + " recovered assistant role");
+		final assistantParts = promptContentPartsAny(prompt[2], label + " recovered assistant content");
+		eq(hasPromptToolCall(assistantParts, "call_media_history", "read"), true, label + " media tool call");
+
+		eq(prompt[3].role, AiLanguageModelPromptRole.Tool, label + " recovered tool role");
+		final toolResults = promptContentPartsAny(prompt[3], label + " recovered tool content");
+		final media = promptToolResult(toolResults, "call_media_history", label + " unsupported media result");
+		eq(media.output.type, "text", label + " unsupported media result output type");
+		eq(Std.string(media.output.value), "Recovered image output", label + " unsupported media result text");
+
+		eq(prompt[4].role, AiLanguageModelPromptRole.User, label + " injected media user role");
+		final mediaUserParts = promptContentPartsAny(prompt[4], label + " injected media content");
+		eq(hasPromptTextPart(mediaUserParts, "Attached image(s) from tool result:"), true, label + " injected prompt text");
+		final file = firstPromptPart(mediaUserParts, AiLanguageModelPromptPartType.File, label + " injected media file");
+		eq(file.mediaType, "image/png", label + " injected media type");
+		eq(Std.string(file.data), "dG9vbC1pbWFnZQ==", label + " injected media data");
+
+		eq(prompt[5].role, AiLanguageModelPromptRole.User, label + " current user role");
+		eq(promptContentText(prompt[5]), "Continue after injected media.", label + " current user text");
 	}
 
 	static function hasPromptToolCall(parts:Array<AiLanguageModelPromptPart>, callID:String, toolName:String):Bool {

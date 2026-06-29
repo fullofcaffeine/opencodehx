@@ -205,6 +205,7 @@ class SessionProcessor {
 	public static inline final CREATED_ASSISTANT = 1001.0;
 	public static inline final COMPLETED_ASSISTANT = 1002.0;
 	public static inline final DEFAULT_TOOL_CONTINUATIONS = 4;
+	static inline final SYNTHETIC_ATTACHMENT_PROMPT = "Attached image(s) from tool result:";
 	static inline final TOOL_STARTED = 1001.25;
 	static inline final TOOL_ENDED = 1001.75;
 
@@ -606,6 +607,7 @@ class SessionProcessor {
 	static function pushAssistantModelMessages(out:Array<AiModelMessage>, parts:Array<Part>, preserveMediaToolResults:Bool):Void {
 		final content:Array<AiModelAssistantMessagePart> = [];
 		final toolResults:Array<AiModelMessage> = [];
+		final injectedMedia:Array<FilePartData> = [];
 		for (part in parts) {
 			switch part {
 				case TextPart(text):
@@ -615,7 +617,7 @@ class SessionProcessor {
 					switch tool.state {
 						case ToolCompleted(data):
 							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
-							toolResults.push(completedToolResultModelMessage(tool.callID, tool.tool, data, preserveMediaToolResults));
+							toolResults.push(completedToolResultModelMessage(tool.callID, tool.tool, data, preserveMediaToolResults, injectedMedia));
 						case ToolErrored(data):
 							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
 							final interruptedOutput = interruptedToolOutput(data.metadata);
@@ -639,6 +641,8 @@ class SessionProcessor {
 		out.push({role: "assistant", content: content});
 		for (message in toolResults)
 			out.push(message);
+		if (injectedMedia.length > 0)
+			out.push(syntheticToolMediaUserMessage(injectedMedia));
 	}
 
 	static function isModelFile(file:FilePartData):Bool {
@@ -701,9 +705,17 @@ class SessionProcessor {
 		return toolResultModelMessage(part);
 	}
 
-	static function completedToolResultModelMessage(callID:String, toolName:String, data:ToolStateCompletedData, preserveMediaToolResults:Bool):AiModelMessage {
-		if (!preserveMediaToolResults || data.attachments == null || data.attachments.length == 0)
+	static function completedToolResultModelMessage(callID:String, toolName:String, data:ToolStateCompletedData, preserveMediaToolResults:Bool,
+			injectedMedia:Array<FilePartData>):AiModelMessage {
+		if (data.attachments == null || data.attachments.length == 0)
 			return toolTextResultModelMessage(callID, toolName, data.output);
+		if (!preserveMediaToolResults) {
+			for (attachment in data.attachments) {
+				if (isMediaFile(attachment))
+					injectedMedia.push(attachment);
+			}
+			return toolTextResultModelMessage(callID, toolName, data.output);
+		}
 		final value:Array<AiModelToolResultContentPart> = [modelToolResultTextPart(data.output)];
 		for (attachment in data.attachments) {
 			if (isMediaFile(attachment))
@@ -718,6 +730,13 @@ class SessionProcessor {
 			output: {type: "content", value: value},
 		};
 		return toolResultModelMessage(part);
+	}
+
+	static function syntheticToolMediaUserMessage(media:Array<FilePartData>):AiModelMessage {
+		final content:Array<AiModelUserMessagePart> = [modelUserTextPart(SYNTHETIC_ATTACHMENT_PROMPT)];
+		for (file in media)
+			content.push(modelToolMediaUserFilePart(file));
+		return {role: "user", content: content};
 	}
 
 	static function toolErrorResultModelMessage(callID:String, toolName:String, outputValue:String):AiModelMessage {
@@ -752,6 +771,15 @@ class SessionProcessor {
 			type: "media",
 			mediaType: file.mime,
 			data: modelToolResultMediaData(file.url),
+		};
+		return part;
+	}
+
+	static function modelToolMediaUserFilePart(file:FilePartData):AiModelUserMessagePart {
+		final part:AiModelFilePart = {
+			type: "file",
+			data: modelFileData(file.url),
+			mediaType: file.mime,
 		};
 		return part;
 	}
