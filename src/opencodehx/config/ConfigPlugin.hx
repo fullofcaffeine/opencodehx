@@ -1,7 +1,8 @@
 package opencodehx.config;
 
 import genes.ts.Unknown;
-import haxe.DynamicAccess;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodePath;
@@ -11,7 +12,7 @@ import opencodehx.host.node.NodePath;
 // manifests or package-specific schemas own these values.
 
 typedef PluginOptionValue = Unknown;
-typedef PluginOptions = DynamicAccess<PluginOptionValue>;
+typedef PluginOptions = haxe.DynamicAccess<PluginOptionValue>;
 
 typedef PluginSpec = {
 	final specifier:String;
@@ -51,6 +52,21 @@ class ConfigPlugin {
 
 	public static function specifier(spec:PluginSpec):String {
 		return spec.specifier;
+	}
+
+	public static function optionsFromRecord(record:UnknownRecord):PluginOptions {
+		final options = new haxe.DynamicAccess<PluginOptionValue>();
+		for (key in record.keys())
+			options.set(key, record.get(key));
+		return options;
+	}
+
+	public static function stringOption(spec:PluginSpec, key:String):Null<String> {
+		return spec.options == null ? null : UnknownNarrow.string(spec.options.get(key));
+	}
+
+	public static function boolOption(spec:PluginSpec, key:String):Null<Bool> {
+		return spec.options == null ? null : UnknownNarrow.bool(spec.options.get(key));
 	}
 
 	public static function resolveSpec(spec:PluginSpec, configFilepath:String):PluginSpec {

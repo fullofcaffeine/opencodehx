@@ -184,9 +184,9 @@ class ConfigSmoke {
 		final project = directory(root, "tui-project");
 		final opencode = directory(project, ".opencode");
 		write(global, "tui.json",
-			'{"theme":"global","keybinds":{"app_exit":"ctrl+q"},"plugin":["shared-plugin@1.0.0","global-only@1.0.0"],"plugin_enabled":{"demo.plugin":true}}');
+			'{"theme":"global","keybinds":{"app_exit":"ctrl+q"},"plugin":[["shared-plugin@1.0.0",{"source":"global"}],"global-only@1.0.0"],"plugin_enabled":{"demo.plugin":true}}');
 		write(project, "tui.json",
-			'{"theme":"project","keybinds":{"theme_list":"ctrl+k"},"plugin":["shared-plugin@2.0.0","local-only@1.0.0"],"plugin_enabled":{"demo.plugin":false,"local.plugin":true}}');
+			'{"theme":"project","keybinds":{"theme_list":"ctrl+k"},"plugin":[["shared-plugin@2.0.0",{"source":"local","enabled":true}],"local-only@1.0.0"],"plugin_enabled":{"demo.plugin":false,"local.plugin":true}}');
 		write(opencode, "tui.json", '{"diff_style":"stacked"}');
 
 		final merged = ConfigTui.load(project, {globalConfigDir: global, worktree: project});
@@ -198,6 +198,8 @@ class ConfigSmoke {
 			"tui plugin deduplicates by package with local precedence");
 		eq(merged.pluginOrigins[0].scope, PluginScopeGlobal, "tui global plugin origin scope");
 		eq(merged.pluginOrigins[1].scope, PluginScopeLocal, "tui local plugin origin scope");
+		eq(ConfigPlugin.stringOption(merged.pluginOrigins[1].spec, "source"), "local", "tui tuple plugin options preserved");
+		eq(ConfigPlugin.boolOption(merged.pluginOrigins[1].spec, "enabled"), true, "tui tuple plugin boolean option preserved");
 		eq(merged.pluginEnabled.get("demo.plugin"), false, "tui plugin_enabled local override");
 		eq(merged.pluginEnabled.get("local.plugin"), true, "tui plugin_enabled local value");
 

@@ -218,7 +218,7 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/config/ConfigTui.hx; src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md",
-        "focused TUI config loader covers tui.json/global/env/project/.opencode precedence, nested tui flattening, keybind/plugin/plugin_enabled merges, legacy opencode.json migration with backup/strip, and env/file substitution; plugin tuple option preservation, dependency install side effects, Windows keybind platform cases, readonly-strip fallback, and full TUI service/runtime layering remain deferred",
+        "focused TUI config loader covers tui.json/global/env/project/.opencode precedence, nested tui flattening, keybind/plugin/plugin_enabled merges, tuple plugin options, legacy opencode.json migration with backup/strip, and env/file substitution; dependency install side effects, Windows keybind platform cases, readonly-strip fallback, and full TUI service/runtime layering remain deferred",
         "ConfigSmoke.tuiConfig",
         m11Owners.foundation,
       ],

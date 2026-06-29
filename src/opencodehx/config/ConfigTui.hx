@@ -187,11 +187,29 @@ class ConfigTui {
 		if (items == null)
 			return out;
 		for (index in 0...items.length) {
-			final specifier = UnknownNarrow.string(items.get(index));
-			if (specifier != null)
-				out.push(ConfigPlugin.resolveSpec({specifier: specifier}, source));
+			final spec = pluginSpec(items.get(index));
+			if (spec != null)
+				out.push(ConfigPlugin.resolveSpec(spec, source));
 		}
 		return out;
+	}
+
+	static function pluginSpec(value:Unknown):Null<PluginSpec> {
+		final specifier = UnknownNarrow.string(value);
+		if (specifier != null)
+			return {specifier: specifier};
+
+		final tuple = UnknownNarrow.array(value);
+		if (tuple == null || tuple.length != 2)
+			return null;
+		final tupleSpecifier = UnknownNarrow.string(tuple.get(0));
+		final tupleOptions = UnknownNarrow.record(tuple.get(1));
+		if (tupleSpecifier == null || tupleOptions == null)
+			return null;
+		return {
+			specifier: tupleSpecifier,
+			options: ConfigPlugin.optionsFromRecord(tupleOptions),
+		};
 	}
 
 	static function stringMap(record:Null<UnknownRecord>):TuiKeybinds {

@@ -43,7 +43,7 @@ Implemented:
 - Final config normalization for `OPENCODE_PERMISSION`, deprecated `autoshare: true` to `share: "auto"`, and `OPENCODE_DISABLE_AUTOCOMPACT` / `OPENCODE_DISABLE_PRUNE` compaction overrides.
 - Environment reads for config loading and `{env:...}` substitution now go through the `NodeProcess` host seam. That keeps platform-specific `process.env` behavior and raw Node access centralized instead of embedding `js.Syntax.code` in config logic.
 - Focused TUI config loading from global `tui.{json,jsonc}`, `OPENCODE_TUI_CONFIG`, project `tui.{json,jsonc}`, and discovered `.opencode/tui.{json,jsonc}` sources.
-- TUI config normalization covers nested `tui` flattening, top-level override precedence, keybind merges, plugin spec merge/dedup by package identity, plugin provenance, and `plugin_enabled` merges.
+- TUI config normalization covers nested `tui` flattening, top-level override precedence, keybind merges, plugin spec merge/dedup by package identity, tuple option preservation, plugin provenance, and `plugin_enabled` merges.
 - Legacy TUI migration moves `theme`, `keybinds`, and nested `tui` values out of `opencode.{json,jsonc}` into `tui.json`, writes a backup, strips migrated keys from the main config, and drops unknown nested TUI keys.
 - Typed `skills` config for local extra skill paths and remote skill index URLs. Local path consumption and remote URL discovery/cache behavior are covered by `docs/skill-registry-port.md`.
 - Narrow Node fs/os/url externs used only by the config smoke and host boundary.
@@ -55,7 +55,7 @@ Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and is grouped around:
 - Plugin and dependency config: plugin merge/dedup/origin alignment, plugin directory discovery, plugin path resolution, and dependency bootstrap gitignore/install success/failure behavior.
 - User-authored config files: markdown file-reference/frontmatter parsing, command/agent/mode discovery, JSON project agent colors, config-backed agent lookup color propagation, and LSP config refinement.
 - Writable and legacy config paths: global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, top-level legacy tools migration, env-driven finalization flags, and legacy TUI key stripping.
-- Focused TUI config: `tui.json` precedence, keybind/plugin/plugin-enabled merges, nested `tui` flattening, legacy migration backup/strip behavior, and env/file substitution.
+- Focused TUI config: `tui.json` precedence, keybind/plugin/plugin-enabled merges, tuple plugin options, nested `tui` flattening, legacy migration backup/strip behavior, and env/file substitution.
 
 `UtilSmoke` covers strict color hex-to-ANSI conversion and invalid hex/theme inputs.
 
@@ -69,7 +69,7 @@ Markdown frontmatter is intentionally typed as an `unknown` boundary at parse ti
 
 Plugin options remain open passthrough maps because upstream models them as `Record<string, unknown>` for plugin packages to consume. Path-like specs are normalized for file-backed config loads, but this slice does not load plugin modules or install npm dependencies; those belong to the plugin/runtime slices.
 
-This slice does not reimplement upstream's Effect service layer, the real account repo/service, platform-specific managed preference discovery, live npm package-manager side effects, plugin runtime loading, full TUI service/runtime layering, plugin tuple option preservation in TUI config, Windows-specific keybind platform cases, or readonly migration-strip fallback behavior. Dependency bootstrap is represented by a typed `ConfigDependencyRuntime` seam and deterministic smoke fixture; live package-manager harnessing should stay opt-in.
+This slice does not reimplement upstream's Effect service layer, the real account repo/service, platform-specific managed preference discovery, live npm package-manager side effects, plugin runtime loading, full TUI service/runtime layering, Windows-specific keybind platform cases, or readonly migration-strip fallback behavior. Dependency bootstrap is represented by a typed `ConfigDependencyRuntime` seam and deterministic smoke fixture; live package-manager harnessing should stay opt-in.
 
 The writable JSON tree in `ConfigWriter` is intentionally typed as an `unknown` boundary in generated TypeScript. It exists only to round-trip arbitrary JSON/JSONC fields whose owning modules are not ported yet; app-facing code should stay on `ConfigInfo` and typed nested records.
 
