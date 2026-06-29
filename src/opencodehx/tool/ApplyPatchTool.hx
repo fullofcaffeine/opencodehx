@@ -34,6 +34,7 @@ typedef PatchChange = {
 	final diff:String;
 	final additions:Int;
 	final deletions:Int;
+	final bom:Bool;
 	@:optional final movePath:String;
 }
 
@@ -202,27 +203,30 @@ class ApplyPatchTool {
 			case AddFile(path, contents):
 				final absolute = resolve(KnownToolID.ApplyPatch, ctx, path);
 				final oldContent = "";
-				final newContent = contents == "" || StringTools.endsWith(contents, "\n") ? contents : contents + "\n";
-				makeChange(ctx, "add", absolute, null, oldContent, newContent);
+				final next = ToolBom.split(contents == "" || StringTools.endsWith(contents, "\n") ? contents : contents + "\n");
+				makeChange(ctx, "add", absolute, null, oldContent, next.text, next.bom);
 			case DeleteFile(path):
 				final absolute = resolve(KnownToolID.ApplyPatch, ctx, path);
 				if (!Fs.existsSync(absolute) || !Fs.statSync(absolute).isFile())
 					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
 						'apply_patch verification failed: Failed to read file to delete: ${absolute}'));
-				makeChange(ctx, "delete", absolute, null, Fs.readFileSync(absolute, "utf8"), "");
+				final source = ToolBom.split(Fs.readFileSync(absolute, "utf8"));
+				makeChange(ctx, "delete", absolute, null, source.text, "", source.bom);
 			case UpdateFile(path, movePath, chunks):
 				final absolute = resolve(KnownToolID.ApplyPatch, ctx, path);
 				if (!Fs.existsSync(absolute) || !Fs.statSync(absolute).isFile())
 					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
 						'apply_patch verification failed: Failed to read file to update: ${absolute}'));
-				final oldContent = Fs.readFileSync(absolute, "utf8");
-				final newContent = deriveNewContent(absolute, oldContent, chunks);
+				final source = ToolBom.split(Fs.readFileSync(absolute, "utf8"));
+				final oldContent = source.text;
+				final next = ToolBom.split(deriveNewContent(absolute, oldContent, chunks));
 				final resolvedMove = movePath == null ? null : resolve(KnownToolID.ApplyPatch, ctx, movePath);
-				makeChange(ctx, resolvedMove == null ? "update" : "move", absolute, resolvedMove, oldContent, newContent);
+				makeChange(ctx, resolvedMove == null ? "update" : "move", absolute, resolvedMove, oldContent, next.text, source.bom || next.bom);
 		}
 	}
 
-	static function makeChange(ctx:ToolContext, kind:String, filePath:String, movePath:Null<String>, oldContent:String, newContent:String):PatchChange {
+	static function makeChange(ctx:ToolContext, kind:String, filePath:String, movePath:Null<String>, oldContent:String, newContent:String,
+			bom:Bool):PatchChange {
 		final target = movePath == null ? filePath : movePath;
 		final relative = ToolPaths.relative(ctx, target);
 		final diff = TextDiff.unified(filePath, oldContent, newContent);
@@ -235,6 +239,7 @@ class ApplyPatchTool {
 			diff: diff,
 			additions: TextDiff.countAdditions(oldContent, newContent),
 			deletions: TextDiff.countDeletions(oldContent, newContent),
+			bom: bom,
 			movePath: movePath
 		};
 	}
@@ -243,14 +248,14 @@ class ApplyPatchTool {
 		switch change.type {
 			case "add" | "update":
 				Fs.mkdirSync(NodePath.dirname(change.filePath), {recursive: true});
-				Fs.writeFileSync(change.filePath, change.newContent, "utf8");
+				Fs.writeFileSync(change.filePath, ToolBom.join(change.newContent, change.bom), "utf8");
 			case "move":
 				final target:Null<String> = change.movePath;
 				if (target == null)
 					throw new ToolException(ExecutionFailed(KnownToolID.ApplyPatch,
 						'apply_patch verification failed: missing move target for ${change.filePath}'));
 				Fs.mkdirSync(NodePath.dirname(target), {recursive: true});
-				Fs.writeFileSync(target, change.newContent, "utf8");
+				Fs.writeFileSync(target, ToolBom.join(change.newContent, change.bom), "utf8");
 				Fs.rmSync(change.filePath, {force: true});
 			case "delete":
 				Fs.rmSync(change.filePath, {force: true});

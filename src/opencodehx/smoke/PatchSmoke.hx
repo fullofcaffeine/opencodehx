@@ -147,6 +147,29 @@ class PatchSmoke {
 		eq(updated.modified[0], updateFile, "apply update path");
 		eq(Fs.readFileSync(updateFile, "utf8"), "line 1\nline 2 updated\nline 3\n", "apply update contents");
 
+		final bom = String.fromCharCode(0xfeff);
+		final bomFile = NodePath.join(root, "patch-bom.cs");
+		Fs.writeFileSync(bomFile, bom + "using System;\n\nclass Test {}\n", "utf8");
+		final bomUpdate = PatchRuntime.deriveNewContentsFromChunks(bomFile, [
+			{
+				oldLines: ["class Test {}"],
+				newLines: ["class Test {}", "class Next {}"]
+			}
+		]);
+		eq(bomUpdate.bom, true, "apply update records BOM");
+		eq(bomUpdate.unifiedDiff.indexOf(bom), -1, "apply update diff hides BOM");
+		PatchRuntime.applyPatch([
+			"*** Begin Patch",
+			'*** Update File: ${bomFile}',
+			"@@",
+			" class Test {}",
+			"+class Next {}",
+			"*** End Patch"
+		].join("\n"));
+		final bomContent = Fs.readFileSync(bomFile, "utf8");
+		eq(bomContent.charCodeAt(0), 0xfeff, "apply update preserves BOM");
+		eq(bomContent.substr(1), "using System;\n\nclass Test {}\nclass Next {}\n", "apply update changes visible BOM content");
+
 		final oldPath = NodePath.join(root, "old-name.txt");
 		final newPath = NodePath.join(root, "new-name.txt");
 		Fs.writeFileSync(oldPath, "old content\n", "utf8");

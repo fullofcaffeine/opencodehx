@@ -329,7 +329,15 @@ function directEvidence(path) {
         "ToolSmoke.editExec",
       ],
     ],
-    ["tool/apply_patch.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative add/update/delete/move, EOF, heredoc, Unicode, malformed, and no-side-effect behavior is covered; full upstream Effect/LSP/BOM/event matrix remains deferred", "ToolSmoke.applyPatchExec"]],
+    [
+      "tool/apply_patch.test.ts",
+      [
+        "partial",
+        "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
+        "representative add/update/delete/move, BOM preservation, EOF, heredoc, Unicode, malformed, and no-side-effect behavior is covered; full upstream Effect/LSP/event matrix remains deferred",
+        "ToolSmoke.applyPatchExec",
+      ],
+    ],
     ["patch/patch.test.ts", ["direct", "src/opencodehx/patch/PatchRuntime.hx; src/opencodehx/smoke/PatchSmoke.hx; docs/patch-runtime.md", "standalone Patch namespace behavior is covered for parsePatch, maybeParseApplyPatch, applyPatch add/update/delete/move/nested/error/edge cases, and verified planning", "PatchSmoke", "none"]],
     ["tool/bash.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "non-interactive Node shell seam and tree-sitter Bash scanner prompts are covered; streaming metadata and full PowerShell/Windows matrix remain deferred", "ToolSmoke.bashExec and BashCommandScanner fixtures", m11Owners.tool]],
     ["tool/tool-define.test.ts", ["partial", "src/opencodehx/tool/ToolDefinition.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "fresh init snapshots for object-defined and factory-defined Haxe tool definitions are covered; upstream Effect/Zod Tool.define wrapping remains deferred", "ToolSmoke.toolDefinitionFresh", m11Owners.tool]],

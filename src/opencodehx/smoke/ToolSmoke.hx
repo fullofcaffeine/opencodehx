@@ -618,6 +618,27 @@ class ToolSmoke {
 		}, ctx);
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/unicode.txt"), "utf8"), "He said \"hi\"\nsome\u2014dash\nend\n", "patch unicode-normalized");
 
+		final bom = String.fromCharCode(0xfeff);
+		final bomFile = NodePath.join(ctx.directory, "src/patch-bom.cs");
+		Fs.writeFileSync(bomFile, bom + "using System;\n\nclass Test {}\n", "utf8");
+		final bomPatch = registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/patch-bom.cs",
+				"@@",
+				" class Test {}",
+				"+class Next {}",
+				"*** End Patch",
+			].join("\n")
+		}, ctx);
+		final bomContent = Fs.readFileSync(bomFile, "utf8");
+		eq(bomContent.charCodeAt(0), 0xfeff, "patch preserves existing BOM");
+		eq(bomContent.substr(1), "using System;\n\nclass Test {}\nclass Next {}\n", "patch changes visible BOM content");
+		final bomMetadata = Json.stringify(bomPatch.metadata);
+		eq(bomMetadata.indexOf(bom) == -1, true, "patch BOM diff hides marker");
+		eq(bomMetadata.indexOf("-using System;") == -1, true, "patch BOM diff avoids first-line churn");
+		eq(bomMetadata.indexOf("+using System;") == -1, true, "patch BOM diff avoids first-line add churn");
+
 		expectToolFailure(() -> registry.execute(ToolIDs.known("apply_patch"), {patchText: "*** Begin Patch\n*** Frobnicate File: foo\n*** End Patch"}, ctx),
 			function(failure) {
 				return switch failure {

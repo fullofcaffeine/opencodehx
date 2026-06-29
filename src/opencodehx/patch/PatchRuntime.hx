@@ -3,6 +3,7 @@ package opencodehx.patch;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.TextDiff;
+import opencodehx.tool.ToolBom;
 
 typedef PatchChunk = {
 	final oldLines:Array<String>;
@@ -122,19 +123,18 @@ class PatchRuntime {
 	}
 
 	public static function deriveNewContentsFromChunks(filePath:String, chunks:Array<PatchChunk>):PatchFileUpdate {
-		final oldContent = try {
-			Fs.readFileSync(filePath, "utf8");
+		final originalContent = try {
+			ToolBom.split(Fs.readFileSync(filePath, "utf8"));
 		} catch (error:Dynamic) {
 			// Node filesystem calls can throw arbitrary JS-native values; convert
 			// them immediately into the typed Haxe exception surface.
 			throw new haxe.Exception('Failed to read file ${filePath}: ${Std.string(error)}');
 		}
-		final newContent = deriveNewContent(filePath, oldContent, chunks);
+		final next = ToolBom.split(deriveNewContent(filePath, originalContent.text, chunks));
 		return {
-			unifiedDiff: TextDiff.unified(filePath, oldContent, newContent),
-			content: newContent,
-			bom: startsWithBom(oldContent)
-		};
+			unifiedDiff: TextDiff.unified(filePath, originalContent.text, next.text),
+			content: next.text,
+			bom: originalContent.bom || next.bom};
 	}
 
 	public static function applyHunksToFiles(hunks:Array<PatchHunk>):AffectedPaths {
@@ -148,7 +148,8 @@ class PatchRuntime {
 		for (hunk in hunks) {
 			switch hunk {
 				case AddFile(path, contents):
-					writeText(path, contents);
+					final next = ToolBom.split(contents);
+					writeText(path, next.text, next.bom);
 					added.push(path);
 				case DeleteFile(path):
 					try {
@@ -162,11 +163,11 @@ class PatchRuntime {
 				case UpdateFile(path, movePath, chunks):
 					final fileUpdate = deriveNewContentsFromChunks(path, chunks);
 					if (movePath == null) {
-						writeText(path, fileUpdate.content);
+						writeText(path, fileUpdate.content, fileUpdate.bom);
 						modified.push(path);
 					} else {
 						final target = movePath;
-						writeText(target, fileUpdate.content);
+						writeText(target, fileUpdate.content, fileUpdate.bom);
 						Fs.rmSync(path, {force: false});
 						modified.push(target);
 					}
@@ -498,21 +499,16 @@ class PatchRuntime {
 	}
 
 	@:genesLowerPrivateHelper
-	private static function writeText(path:String, content:String):Void {
+	private static function writeText(path:String, content:String, bom:Bool = false):Void {
 		final dir = NodePath.dirname(path);
 		try {
 			if (dir != "." && dir != "/")
 				Fs.mkdirSync(dir, {recursive: true});
-			Fs.writeFileSync(path, content, "utf8");
+			Fs.writeFileSync(path, ToolBom.join(content, bom), "utf8");
 		} catch (error:Dynamic) {
 			// Host write failures are represented as patch failures immediately
 			// so callers never need to inspect untyped Node exceptions.
 			throw new haxe.Exception('Failed to write file ${path}: ${Std.string(error)}');
 		}
-	}
-
-	@:genesLowerPrivateHelper
-	private static function startsWithBom(content:String):Bool {
-		return content.length > 0 && content.charCodeAt(0) == 0xfeff;
 	}
 }
