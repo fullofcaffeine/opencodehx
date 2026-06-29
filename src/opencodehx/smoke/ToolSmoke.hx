@@ -440,6 +440,24 @@ class ToolSmoke {
 		eq(result.output, "Wrote file successfully.", "write output");
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/new.txt"), "utf8"), "fresh\n", "write content");
 		eq(Reflect.field(result.metadata, "exists"), false, "write existed metadata");
+
+		final existing = NodePath.join(ctx.directory, "src/existing.txt");
+		Fs.writeFileSync(existing, "old\n", "utf8");
+		final overwrite = registry.execute(ToolIDs.known("write"), {filePath: "src/existing.txt", content: "new\n"}, ctx);
+		eq(Fs.readFileSync(existing, "utf8"), "new\n", "write overwrites existing content");
+		final overwriteMetadata = Json.stringify(overwrite.metadata);
+		eq(overwriteMetadata.indexOf('"exists":true') != -1, true, "write overwrite existed metadata");
+		eq(overwriteMetadata.indexOf('"additions":1') != -1, true, "write overwrite additions metadata");
+		eq(overwriteMetadata.indexOf('"deletions":1') != -1, true, "write overwrite deletions metadata");
+
+		final bom = String.fromCharCode(0xfeff);
+		final bomFile = NodePath.join(ctx.directory, "src/bom.cs");
+		Fs.writeFileSync(bomFile, bom + "using System;\n", "utf8");
+		final bomResult = registry.execute(ToolIDs.known("write"), {filePath: "src/bom.cs", content: "using Up;\n"}, ctx);
+		final bomContent = Fs.readFileSync(bomFile, "utf8");
+		eq(bomContent.charCodeAt(0), 0xfeff, "write preserves existing BOM");
+		eq(bomContent.substr(1), "using Up;\n", "write replaces content after BOM");
+		eq(Json.stringify(bomResult.metadata).indexOf('"exists":true') != -1, true, "write BOM existed metadata");
 	}
 
 	static function editExec(registry:ToolRegistry, ctx:ToolContext):Void {

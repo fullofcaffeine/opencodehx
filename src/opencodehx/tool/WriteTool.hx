@@ -17,7 +17,15 @@ typedef WriteToolInput = {
 	final content:String;
 }
 
+private typedef BomText = {
+	final bom:Bool;
+	final text:String;
+}
+
 class WriteTool {
+	static inline final BOM_CODE = 0xfeff;
+	static final BOM = String.fromCharCode(BOM_CODE);
+
 	public static function define():ToolDef {
 		return ToolDefinition.typed(KnownToolID.Write, "Write file contents, creating parent directories when needed.", {
 			parameters: [
@@ -50,10 +58,14 @@ class WriteTool {
 	static function execute(input:WriteToolInput, ctx:ToolContext):ToolResult {
 		final absolute = resolve(KnownToolID.Write, ctx, input.filePath);
 		final existed = Fs.existsSync(absolute);
-		final oldContent = existed && Fs.statSync(absolute).isFile() ? Fs.readFileSync(absolute, "utf8") : "";
+		final source = existed && Fs.statSync(absolute).isFile() ? splitBom(Fs.readFileSync(absolute, "utf8")) : splitBom("");
+		final next = splitBom(input.content);
+		final desiredBom = source.bom || next.bom;
+		final oldContent = source.text;
+		final newContent = next.text;
 		if (existed && Fs.statSync(absolute).isDirectory())
 			throw new ToolException(ExecutionFailed(KnownToolID.Write, 'Path is a directory, not a file: ${absolute}'));
-		final diff = TextDiff.unified(absolute, oldContent, input.content);
+		final diff = TextDiff.unified(absolute, oldContent, newContent);
 		final relative = ToolPaths.relative(ctx, absolute);
 		ToolPermission.require(KnownToolID.Write, ctx, {
 			permission: "edit",
@@ -62,7 +74,7 @@ class WriteTool {
 			metadata: ToolPermissionMetadata.checked({filepath: absolute, diff: diff})
 		});
 		Fs.mkdirSync(NodePath.dirname(absolute), {recursive: true});
-		Fs.writeFileSync(absolute, input.content, "utf8");
+		Fs.writeFileSync(absolute, joinBom(newContent, desiredBom), "utf8");
 		return {
 			title: relative,
 			metadata: ToolResultMetadata.checked({
@@ -72,8 +84,8 @@ class WriteTool {
 				filediff: {
 					file: absolute,
 					patch: diff,
-					additions: TextDiff.countAdditions(oldContent, input.content),
-					deletions: TextDiff.countDeletions(oldContent, input.content),
+					additions: TextDiff.countAdditions(oldContent, newContent),
+					deletions: TextDiff.countDeletions(oldContent, newContent),
 				},
 				diagnostics: {}
 			}),
@@ -87,5 +99,16 @@ class WriteTool {
 		} catch (error:Dynamic) {
 			throw new ToolException(ExecutionFailed(id, Std.string(error)));
 		}
+	}
+
+	static function splitBom(text:String):BomText {
+		if (text.length == 0 || text.charCodeAt(0) != BOM_CODE)
+			return {bom: false, text: text};
+		return {bom: true, text: text.substr(1)};
+	}
+
+	static function joinBom(text:String, bom:Bool):String {
+		final stripped = splitBom(text).text;
+		return bom ? BOM + stripped : stripped;
 	}
 }
