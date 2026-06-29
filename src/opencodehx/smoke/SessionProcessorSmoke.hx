@@ -36,6 +36,7 @@ import opencodehx.session.SessionID;
 import opencodehx.session.SessionLlm;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionRetry.SessionProviderError;
+import opencodehx.session.SessionSystemPrompt;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolDef;
@@ -64,6 +65,7 @@ class SessionProcessorSmoke {
 		llmCompatibilityTools();
 		llmRequestHeaders();
 		llmSystemMessages();
+		sessionSystemPrompt();
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-session-processor-"));
 		final dbPath = NodePath.join(root, "opencodehx.db");
 		final store = new SqliteSessionStore(dbPath);
@@ -645,6 +647,42 @@ class SessionProcessorSmoke {
 		eq(workflow[0].content, "Hello", "llm request messages workflow original");
 	}
 
+	static function sessionSystemPrompt():Void {
+		final tmp = SmokeTmpDir.create();
+		final root = tmp.path;
+		final skillDir = NodePath.join(NodePath.join(NodePath.join(root, ".opencode"), "skill"), "review");
+		Fs.mkdirSync(skillDir, {recursive: true});
+		Fs.writeFileSync(NodePath.join(skillDir, "SKILL.md"), '---
+name: review
+description: Review workflow.
+---
+
+# Review
+');
+		final variants = new FakeProvider().model.variants;
+		final model = modelWithOptionsVariants("openai", "gpt-5.2", "@ai-sdk/openai", optionMap(), variants);
+		final prompt = SessionSystemPrompt.build({
+			directory: root,
+			model: model,
+			agent: {name: "reviewer", prompt: "Agent reviewer prompt."},
+			config: ConfigInfo.empty("session-system-smoke"),
+		});
+		eq(prompt.length, 1, "session system prompt count");
+		contains(prompt[0], "Agent reviewer prompt.", "session system agent prompt");
+		contains(prompt[0], "Working directory: " + root, "session system working directory");
+		contains(prompt[0], "Workspace root folder:", "session system worktree");
+		contains(prompt[0], "<available_skills>", "session system skills block");
+		contains(prompt[0], "<name>review</name>", "session system skill name");
+
+		final providerFallback = SessionSystemPrompt.build({
+			directory: root,
+			model: model,
+			config: ConfigInfo.empty("session-system-smoke"),
+		});
+		contains(providerFallback[0], "You are OpenCode, You and the user share the same workspace", "session system provider prompt");
+		tmp.dispose();
+	}
+
 	static function hasAiTool(tools:DynamicAccess<AiTool>, name:String):Bool {
 		for (key in tools.keys()) {
 			if (key == name)
@@ -763,6 +801,11 @@ class SessionProcessorSmoke {
 
 	static function optionMap():ProviderOptions {
 		return new DynamicAccess<Dynamic>();
+	}
+
+	static function contains(value:String, expected:String, label:String):Void {
+		if (value.indexOf(expected) == -1)
+			throw '$label: missing ${expected} in ${value}';
 	}
 
 	static function record1<T>(key:String, value:T):ProviderOptions {

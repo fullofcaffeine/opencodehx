@@ -9,7 +9,7 @@ Prefer checked-in evidence over transient notes. If a lesson changes how agents 
 CLI and session evidence:
 
 - `headless-run-scaffold.md` covers deterministic, mock AI SDK, and local live AI SDK `run`, plus `run --dir`, `run --file`, `run --session`, `run --continue`, `run --fork`, and non-interactive `export <sessionID>`.
-- `session-processor-one-turn.md` covers the one-turn and async AI SDK-backed session processor, store-backed export/recovery, model-emitted tool dispatch, accumulated tool-result history, live config-denied write enforcement including skip-flag deny precedence, and permission-skip approval for config-asked writes.
+- `session-processor-one-turn.md` covers the one-turn and async AI SDK-backed session processor, store-backed export/recovery, model-emitted tool dispatch, accumulated tool-result history, live system prompt assembly, live config-denied write enforcement including skip-flag deny precedence, and permission-skip approval for config-asked writes.
 - `question-runtime.md` covers the typed pending question service: ask/list/reply/reject, per-directory isolation, and dispose/reload rejection.
 - `fake-provider-transcript-harness.md` keeps the credential-free transcript oracle for deterministic parity.
 

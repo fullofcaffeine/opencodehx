@@ -4,7 +4,7 @@
 
 ## Slice
 
-This slice ports the local, filesystem-backed skill registry without pulling in upstream Effect, remote discovery downloads, or the full session prompt service.
+This slice ports the local, filesystem-backed skill registry without pulling in the full upstream Effect service graph.
 
 Implemented:
 
@@ -26,6 +26,6 @@ Smoke coverage lives in `opencodehx.smoke.SkillSmoke` and exercises local `.open
 
 Remote skill downloads currently write text payloads through the Node fs seam because the first upstream fixtures are markdown/resource files. If binary bundled resources become required, add a typed `ArrayBuffer`/`Uint8Array` write path rather than widening the app-facing skill model.
 
-Integration with the final session system prompt service remains deferred until the agent/session layers own that behavior. The current `format` and `available` helpers cover the sorted and permission-filtered output shapes used by upstream system prompt tests.
+`SessionSystemPrompt` now consumes `SkillRegistry.available` and `SkillRegistry.format` for live CLI AI SDK system prompts, including agent `permission.skill` filtering. Full upstream Effect service integration and binary remote skill resources remain deferred.
 
 Skill frontmatter uses the shared markdown parser's `unknown` boundary, then immediately narrows required fields into `SkillInfo`. Do not let skill content or metadata become broad `Dynamic` in app-facing code.

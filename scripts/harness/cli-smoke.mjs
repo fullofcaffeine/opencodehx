@@ -678,12 +678,15 @@ try {
 		const configuredLiveJson = JSON.parse(configuredLive.stdout);
 		assert.equal(configuredLiveJson.provider.id, "local-live");
 		assert.equal(configuredLiveJson.request.prompt, "Hello configured live.");
-		assert.equal(configuredLiveJson.request.system[0], "Agent prompt from generated config.");
+		assert.equal(configuredLiveJson.request.system[0].startsWith("Agent prompt from generated config."), true);
+		assert.equal(configuredLiveJson.request.system[0].includes("Working directory:"), true);
+		assert.equal(configuredLiveJson.request.system[0].includes("The exact model ID is local-live/chat"), true);
 		assert.equal(configuredLiveJson.request.tools.includes("write"), false);
 		assert.equal(configuredLiveJson.messages[0].info.agent, "reviewer");
 		assert.equal(configuredLiveJson.messages[1].parts.find((part) => part.type === "text").text, "Hello from local live.");
 		assert.equal(observed.body.messages[0].role, "system");
-		assert.equal(observed.body.messages[0].content, "Agent prompt from generated config.");
+		assert.equal(observed.body.messages[0].content.startsWith("Agent prompt from generated config."), true);
+		assert.equal(observed.body.messages[0].content.includes("Working directory:"), true);
 		const configuredToolNames = (observed.body.tools ?? []).map((tool) => tool.function.name);
 		assert.equal(configuredToolNames.includes("read"), true);
 		assert.equal(configuredToolNames.includes("write"), false);

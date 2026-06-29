@@ -28,6 +28,14 @@ enum abstract KnownResourcePath(String) to String {
 	var AssetPulseA = "asset/pulse-a.wav";
 	var ErrorDiagnosticsGolden = "errors/diagnostics.golden.json";
 	var PromptExample = "prompt/example.txt";
+	var PromptSessionAnthropic = "prompt/session/anthropic.txt";
+	var PromptSessionBeast = "prompt/session/beast.txt";
+	var PromptSessionCodex = "prompt/session/codex.txt";
+	var PromptSessionDefault = "prompt/session/default.txt";
+	var PromptSessionGemini = "prompt/session/gemini.txt";
+	var PromptSessionGpt = "prompt/session/gpt.txt";
+	var PromptSessionKimi = "prompt/session/kimi.txt";
+	var PromptSessionTrinity = "prompt/session/trinity.txt";
 	var SmokeResourceJson = "smoke-resource.json";
 	var TreeSitterBashWasm = "wasm/tree-sitter-bash.wasm";
 	var TreeSitterFixtureWasm = "wasm/tree-sitter-fixture.wasm";

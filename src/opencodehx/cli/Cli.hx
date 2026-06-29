@@ -34,6 +34,7 @@ import opencodehx.session.SessionID;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionProcessor.SessionFileInput;
 import opencodehx.session.SessionProcessor.SessionProcessorResult;
+import opencodehx.session.SessionSystemPrompt;
 import opencodehx.storage.SessionStore;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.storage.StorageDatabasePath;
@@ -307,7 +308,12 @@ class Cli {
 				history: resume.history,
 				permission: permission,
 				agent: selectedAgent.name,
-				system: runAgentSystem(selectedAgent.info),
+				system: SessionSystemPrompt.build({
+					directory: resume.directory,
+					model: model,
+					agent: selectedAgent.info,
+					config: mergedConfig,
+				}),
 				agentOptions: runAgentOptions(selectedAgent.info),
 				agentTemperature: selectedAgent.info == null ? null : selectedAgent.info.temperature,
 				agentTopP: selectedAgent.info == null ? null : selectedAgent.info.top_p,
@@ -616,13 +622,6 @@ class Cli {
 		if (agent != null && agent.variant != null)
 			return agent.variant;
 		return "";
-	}
-
-	static function runAgentSystem(agent:Null<AgentInfo>):Null<Array<String>> {
-		if (agent == null || agent.prompt == null)
-			return null;
-		final prompt = StringTools.trim(agent.prompt);
-		return prompt == "" ? null : [prompt];
 	}
 
 	static function runAgentOptions(agent:Null<AgentInfo>):Null<ProviderOptions> {

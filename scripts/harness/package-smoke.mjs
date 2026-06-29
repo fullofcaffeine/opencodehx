@@ -644,10 +644,20 @@ try {
 		);
 		const agentConfiguredLiveTranscript = JSON.parse(agentConfiguredLive.stdout);
 		assert.equal(agentConfiguredLiveTranscript.provider.id, "installed-live", "installed agent-configured live provider");
-		assert.equal(agentConfiguredLiveTranscript.request.system[0], "Installed agent prompt from config.", "installed agent-configured system prompt");
+		assert.equal(
+			agentConfiguredLiveTranscript.request.system[0].startsWith("Installed agent prompt from config."),
+			true,
+			"installed agent-configured system prompt",
+		);
+		assert.equal(agentConfiguredLiveTranscript.request.system[0].includes("Working directory:"), true, "installed agent-configured env prompt");
 		assert.equal(agentConfiguredLiveTranscript.request.tools.includes("write"), false, "installed agent-configured hides write");
 		assert.equal(agentConfiguredLiveTranscript.messages[0].info.agent, "reviewer", "installed agent-configured user agent");
-		assert.equal(observed.body.messages[0].content, "Installed agent prompt from config.", "installed agent-configured request body system");
+		assert.equal(
+			observed.body.messages[0].content.startsWith("Installed agent prompt from config."),
+			true,
+			"installed agent-configured request body system",
+		);
+		assert.equal(observed.body.messages[0].content.includes("Working directory:"), true, "installed agent-configured body env prompt");
 		const installedAgentToolNames = (observed.body.tools ?? []).map((tool) => tool.function.name);
 		assert.equal(installedAgentToolNames.includes("read"), true, "installed agent-configured advertises read");
 		assert.equal(installedAgentToolNames.includes("write"), false, "installed agent-configured hides write from body");
