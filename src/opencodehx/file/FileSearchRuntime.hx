@@ -41,12 +41,12 @@ class FileSearchRuntime {
 	}
 
 	static function collect(root:String, current:String, entries:Array<FileSearchEntry>):Void {
-		for (entry in Fs.readdirSync(current, {withFileTypes: true})) {
-			final name = Std.string(Reflect.field(entry, "name"));
+		for (entry in Fs.readdirDirentsSync(current, {withFileTypes: true})) {
+			final name = entry.name;
 			if (name == ".git" || name == ".DS_Store")
 				continue;
 			final absolute = NodePath.join(current, name);
-			final isDirectory:Bool = Reflect.callMethod(entry, Reflect.field(entry, "isDirectory"), []);
+			final isDirectory = entry.isDirectory();
 			final relative = normalize(NodePath.relative(root, absolute));
 			final path = isDirectory ? relative + "/" : relative;
 			entries.push({

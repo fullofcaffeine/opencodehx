@@ -248,10 +248,10 @@ class AppFileSystem {
 		final out:Array<String> = [];
 		if (!Fs.existsSync(root))
 			return out;
-		for (entry in Fs.readdirSync(root, {withFileTypes: true})) {
-			final name = Std.string(Reflect.field(entry, "name"));
+		for (entry in Fs.readdirDirentsSync(root, {withFileTypes: true})) {
+			final name = entry.name;
 			final absolute = NodePath.join(root, name);
-			final isDirectory:Bool = Reflect.callMethod(entry, Reflect.field(entry, "isDirectory"), []);
+			final isDirectory = entry.isDirectory();
 			if (isDirectory) {
 				for (file in walkFiles(absolute))
 					out.push(file);

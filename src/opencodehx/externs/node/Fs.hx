@@ -15,6 +15,7 @@ extern typedef FsDirent = {
 	final name:String;
 	function isDirectory():Bool;
 	function isFile():Bool;
+	function isSymbolicLink():Bool;
 }
 
 extern typedef FsReaddirDirentOptions = {

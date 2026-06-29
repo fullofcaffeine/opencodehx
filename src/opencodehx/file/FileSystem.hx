@@ -103,15 +103,15 @@ class FileSystem {
 	public static function list(root:String, ?dir:String):Array<FileNode> {
 		final base = dir == null || dir == "" ? root : resolveInside(root, dir);
 		final patterns = loadIgnore(root);
-		final entries = Fs.readdirSync(base, {withFileTypes: true});
+		final entries = Fs.readdirDirentsSync(base, {withFileTypes: true});
 		final nodes:Array<FileNode> = [];
 		for (entry in entries) {
-			final name = Std.string(Reflect.field(entry, "name"));
+			final name = entry.name;
 			if (name == ".git" || name == ".DS_Store")
 				continue;
 			final absolute = NodePath.join(base, name);
 			final relative = normalize(NodePath.relative(root, absolute));
-			final isDirectory:Bool = Reflect.callMethod(entry, Reflect.field(entry, "isDirectory"), []);
+			final isDirectory = entry.isDirectory();
 			final type = isDirectory ? "directory" : "file";
 			nodes.push({
 				name: name,

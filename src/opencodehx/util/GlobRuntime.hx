@@ -51,13 +51,12 @@ class GlobRuntime {
 		var out:Array<GlobEntry> = [];
 		if (!Fs.existsSync(root))
 			return out;
-		for (entry in Fs.readdirSync(root, {withFileTypes: true})) {
-			final name = Std.string(Reflect.field(entry, "name"));
+		for (entry in Fs.readdirDirentsSync(root, {withFileTypes: true})) {
+			final name = entry.name;
 			final absolute = NodePath.join(root, name);
-			final isDirectory:Bool = Reflect.callMethod(entry, Reflect.field(entry, "isDirectory"), []);
-			final isFile:Bool = Reflect.callMethod(entry, Reflect.field(entry, "isFile"), []);
-			final isSymlink:Bool = Reflect.field(entry,
-				"isSymbolicLink") == null ? false : Reflect.callMethod(entry, Reflect.field(entry, "isSymbolicLink"), []);
+			final isDirectory = entry.isDirectory();
+			final isFile = entry.isFile();
+			final isSymlink = entry.isSymbolicLink();
 			if (isDirectory) {
 				out.push({path: absolute, kind: Directory});
 				out = out.concat(walk(absolute, followSymlinks, seen));
