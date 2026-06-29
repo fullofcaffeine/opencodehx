@@ -195,8 +195,8 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/session/SessionInstruction.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; scripts/harness/cli-smoke.mjs; scripts/harness/package-smoke.mjs; docs/session-processor-one-turn.md",
-        "nearby read-tool instruction claims, clear/dedup lifecycle, and remote instruction URL fetching remain deferred",
-        "SessionInstruction systemPaths/system smoke covers project/root AGENTS.md lookup, config.instructions local file entries, non-git containment, and live CLI/package request-body instruction evidence",
+        "per-message clear/dedup lifecycle and remote instruction URL fetching remain deferred",
+        "SessionInstruction systemPaths/system smoke covers project/root AGENTS.md lookup, config.instructions local file entries, non-git containment, live CLI/package request-body instruction evidence, and read-tool nearby instruction discovery",
       ],
     ],
     ["session/processor-effect.test.ts", ["partial", "src/opencodehx/smoke/SessionProcessorSmoke.hx; docs/session-processor-one-turn.md", "current processor is one-turn and synchronous; upstream Effect streaming lifecycle remains deferred", "SessionProcessorSmoke"]],
@@ -257,7 +257,7 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/session/SessionSystemPrompt.hx; src/opencodehx/session/SessionInstruction.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; src/opencodehx/smoke/SkillSmoke.hx; scripts/harness/cli-smoke.mjs; scripts/harness/package-smoke.mjs; docs/session-processor-one-turn.md",
-        "plugin system transforms, reminder prompt insertion, nearby read-tool instruction claims, and remote instruction URL fetching remain deferred",
+        "plugin system transforms, reminder prompt insertion, read-tool instruction clear/dedup lifecycle, and remote instruction URL fetching remain deferred",
         "SessionSystemPrompt provider/environment/skills/instruction assembly plus SkillRegistry sorted verbose and permission-filtered availability smoke; generated CLI and package smokes prove assembled system prompt reaches request body",
       ],
     ],
@@ -335,7 +335,7 @@ function directEvidence(path) {
     ],
     ["tool/glob.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core glob cases plus typed permission request/denial and external-directory search-root shape are covered; full Effect context parity remains deferred", "ToolSmoke.globExec"]],
     ["tool/grep.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core grep cases, exact-file search, no-match output, typed permission request/denial, and external-directory file-target shape are covered; full Effect context remains deferred", "ToolSmoke.grepExec"]],
-    ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior, file offset errors, directory pagination, absolute read permission patterns, and external-directory read prompts are covered; media attachments, instruction loading, and fuller output matrix remain deferred", "ToolSmoke.readExec plus PermissionSmoke.toolIntegration"]],
+    ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior, file offset errors, directory pagination, absolute read permission patterns, external-directory read prompts, and nearby instruction reminder loading are covered; media attachments and fuller output matrix remain deferred", "ToolSmoke.readExec plus PermissionSmoke.toolIntegration"]],
     ["tool/write.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "write creation, overwrite metadata, diff/filediff metadata, BOM preservation, and external-directory write permission shape are covered; LSP diagnostics/formatter/bus integration matrix remains deferred", "ToolSmoke.writeExec"]],
     [
       "tool/edit.test.ts",

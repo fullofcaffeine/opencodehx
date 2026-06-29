@@ -4,6 +4,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Fs.FsDirent;
 import opencodehx.externs.node.Fs.FsStats;
 import opencodehx.host.node.NodePath;
+import opencodehx.session.SessionInstruction;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolExternalDirectory.ExternalDirectoryKind;
 import opencodehx.tool.ToolExternalDirectory.requireExternalDirectory;
@@ -125,6 +126,11 @@ class ReadTool {
 	}
 
 	static function readFile(ctx:ToolContext, absolute:String, offsetArg:Null<Int>, limitArg:Null<Int>):ToolResult {
+		final loaded = SessionInstruction.nearbyForFile({
+			directory: ctx.directory,
+			worktree: ctx.worktree == null ? ctx.directory : ctx.worktree,
+			filepath: absolute,
+		});
 		final content = Fs.readFileSync(absolute, "utf8");
 		if (looksBinary(content))
 			throw new ToolException(ExecutionFailed(KnownToolID.Read, 'Cannot read binary file: ${absolute}'));
@@ -172,12 +178,14 @@ class ReadTool {
 			footer,
 			"</content>"
 		];
+		if (loaded.length > 0)
+			output.push('<system-reminder>\n${loaded.map(item -> item.content).join("\n\n")}\n</system-reminder>');
 		return {
 			title: ToolPaths.relative(ctx, absolute),
 			metadata: ToolResultMetadata.checked({
 				preview: body,
 				truncated: byteTruncated || lineTruncated,
-				loaded: [{start: offset, end: offset + body.length - 1}]
+				loaded: [for (item in loaded) item.filepath]
 			}),
 			output: output.join("\n"),
 		};

@@ -13,6 +13,12 @@ typedef SessionInstructionContext = {
 	@:optional final config:ConfigInfo;
 }
 
+typedef NearbyInstructionInput = {
+	final directory:String;
+	final worktree:String;
+	final filepath:String;
+}
+
 typedef SessionInstructionFile = {
 	final filepath:String;
 	final content:String;
@@ -81,6 +87,34 @@ class SessionInstruction {
 		return paths;
 	}
 
+	public static function nearbyForFile(input:NearbyInstructionInput):Array<SessionInstructionFile> {
+		final system = systemPaths({
+			directory: input.directory,
+			worktree: input.worktree,
+		});
+		final out:Array<SessionInstructionFile> = [];
+		final root = NodePath.resolve(input.directory, ".");
+		final target = NodePath.resolve(input.filepath, ".");
+		var current = NodePath.dirname(target);
+		while (isWithin(root, current) && current != root) {
+			final found = findInDirectory(current);
+			if (found == null) {
+				current = NodePath.dirname(current);
+				continue;
+			}
+			final filepath:String = found;
+			if (filepath == target || system.indexOf(filepath) != -1) {
+				current = NodePath.dirname(current);
+				continue;
+			}
+			final content = StringTools.trim(AppFileSystem.readFileString(filepath));
+			if (content != "")
+				out.push({filepath: filepath, content: 'Instructions from: ${filepath}\n${content}'});
+			current = NodePath.dirname(current);
+		}
+		return out;
+	}
+
 	static function projectFiles():Array<String> {
 		return claudePromptDisabled() ? ["AGENTS.md", "CONTEXT.md"] : PROJECT_FILES.copy();
 	}
@@ -94,6 +128,15 @@ class SessionInstruction {
 		if (!claudePromptDisabled())
 			files.push(NodePath.join(NodePath.join(Os.homedir(), ".claude"), "CLAUDE.md"));
 		return files;
+	}
+
+	static function findInDirectory(directory:String):Null<String> {
+		for (file in projectFiles()) {
+			final candidate = NodePath.resolve(NodePath.join(directory, file), ".");
+			if (AppFileSystem.isFile(candidate))
+				return candidate;
+		}
+		return null;
 	}
 
 	static function instructionMatches(raw:String, directory:String, worktree:String):Array<String> {
@@ -129,6 +172,10 @@ class SessionInstruction {
 		final resolved = NodePath.resolve(filepath, ".");
 		if (paths.indexOf(resolved) == -1)
 			paths.push(resolved);
+	}
+
+	static function isWithin(root:String, target:String):Bool {
+		return target == root || AppFileSystem.contains(root, target);
 	}
 
 	static function projectConfigDisabled():Bool {
