@@ -1,6 +1,7 @@
 package opencodehx.tool;
 
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Fs.FsStats;
 import opencodehx.file.Ripgrep;
 import opencodehx.file.Ripgrep.SearchMatch;
 import opencodehx.host.node.NodePath;
@@ -10,13 +11,18 @@ import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
 import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.ToolValidation;
+import opencodehx.tool.ToolSearchPaths.ToolSearchPath;
+import opencodehx.tool.ToolSearchPaths.fromNullable;
+import opencodehx.tool.ToolSearchPaths.resolve;
+import opencodehx.tool.ToolSearchPaths.toNullable;
 
 typedef GrepToolInput = {
 	final pattern:String;
-	final path:Null<String>;
+	final path:ToolSearchPath;
 	final include:Null<String>;
 }
 
@@ -56,15 +62,26 @@ class GrepTool {
 		final pattern = ToolValidation.requireString(args, "pattern", issues);
 		final rawPath = ToolValidation.optionalString(args, "path", issues);
 		final include = ToolValidation.optionalString(args, "include", issues);
-		return ToolValidation.finish(issues, {pattern: pattern, path: rawPath, include: include});
+		return ToolValidation.finish(issues, {pattern: pattern, path: fromNullable(rawPath), include: include});
 	}
 
 	static function execute(input:GrepToolInput, ctx:ToolContext):ToolResult {
+		ToolPermission.require(KnownToolID.Grep, ctx, {
+			permission: KnownToolID.Grep,
+			patterns: [input.pattern],
+			always: ["*"],
+			metadata: ToolPermissionMetadata.checked({
+				pattern: input.pattern,
+				path: toNullable(input.path),
+				include: input.include,
+			})
+		});
+
 		final root = ctx.directory;
-		final search = input.path == null ? root : resolvePath(root, input.path);
+		final search = resolve(root, input.path);
 		if (!Fs.existsSync(search))
 			throw new ToolException(ExecutionFailed(KnownToolID.Grep, 'No such file or directory: ${search}'));
-		final stat:Dynamic = Fs.statSync(search);
+		final stat = Fs.statSync(search);
 		final cwd = stat.isDirectory() ? search : NodePath.dirname(search);
 		final files:Null<Array<String>> = stat.isDirectory() ? null : [NodePath.relative(cwd, search)];
 		final result = Ripgrep.search({
@@ -89,7 +106,7 @@ class GrepTool {
 		}> = [];
 		for (item in result.items) {
 			final absolute = NodePath.isAbsolute(item.path) ? item.path : NodePath.resolve(cwd, item.path);
-			final mtime:Float = Reflect.field(Fs.statSync(absolute), "mtimeMs");
+			final mtime = mtimeMs(Fs.statSync(absolute));
 			rows.push({
 				path: absolute,
 				line: item.lineNumber,
@@ -98,8 +115,8 @@ class GrepTool {
 			});
 		}
 		rows.sort((a, b) -> {
-			final byTime = Reflect.compare(b.mtime, a.mtime);
-			return byTime != 0 ? byTime : Reflect.compare(a.path + ":" + a.line, b.path + ":" + b.line);
+			final byTime = compareFloat(b.mtime, a.mtime);
+			return byTime != 0 ? byTime : compareString(a.path + ":" + a.line, b.path + ":" + b.line);
 		});
 
 		final limit = 100;
@@ -138,14 +155,26 @@ class GrepTool {
 		};
 	}
 
-	static function resolvePath(root:String, value:String):String {
-		return NodePath.isAbsolute(value) ? NodePath.resolve(value, ".") : NodePath.resolve(root, value);
-	}
-
 	static function singleton(value:Null<String>):Null<Array<String>> {
 		if (value == null)
 			return null;
 		final text:String = value;
 		return [text];
+	}
+
+	static function mtimeMs(stat:FsStats):Float {
+		return stat.mtimeMs == null ? 0 : stat.mtimeMs;
+	}
+
+	static function compareFloat(left:Float, right:Float):Int {
+		if (left < right)
+			return -1;
+		return left > right ? 1 : 0;
+	}
+
+	static function compareString(left:String, right:String):Int {
+		if (left < right)
+			return -1;
+		return left > right ? 1 : 0;
 	}
 }

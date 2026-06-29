@@ -316,8 +316,8 @@ function directEvidence(path) {
         m11Owners.foundation,
       ],
     ],
-    ["tool/glob.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core glob cases are covered; full Effect/tool context parity remains deferred", "ToolSmoke.globExec"]],
-    ["tool/grep.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core grep cases are covered; full upstream option matrix remains deferred", "ToolSmoke.grepExec"]],
+    ["tool/glob.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core glob cases plus typed permission request/denial shape are covered; full Effect/external-directory context parity remains deferred", "ToolSmoke.globExec"]],
+    ["tool/grep.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core grep cases, exact-file search, no-match output, and typed permission request/denial shape are covered; full external-directory/Effect context remains deferred", "ToolSmoke.grepExec"]],
     ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior, file offset errors, and directory pagination are covered; media attachments, instruction loading, and fuller output matrix remain deferred", "ToolSmoke.readExec"]],
     ["tool/write.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "write creation, overwrite metadata, diff/filediff metadata, and BOM preservation are covered; LSP diagnostics/formatter/bus integration matrix remains deferred", "ToolSmoke.writeExec"]],
     [

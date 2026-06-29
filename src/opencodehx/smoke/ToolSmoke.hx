@@ -427,8 +427,38 @@ class ToolSmoke {
 	}
 
 	static function globExec(registry:ToolRegistry, ctx:ToolContext):Void {
+		final globRequests:Array<ToolPermissionRequest> = [];
+		final allowedCtx = context(ctx.directory, request -> {
+			if (request.permission == "glob")
+				globRequests.push(request);
+			return {allowed: true};
+		});
+
+		final allowed = registry.execute(ToolIDs.known("glob"), {pattern: "*.ts", path: "src"}, allowedCtx);
+		final allowedMetadata = Json.stringify(allowed.metadata);
+		eq(allowedMetadata.indexOf('"count":2') != -1, true, "glob permission count");
+		eq(globRequests.length, 1, "glob permission requested once");
+		eq(globRequests[0].permission, "glob", "glob permission kind");
+		eq(globRequests[0].patterns.join(","), "*.ts", "glob permission pattern");
+		final globMetadata = Json.stringify(globRequests[0].metadata);
+		eq(globMetadata.indexOf('"pattern":"*.ts"') != -1, true, "glob permission metadata pattern");
+		eq(globMetadata.indexOf('"path":"src"') != -1, true, "glob permission metadata path");
+
+		final deniedCtx = context(ctx.directory, request -> {
+			if (request.permission == "glob")
+				return {allowed: false, reason: "glob blocked"};
+			return {allowed: true};
+		});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("glob"), {pattern: "*.ts", path: "src"}, deniedCtx), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "glob" && message.indexOf("glob blocked") != -1;
+				case _: false;
+			}
+		}, "glob permission denied");
+
 		final result = registry.execute(ToolIDs.known("glob"), {pattern: "*.ts", path: "src"}, ctx);
-		eq(Reflect.field(result.metadata, "count"), 2, "glob count");
+		final resultMetadata = Json.stringify(result.metadata);
+		eq(resultMetadata.indexOf('"count":2') != -1, true, "glob count");
 		eq(result.output.indexOf("a.ts") != -1, true, "glob output a");
 		eq(result.output.indexOf("b.txt") == -1, true, "glob excludes txt");
 
@@ -441,13 +471,45 @@ class ToolSmoke {
 	}
 
 	static function grepExec(registry:ToolRegistry, ctx:ToolContext):Void {
+		final grepRequests:Array<ToolPermissionRequest> = [];
+		final allowedCtx = context(ctx.directory, request -> {
+			if (request.permission == "grep")
+				grepRequests.push(request);
+			return {allowed: true};
+		});
+
+		final allowed = registry.execute(ToolIDs.known("grep"), {pattern: "needle", path: "src", include: "*.ts"}, allowedCtx);
+		final allowedMetadata = Json.stringify(allowed.metadata);
+		eq(allowedMetadata.indexOf('"matches":1') != -1, true, "grep permission matches");
+		eq(grepRequests.length, 1, "grep permission requested once");
+		eq(grepRequests[0].permission, "grep", "grep permission kind");
+		eq(grepRequests[0].patterns.join(","), "needle", "grep permission pattern");
+		final grepMetadata = Json.stringify(grepRequests[0].metadata);
+		eq(grepMetadata.indexOf('"pattern":"needle"') != -1, true, "grep permission metadata pattern");
+		eq(grepMetadata.indexOf('"path":"src"') != -1, true, "grep permission metadata path");
+		eq(grepMetadata.indexOf('"include":"*.ts"') != -1, true, "grep permission metadata include");
+
+		final deniedCtx = context(ctx.directory, request -> {
+			if (request.permission == "grep")
+				return {allowed: false, reason: "grep blocked"};
+			return {allowed: true};
+		});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("grep"), {pattern: "needle", path: "src", include: "*.ts"}, deniedCtx), function(failure) {
+			return switch failure {
+				case PermissionDenied(id, message): id == "grep" && message.indexOf("grep blocked") != -1;
+				case _: false;
+			}
+		}, "grep permission denied");
+
 		final result = registry.execute(ToolIDs.known("grep"), {pattern: "needle", path: "src", include: "*.ts"}, ctx);
-		eq(Reflect.field(result.metadata, "matches"), 1, "grep matches");
+		final resultMetadata = Json.stringify(result.metadata);
+		eq(resultMetadata.indexOf('"matches":1') != -1, true, "grep matches");
 		eq(result.output.indexOf("Found 1 matches") != -1, true, "grep found");
 		eq(result.output.indexOf("Line 1:") != -1, true, "grep line");
 
 		final exact = registry.execute(ToolIDs.known("grep"), {pattern: "needle", path: "src/b.txt"}, ctx);
-		eq(Reflect.field(exact.metadata, "matches"), 1, "grep exact file");
+		final exactMetadata = Json.stringify(exact.metadata);
+		eq(exactMetadata.indexOf('"matches":1') != -1, true, "grep exact file");
 
 		final none = registry.execute(ToolIDs.known("grep"), {pattern: "definitely-not-here", path: "src"}, ctx);
 		eq(none.output, "No files found", "grep no matches");

@@ -1,6 +1,7 @@
 package opencodehx.tool;
 
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Fs.FsStats;
 import opencodehx.file.Ripgrep;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
@@ -9,13 +10,18 @@ import opencodehx.tool.ToolTypes.ToolCallInput;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolDef;
 import opencodehx.tool.ToolTypes.ToolInputDecode;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
 import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.ToolValidation;
+import opencodehx.tool.ToolSearchPaths.ToolSearchPath;
+import opencodehx.tool.ToolSearchPaths.fromNullable;
+import opencodehx.tool.ToolSearchPaths.resolve;
+import opencodehx.tool.ToolSearchPaths.toNullable;
 
 typedef GlobToolInput = {
 	final pattern:String;
-	final path:Null<String>;
+	final path:ToolSearchPath;
 }
 
 class GlobTool {
@@ -45,12 +51,22 @@ class GlobTool {
 			return Invalid(issues);
 		final pattern = ToolValidation.requireString(args, "pattern", issues);
 		final rawPath = ToolValidation.optionalString(args, "path", issues);
-		return ToolValidation.finish(issues, {pattern: pattern, path: rawPath});
+		return ToolValidation.finish(issues, {pattern: pattern, path: fromNullable(rawPath)});
 	}
 
 	static function execute(input:GlobToolInput, ctx:ToolContext):ToolResult {
+		ToolPermission.require(KnownToolID.Glob, ctx, {
+			permission: KnownToolID.Glob,
+			patterns: [input.pattern],
+			always: ["*"],
+			metadata: ToolPermissionMetadata.checked({
+				pattern: input.pattern,
+				path: toNullable(input.path),
+			})
+		});
+
 		final root = ctx.directory;
-		final search = input.path == null ? root : resolvePath(root, input.path);
+		final search = resolve(root, input.path);
 		if (Fs.existsSync(search) && Fs.statSync(search).isFile())
 			throw new ToolException(ExecutionFailed(KnownToolID.Glob, 'glob path must be a directory: ${search}'));
 		if (!Fs.existsSync(search) || !Fs.statSync(search).isDirectory())
@@ -60,11 +76,10 @@ class GlobTool {
 		final rows:Array<{path:String, mtime:Float}> = [];
 		for (file in Ripgrep.files({cwd: search, glob: [input.pattern]})) {
 			final absolute = NodePath.resolve(search, file);
-			final stat:Dynamic = Fs.statSync(absolute);
-			final mtime:Float = Reflect.field(stat, "mtimeMs");
+			final mtime = mtimeMs(Fs.statSync(absolute));
 			rows.push({path: absolute, mtime: mtime});
 		}
-		rows.sort((a, b) -> Reflect.compare(b.mtime, a.mtime));
+		rows.sort((a, b) -> compareFloat(b.mtime, a.mtime));
 		final truncated = rows.length > limit;
 		final shown = truncated ? rows.slice(0, limit) : rows;
 		final output:Array<String> = [];
@@ -88,8 +103,14 @@ class GlobTool {
 		};
 	}
 
-	static function resolvePath(root:String, value:String):String {
-		return NodePath.isAbsolute(value) ? NodePath.resolve(value, ".") : NodePath.resolve(root, value);
+	static function mtimeMs(stat:FsStats):Float {
+		return stat.mtimeMs == null ? 0 : stat.mtimeMs;
+	}
+
+	static function compareFloat(left:Float, right:Float):Int {
+		if (left < right)
+			return -1;
+		return left > right ? 1 : 0;
 	}
 
 	static function worktree(ctx:ToolContext, root:String):String {

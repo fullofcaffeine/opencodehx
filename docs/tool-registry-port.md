@@ -12,13 +12,13 @@ This slice adds the first Haxe-owned tool surface:
 - `ToolRegistry` with builtin ids, lookup, disabled filtering, and invocation.
 - `KnownToolID` plus `ToolIDs.known("...")` for source-authored fixed tool references. The registry still accepts raw `String` values at runtime so model-emitted, plugin, config, and unknown-tool failure paths remain boundary data.
 - `ToolCallInput` for the registry's JSON/tool-call boundary, with built-in tools decoding into typed Haxe input records before application logic runs.
-- Initial `invalid`, `glob`, and `grep` tool definitions.
+- Initial `invalid`, `glob`, and `grep` tool definitions, including typed permission request metadata for search tools.
 - `QuestionTool` as an async Haxe runtime over `QuestionRuntime`, including nested question decoding, pending request metadata, answer formatting, and answer metadata.
 - `SkillTool` as an async Haxe runtime over `SkillRegistry`, including name decoding, missing-skill diagnostics, skill permission request shape, content block formatting, base-directory file URL, sampled local file list, and result metadata.
 - `WebFetchTool` as an async Haxe runtime for text responses, SVG text passthrough, and image file attachments. It is not registered in the synchronous `ToolRegistry` yet.
 - Typed `ToolResultAttachment` file records plus session processor propagation into completed tool-state attachments.
 - `ToolDefinition` coverage for fresh object/factory init snapshots without mutating source-authored definitions.
-- `ToolSmoke` coverage for builtin ids, schema fields, unknown/disabled failures, invalid argument text, glob directory rejection, glob file matching, grep directory/file search, no-match output, question ask/reply output, skill content/file output, webfetch text/SVG/image handling, and `ToolDefinition` fresh-init behavior.
+- `ToolSmoke` coverage for builtin ids, schema fields, unknown/disabled failures, invalid argument text, glob directory rejection, glob file matching, glob/grep permission request and denial shape, grep directory/file search, no-match output, question ask/reply output, skill content/file output, webfetch text/SVG/image handling, and `ToolDefinition` fresh-init behavior.
 
 ## Deliberate Boundaries
 
