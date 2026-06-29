@@ -520,6 +520,32 @@ class ToolSmoke {
 			newString: "const value = \"c\";"
 		}, ctx);
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/escaped.txt"), "utf8"), "const value = \"c\";\n", "edit escape-normalized");
+
+		final bom = String.fromCharCode(0xfeff);
+		final bomExisting = NodePath.join(ctx.directory, "src/edit-bom.cs");
+		Fs.writeFileSync(bomExisting, bom + "using System;\nclass Test {}\n", "utf8");
+		final bomEdit = registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/edit-bom.cs",
+			oldString: "using System;",
+			newString: "using Up;"
+		}, ctx);
+		final bomContent = Fs.readFileSync(bomExisting, "utf8");
+		eq(bomContent.charCodeAt(0), 0xfeff, "edit preserves existing BOM");
+		eq(bomContent.substr(1), "using Up;\nclass Test {}\n", "edit replaces visible content after BOM");
+		final bomMetadata = Json.stringify(bomEdit.metadata);
+		eq(bomMetadata.indexOf("-using System;") != -1, true, "edit BOM diff removes visible line");
+		eq(bomMetadata.indexOf("+using Up;") != -1, true, "edit BOM diff adds visible line");
+		eq(bomMetadata.indexOf(bom) == -1, true, "edit BOM diff hides marker");
+
+		final bomCreate = NodePath.join(ctx.directory, "src/edit-created-bom.cs");
+		registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/edit-created-bom.cs",
+			oldString: "",
+			newString: bom + "using Created;\n"
+		}, ctx);
+		final createdBomContent = Fs.readFileSync(bomCreate, "utf8");
+		eq(createdBomContent.charCodeAt(0), 0xfeff, "edit preserves incoming BOM on create");
+		eq(createdBomContent.substr(1), "using Created;\n", "edit strips incoming BOM from logical content");
 	}
 
 	static function applyPatchExec(registry:ToolRegistry, ctx:ToolContext):Void {

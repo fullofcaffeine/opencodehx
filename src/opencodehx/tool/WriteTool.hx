@@ -17,15 +17,7 @@ typedef WriteToolInput = {
 	final content:String;
 }
 
-private typedef BomText = {
-	final bom:Bool;
-	final text:String;
-}
-
 class WriteTool {
-	static inline final BOM_CODE = 0xfeff;
-	static final BOM = String.fromCharCode(BOM_CODE);
-
 	public static function define():ToolDef {
 		return ToolDefinition.typed(KnownToolID.Write, "Write file contents, creating parent directories when needed.", {
 			parameters: [
@@ -58,8 +50,8 @@ class WriteTool {
 	static function execute(input:WriteToolInput, ctx:ToolContext):ToolResult {
 		final absolute = resolve(KnownToolID.Write, ctx, input.filePath);
 		final existed = Fs.existsSync(absolute);
-		final source = existed && Fs.statSync(absolute).isFile() ? splitBom(Fs.readFileSync(absolute, "utf8")) : splitBom("");
-		final next = splitBom(input.content);
+		final source = existed && Fs.statSync(absolute).isFile() ? ToolBom.split(Fs.readFileSync(absolute, "utf8")) : ToolBom.split("");
+		final next = ToolBom.split(input.content);
 		final desiredBom = source.bom || next.bom;
 		final oldContent = source.text;
 		final newContent = next.text;
@@ -74,7 +66,7 @@ class WriteTool {
 			metadata: ToolPermissionMetadata.checked({filepath: absolute, diff: diff})
 		});
 		Fs.mkdirSync(NodePath.dirname(absolute), {recursive: true});
-		Fs.writeFileSync(absolute, joinBom(newContent, desiredBom), "utf8");
+		Fs.writeFileSync(absolute, ToolBom.join(newContent, desiredBom), "utf8");
 		return {
 			title: relative,
 			metadata: ToolResultMetadata.checked({
@@ -99,16 +91,5 @@ class WriteTool {
 		} catch (error:Dynamic) {
 			throw new ToolException(ExecutionFailed(id, Std.string(error)));
 		}
-	}
-
-	static function splitBom(text:String):BomText {
-		if (text.length == 0 || text.charCodeAt(0) != BOM_CODE)
-			return {bom: false, text: text};
-		return {bom: true, text: text.substr(1)};
-	}
-
-	static function joinBom(text:String, bom:Bool):String {
-		final stripped = splitBom(text).text;
-		return bom ? BOM + stripped : stripped;
 	}
 }

@@ -79,12 +79,15 @@ class EditTool {
 		if (!existed && input.oldString != "")
 			throw new ToolException(ExecutionFailed(KnownToolID.Edit, 'File ${absolute} not found'));
 
-		final oldContent = existed ? Fs.readFileSync(absolute, "utf8") : "";
+		final source = existed ? ToolBom.split(Fs.readFileSync(absolute, "utf8")) : ToolBom.split("");
+		final oldContent = source.text;
 		final ending = detectLineEnding(oldContent);
 		final normalizedOld = convertToLineEnding(normalizeLineEndings(input.oldString), ending);
 		final normalizedNew = convertToLineEnding(normalizeLineEndings(input.newString), ending);
 		final replaceAll = input.replaceAll == null ? false : input.replaceAll;
-		final nextContent = input.oldString == "" ? normalizedNew : replace(oldContent, normalizedOld, normalizedNew, replaceAll);
+		final next = input.oldString == "" ? ToolBom.split(normalizedNew) : ToolBom.split(replace(oldContent, normalizedOld, normalizedNew, replaceAll));
+		final desiredBom = source.bom || next.bom;
+		final nextContent = next.text;
 		final diff = TextDiff.unified(absolute, oldContent, nextContent);
 		final relative = ToolPaths.relative(ctx, absolute);
 		ToolPermission.require(KnownToolID.Edit, ctx, {
@@ -94,7 +97,7 @@ class EditTool {
 			metadata: ToolPermissionMetadata.checked({filepath: absolute, diff: diff})
 		});
 		Fs.mkdirSync(NodePath.dirname(absolute), {recursive: true});
-		Fs.writeFileSync(absolute, nextContent, "utf8");
+		Fs.writeFileSync(absolute, ToolBom.join(nextContent, desiredBom), "utf8");
 		return {
 			title: relative,
 			metadata: ToolResultMetadata.checked({

@@ -320,7 +320,15 @@ function directEvidence(path) {
     ["tool/grep.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core grep cases are covered; full upstream option matrix remains deferred", "ToolSmoke.grepExec"]],
     ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior is covered; full output/error matrix remains deferred", "ToolSmoke.readExec"]],
     ["tool/write.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "write creation, overwrite metadata, diff/filediff metadata, and BOM preservation are covered; LSP diagnostics/formatter/bus integration matrix remains deferred", "ToolSmoke.writeExec"]],
-    ["tool/edit.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative exact/replace-all/multiple-match and tolerant fallback behavior is covered; full upstream Effect/LSP/BOM/event matrix remains deferred", "ToolSmoke.editExec"]],
+    [
+      "tool/edit.test.ts",
+      [
+        "partial",
+        "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
+        "representative exact/replace-all/multiple-match, tolerant fallback behavior, and BOM preservation are covered; full upstream Effect/LSP/event matrix remains deferred",
+        "ToolSmoke.editExec",
+      ],
+    ],
     ["tool/apply_patch.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative add/update/delete/move, EOF, heredoc, Unicode, malformed, and no-side-effect behavior is covered; full upstream Effect/LSP/BOM/event matrix remains deferred", "ToolSmoke.applyPatchExec"]],
     ["patch/patch.test.ts", ["direct", "src/opencodehx/patch/PatchRuntime.hx; src/opencodehx/smoke/PatchSmoke.hx; docs/patch-runtime.md", "standalone Patch namespace behavior is covered for parsePatch, maybeParseApplyPatch, applyPatch add/update/delete/move/nested/error/edge cases, and verified planning", "PatchSmoke", "none"]],
     ["tool/bash.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md", "non-interactive Node shell seam and tree-sitter Bash scanner prompts are covered; streaming metadata and full PowerShell/Windows matrix remain deferred", "ToolSmoke.bashExec and BashCommandScanner fixtures", m11Owners.tool]],
