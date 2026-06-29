@@ -121,23 +121,59 @@ class ProcessRuntime {
 	}
 
 	static function spawnOptions(command:String, opts:Null<ProcessSpawnOptions>):SpawnOptions {
-		final options:Dynamic = {
-			stdio: "pipe",
-			windowsHide: Process.platform == "win32",
-		};
-		if (opts != null) {
-			if (opts.cwd != null)
-				Reflect.setField(options, "cwd", opts.cwd);
-			final env = mergeEnv(opts.env);
-			if (env != null)
-				Reflect.setField(options, "env", env);
-			final shell = shellOption(command, opts.shell);
-			if (shell != null)
-				Reflect.setField(options, "shell", shell);
+		final windowsHide = Process.platform == "win32";
+		if (opts == null)
+			return baseSpawnOptions(windowsHide);
+
+		final cwd = opts.cwd;
+		final env = mergeEnv(opts.env);
+		final shell = shellOption(command, opts.shell);
+		return switch [cwd, env, shell] {
+			case [null, null, null]:
+				baseSpawnOptions(windowsHide);
+			case [cwdValue, null, null]:
+				{stdio: "pipe", windowsHide: windowsHide, cwd: cwdValue};
+			case [null, envValue, null]:
+				{stdio: "pipe", windowsHide: windowsHide, env: envValue};
+			case [null, null, shellValue]:
+				{stdio: "pipe", windowsHide: windowsHide, shell: shellValue};
+			case [cwdValue, envValue, null]:
+				{
+					stdio: "pipe",
+					windowsHide: windowsHide,
+					cwd: cwdValue,
+					env: envValue
+				};
+			case [cwdValue, null, shellValue]:
+				{
+					stdio: "pipe",
+					windowsHide: windowsHide,
+					cwd: cwdValue,
+					shell: shellValue
+				};
+			case [null, envValue, shellValue]:
+				{
+					stdio: "pipe",
+					windowsHide: windowsHide,
+					env: envValue,
+					shell: shellValue
+				};
+			case [cwdValue, envValue, shellValue]:
+				{
+					stdio: "pipe",
+					windowsHide: windowsHide,
+					cwd: cwdValue,
+					env: envValue,
+					shell: shellValue
+				};
 		}
-		// Optional Node spawn properties must be absent, not present as null.
-		// Build the host options dynamically here, then return to the typed seam.
-		return cast options;
+	}
+
+	static inline function baseSpawnOptions(windowsHide:Bool):SpawnOptions {
+		return {
+			stdio: "pipe",
+			windowsHide: windowsHide,
+		};
 	}
 
 	static function shellOption(command:String, shell:Null<EitherType<Bool, String>>):Null<EitherType<Bool, String>> {

@@ -17,15 +17,15 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 729,
+    "Dynamic": 728,
     "DynamicAccess": 560,
-    "cast": 216,
+    "cast": 215,
     "untyped": 5,
     "Syntax.code": 27,
     "@:ts.type": 77,
     "Reflect.field": 451,
     "Reflect.hasField": 46,
-    "Reflect.setField": 50,
+    "Reflect.setField": 47,
     "Any": 0
   },
   "files": {
@@ -671,11 +671,9 @@
       "Reflect.field": 1
     },
     "src/opencodehx/util/ProcessRuntime.hx": {
-      "Dynamic": 3,
+      "Dynamic": 2,
       "DynamicAccess": 5,
-      "cast": 1,
-      "Reflect.field": 1,
-      "Reflect.setField": 3
+      "Reflect.field": 1
     },
     "src/opencodehx/util/Which.hx": {
       "DynamicAccess": 4
