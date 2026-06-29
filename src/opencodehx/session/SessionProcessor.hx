@@ -3,13 +3,22 @@ package opencodehx.session;
 import genes.js.Async.await;
 import genes.ts.Unknown;
 import haxe.Json;
+import js.html.URL;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
+import opencodehx.externs.ai.AiSdk.AiLanguageModelFileData;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelUsage;
+import opencodehx.externs.ai.AiSdk.AiModelFilePart;
+import opencodehx.externs.ai.AiSdk.AiModelAssistantMessagePart;
 import opencodehx.externs.ai.AiSdk.AiModelMessage;
+import opencodehx.externs.ai.AiSdk.AiModelTextPart;
+import opencodehx.externs.ai.AiSdk.AiModelToolCallPart;
+import opencodehx.externs.ai.AiSdk.AiModelToolMessagePart;
+import opencodehx.externs.ai.AiSdk.AiModelToolResultPart;
 import opencodehx.externs.ai.AiSdk.AiModelToolResultTurn;
+import opencodehx.externs.ai.AiSdk.AiModelUserMessagePart;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
 import opencodehx.provider.FakeProvider;
@@ -278,7 +287,7 @@ class SessionProcessor {
 		var tokens = tokenUsage();
 		var modelToolCall:Null<SessionToolCall> = null;
 		var toolOutcome:Null<SessionToolOutcome> = null;
-		final messageHistory = textModelHistory(input.history);
+		final messageHistory = modelHistory(input.history);
 		final tools = AiSdkProvider.toolsFromRegistry(registry);
 		final streamOptions = aiSdkStreamOptions(input, sessionIDText, projectID, provider.system, registry);
 		if (aborted) {
@@ -507,39 +516,147 @@ class SessionProcessor {
 		return {info: UserInfo(info), parts: parts};
 	}
 
-	static function textModelHistory(history:Null<Array<WithParts>>):Array<AiModelMessage> {
+	static function modelHistory(history:Null<Array<WithParts>>):Array<AiModelMessage> {
 		final out:Array<AiModelMessage> = [];
 		if (history == null)
 			return out;
 		for (message in history) {
-			final text = firstText(message.parts);
-			if (StringTools.trim(text) == "")
-				continue;
 			switch message.info {
 				case UserInfo(_):
-					out.push({
-						role: "user",
-						content: text,
-					});
+					pushUserModelMessage(out, message.parts);
 				case AssistantInfo(_):
-					out.push({
-						role: "assistant",
-						content: text,
-					});
+					pushAssistantModelMessages(out, message.parts);
 			}
 		}
 		return out;
 	}
 
-	static function firstText(parts:Array<Part>):String {
+	static function pushUserModelMessage(out:Array<AiModelMessage>, parts:Array<Part>):Void {
+		final content:Array<AiModelUserMessagePart> = [];
 		for (part in parts) {
 			switch part {
 				case TextPart(text):
-					return text.text;
+					if (text.ignored != true && StringTools.trim(text.text) != "")
+						content.push(modelUserTextPart(text.text));
+				case FilePart(file):
+					if (isModelFile(file))
+						content.push(modelUserFilePart(file));
 				case _:
 			}
 		}
-		return "";
+		if (content.length > 0)
+			out.push({role: "user", content: content});
+	}
+
+	static function pushAssistantModelMessages(out:Array<AiModelMessage>, parts:Array<Part>):Void {
+		final content:Array<AiModelAssistantMessagePart> = [];
+		final toolResults:Array<AiModelMessage> = [];
+		for (part in parts) {
+			switch part {
+				case TextPart(text):
+					if (text.ignored != true && StringTools.trim(text.text) != "")
+						content.push(modelAssistantTextPart(text.text));
+				case ToolPart(tool):
+					switch tool.state {
+						case ToolCompleted(data):
+							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
+							toolResults.push(toolTextResultModelMessage(tool.callID, tool.tool, data.output));
+						case ToolErrored(data):
+							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
+							toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, data.error));
+						case ToolPending(data):
+							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
+							toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, "[Tool execution was interrupted]"));
+						case ToolRunning(data):
+							content.push(toolCallModelPart(tool.callID, tool.tool, data.input));
+							toolResults.push(toolErrorResultModelMessage(tool.callID, tool.tool, "[Tool execution was interrupted]"));
+					}
+				case _:
+			}
+		}
+		if (content.length == 0)
+			return;
+		out.push({role: "assistant", content: content});
+		for (message in toolResults)
+			out.push(message);
+	}
+
+	static function isModelFile(file:FilePartData):Bool {
+		return file.mime != "text/plain" && file.mime != "application/x-directory";
+	}
+
+	static function modelUserFilePart(file:FilePartData):AiModelUserMessagePart {
+		final part:AiModelFilePart = if (file.filename == null) {
+			{
+				type: "file",
+				data: modelFileData(file.url),
+				mediaType: file.mime,
+			};
+		} else {
+			{
+				type: "file",
+				data: modelFileData(file.url),
+				mediaType: file.mime,
+				filename: file.filename,
+			};
+		}
+		return part;
+	}
+
+	static function modelUserTextPart(text:String):AiModelUserMessagePart {
+		final part:AiModelTextPart = {type: "text", text: text};
+		return part;
+	}
+
+	static function modelAssistantTextPart(text:String):AiModelAssistantMessagePart {
+		final part:AiModelTextPart = {type: "text", text: text};
+		return part;
+	}
+
+	static function modelFileData(url:String):AiLanguageModelFileData {
+		if (StringTools.startsWith(url, "data:")) {
+			final comma = url.indexOf(",");
+			return comma == -1 ? url : url.substr(comma + 1);
+		}
+		return new URL(url);
+	}
+
+	static function toolCallModelPart(callID:String, toolName:String, input:ToolCallInput):AiModelAssistantMessagePart {
+		final part:AiModelToolCallPart = {
+			type: "tool-call",
+			toolCallId: callID,
+			toolName: toolName,
+			input: input.unknown(),
+		};
+		return part;
+	}
+
+	static function toolTextResultModelMessage(callID:String, toolName:String, outputValue:String):AiModelMessage {
+		final part:AiModelToolResultPart = {
+			type: "tool-result",
+			toolCallId: callID,
+			toolName: toolName,
+			output: {type: "text", value: outputValue},
+		};
+		return toolResultModelMessage(part);
+	}
+
+	static function toolErrorResultModelMessage(callID:String, toolName:String, outputValue:String):AiModelMessage {
+		final part:AiModelToolResultPart = {
+			type: "tool-result",
+			toolCallId: callID,
+			toolName: toolName,
+			output: {type: "error-text", value: outputValue},
+		};
+		return toolResultModelMessage(part);
+	}
+
+	static function toolResultModelMessage(part:AiModelToolResultPart):AiModelMessage {
+		final content:Array<AiModelToolMessagePart> = [part];
+		return {
+			role: "tool",
+			content: content,
+		};
 	}
 
 	static function assistantWithParts(sessionIDText:String, parentInfo:Info, text:String, directory:String, agent:String, provider:SessionProviderIdentity,
@@ -942,7 +1059,7 @@ class SessionProcessor {
 		return {
 			toolCallId: outcome.call.id,
 			toolName: outcome.call.tool,
-			input: Unknown.fromBoundary(outcome.call.input),
+			input: outcome.call.input.unknown(),
 			output: result == null ? "" : result.output,
 		};
 	}

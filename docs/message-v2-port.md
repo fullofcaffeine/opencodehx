@@ -13,6 +13,12 @@ This starts the Haxe-owned Session/Message V2 DTO layer:
 - Cursor encode/decode parity using Node `base64url`.
 - Smoke coverage for user text parts, assistant tool completion with attachments, JSON-schema output format retry defaulting, cursor roundtrip, and unknown part rejection.
 
+## Current Evidence
+
+`SessionProcessorSmoke` now also exercises Message V2 records after storage recovery in the live AI SDK path. The recovered prompt carries text parts, non-text/non-directory user file parts, and assistant tool-call/tool-result history through public AI SDK `ModelMessage[]` into the converted provider prompt.
+
+Full upstream `MessageV2.toModelMessages(...)` parity is still partial. Remaining edges include compaction/subtask synthetic text, provider metadata preservation, media attachments inside tool results, interrupted tool metadata, and provider-transform message cases beyond the focused live recovered-history smoke.
+
 ## Deliberate Boundaries
 
 Provider IDs, model IDs, LSP ranges, snapshot diffs, assistant errors, tool inputs, tool metadata, and structured provider payloads are kept as boundary-shaped `String` or `Dynamic` fields for now. Those schemas belong to provider, LSP, snapshot, and Effect/Zod bridge slices.

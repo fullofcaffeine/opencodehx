@@ -434,9 +434,28 @@ typedef AiModelToolCallPartShape = {
 	final input:Unknown;
 }
 
-typedef AiModelToolResultOutputShape = {
+@:ts.type("'text' | 'json' | 'content' | 'execution-denied' | 'error-text' | 'error-json'")
+enum abstract AiModelToolResultOutputType(String) from String to String {
+	final Text = "text";
+	final ErrorText = "error-text";
+}
+
+typedef AiModelTextPartShape = {
 	final type:String;
-	final value:String;
+	final text:String;
+}
+
+typedef AiModelFilePartShape = {
+	final type:String;
+	final data:AiLanguageModelFileData;
+	@:optional final filename:String;
+	final mediaType:String;
+}
+
+typedef AiModelToolResultOutputShape = {
+	final type:AiModelToolResultOutputType;
+	@:optional final value:String;
+	@:optional final reason:String;
 }
 
 typedef AiModelToolResultPartShape = {
@@ -450,6 +469,14 @@ typedef AiModelToolResultPartShape = {
 @:ts.type("import('ai').ToolCallPart")
 abstract AiModelToolCallPart(AiModelToolCallPartShape) from AiModelToolCallPartShape to AiModelToolCallPartShape {}
 
+@:forward(type, text)
+@:ts.type("import('ai').TextPart")
+abstract AiModelTextPart(AiModelTextPartShape) from AiModelTextPartShape to AiModelTextPartShape {}
+
+@:forward(type, data, filename, mediaType)
+@:ts.type("import('ai').FilePart")
+abstract AiModelFilePart(AiModelFilePartShape) from AiModelFilePartShape to AiModelFilePartShape {}
+
 @:forward(type, value)
 @:ts.type("import('@ai-sdk/provider-utils').ToolResultOutput")
 abstract AiModelToolResultOutput(AiModelToolResultOutputShape) from AiModelToolResultOutputShape to AiModelToolResultOutputShape {}
@@ -458,7 +485,10 @@ abstract AiModelToolResultOutput(AiModelToolResultOutputShape) from AiModelToolR
 @:ts.type("import('ai').ToolResultPart")
 abstract AiModelToolResultPart(AiModelToolResultPartShape) from AiModelToolResultPartShape to AiModelToolResultPartShape {}
 
-typedef AiModelMessagePart = EitherType<AiModelToolCallPart, AiModelToolResultPart>;
+typedef AiModelUserMessagePart = EitherType<AiModelTextPart, AiModelFilePart>;
+typedef AiModelAssistantMessagePart = EitherType<AiModelTextPart, EitherType<AiModelFilePart, EitherType<AiModelToolCallPart, AiModelToolResultPart>>>;
+typedef AiModelToolMessagePart = AiModelToolResultPart;
+typedef AiModelMessagePart = EitherType<AiModelUserMessagePart, EitherType<AiModelAssistantMessagePart, AiModelToolMessagePart>>;
 
 typedef AiModelToolResultTurn = {
 	final toolCallId:String;

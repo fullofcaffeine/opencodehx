@@ -869,12 +869,31 @@ class SessionProcessorSmoke {
 				provider: fixture.info,
 				model: fixture.model,
 				language: persistedToolRuntime.language,
+				files: [
+					{
+						mime: "image/png",
+						filename: "history.png",
+						url: "data:image/png;base64,aW1hZ2U=",
+					}
+				],
 			});
 			eq(persistedTool.messages.length, 2, "ai sdk persisted tool message count");
 			assertToolOutcome(persistedTool.tool);
 			final recoveredAiSdkTool = SessionProcessor.recover(store, "ses_ai_sdk_tool_persisted", 10);
 			eq(recoveredAiSdkTool.messages.length, 2, "ai sdk recovered tool message count");
 			assertAssistantParts(recoveredAiSdkTool.messages[1].parts, "ai sdk recovered tool", "tool_1", "Recovered file says: ai sdk tool fixture.");
+			final richHistoryRuntime = AiSdkMockModel.inspectableText(["Rich history aware."]);
+			final richHistoryRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_rich_history",
+				prompt: "Continue with recovered tool and file context.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: richHistoryRuntime.language,
+				history: recoveredAiSdkTool.messages,
+			});
+			eq(richHistoryRun.messages.length, 2, "ai sdk rich history message count");
+			assertSdkRichHistoryPrompt(richHistoryRuntime.mock.doStreamCalls[0].prompt, "ai sdk rich recovered history prompt");
 
 			final errorResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_error",
@@ -1389,6 +1408,60 @@ class SessionProcessorSmoke {
 		if (parts.length != 1)
 			throw label + ": expected single prompt part";
 		return parts;
+	}
+
+	static function promptContentPartsAny(message:AiLanguageModelPromptMessage, label:String):Array<AiLanguageModelPromptPart> {
+		if (!Std.isOfType(message.content, Array))
+			throw label + ": expected prompt content parts";
+		return message.content;
+	}
+
+	static function assertSdkRichHistoryPrompt(prompt:Array<AiLanguageModelPromptMessage>, label:String):Void {
+		eq(prompt.length, 5, label + " count");
+		eq(prompt[0].role, AiLanguageModelPromptRole.System, label + " system role");
+		eq(prompt[1].role, AiLanguageModelPromptRole.User, label + " recovered user role");
+		final userParts = promptContentPartsAny(prompt[1], label + " recovered user content");
+		eq(hasPromptTextPart(userParts, "Persist this AI SDK tool turn."), true, label + " recovered user text");
+		final file = firstPromptPart(userParts, AiLanguageModelPromptPartType.File, label + " recovered user file");
+		eq(file.mediaType, "image/png", label + " file media type");
+		eq(file.filename, "history.png", label + " file name");
+		eq(Std.string(file.data), "aW1hZ2U=", label + " file data");
+
+		eq(prompt[2].role, AiLanguageModelPromptRole.Assistant, label + " recovered assistant role");
+		final assistantParts = promptContentPartsAny(prompt[2], label + " recovered assistant content");
+		eq(hasPromptTextPart(assistantParts, "Recovered file says: ai sdk tool fixture."), true, label + " recovered assistant text");
+		final toolCall = firstPromptPart(assistantParts, AiLanguageModelPromptPartType.ToolCall, label + " recovered tool call");
+		eq(toolCall.toolCallId, "tool_1", label + " tool-call id");
+		eq(toolCall.toolName, "read", label + " tool-call name");
+
+		eq(prompt[3].role, AiLanguageModelPromptRole.Tool, label + " recovered tool role");
+		final toolResult = promptContentParts(prompt[3], label + " recovered tool content")[0];
+		eq(toolResult.type, AiLanguageModelPromptPartType.ToolResult, label + " tool-result type");
+		eq(toolResult.toolCallId, "tool_1", label + " tool-result id");
+		if (toolResult.output == null)
+			throw label + ": expected tool-result output";
+		eq(toolResult.output.type, "text", label + " tool-result output type");
+		if (Std.string(toolResult.output.value).indexOf("ai sdk tool fixture") == -1)
+			throw label + ": missing recovered tool output";
+
+		eq(prompt[4].role, AiLanguageModelPromptRole.User, label + " current user role");
+		eq(promptContentText(prompt[4]), "Continue with recovered tool and file context.", label + " current user text");
+	}
+
+	static function firstPromptPart(parts:Array<AiLanguageModelPromptPart>, type:AiLanguageModelPromptPartType, label:String):AiLanguageModelPromptPart {
+		for (part in parts) {
+			if (part.type == type)
+				return part;
+		}
+		throw label + ": missing prompt part";
+	}
+
+	static function hasPromptTextPart(parts:Array<AiLanguageModelPromptPart>, text:String):Bool {
+		for (part in parts) {
+			if (part.type == AiLanguageModelPromptPartType.Text && part.text == text)
+				return true;
+		}
+		return false;
 	}
 
 	static function assertCompactionPart(parts:Array<Part>, label:String):Void {
