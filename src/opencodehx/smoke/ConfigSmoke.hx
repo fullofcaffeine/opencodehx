@@ -209,6 +209,25 @@ class ConfigSmoke {
 		eq(flattened.diffStyle, "auto", "tui top-level field wins over nested tui field");
 		eq(flattened.scrollSpeed, 3.0, "tui nested field flattened");
 
+		final windowsDefault = directory(root, "tui-windows-default");
+		final windowsDefaultConfig = ConfigTui.load(windowsDefault, {
+			globalConfigDir: directory(root, "tui-empty-windows-default-global"),
+			worktree: windowsDefault,
+			platform: "win32",
+		});
+		eq(windowsDefaultConfig.keybinds.get("terminal_suspend"), "none", "tui Windows disables terminal suspend");
+		eq(windowsDefaultConfig.keybinds.get("input_undo"), "ctrl+z,ctrl+-,super+z", "tui Windows default input undo");
+
+		final windowsExplicit = directory(root, "tui-windows-explicit");
+		write(windowsExplicit, "tui.json", '{"keybinds":{"terminal_suspend":"alt+z","input_undo":"ctrl+y"}}');
+		final windowsExplicitConfig = ConfigTui.load(windowsExplicit, {
+			globalConfigDir: directory(root, "tui-empty-windows-explicit-global"),
+			worktree: windowsExplicit,
+			platform: "win32",
+		});
+		eq(windowsExplicitConfig.keybinds.get("terminal_suspend"), "none", "tui Windows ignores terminal suspend override");
+		eq(windowsExplicitConfig.keybinds.get("input_undo"), "ctrl+y", "tui Windows preserves explicit input undo");
+
 		final migrationRoot = directory(root, "tui-migration");
 		final nested = directory(migrationRoot, "apps/client");
 		write(migrationRoot, "opencode.json", '{"theme":"root-theme"}');

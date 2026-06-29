@@ -32,6 +32,7 @@ typedef TuiConfigInfo = {
 typedef TuiConfigOptions = {
 	@:optional final globalConfigDir:String;
 	@:optional final worktree:String;
+	@:optional final platform:String;
 }
 
 private typedef TuiLayer = {
@@ -53,6 +54,8 @@ private typedef TuiLayer = {
  * boundary into typed fields before the rest of the app sees it.
  */
 class ConfigTui {
+	static inline final WINDOWS_INPUT_UNDO = "ctrl+z,ctrl+-,super+z";
+
 	public static function load(directory:String, ?options:TuiConfigOptions):TuiConfigInfo {
 		final opts:TuiConfigOptions = options == null ? {} : options;
 		migrateLegacy(directory, opts);
@@ -75,6 +78,7 @@ class ConfigTui {
 			for (file in filesInDirectory(dir, "tui"))
 				merge(result, loadFile(file, directory, PluginScopeLocal, file));
 		}
+		normalizeKeybinds(result, opts.platform == null ? NodeProcess.platform() : opts.platform);
 		return result;
 	}
 
@@ -106,6 +110,14 @@ class ConfigTui {
 			result.pluginOrigins = ConfigPlugin.deduplicateOrigins(origins);
 			result.plugin = [for (origin in result.pluginOrigins) origin.spec];
 		}
+	}
+
+	static function normalizeKeybinds(result:TuiConfigInfo, platform:String):Void {
+		if (platform != "win32")
+			return;
+		result.keybinds.set("terminal_suspend", "none");
+		if (!result.keybinds.exists("input_undo"))
+			result.keybinds.set("input_undo", WINDOWS_INPUT_UNDO);
 	}
 
 	static function loadFile(path:String, directory:String, scope:PluginScope, source:String):TuiLayer {
