@@ -400,6 +400,24 @@ class ToolSmoke {
 		eq(dir.output.indexOf("<type>directory</type>") != -1, true, "read directory type");
 		eq(dir.output.indexOf("a.ts") != -1, true, "read directory entry");
 
+		write(ctx.directory, "src/page-1.txt", "one\n");
+		write(ctx.directory, "src/page-2.txt", "two\n");
+		write(ctx.directory, "src/page-3.txt", "three\n");
+		final pagedDir = registry.execute(ToolIDs.known("read"), {filePath: "src", offset: 2, limit: 2}, ctx);
+		eq(pagedDir.output.indexOf("b.txt") != -1, true, "read directory offset includes second entry");
+		eq(pagedDir.output.indexOf("c.ts") != -1, true, "read directory limit includes third entry");
+		eq(pagedDir.output.indexOf("a.ts") == -1, true, "read directory offset skips first entry");
+		eq(pagedDir.output.indexOf("Use 'offset' parameter") != -1, true, "read directory truncation hint");
+		final finalDirPage = registry.execute(ToolIDs.known("read"), {filePath: "src", offset: 6, limit: 20}, ctx);
+		eq(finalDirPage.output.indexOf("Showing 20") == -1, true, "read directory final page not truncated");
+
+		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "src/a.ts", offset: 5, limit: 1}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "read" && message.indexOf("Offset 5 is out of range") != -1;
+				case _: false;
+			}
+		}, "read out-of-range offset failure");
+
 		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "../outside.ts"}, ctx), function(failure) {
 			return switch failure {
 				case ExecutionFailed(id, message): id == "read" && message.indexOf("escapes project") != -1;

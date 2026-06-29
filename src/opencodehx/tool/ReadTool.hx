@@ -74,14 +74,14 @@ class ReadTool {
 
 		final stat:Dynamic = Fs.statSync(absolute);
 		if (stat.isDirectory())
-			return readDirectory(ctx, absolute);
+			return readDirectory(ctx, absolute, input.offset, input.limit);
 		if (!stat.isFile())
 			throw new ToolException(ExecutionFailed(KnownToolID.Read, 'Path is not a file: ${absolute}'));
 
 		return readFile(ctx, absolute, input.offset, input.limit);
 	}
 
-	static function readDirectory(ctx:ToolContext, absolute:String):ToolResult {
+	static function readDirectory(ctx:ToolContext, absolute:String, offsetArg:Null<Int>, limitArg:Null<Int>):ToolResult {
 		final entries:Array<Dynamic> = Fs.readdirSync(absolute, {withFileTypes: true});
 		final rows:Array<String> = [];
 		for (entry in entries) {
@@ -92,15 +92,22 @@ class ReadTool {
 			rows.push(name + (isDirectory ? "/" : ""));
 		}
 		rows.sort(Reflect.compare);
-		final limit = 200;
-		final truncated = rows.length > limit;
-		final shown = truncated ? rows.slice(0, limit) : rows;
+		final offset = offsetArg == null ? 1 : offsetArg;
+		final limit = limitArg == null ? DEFAULT_READ_LIMIT : limitArg;
+		if (offset < 1)
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, "offset must be greater than or equal to 1"));
+		if (limit < 1)
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, "limit must be greater than 0"));
+		final start = offset - 1;
+		final end = start + limit > rows.length ? rows.length : start + limit;
+		final shown = start < rows.length ? rows.slice(start, end) : [];
+		final truncated = start + shown.length < rows.length;
 		final output = [
 			'<path>${absolute}</path>',
 			"<type>directory</type>",
 			"<entries>",
 			shown.join("\n"),
-			truncated ? 'showing ${shown.length} of ${rows.length} entries' : '(${rows.length} entries)',
+			truncated ? '(Showing ${shown.length} of ${rows.length} entries. Use \'offset\' parameter to read beyond entry ${offset + shown.length})' : '(${rows.length} entries)',
 			"</entries>"
 		];
 		return {
@@ -121,9 +128,11 @@ class ReadTool {
 		final offset = offsetArg == null ? 1 : offsetArg;
 		final limit = limitArg == null ? DEFAULT_READ_LIMIT : limitArg;
 		if (offset < 1)
-			throw new ToolException(ExecutionFailed(KnownToolID.Read, "offset must be greater than 0"));
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, "offset must be greater than or equal to 1"));
 		if (limit < 1)
 			throw new ToolException(ExecutionFailed(KnownToolID.Read, "limit must be greater than 0"));
+		if (lines.length < offset && !(lines.length == 0 && offset == 1))
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, 'Offset ${offset} is out of range for this file (${lines.length} lines)'));
 
 		final start = offset - 1;
 		final end = start + limit > lines.length ? lines.length : start + limit;

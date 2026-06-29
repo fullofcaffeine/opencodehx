@@ -318,7 +318,7 @@ function directEvidence(path) {
     ],
     ["tool/glob.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core glob cases are covered; full Effect/tool context parity remains deferred", "ToolSmoke.globExec"]],
     ["tool/grep.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core grep cases are covered; full upstream option matrix remains deferred", "ToolSmoke.grepExec"]],
-    ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior is covered; full output/error matrix remains deferred", "ToolSmoke.readExec"]],
+    ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior, file offset errors, and directory pagination are covered; media attachments, instruction loading, and fuller output matrix remain deferred", "ToolSmoke.readExec"]],
     ["tool/write.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "write creation, overwrite metadata, diff/filediff metadata, and BOM preservation are covered; LSP diagnostics/formatter/bus integration matrix remains deferred", "ToolSmoke.writeExec"]],
     [
       "tool/edit.test.ts",
