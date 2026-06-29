@@ -2,6 +2,9 @@ package opencodehx.smoke;
 
 import genes.ts.Unknown;
 import haxe.Json;
+import opencodehx.cli.PluginAuthPicker.PluginProviderChoice;
+import opencodehx.cli.PluginAuthPicker.PluginProviderHook;
+import opencodehx.cli.PluginAuthPicker.resolvePluginProviders;
 import opencodehx.config.ConfigPlugin;
 import opencodehx.config.ConfigPlugin.PluginOrigin;
 import opencodehx.config.ConfigPlugin.PluginScope;
@@ -39,6 +42,7 @@ class PluginSmoke {
 		try {
 			codexJwtClaims();
 			authOverride();
+			pluginAuthPicker();
 			cloudflareChatParams();
 			githubCopilotModels();
 			parseSpecifiers();
@@ -98,6 +102,98 @@ class PluginSmoke {
 		eq(PluginAuthHooks.methodsFor(ProviderIDs.known("openai"), combined)[0].label, "OpenAI", "unrelated auth provider unchanged");
 	}
 
+	static function pluginAuthPicker():Void {
+		assertChoices(resolvePluginProviders({
+			hooks: [pickerHook(ProviderID.make("portkey"))],
+			existingProviders: [],
+			disabled: [],
+			enabled: null,
+			providerNames: [],
+		}), [{id: ProviderID.make("portkey"), name: "portkey"}],
+			"plugin auth picker includes plugin provider");
+
+		assertChoices(resolvePluginProviders({
+			hooks: [pickerHook(ProviderIDs.known("anthropic"))],
+			existingProviders: [ProviderIDs.known("anthropic")],
+			disabled: [],
+			enabled: null,
+			providerNames: [],
+		}), [], "plugin auth picker skips models.dev provider");
+
+		assertChoices(resolvePluginProviders({
+			hooks: [pickerHook(ProviderID.make("portkey")), pickerHook(ProviderID.make("portkey"))],
+			existingProviders: [],
+			disabled: [],
+			enabled: null,
+			providerNames: [],
+		}), [{id: ProviderID.make("portkey"), name: "portkey"}],
+			"plugin auth picker dedupes plugins");
+
+		assertChoices(resolvePluginProviders({
+			hooks: [pickerHook(ProviderID.make("portkey"))],
+			existingProviders: [],
+			disabled: [ProviderID.make("portkey")],
+			enabled: null,
+			providerNames: [],
+		}), [], "plugin auth picker respects disabled providers");
+
+		assertChoices(resolvePluginProviders({
+			hooks: [pickerHook(ProviderID.make("portkey"))],
+			existingProviders: [],
+			disabled: [],
+			enabled: [ProviderIDs.known("anthropic")],
+			providerNames: [],
+		}), [], "plugin auth picker respects enabled provider absence");
+
+		assertChoices(resolvePluginProviders({
+			hooks: [pickerHook(ProviderID.make("portkey"))],
+			existingProviders: [],
+			disabled: [],
+			enabled: [ProviderID.make("portkey")],
+			providerNames: [],
+		}), [{id: ProviderID.make("portkey"), name: "portkey"}],
+			"plugin auth picker includes enabled provider");
+
+		assertChoices(resolvePluginProviders({
+			hooks: [pickerHook(ProviderID.make("portkey"))],
+			existingProviders: [],
+			disabled: [],
+			enabled: null,
+			providerNames: [{id: ProviderID.make("portkey"), name: "Portkey AI"}],
+		}), [{id: ProviderID.make("portkey"), name: "Portkey AI"}],
+			"plugin auth picker configured name");
+
+		assertChoices(resolvePluginProviders({
+			hooks: [pickerHook(ProviderID.make("portkey"))],
+			existingProviders: [],
+			disabled: [],
+			enabled: null,
+			providerNames: [],
+		}), [{id: ProviderID.make("portkey"), name: "portkey"}],
+			"plugin auth picker falls back to id");
+
+		assertChoices(resolvePluginProviders({
+			hooks: [
+				pickerHookWithoutAuth(),
+				pickerHook(ProviderID.make("portkey")),
+				pickerHookWithoutAuth()
+			],
+			existingProviders: [],
+			disabled: [],
+			enabled: null,
+			providerNames: [],
+		}), [{id: ProviderID.make("portkey"), name: "portkey"}],
+			"plugin auth picker skips hooks without auth");
+
+		assertChoices(resolvePluginProviders({
+			hooks: [],
+			existingProviders: [],
+			disabled: [],
+			enabled: null,
+			providerNames: [],
+		}), [], "plugin auth picker handles no hooks");
+	}
+
 	static function authHook(provider:ProviderID, label:String):PluginAuthHook {
 		return {
 			provider: provider,
@@ -108,6 +204,22 @@ class PluginSmoke {
 				}
 			],
 		};
+	}
+
+	static function pickerHook(provider:ProviderID):PluginProviderHook {
+		return {auth: authHook(provider, provider.toString())};
+	}
+
+	static function pickerHookWithoutAuth():PluginProviderHook {
+		return {auth: null};
+	}
+
+	static function assertChoices(actual:Array<PluginProviderChoice>, expected:Array<PluginProviderChoice>, label:String):Void {
+		eq(actual.length, expected.length, '${label} count');
+		for (i in 0...expected.length) {
+			eq(actual[i].id, expected[i].id, '${label} id ${i}');
+			eq(actual[i].name, expected[i].name, '${label} name ${i}');
+		}
 	}
 
 	static function cloudflareChatParams():Void {
