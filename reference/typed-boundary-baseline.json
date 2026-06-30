@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 541,
+    "Dynamic": 538,
     "DynamicAccess": 540,
     "cast": 139,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 106,
+    "Reflect.field": 105,
     "Reflect.hasField": 24,
     "Reflect.setField": 43,
     "Any": 0
@@ -175,10 +175,9 @@
       "@:ts.type": 2
     },
     "src/opencodehx/file/AppFileSystem.hx": {
-      "Dynamic": 11,
+      "Dynamic": 8,
       "cast": 3,
-      "untyped": 1,
-      "Reflect.field": 1
+      "untyped": 1
     },
     "src/opencodehx/file/FileSystem.hx": {
       "Dynamic": 1

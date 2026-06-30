@@ -1,6 +1,9 @@
 package opencodehx.file;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.Json;
+import haxe.extern.EitherType;
 import js.lib.Promise;
 import js.lib.Uint8Array;
 import opencodehx.externs.node.Buffer;
@@ -85,7 +88,7 @@ class AppFileSystem {
 		return new Promise<Void>((resolve, reject) -> {
 			final chunks:Array<Uint8Array> = [];
 			final resolveVoid:Void->Void = cast resolve;
-			stream.on("data", (chunk:Dynamic) -> chunks.push(nodeChunkBytes(chunk)));
+			stream.on("data", (chunk:NodeReadableChunk) -> chunks.push(nodeChunkBytes(chunk)));
 			stream.on("error", (error:Dynamic) -> reject(error));
 			stream.on("end", () -> {
 				try {
@@ -232,7 +235,7 @@ class AppFileSystem {
 		try {
 			return normalizePath(Fs.realpathSync(resolved));
 		} catch (error:Dynamic) {
-			if (errorCode(error) == "ENOENT")
+			if (errorCode(Unknown.fromBoundary(error)) == "ENOENT")
 				return normalizePath(resolved);
 			throw error;
 		}
@@ -282,7 +285,7 @@ class AppFileSystem {
 		return mode == null ? null : {mode: mode};
 	}
 
-	static function nodeChunkBytes(chunk:Dynamic):Uint8Array {
+	static function nodeChunkBytes(chunk:NodeReadableChunk):Uint8Array {
 		if (Std.isOfType(chunk, String))
 			return Buffer.from(Std.string(chunk), "utf8").subarray(0);
 		// Node Readable streams can emit Buffer/Uint8Array-like chunks from
@@ -305,11 +308,16 @@ class AppFileSystem {
 		return ~/^[A-Za-z]:$/.match(path) ? path + "\\" : path;
 	}
 
-	static function errorCode(error:Dynamic):String {
-		final code = Reflect.field(error, "code");
-		return code == null ? "" : Std.string(code);
+	static function errorCode(error:Unknown):String {
+		final record = UnknownNarrow.record(error);
+		if (record == null)
+			return "";
+		final code = UnknownNarrow.string(record.get("code"));
+		return code == null ? "" : code;
 	}
 }
+
+typedef NodeReadableChunk = EitherType<String, NodeBufferData>;
 
 enum AppFileContent {
 	Text(value:String);
