@@ -36,7 +36,7 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotAiSdkLanguageModel` adapts the Haxe-owned chat model to the exact AI SDK `LanguageModelV3` call/result/stream surface without production casts.
 - `CopilotResponsesLanguageModel` ports the first Haxe-owned GitHub Copilot/OpenAI Responses `LanguageModelV3` path for `gpt-5` non-mini models, including typed request-body construction, non-stream result mapping, and core SSE event mapping.
 - `CopilotLanguageLoader` wires configured `@ai-sdk/github-copilot` models through the upstream `shouldUseCopilotResponsesApi` rule: chat models use `ProviderRegistry.resolveCopilotChat`, while `gpt-5` non-mini models use `ProviderRegistry.resolveCopilotResponses`.
-- `ProviderOptionAccess` centralizes typed reads from open provider SDK options, keeping `Record<string, any>`-style boundary access localized and narrowed before loaders consume it.
+- `ProviderOptionAccess` centralizes typed reads from open provider SDK options, keeping `Record<string, any>`-style boundary access localized and narrowed through `genes.ts.UnknownNarrow` before loaders consume it.
 - `opencodehx.server.ServerProviderProtocol` encodes the first server provider-list JSON shapes for `GET /config/providers`, `GET /provider`, and `GET /provider/auth`, keeping provider `models`, `default`, and auth-method string-keyed records out of route logic while preserving upstream's provider/model ID map contract.
 - `OpenCodeServer` now exposes the first `/provider` route: it loads `ProviderModelsDev`, filters by local enabled/disabled provider config, overlays connected `ProviderRegistry` providers, and returns upstream-shaped `all`, `default`, and `connected` fields.
 - `OpenCodeServer` now exposes the first `/provider/auth` route. The current route returns typed, injected plugin-auth method hooks as upstream-shaped provider method arrays; live plugin loading plus OAuth authorize/callback persistence remains deferred.
@@ -223,7 +223,7 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 
 `CopilotChatResponseDecoder` follows the same Unknown-backed pattern for non-stream `/chat/completions` HTTP bodies: `Json.parse` output is immediately marked as `genes.ts.Unknown`, object and array fields are narrowed through `UnknownNarrow`, and validated values are copied into typed Copilot response DTOs. `CopilotChatHttpClientSmoke` covers happy-path decoding, API error-body message extraction, and malformed 200 response-body rejection.
 
-`ProviderOptionAccess` owns the registry's provider-option weak reads. Provider options intentionally remain open because SDKs/plugins own arbitrary keys; loaders must ask `ProviderOptionAccess` for typed strings, booleans, URLs, and headers rather than reading option fields directly.
+`ProviderOptionAccess` owns the registry's provider-option weak reads. Provider options intentionally remain open because SDKs/plugins own arbitrary keys; loaders must ask `ProviderOptionAccess` for typed strings, booleans, numbers, URLs, headers, and option sub-records rather than reading option fields directly. The helper wraps raw values as `genes.ts.Unknown`, narrows records with `UnknownNarrow.record`, and copies only validated leaves into typed maps, so provider loaders no longer use reflection for option reads.
 
 When callers do not inject an env map, `ProviderRegistry` reads `process.env` through `host.node.NodeProcess.env()`. That keeps the Node host boundary in the host layer instead of embedding raw `js.Syntax.code` in provider registry logic.
 

@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 667,
-    "DynamicAccess": 549,
+    "Dynamic": 663,
+    "DynamicAccess": 547,
     "cast": 179,
     "untyped": 5,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 392,
+    "Reflect.field": 386,
     "Reflect.hasField": 38,
     "Reflect.setField": 47,
     "Any": 0
@@ -298,9 +298,7 @@
       "DynamicAccess": 4
     },
     "src/opencodehx/provider/ProviderOptionAccess.hx": {
-      "Dynamic": 4,
-      "DynamicAccess": 15,
-      "Reflect.field": 6
+      "DynamicAccess": 13
     },
     "src/opencodehx/provider/ProviderRegistry.hx": {
       "Dynamic": 36,
