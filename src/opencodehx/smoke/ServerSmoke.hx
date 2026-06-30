@@ -457,7 +457,7 @@ class ServerSmoke {
 		final ptyMissing = await(server.app.request('/pty/${ptyID}'));
 		eq(ptyMissing.status, 404, "pty missing route");
 
-		final syncReplay = await(jsonResponse(await(server.app.request("/sync/replay", {
+		final syncReplayResponse = await(server.app.request("/sync/replay", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({
@@ -479,10 +479,11 @@ class ServerSmoke {
 					},
 				],
 			}),
-		}))));
-		eq(Reflect.field(syncReplay, "sessionID"), "sync_session_1", "sync replay session id");
+		}));
+		final syncReplay = requiredRecord(Unknown.fromBoundary(await(jsonResponse(syncReplayResponse))), "sync replay");
+		eq(requiredString(syncReplay, "sessionID", "sync replay session id"), "sync_session_1", "sync replay session id");
 
-		final syncReplayNext = await(jsonResponse(await(server.app.request("/sync/replay", {
+		final syncReplayNextResponse = await(server.app.request("/sync/replay", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({
@@ -497,27 +498,29 @@ class ServerSmoke {
 					},
 				],
 			}),
-		}))));
-		eq(Reflect.field(syncReplayNext, "sessionID"), "sync_session_1", "sync replay next session id");
+		}));
+		final syncReplayNext = requiredRecord(Unknown.fromBoundary(await(jsonResponse(syncReplayNextResponse))), "sync replay next");
+		eq(requiredString(syncReplayNext, "sessionID", "sync replay next session id"), "sync_session_1", "sync replay next session id");
 
-		// Parsed sync route JSON is kept as Dynamic only inside this smoke
-		// assertion boundary; the production route decodes request JSON into
-		// typed SyncRouteRuntime records before using it.
-		final syncHistory:Dynamic = await(jsonResponse(await(server.app.request("/sync/history", {
+		final syncHistoryResponse = await(server.app.request("/sync/history", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({}),
-		}))));
+		}));
+		final syncHistory = requiredArray(Unknown.fromBoundary(await(jsonResponse(syncHistoryResponse))), "sync history");
 		eq(syncHistory.length, 3, "sync history count");
-		eq(Reflect.field(cast syncHistory[0], "aggregate_id"), "sync_session_1", "sync history aggregate field");
+		eq(requiredString(requiredRecord(syncHistory.get(0), "sync history first"), "aggregate_id", "sync history aggregate field"), "sync_session_1",
+			"sync history aggregate field");
 
-		final syncTail:Dynamic = await(jsonResponse(await(server.app.request("/sync/history", {
+		final syncTailResponse = await(server.app.request("/sync/history", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({sync_session_1: 1}),
-		}))));
+		}));
+		final syncTail = requiredArray(Unknown.fromBoundary(await(jsonResponse(syncTailResponse))), "sync history tail");
 		eq(syncTail.length, 1, "sync history known tail count");
-		eq(Reflect.field(cast syncTail[0], "seq"), 2, "sync history known tail seq");
+		final syncTailFirst = requiredRecord(syncTail.get(0), "sync history tail first");
+		eq(UnknownNarrow.number(syncTailFirst.get("seq")), 2.0, "sync history known tail seq");
 
 		final syncUnknown = await(server.app.request("/sync/replay", {
 			method: "POST",
@@ -535,7 +538,7 @@ class ServerSmoke {
 				],
 			}),
 		}));
-		eq(Reflect.field(syncUnknown, "status"), 400, "sync unknown status");
+		eq(syncUnknown.status, 400, "sync unknown status");
 
 		final syncGap = await(server.app.request("/sync/replay", {
 			method: "POST",
@@ -553,7 +556,7 @@ class ServerSmoke {
 				],
 			}),
 		}));
-		eq(Reflect.field(syncGap, "status"), 400, "sync gap status");
+		eq(syncGap.status, 400, "sync gap status");
 
 		final syncStart = await(jsonResponse(await(server.app.request("/sync/start", {method: "POST"}))));
 		eq(syncStart, true, "sync start route");
