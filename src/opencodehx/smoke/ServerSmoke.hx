@@ -1409,6 +1409,15 @@ class ServerSmoke {
 		return value;
 	}
 
+	static function projectListHasWorktree(items:genes.ts.UnknownArray, worktree:String):Bool {
+		for (index in 0...items.length) {
+			final item = UnknownNarrow.record(items.get(index));
+			if (item != null && UnknownNarrow.string(item.get("worktree")) == worktree)
+				return true;
+		}
+		return false;
+	}
+
 	static function assistantErrorName(raw:Unknown, label:String):Null<String> {
 		final items = UnknownNarrow.array(raw);
 		if (items == null)
@@ -1636,6 +1645,19 @@ class ServerSmoke {
 			}))));
 			eq(Reflect.field(current, "vcs"), "git", "project current vcs");
 			eq(Reflect.field(current, "worktree"), plainReal, "project current worktree");
+			final committed = NodePath.join(root, "project-list-committed");
+			initCommittedRepo(committed, "# committed project");
+			final committedReal = Fs.realpathSync(committed);
+			final committedCurrentBody = await(jsonResponse(await(server.app.request("/project/current", {
+				headers: {"x-opencode-directory": StringTools.urlEncode(committed)},
+			}))));
+			final committedCurrent = requiredRecord(Unknown.fromBoundary(committedCurrentBody), "committed project current");
+			eq(requiredString(committedCurrent, "worktree", "committed project current worktree"), committedReal, "committed project current worktree");
+			final projectListBody = await(jsonResponse(await(server.app.request("/project"))));
+			final projectList = requiredArray(Unknown.fromBoundary(projectListBody), "project list");
+			eq(projectList.length >= 2, true, "project list count");
+			eq(projectListHasWorktree(projectList, plainReal), true, "project list plain worktree");
+			eq(projectListHasWorktree(projectList, committedReal), true, "project list committed worktree");
 			final reloaded = InstanceRuntime.get(plain);
 			if (reloaded == null)
 				throw "project init reloaded instance: expected instance context";

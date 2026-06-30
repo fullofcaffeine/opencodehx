@@ -1,6 +1,6 @@
 # Project Runtime Parity
 
-**Beads:** `opencodehx-who`, expanded by `opencodehx-hic`, `opencodehx-99y`, `opencodehx-obx`, and `opencodehx-grp`
+**Beads:** `opencodehx-who`, expanded by `opencodehx-hic`, `opencodehx-99y`, `opencodehx-obx`, `opencodehx-grp`, and `opencodehx-4pth`
 
 This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, worktree, instance bootstrap, npm, installation-adjacent, and sync tests. The executable fixture is `src/opencodehx/smoke/ProjectRuntimeSmoke.hx`, which runs as part of `npm run smoke`.
 
@@ -36,7 +36,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - missing sandbox directories are pruned from project state,
   - storage-backed global sessions are migrated to the real project ID when a committed project is discovered,
   - empty-directory and unrelated global sessions remain under the global project,
-  - host paths are canonicalized through real filesystem paths when they exist.
+  - host paths are canonicalized through real filesystem paths when they exist, and
+  - the server `/project` route lists opened projects through the same typed project response adapter used by `/project/current`.
 - Worktrees:
   - friendly names are slugged into stable branch/directory names,
   - repeated names avoid existing directories and branch names,

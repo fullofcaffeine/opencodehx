@@ -448,7 +448,7 @@ function directEvidence(path) {
       ],
     ],
     ["server/global-session-list.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md", "route-level smoke covers /experimental/session listing across routed projects, project metadata, cursor pagination, search, and archived-session exclusion/inclusion", "ServerSmoke GET /experimental/session fixtures plus PATCH /session/:id archive fixture", "none"]],
-    ["server/project-init-git.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; src/opencodehx/project/ProjectRuntime.hx; src/opencodehx/snapshot/SnapshotRuntime.hx; docs/server-hono-seam.md", "route-level smoke covers /project/git/init, /project/current, git initialization, instance reload/disposed events, no .git/opencode cache creation, already-git no-reload behavior, and server-attached snapshot tracking after reload", "ServerSmoke project git init route fixtures", "none"]],
+    ["server/project-init-git.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; src/opencodehx/project/ProjectRuntime.hx; src/opencodehx/snapshot/SnapshotRuntime.hx; docs/server-hono-seam.md", "route-level smoke covers /project, /project/git/init, /project/current, multi-project list output, git initialization, instance reload/disposed events, no .git/opencode cache creation, already-git no-reload behavior, and server-attached snapshot tracking after reload", "ServerSmoke project list and git init route fixtures", "none"]],
     [
       "server/session-messages.test.ts",
       [

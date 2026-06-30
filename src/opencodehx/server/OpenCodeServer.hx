@@ -117,6 +117,7 @@ class OpenCodeServer {
 		app.get("/session", c -> listSessions(c));
 		app.get("/session/status", c -> sessionStatuses(c));
 		app.get("/experimental/session", c -> listGlobalSessions(c));
+		app.get("/project", c -> listProjects(c));
 		app.get("/project/current", c -> currentProject(c));
 		app.post("/project/git/init", c -> initGitProject(c));
 		app.post("/session", c -> createSession(c));
@@ -398,6 +399,10 @@ class OpenCodeServer {
 		final dir = routingDirectory(c);
 		final project = ProjectRuntime.fromDirectory(dir, store).project;
 		return json(c, projectResponse(project));
+	}
+
+	function listProjects(c:HonoContext):Response {
+		return json(c, [for (project in ProjectRuntime.list()) projectResponse(project)]);
 	}
 
 	function questionService(c:HonoContext):Null<QuestionService> {
