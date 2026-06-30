@@ -52,7 +52,7 @@ class PermissionRules {
 	public static function fromConfig(config:Null<PermissionConfig>):Array<PermissionRule> {
 		if (config == null)
 			return [];
-		final keys = Reflect.fields(config);
+		final keys = [for (key in config.keys()) key];
 		keys.sort((a, b) -> {
 			final aWild = a.indexOf("*") != -1;
 			final bWild = b.indexOf("*") != -1;

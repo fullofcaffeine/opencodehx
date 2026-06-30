@@ -23,7 +23,7 @@
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 98,
+    "Reflect.field": 97,
     "Reflect.hasField": 21,
     "Reflect.setField": 41,
     "Any": 0
@@ -230,8 +230,7 @@
     "src/opencodehx/permission/PermissionRules.hx": {
       "Dynamic": 2,
       "DynamicAccess": 2,
-      "cast": 1,
-      "Reflect.field": 1
+      "cast": 1
     },
     "src/opencodehx/plugin/PluginCodex.hx": {
       "Dynamic": 1

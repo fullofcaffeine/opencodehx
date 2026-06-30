@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1468 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1467 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -59,6 +59,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `UtilSmoke` reads process failure objects and diagnostics golden JSON through `UnknownRecord` helpers instead of assertion-local `Dynamic` and reflection.
 - `ConfigWriter` recurses through writable JSON/JSONC config trees with `UnknownRecord.keys/get` instead of `Reflect.fields`, `Reflect.field`, and casts.
 - `ConfigInfo.mergeObject` merges open config maps through `UnknownRecord.keys/get` instead of recursive `Reflect.fields`/`Reflect.field`/`Reflect.setField`.
+- `PermissionRules.fromConfig` iterates typed permission map keys instead of reflecting over the config object.
 - `McpRuntime.transportOptions` assembles SDK transport options through typed record branches instead of `Dynamic`, `Reflect.setField`, and a final cast.
 - `McpAcpSmoke` asserts typed MCP transport option presence through optional fields instead of `Reflect.hasField`.
 - `ModuleResolver` and `ProcessRuntime` read package/error boundary strings through `UnknownRecord` helpers instead of utility-local reflection.
