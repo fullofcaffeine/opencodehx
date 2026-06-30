@@ -2,6 +2,9 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownArray;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.Json;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
@@ -91,14 +94,14 @@ class CliSmoke {
 		eq(text.stdout, "Hello from the fake provider.\n", "run text output");
 
 		final json = Cli.run(["run", "--format", "json", "Say", "hello", "from", "the", "fixture."]);
-		final parsed:Dynamic = Json.parse(json.stdout);
-		eq(Reflect.field(Reflect.field(parsed, "provider"), "id"), "openai", "run json provider");
-		eq(Reflect.field(Reflect.field(parsed, "request"), "prompt"), "Say hello from the fixture.", "run json prompt");
-		final defaultSessionID = Std.string(Reflect.field(Reflect.field(parsed, "request"), "sessionID"));
+		final parsed = parseRecord(json.stdout, "run json transcript");
+		eq(providerID(parsed), "openai", "run json provider");
+		eq(requestPrompt(parsed), "Say hello from the fixture.", "run json prompt");
+		final defaultSessionID = requestSessionID(parsed);
 		eq(defaultSessionID.indexOf("ses_"), 0, "run json default persisted session id");
 		final defaultExport = Cli.run(["export", defaultSessionID]);
 		eq(defaultExport.exitCode, 0, "run json default export exit");
-		final defaultExportMessages:Array<Dynamic> = Reflect.field(Json.parse(defaultExport.stdout), "messages");
+		final defaultExportMessages = exportMessages(defaultExport.stdout, "run json default export");
 		eq(defaultExportMessages.length, 2, "run json default export messages");
 		final defaultResume = Cli.run([
 			"run",
@@ -111,7 +114,7 @@ class CliSmoke {
 			"store."
 		]);
 		eq(defaultResume.exitCode, 0, "run json default resume exit");
-		eq(Reflect.field(Reflect.field(Json.parse(defaultResume.stdout), "request"), "sessionID"), defaultSessionID, "run json default resume session");
+		eq(requestSessionID(parseRecord(defaultResume.stdout, "run json default resume")), defaultSessionID, "run json default resume session");
 		final defaultContinue = Cli.run([
 			"run",
 			"--continue",
@@ -123,8 +126,7 @@ class CliSmoke {
 			"store."
 		]);
 		eq(defaultContinue.exitCode, 0, "run json default continue exit");
-		eq(Std.string(Reflect.field(Reflect.field(Json.parse(defaultContinue.stdout), "request"), "sessionID")).indexOf("ses_"), 0,
-			"run json default continue session id");
+		eq(requestSessionID(parseRecord(defaultContinue.stdout, "run json default continue")).indexOf("ses_"), 0, "run json default continue session id");
 
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-run-"));
 		try {
@@ -147,7 +149,7 @@ class CliSmoke {
 				"workspace."
 			]);
 			eq(withDir.exitCode, 0, "run dir exit");
-			eq(assistantPath(Json.parse(withDir.stdout)), NodePath.normalize(runDir), "run dir assistant path");
+			eq(assistantPath(parseRecord(withDir.stdout, "run dir transcript")), NodePath.normalize(runDir), "run dir assistant path");
 			final withFile = Cli.run([
 				"run",
 				"--format",
@@ -163,13 +165,13 @@ class CliSmoke {
 				"attachments."
 			]);
 			eq(withFile.exitCode, 0, "run file exit");
-			final fileParts = messageParts(Json.parse(withFile.stdout), 0);
-			eq(Reflect.field(fileParts[0], "type"), "file", "run file part type");
-			eq(Reflect.field(fileParts[0], "filename"), "attached.txt", "run file part filename");
-			eq(Reflect.field(fileParts[0], "mime"), "text/plain", "run file part mime");
-			eq(Std.string(Reflect.field(fileParts[0], "url")).indexOf("file:"), 0, "run file part url");
-			eq(Reflect.field(fileParts[1], "mime"), "application/x-directory", "run directory file part mime");
-			eq(Reflect.field(fileParts[2], "text"), "Use the attachments.", "run file text part");
+			final fileParts = messageParts(parseRecord(withFile.stdout, "run file transcript"), 0);
+			eq(stringAt(fileParts, 0, "type", "run file first part"), "file", "run file part type");
+			eq(stringAt(fileParts, 0, "filename", "run file first part"), "attached.txt", "run file part filename");
+			eq(stringAt(fileParts, 0, "mime", "run file first part"), "text/plain", "run file part mime");
+			eq(stringAt(fileParts, 0, "url", "run file first part").indexOf("file:"), 0, "run file part url");
+			eq(stringAt(fileParts, 1, "mime", "run file directory part"), "application/x-directory", "run directory file part mime");
+			eq(stringAt(fileParts, 2, "text", "run file text part"), "Use the attachments.", "run file text part");
 			final missingFile = Cli.run(["run", "--dir", runDir, "--file", "missing.txt", "Hello"]);
 			eq(missingFile.exitCode, 1, "run missing file exit");
 			eq(missingFile.stderr.indexOf("File not found: missing.txt") != -1, true, "run missing file message");
@@ -473,19 +475,19 @@ class CliSmoke {
 			final exported = Cli.run(["export", "ses_cli_export"]);
 			eq(exported.exitCode, 0, "cli export exit");
 			eq(exported.stderr, "Exporting session: ses_cli_export\n", "cli export stderr");
-			final parsed:Dynamic = Json.parse(exported.stdout);
-			eq(Reflect.field(Reflect.field(parsed, "info"), "id"), "ses_cli_export", "cli export info id");
-			final messages:Array<Dynamic> = Reflect.field(parsed, "messages");
+			final parsed = parseRecord(exported.stdout, "cli export");
+			eq(exportInfoID(parsed), "ses_cli_export", "cli export info id");
+			final messages = requiredArrayField(parsed, "messages", "cli export messages");
 			eq(messages.length, 1, "cli export message count");
-			final parts:Array<Dynamic> = Reflect.field(messages[0], "parts");
-			eq(Reflect.field(parts[0], "text"), "Export this from CLI", "cli export raw text");
+			final parts = messagePartsFromArray(messages, 0, "cli export first message");
+			eq(stringAt(parts, 0, "text", "cli export first part"), "Export this from CLI", "cli export raw text");
 
 			final sanitized = Cli.run(["export", "--sanitize", "ses_cli_export"]);
 			eq(sanitized.exitCode, 0, "cli export sanitized exit");
-			final sanitizedParsed:Dynamic = Json.parse(sanitized.stdout);
-			final sanitizedMessages:Array<Dynamic> = Reflect.field(sanitizedParsed, "messages");
-			final sanitizedParts:Array<Dynamic> = Reflect.field(sanitizedMessages[0], "parts");
-			eq(Reflect.field(sanitizedParts[0], "text"), "[redacted:text:prt_cli_export_text]", "cli export sanitized text");
+			final sanitizedParsed = parseRecord(sanitized.stdout, "cli export sanitized");
+			final sanitizedMessages = requiredArrayField(sanitizedParsed, "messages", "cli export sanitized messages");
+			final sanitizedParts = messagePartsFromArray(sanitizedMessages, 0, "cli export sanitized first message");
+			eq(stringAt(sanitizedParts, 0, "text", "cli export sanitized first part"), "[redacted:text:prt_cli_export_text]", "cli export sanitized text");
 
 			final missing = Cli.run(["export", "ses_cli_missing"]);
 			eq(missing.exitCode, 1, "cli export missing exit");
@@ -502,8 +504,8 @@ class CliSmoke {
 				"session."
 			]);
 			eq(resumed.exitCode, 0, "cli run session exit");
-			final resumedParsed:Dynamic = Json.parse(resumed.stdout);
-			eq(Reflect.field(Reflect.field(resumedParsed, "request"), "sessionID"), "ses_cli_export", "cli run session id");
+			final resumedParsed = parseRecord(resumed.stdout, "cli run session transcript");
+			eq(requestSessionID(resumedParsed), "ses_cli_export", "cli run session id");
 			eq(assistantPath(resumedParsed), NodePath.normalize(root), "cli run session recovered directory");
 
 			final overrideDir = NodePath.join(root, "resume-override");
@@ -520,7 +522,8 @@ class CliSmoke {
 				"elsewhere."
 			]);
 			eq(resumedOverride.exitCode, 0, "cli run session dir override exit");
-			eq(assistantPath(Json.parse(resumedOverride.stdout)), NodePath.normalize(overrideDir), "cli run session explicit dir");
+			eq(assistantPath(parseRecord(resumedOverride.stdout, "cli run session dir override transcript")), NodePath.normalize(overrideDir),
+				"cli run session explicit dir");
 
 			final missingRun = Cli.run(["run", "--session", "ses_cli_missing", "Hello"]);
 			eq(missingRun.exitCode, 1, "cli run missing session exit");
@@ -528,8 +531,8 @@ class CliSmoke {
 
 			final continueRun = Cli.run(["run", "--continue", "--format", "json", "Hello"]);
 			eq(continueRun.exitCode, 0, "cli run continue exit");
-			final continueParsed:Dynamic = Json.parse(continueRun.stdout);
-			eq(Reflect.field(Reflect.field(continueParsed, "request"), "sessionID"), "ses_cli_export", "cli run continue root session");
+			final continueParsed = parseRecord(continueRun.stdout, "cli run continue transcript");
+			eq(requestSessionID(continueParsed), "ses_cli_export", "cli run continue root session");
 			eq(assistantPath(continueParsed), NodePath.normalize(root), "cli run continue recovered directory");
 
 			final invalidFork = Cli.run(["run", "--fork", "Hello"]);
@@ -548,31 +551,31 @@ class CliSmoke {
 				"session."
 			]);
 			eq(forkedRun.exitCode, 0, "cli run fork exit");
-			final forkedParsed:Dynamic = Json.parse(forkedRun.stdout);
-			final forkedSessionID = Std.string(Reflect.field(Reflect.field(forkedParsed, "request"), "sessionID"));
+			final forkedParsed = parseRecord(forkedRun.stdout, "cli run fork transcript");
+			final forkedSessionID = requestSessionID(forkedParsed);
 			eq(forkedSessionID.indexOf("ses_"), 0, "cli run fork generated session id");
 			eq(forkedSessionID == "ses_cli_export", false, "cli run fork uses child session id");
 			final forkedExport = Cli.run(["export", forkedSessionID]);
 			eq(forkedExport.exitCode, 0, "cli run fork export exit");
-			final forkedExportParsed:Dynamic = Json.parse(forkedExport.stdout);
-			eq(Reflect.field(Reflect.field(forkedExportParsed, "info"), "parentID"), "ses_cli_export", "cli run fork parent id");
-			final forkedMessages:Array<Dynamic> = Reflect.field(forkedExportParsed, "messages");
+			final forkedExportParsed = parseRecord(forkedExport.stdout, "cli run fork export");
+			eq(exportParentID(forkedExportParsed), "ses_cli_export", "cli run fork parent id");
+			final forkedMessages = requiredArrayField(forkedExportParsed, "messages", "cli run fork export messages");
 			eq(forkedMessages.length, 2, "cli run fork export messages");
-			final forkedParts:Array<Dynamic> = Reflect.field(forkedMessages[0], "parts");
-			eq(Reflect.field(forkedParts[0], "text"), "Fork this session.", "cli run fork prompt");
+			final forkedParts = messagePartsFromArray(forkedMessages, 0, "cli run fork first message");
+			eq(stringAt(forkedParts, 0, "text", "cli run fork first part"), "Fork this session.", "cli run fork prompt");
 
 			final persistedRun = Cli.run(["run", "--format", "json", "Persist", "this", "run."]);
 			eq(persistedRun.exitCode, 0, "cli run persisted exit");
-			final persistedParsed:Dynamic = Json.parse(persistedRun.stdout);
-			final persistedSessionID = Std.string(Reflect.field(Reflect.field(persistedParsed, "request"), "sessionID"));
+			final persistedParsed = parseRecord(persistedRun.stdout, "cli run persisted transcript");
+			final persistedSessionID = requestSessionID(persistedParsed);
 			eq(persistedSessionID.indexOf("ses_"), 0, "cli run persisted generated session id");
 			final persistedExport = Cli.run(["export", persistedSessionID]);
 			eq(persistedExport.exitCode, 0, "cli run persisted export exit");
-			final persistedExportParsed:Dynamic = Json.parse(persistedExport.stdout);
-			final persistedMessages:Array<Dynamic> = Reflect.field(persistedExportParsed, "messages");
+			final persistedExportParsed = parseRecord(persistedExport.stdout, "cli run persisted export");
+			final persistedMessages = requiredArrayField(persistedExportParsed, "messages", "cli run persisted export messages");
 			eq(persistedMessages.length, 2, "cli run persisted export messages");
-			final persistedParts:Array<Dynamic> = Reflect.field(persistedMessages[0], "parts");
-			eq(Reflect.field(persistedParts[0], "text"), "Persist this run.", "cli run persisted prompt");
+			final persistedParts = messagePartsFromArray(persistedMessages, 0, "cli run persisted first message");
+			eq(stringAt(persistedParts, 0, "text", "cli run persisted first part"), "Persist this run.", "cli run persisted prompt");
 			final appendedRun = Cli.run([
 				"run",
 				"--format",
@@ -586,11 +589,11 @@ class CliSmoke {
 			eq(appendedRun.exitCode, 0, "cli run append persisted exit");
 			final appendedExport = Cli.run(["export", persistedSessionID]);
 			eq(appendedExport.exitCode, 0, "cli run append export exit");
-			final appendedExportParsed:Dynamic = Json.parse(appendedExport.stdout);
-			final appendedMessages:Array<Dynamic> = Reflect.field(appendedExportParsed, "messages");
+			final appendedExportParsed = parseRecord(appendedExport.stdout, "cli run append export");
+			final appendedMessages = requiredArrayField(appendedExportParsed, "messages", "cli run append export messages");
 			eq(appendedMessages.length, 4, "cli run append export messages");
-			final appendedParts:Array<Dynamic> = Reflect.field(appendedMessages[2], "parts");
-			eq(Reflect.field(appendedParts[0], "text"), "Append this run.", "cli run append prompt");
+			final appendedParts = messagePartsFromArray(appendedMessages, 2, "cli run append third message");
+			eq(stringAt(appendedParts, 0, "text", "cli run append first part"), "Append this run.", "cli run append prompt");
 			restoreEnv("OPENCODE_DB", originalDb);
 		} catch (error:Dynamic) {
 			restoreEnv("OPENCODE_DB", originalDb);
@@ -615,12 +618,12 @@ class CliSmoke {
 			"the",
 			"SDK."
 		]);
-		final parsed:Dynamic = Json.parse(json.stdout);
-		eq(Reflect.field(Reflect.field(parsed, "provider"), "id"), "openai", "async cli json provider");
-		eq(Reflect.field(Reflect.field(parsed, "request"), "prompt"), "Say hello through the SDK.", "async cli json prompt");
-		final events:Array<Dynamic> = Reflect.field(parsed, "events");
-		eq(Reflect.field(events[0], "type"), "start", "async cli start event");
-		eq(Reflect.field(events[1], "text"), "Hello ", "async cli first delta");
+		final parsed = parseRecord(json.stdout, "async cli json transcript");
+		eq(providerID(parsed), "openai", "async cli json provider");
+		eq(requestPrompt(parsed), "Say hello through the SDK.", "async cli json prompt");
+		final events = requiredArrayField(parsed, "events", "async cli events");
+		eq(stringAt(events, 0, "type", "async cli first event"), "start", "async cli start event");
+		eq(stringAt(events, 1, "text", "async cli second event"), "Hello ", "async cli first delta");
 
 		final mockRoot = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-cli-mock-"));
 		final originalMockDb = NodeProcess.envValue("OPENCODE_DB");
@@ -643,7 +646,7 @@ class CliSmoke {
 				"workspace."
 			]);
 			eq(withDir.exitCode, 0, "async cli dir exit");
-			eq(assistantPath(Json.parse(withDir.stdout)), NodePath.normalize(mockDir), "async cli dir assistant path");
+			eq(assistantPath(parseRecord(withDir.stdout, "async cli dir transcript")), NodePath.normalize(mockDir), "async cli dir assistant path");
 			final withFile = @:await Cli.runAsync([
 				"run",
 				"--mock-ai-sdk",
@@ -657,19 +660,19 @@ class CliSmoke {
 				"attachment."
 			]);
 			eq(withFile.exitCode, 0, "async cli file exit");
-			final mockParts = messageParts(Json.parse(withFile.stdout), 0);
-			eq(Reflect.field(mockParts[0], "type"), "file", "async cli file part type");
-			eq(Reflect.field(mockParts[0], "filename"), "mock-attached.txt", "async cli file filename");
-			eq(Reflect.field(mockParts[1], "text"), "Mock attachment.", "async cli file text part");
+			final mockParts = messageParts(parseRecord(withFile.stdout, "async cli file transcript"), 0);
+			eq(stringAt(mockParts, 0, "type", "async cli file first part"), "file", "async cli file part type");
+			eq(stringAt(mockParts, 0, "filename", "async cli file first part"), "mock-attached.txt", "async cli file filename");
+			eq(stringAt(mockParts, 1, "text", "async cli file second part"), "Mock attachment.", "async cli file text part");
 			NodeProcess.setEnv("OPENCODE_DB", NodePath.join(mockRoot, "mock-sdk.sqlite"));
 			final persisted = @:await Cli.runAsync(["run", "--mock-ai-sdk", "--format", "json", "Persist", "through", "mock", "SDK."]);
 			eq(persisted.exitCode, 0, "async cli persisted mock exit");
-			final persistedParsed:Dynamic = Json.parse(persisted.stdout);
-			final persistedSessionID = Std.string(Reflect.field(Reflect.field(persistedParsed, "request"), "sessionID"));
+			final persistedParsed = parseRecord(persisted.stdout, "async cli persisted mock transcript");
+			final persistedSessionID = requestSessionID(persistedParsed);
 			eq(persistedSessionID.indexOf("ses_"), 0, "async cli persisted mock generated id");
 			final exported = @:await Cli.runAsync(["export", persistedSessionID]);
 			eq(exported.exitCode, 0, "async cli persisted mock export exit");
-			final exportedMessages:Array<Dynamic> = Reflect.field(Json.parse(exported.stdout), "messages");
+			final exportedMessages = exportMessages(exported.stdout, "async cli persisted mock export");
 			eq(exportedMessages.length, 2, "async cli persisted mock message count");
 			final resumed = @:await Cli.runAsync([
 				"run",
@@ -686,7 +689,7 @@ class CliSmoke {
 			eq(resumed.exitCode, 0, "async cli resumed mock exit");
 			final resumedExport = @:await Cli.runAsync(["export", persistedSessionID]);
 			eq(resumedExport.exitCode, 0, "async cli resumed mock export exit");
-			final resumedMessages:Array<Dynamic> = Reflect.field(Json.parse(resumedExport.stdout), "messages");
+			final resumedMessages = exportMessages(resumedExport.stdout, "async cli resumed mock export");
 			eq(resumedMessages.length, 4, "async cli resumed mock message count");
 			restoreEnv("OPENCODE_DB", originalMockDb);
 			Fs.rmSync(mockRoot, {recursive: true, force: true});
@@ -743,9 +746,9 @@ class CliSmoke {
 				"live."
 			]);
 			eq(liveRun.exitCode, 0, "live cli local success exit");
-			final liveParsed:Dynamic = Json.parse(liveRun.stdout);
-			eq(Reflect.field(Reflect.field(liveParsed, "provider"), "id"), "local-live", "live cli local provider");
-			eq(Reflect.field(Reflect.field(liveParsed, "request"), "prompt"), "Hello live.", "live cli local prompt");
+			final liveParsed = parseRecord(liveRun.stdout, "live cli local transcript");
+			eq(providerID(liveParsed), "local-live", "live cli local provider");
+			eq(requestPrompt(liveParsed), "Hello live.", "live cli local prompt");
 			eq(assistantText(liveParsed), "Hello from local live.", "live cli local assistant text");
 			eq(SmokeFetchStub.liveFetchedUrl(), "https://local-live.example.com/v1/chat/completions", "live cli local request URL");
 			eq(SmokeFetchStub.liveAuth(), "Bearer local-key", "live cli local auth header");
@@ -753,16 +756,16 @@ class CliSmoke {
 			eq(liveBody != null && liveBody.indexOf('"stream":true') != -1, true, "live cli local streaming request");
 			eq(assistantPath(liveParsed), NodePath.normalize(liveDir), "live cli local assistant path");
 			final liveUserParts = messageParts(liveParsed, 0);
-			eq(Reflect.field(liveUserParts[0], "type"), "file", "live cli local file part type");
-			eq(Reflect.field(liveUserParts[0], "filename"), "live-attached.txt", "live cli local file filename");
-			final liveSessionID = Std.string(Reflect.field(Reflect.field(liveParsed, "request"), "sessionID"));
+			eq(stringAt(liveUserParts, 0, "type", "live cli local file part"), "file", "live cli local file part type");
+			eq(stringAt(liveUserParts, 0, "filename", "live cli local file part"), "live-attached.txt", "live cli local file filename");
+			final liveSessionID = requestSessionID(liveParsed);
 			eq(liveSessionID.indexOf("ses_"), 0, "live cli local persisted session id");
 			final liveExport = @:await Cli.runAsync(["export", liveSessionID]);
 			eq(liveExport.exitCode, 0, "live cli local export exit");
-			final liveExportMessages:Array<Dynamic> = Reflect.field(Json.parse(liveExport.stdout), "messages");
+			final liveExportMessages = exportMessages(liveExport.stdout, "live cli local export");
 			eq(liveExportMessages.length, 2, "live cli local export message count");
-			final liveExportParts:Array<Dynamic> = Reflect.field(liveExportMessages[0], "parts");
-			eq(Reflect.field(liveExportParts[0], "filename"), "live-attached.txt", "live cli local export file");
+			final liveExportParts = messagePartsFromArray(liveExportMessages, 0, "live cli local export first message");
+			eq(stringAt(liveExportParts, 0, "filename", "live cli local export first part"), "live-attached.txt", "live cli local export file");
 			final liveAppend = @:await Cli.runAsync([
 				"run",
 				"--live-ai-sdk",
@@ -776,14 +779,14 @@ class CliSmoke {
 				"live."
 			]);
 			eq(liveAppend.exitCode, 0, "live cli local append exit");
-			final liveAppendParsed:Dynamic = Json.parse(liveAppend.stdout);
-			eq(Reflect.field(Reflect.field(liveAppendParsed, "request"), "sessionID"), liveSessionID, "live cli local append session");
+			final liveAppendParsed = parseRecord(liveAppend.stdout, "live cli local append transcript");
+			eq(requestSessionID(liveAppendParsed), liveSessionID, "live cli local append session");
 			final liveAppendExport = @:await Cli.runAsync(["export", liveSessionID]);
 			eq(liveAppendExport.exitCode, 0, "live cli local append export exit");
-			final liveAppendMessages:Array<Dynamic> = Reflect.field(Json.parse(liveAppendExport.stdout), "messages");
+			final liveAppendMessages = exportMessages(liveAppendExport.stdout, "live cli local append export");
 			eq(liveAppendMessages.length, 4, "live cli local append export message count");
-			final liveAppendParts:Array<Dynamic> = Reflect.field(liveAppendMessages[2], "parts");
-			eq(Reflect.field(liveAppendParts[0], "text"), "Append live.", "live cli local appended prompt");
+			final liveAppendParts = messagePartsFromArray(liveAppendMessages, 2, "live cli local append third message");
+			eq(stringAt(liveAppendParts, 0, "text", "live cli local append first part"), "Append live.", "live cli local appended prompt");
 			final liveContinue = @:await Cli.runAsync([
 				"run",
 				"--live-ai-sdk",
@@ -796,14 +799,14 @@ class CliSmoke {
 				"live."
 			]);
 			eq(liveContinue.exitCode, 0, "live cli local continue exit");
-			final liveContinueParsed:Dynamic = Json.parse(liveContinue.stdout);
-			eq(Reflect.field(Reflect.field(liveContinueParsed, "request"), "sessionID"), liveSessionID, "live cli local continue session");
+			final liveContinueParsed = parseRecord(liveContinue.stdout, "live cli local continue transcript");
+			eq(requestSessionID(liveContinueParsed), liveSessionID, "live cli local continue session");
 			final liveContinueExport = @:await Cli.runAsync(["export", liveSessionID]);
 			eq(liveContinueExport.exitCode, 0, "live cli local continue export exit");
-			final liveContinueMessages:Array<Dynamic> = Reflect.field(Json.parse(liveContinueExport.stdout), "messages");
+			final liveContinueMessages = exportMessages(liveContinueExport.stdout, "live cli local continue export");
 			eq(liveContinueMessages.length, 6, "live cli local continue export message count");
-			final liveContinueParts:Array<Dynamic> = Reflect.field(liveContinueMessages[4], "parts");
-			eq(Reflect.field(liveContinueParts[0], "text"), "Continue live.", "live cli local continued prompt");
+			final liveContinueParts = messagePartsFromArray(liveContinueMessages, 4, "live cli local continue fifth message");
+			eq(stringAt(liveContinueParts, 0, "text", "live cli local continue first part"), "Continue live.", "live cli local continued prompt");
 			final liveFork = @:await Cli.runAsync([
 				"run",
 				"--live-ai-sdk",
@@ -817,27 +820,27 @@ class CliSmoke {
 				"live."
 			]);
 			eq(liveFork.exitCode, 0, "live cli local fork exit");
-			final liveForkParsed:Dynamic = Json.parse(liveFork.stdout);
-			final liveForkSessionID = Std.string(Reflect.field(Reflect.field(liveForkParsed, "request"), "sessionID"));
+			final liveForkParsed = parseRecord(liveFork.stdout, "live cli local fork transcript");
+			final liveForkSessionID = requestSessionID(liveForkParsed);
 			eq(liveForkSessionID.indexOf("ses_"), 0, "live cli local fork session id");
 			eq(liveForkSessionID == liveSessionID, false, "live cli local fork child session");
 			final liveForkExport = @:await Cli.runAsync(["export", liveForkSessionID]);
 			eq(liveForkExport.exitCode, 0, "live cli local fork export exit");
-			final liveForkExportParsed:Dynamic = Json.parse(liveForkExport.stdout);
-			eq(Reflect.field(Reflect.field(liveForkExportParsed, "info"), "parentID"), liveSessionID, "live cli local fork parent");
-			final liveForkMessages:Array<Dynamic> = Reflect.field(liveForkExportParsed, "messages");
+			final liveForkExportParsed = parseRecord(liveForkExport.stdout, "live cli local fork export");
+			eq(exportParentID(liveForkExportParsed), liveSessionID, "live cli local fork parent");
+			final liveForkMessages = requiredArrayField(liveForkExportParsed, "messages", "live cli local fork export messages");
 			eq(liveForkMessages.length, 2, "live cli local fork export message count");
-			final liveForkParts:Array<Dynamic> = Reflect.field(liveForkMessages[0], "parts");
-			eq(Reflect.field(liveForkParts[0], "text"), "Fork live.", "live cli local fork prompt");
+			final liveForkParts = messagePartsFromArray(liveForkMessages, 0, "live cli local fork first message");
+			eq(stringAt(liveForkParts, 0, "text", "live cli local fork first part"), "Fork live.", "live cli local fork prompt");
 
 			final liveConfiguredRoot = NodePath.join(liveRoot, "configured-data");
 			NodeProcess.setEnv("XDG_DATA_HOME", liveConfiguredRoot);
 			NodeProcess.unsetEnv("OPENCODE_DB");
 			final liveConfigured = @:await Cli.runAsync(["run", "--format", "json", "--dir", liveDir, "Hello", "configured", "live."]);
 			eq(liveConfigured.exitCode, 0, "live cli plain config model exit");
-			final liveConfiguredParsed:Dynamic = Json.parse(liveConfigured.stdout);
-			eq(Reflect.field(Reflect.field(liveConfiguredParsed, "provider"), "id"), "local-live", "live cli plain config model provider");
-			eq(Reflect.field(Reflect.field(liveConfiguredParsed, "request"), "prompt"), "Hello configured live.", "live cli plain config model prompt");
+			final liveConfiguredParsed = parseRecord(liveConfigured.stdout, "live cli plain config model transcript");
+			eq(providerID(liveConfiguredParsed), "local-live", "live cli plain config model provider");
+			eq(requestPrompt(liveConfiguredParsed), "Hello configured live.", "live cli plain config model prompt");
 			eq(assistantText(liveConfiguredParsed), "Hello from local live.", "live cli plain config model assistant text");
 			SmokeFetchStub.restore(originalLiveFetch);
 			restoreEnv("XDG_CONFIG_HOME", originalLiveXdg);
@@ -881,18 +884,18 @@ class CliSmoke {
 				"live."
 			]);
 			eq(liveFailure.exitCode, 0, "live cli local failure exit");
-			final liveFailureParsed:Dynamic = Json.parse(liveFailure.stdout);
-			eq(Reflect.field(Reflect.field(liveFailureParsed, "provider"), "id"), "local-fail", "live cli local failure provider");
+			final liveFailureParsed = parseRecord(liveFailure.stdout, "live cli local failure transcript");
+			eq(providerID(liveFailureParsed), "local-fail", "live cli local failure provider");
 			eq(hasTranscriptEvent(liveFailureParsed, "error", "local live failure"), true, "live cli local failure event");
 			eq(hasTranscriptEvent(liveFailureParsed, "error", "No output generated. Check the stream for errors."), true,
 				"live cli local failure no-output event");
 			eq(assistantFinish(liveFailureParsed), "error", "live cli local failure assistant finish");
 			eq(SmokeFetchStub.liveFetchedUrl(), "https://local-fail.example.com/v1/chat/completions", "live cli local failure request URL");
 			eq(SmokeFetchStub.liveAuth(), "Bearer fail-key", "live cli local failure auth header");
-			final liveFailureSessionID = Std.string(Reflect.field(Reflect.field(liveFailureParsed, "request"), "sessionID"));
+			final liveFailureSessionID = requestSessionID(liveFailureParsed);
 			final liveFailureExport = @:await Cli.runAsync(["export", liveFailureSessionID]);
 			eq(liveFailureExport.exitCode, 0, "live cli local failure export exit");
-			final liveFailureExportParsed:Dynamic = Json.parse(liveFailureExport.stdout);
+			final liveFailureExportParsed = parseRecord(liveFailureExport.stdout, "live cli local failure export");
 			eq(assistantFinish(liveFailureExportParsed), "error", "live cli local failure export assistant finish");
 			eq(assistantText(liveFailureExportParsed), "", "live cli local failure export empty assistant text");
 			SmokeFetchStub.restore(originalLiveFailureFetch);
@@ -999,42 +1002,116 @@ class CliSmoke {
 		}
 	}
 
-	static function assistantPath(transcript:Dynamic):String {
-		final messages:Array<Dynamic> = Reflect.field(transcript, "messages");
-		final assistant:Dynamic = messages[1];
-		final info:Dynamic = Reflect.field(assistant, "info");
-		final path:Dynamic = Reflect.field(info, "path");
-		return Std.string(Reflect.field(path, "cwd"));
+	static function parseRecord(text:String, label:String):UnknownRecord {
+		return requiredRecord(Unknown.fromBoundary(Json.parse(text)), label);
 	}
 
-	static function assistantText(transcript:Dynamic):String {
+	static function requiredRecord(raw:Unknown, label:String):UnknownRecord {
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
+			throw '${label}: expected object';
+		return record;
+	}
+
+	static function requiredArray(raw:Unknown, label:String):UnknownArray {
+		final array = UnknownNarrow.array(raw);
+		if (array == null)
+			throw '${label}: expected array';
+		return array;
+	}
+
+	static function requiredString(raw:Unknown, label:String):String {
+		final text = UnknownNarrow.string(raw);
+		if (text == null)
+			throw '${label}: expected string';
+		return text;
+	}
+
+	static function requiredRecordField(record:UnknownRecord, field:String, label:String):UnknownRecord {
+		return requiredRecord(record.get(field), '${label}.${field}');
+	}
+
+	static function requiredArrayField(record:UnknownRecord, field:String, label:String):UnknownArray {
+		return requiredArray(record.get(field), '${label}.${field}');
+	}
+
+	static function providerID(transcript:UnknownRecord):String {
+		return requiredString(requiredRecordField(transcript, "provider", "transcript").get("id"), "transcript.provider.id");
+	}
+
+	static function requestPrompt(transcript:UnknownRecord):String {
+		return requiredString(requiredRecordField(transcript, "request", "transcript").get("prompt"), "transcript.request.prompt");
+	}
+
+	static function requestSessionID(transcript:UnknownRecord):String {
+		return requiredString(requiredRecordField(transcript, "request", "transcript").get("sessionID"), "transcript.request.sessionID");
+	}
+
+	static function exportInfoID(exported:UnknownRecord):String {
+		return requiredString(requiredRecordField(exported, "info", "export").get("id"), "export.info.id");
+	}
+
+	static function exportParentID(exported:UnknownRecord):String {
+		return requiredString(requiredRecordField(exported, "info", "export").get("parentID"), "export.info.parentID");
+	}
+
+	static function exportMessages(text:String, label:String):UnknownArray {
+		return requiredArrayField(parseRecord(text, label), "messages", label);
+	}
+
+	static function messageRecord(transcript:UnknownRecord, index:Int, label:String):UnknownRecord {
+		return messageRecordFromArray(requiredArrayField(transcript, "messages", '${label} transcript'), index, label);
+	}
+
+	static function messageRecordFromArray(messages:UnknownArray, index:Int, label:String):UnknownRecord {
+		return requiredRecord(messages.get(index), '${label}.messages[${index}]');
+	}
+
+	static function messageParts(transcript:UnknownRecord, index:Int):UnknownArray {
+		return messagePartsFromArray(requiredArrayField(transcript, "messages", "transcript"), index, "transcript");
+	}
+
+	static function messagePartsFromArray(messages:UnknownArray, index:Int, label:String):UnknownArray {
+		return requiredArrayField(messageRecordFromArray(messages, index, label), "parts", '${label}.messages[${index}]');
+	}
+
+	static function recordAt(array:UnknownArray, index:Int, label:String):UnknownRecord {
+		return requiredRecord(array.get(index), '${label}[${index}]');
+	}
+
+	static function stringAt(array:UnknownArray, index:Int, field:String, label:String):String {
+		return requiredString(recordAt(array, index, label).get(field), '${label}[${index}].${field}');
+	}
+
+	static function assistantPath(transcript:UnknownRecord):String {
+		final info = requiredRecordField(messageRecord(transcript, 1, "assistant path"), "info", "assistant path");
+		final path = requiredRecordField(info, "path", "assistant path info");
+		return requiredString(path.get("cwd"), "assistant path cwd");
+	}
+
+	static function assistantText(transcript:UnknownRecord):String {
 		final parts = messageParts(transcript, 1);
-		for (part in parts) {
-			if (Reflect.field(part, "type") == "text")
-				return Std.string(Reflect.field(part, "text"));
+		for (index in 0...parts.length) {
+			final part = requiredRecord(parts.get(index), 'assistant text part ${index}');
+			if (UnknownNarrow.string(part.get("type")) == "text")
+				return requiredString(part.get("text"), 'assistant text part ${index}.text');
 		}
 		return "";
 	}
 
-	static function assistantFinish(transcript:Dynamic):String {
-		final messages:Array<Dynamic> = Reflect.field(transcript, "messages");
-		final assistant:Dynamic = messages[1];
-		final info:Dynamic = Reflect.field(assistant, "info");
-		return Std.string(Reflect.field(info, "finish"));
+	static function assistantFinish(transcript:UnknownRecord):String {
+		final info = requiredRecordField(messageRecord(transcript, 1, "assistant finish"), "info", "assistant finish");
+		return requiredString(info.get("finish"), "assistant finish");
 	}
 
-	static function hasTranscriptEvent(transcript:Dynamic, type:String, message:String):Bool {
-		final events:Array<Dynamic> = Reflect.field(transcript, "events");
-		for (event in events) {
-			if (Reflect.field(event, "type") == type && Reflect.field(event, "message") == message)
+	static function hasTranscriptEvent(transcript:UnknownRecord, type:String, message:String):Bool {
+		final events = requiredArrayField(transcript, "events", "transcript");
+		for (index in 0...events.length) {
+			final event = requiredRecord(events.get(index), 'transcript.events[${index}]');
+			if (UnknownNarrow.string(event.get("type")) == type && UnknownNarrow.string(event.get("message")) == message)
 				return true;
 		}
 		return false;
-	}
-
-	static function messageParts(transcript:Dynamic, index:Int):Array<Dynamic> {
-		final messages:Array<Dynamic> = Reflect.field(transcript, "messages");
-		return Reflect.field(messages[index], "parts");
 	}
 
 	static function diagnosticFormatting():Void {

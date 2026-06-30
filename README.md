@@ -11,7 +11,7 @@ The project intentionally uses 0.x beta versioning until upstream OpenCode parit
 Current Beads-based completion snapshot:
 
 ```text
-[#######################################-] 98% (315/324 non-epic port beads closed)
+[#######################################-] 98% (316/325 non-epic port beads closed)
 ```
 
 This is an unweighted planning indicator, not a parity claim.
