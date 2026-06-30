@@ -48,6 +48,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ServerSmoke` reads sync replay/history route responses through `UnknownRecord`/`UnknownArray` helpers and typed `Response.status` instead of raw `Dynamic`, reflection, and casts.
 - `ServerSmoke` reads basic session create/list/message/status responses through `UnknownRecord`/`UnknownArray` helpers and typed `Response.status`; legacy high-volume message helper narrowing remains a separate slice.
 - `ServerSmoke` reads workspace proxy statuses through typed `Response.status` and narrows WebSocket PTY create JSON through `UnknownRecord` instead of smoke-local reflection.
+- `ServerSmoke` reads legacy high-volume message page IDs through `UnknownArray`/`UnknownRecord` helpers instead of a `Dynamic` helper with nested reflection.
 
 ## Remaining Hotspots
 

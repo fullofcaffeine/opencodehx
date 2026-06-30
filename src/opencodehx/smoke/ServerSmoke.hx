@@ -748,10 +748,10 @@ class ServerSmoke {
 		final legacySessionID = seedHighVolumeMessages(NodePath.join(root, "opencodehx.db"), root);
 		final legacyResponse = await(server.app.request('/session/${legacySessionID}/message?limit=510'));
 		eq(legacyResponse.status, 200, "legacy message limit status");
-		final legacyMessages = await(jsonResponse(legacyResponse));
+		final legacyMessages = requiredArray(Unknown.fromBoundary(await(jsonResponse(legacyResponse))), "legacy message page");
 		eq(legacyMessages.length, 510, "legacy message limit count");
-		eq(messageResponseID(legacyMessages[0]), "msg_legacy_10", "legacy message page head");
-		eq(messageResponseID(legacyMessages[legacyMessages.length - 1]), "msg_legacy_519", "legacy message page tail");
+		eq(messageResponseID(legacyMessages.get(0)), "msg_legacy_10", "legacy message page head");
+		eq(messageResponseID(legacyMessages.get(legacyMessages.length - 1)), "msg_legacy_519", "legacy message page tail");
 
 		final selected = await(jsonResponse(await(server.app.request("/tui/select-session", {
 			method: "POST",
@@ -2031,8 +2031,10 @@ class ServerSmoke {
 		}, 'legacy-part:${partID.toString()}');
 	}
 
-	static function messageResponseID(item:Dynamic):String {
-		return Std.string(Reflect.field(Reflect.field(item, "info"), "id"));
+	static function messageResponseID(item:Unknown):String {
+		final record = requiredRecord(item, "message response");
+		final info = requiredRecord(record.get("info"), "message response info");
+		return requiredString(info, "id", "message response id");
 	}
 
 	static function serverTraceAttributes():Void {
