@@ -1,5 +1,8 @@
 package opencodehx.sync;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import opencodehx.host.node.BetterSqlite;
 import opencodehx.sync.SyncEventStore.SyncPersistence;
 import opencodehx.sync.SyncEventStore.SyncStoredEvent;
@@ -56,13 +59,13 @@ class SyncSqliteEventPersistence<T> {
 		final row = sql.get("select seq from event_sequence where aggregate_id = ?", [aggregateID]);
 		if (row == null)
 			return null;
-		return requiredInt(row, "seq");
+		return requiredInt(rowRecord(Unknown.fromBoundary(row)), "seq");
 	}
 
 	public function persistedEventCount(?aggregateID:String):Int {
 		final row = aggregateID == null ? sql.get("select count(*) as count from event") : sql.get("select count(*) as count from event where aggregate_id = ?",
 			[aggregateID]);
-		return requiredInt(row, "count");
+		return requiredInt(rowRecord(Unknown.fromBoundary(row)), "count");
 	}
 
 	function createSchema():Void {
@@ -84,29 +87,37 @@ class SyncSqliteEventPersistence<T> {
 		");
 	}
 
-	function rowToEvent(row:Dynamic):SyncStoredEvent<T> {
+	function rowToEvent(row:Unknown):SyncStoredEvent<T> {
 		// SQLite rows are schema-dependent JS objects at the host boundary; this
 		// decoder immediately narrows the event columns before returning domain data.
+		final record = rowRecord(row);
 		return {
-			id: requiredString(row, "id"),
-			type: requiredString(row, "type"),
-			seq: requiredInt(row, "seq"),
-			aggregateID: requiredString(row, "aggregate_id"),
-			data: codec.decode(requiredString(row, "data")),
+			id: requiredString(record, "id"),
+			type: requiredString(record, "type"),
+			seq: requiredInt(record, "seq"),
+			aggregateID: requiredString(record, "aggregate_id"),
+			data: codec.decode(requiredString(record, "data")),
 		};
 	}
 
-	static function requiredString(row:Dynamic, name:String):String {
-		final value = Reflect.field(row, name);
-		if (value == null)
-			throw 'sync sqlite row ${name}: expected string';
-		return Std.string(value);
+	static function rowRecord(row:Unknown):UnknownRecord {
+		final record = UnknownNarrow.record(row);
+		if (record == null)
+			throw "sync sqlite row: expected object";
+		return record;
 	}
 
-	static function requiredInt(row:Dynamic, name:String):Int {
-		final value = Reflect.field(row, name);
+	static function requiredString(row:UnknownRecord, name:String):String {
+		final value = UnknownNarrow.string(row.get(name));
+		if (value == null)
+			throw 'sync sqlite row ${name}: expected string';
+		return value;
+	}
+
+	static function requiredInt(row:UnknownRecord, name:String):Int {
+		final value = UnknownNarrow.int32(row.get(name));
 		if (value == null)
 			throw 'sync sqlite row ${name}: expected integer';
-		return Std.int(value);
+		return value;
 	}
 }

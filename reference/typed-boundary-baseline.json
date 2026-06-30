@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 518,
+    "Dynamic": 515,
     "DynamicAccess": 540,
     "cast": 136,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 89,
+    "Reflect.field": 87,
     "Reflect.hasField": 21,
     "Reflect.setField": 41,
     "Any": 0
@@ -532,10 +532,6 @@
     },
     "src/opencodehx/storage/StorageDatabasePath.hx": {
       "DynamicAccess": 3
-    },
-    "src/opencodehx/sync/SyncSqliteEventPersistence.hx": {
-      "Dynamic": 3,
-      "Reflect.field": 2
     },
     "src/opencodehx/sync/WorkspaceSyncRemoteHttp.hx": {
       "DynamicAccess": 10
