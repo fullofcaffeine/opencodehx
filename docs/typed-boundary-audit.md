@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1506 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1502 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -59,6 +59,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ConfigInfo.mergeObject` merges open config maps through `UnknownRecord.keys/get` instead of recursive `Reflect.fields`/`Reflect.field`/`Reflect.setField`.
 - Copilot chat SSE and Responses decoders read private JSON object fields through `UnknownRecord` helpers instead of reflection while preserving typed decoder outputs.
 - Provider JSON Schema intent checks now use modeled `const`, `$ref`, and `additionalProperties` fields instead of `Reflect.hasField`; the `const` value remains an opaque documented JSON-literal boundary until inspected.
+- `OpenCodeCompatClient.messages` constructs typed message-page records directly instead of mutating a dynamic result with reflection for optional pagination headers.
 
 ## Remaining Hotspots
 

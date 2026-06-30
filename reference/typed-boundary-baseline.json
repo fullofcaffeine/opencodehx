@@ -17,15 +17,15 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 542,
+    "Dynamic": 541,
     "DynamicAccess": 540,
-    "cast": 140,
+    "cast": 139,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
     "Reflect.field": 106,
     "Reflect.hasField": 24,
-    "Reflect.setField": 45,
+    "Reflect.setField": 43,
     "Any": 0
   },
   "files": {
@@ -349,10 +349,9 @@
       "cast": 1
     },
     "src/opencodehx/sdk/OpenCodeCompatClient.hx": {
-      "Dynamic": 2,
+      "Dynamic": 1,
       "DynamicAccess": 6,
-      "cast": 2,
-      "Reflect.setField": 2
+      "cast": 1
     },
     "src/opencodehx/server/NodeHonoAdapter.hx": {
       "cast": 3

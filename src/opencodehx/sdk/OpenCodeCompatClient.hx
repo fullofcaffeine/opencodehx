@@ -123,14 +123,17 @@ class OpenCodeCompatClient {
 		for (index in 0...items.length) {
 			out.push(MessageCodec.decodeWithParts(cast items.get(index), 'session messages[${index}]'));
 		}
-		final result:Dynamic = {items: out};
 		final cursor:Null<String> = response.headers.get("x-next-cursor");
-		if (cursor != null && cursor != "")
-			Reflect.setField(result, "cursor", cursor);
 		final link:Null<String> = response.headers.get("link");
-		if (link != null && link != "")
-			Reflect.setField(result, "link", link);
-		return cast result;
+		final hasCursor = cursor != null && cursor != "";
+		final hasLink = link != null && link != "";
+		if (hasCursor && hasLink)
+			return {items: out, cursor: cursor, link: link};
+		if (hasCursor)
+			return {items: out, cursor: cursor};
+		if (hasLink)
+			return {items: out, link: link};
+		return {items: out};
 	}
 
 	function getUrl(path:String, ?limit:Int):String {
