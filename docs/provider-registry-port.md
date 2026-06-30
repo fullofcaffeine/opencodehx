@@ -1,6 +1,6 @@
 # Provider Registry Port
 
-**Beads:** `opencodehx-024`, `opencodehx-025`, `opencodehx-nrh`, `opencodehx-hup`, `opencodehx-7aan`
+**Beads:** `opencodehx-024`, `opencodehx-025`, `opencodehx-nrh`, `opencodehx-hup`, `opencodehx-7aan`, `opencodehx-acxa`
 **Upstream oracle:** `../opencode/packages/opencode/src/provider/provider.ts`, `schema.ts`, `models.ts`, `auth/index.ts`, `config/provider.ts`, `env/index.ts`, plus `../opencode/packages/opencode/test/provider/provider.test.ts` and `amazon-bedrock.test.ts`.
 
 ## Slice
@@ -37,7 +37,8 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotResponsesLanguageModel` ports the first Haxe-owned GitHub Copilot/OpenAI Responses `LanguageModelV3` path for `gpt-5` non-mini models, including typed request-body construction, non-stream result mapping, and core SSE event mapping.
 - `CopilotLanguageLoader` wires configured `@ai-sdk/github-copilot` models through the upstream `shouldUseCopilotResponsesApi` rule: chat models use `ProviderRegistry.resolveCopilotChat`, while `gpt-5` non-mini models use `ProviderRegistry.resolveCopilotResponses`.
 - `ProviderOptionAccess` centralizes typed reads from open provider SDK options, keeping `Record<string, any>`-style boundary access localized and narrowed before loaders consume it.
-- `opencodehx.server.ServerProviderProtocol` encodes the first server provider-list JSON shape for `GET /config/providers`, keeping provider `models` and `default` string-keyed records out of route logic while preserving upstream's provider/model ID map contract.
+- `opencodehx.server.ServerProviderProtocol` encodes the first server provider-list JSON shapes for `GET /config/providers` and `GET /provider`, keeping provider `models` and `default` string-keyed records out of route logic while preserving upstream's provider/model ID map contract.
+- `OpenCodeServer` now exposes the first `/provider` route: it loads `ProviderModelsDev`, filters by local enabled/disabled provider config, overlays connected `ProviderRegistry` providers, and returns upstream-shaped `all`, `default`, and `connected` fields.
 
 ## Evidence
 
@@ -60,6 +61,7 @@ This slice adds the first Haxe-owned provider registry:
 - `models.dev` fetch/cache orchestration for custom source URLs, user-agent headers, cache writes and reads, fresh-cache refresh skips, forced refresh, local `modelsPath` override, snapshot fallback, and disabled-fetch empty catalog behavior.
 - The pre-existing credential-free fake provider transcript harness.
 - `ServerSmoke` covers `GET /config/providers` for a configured provider, including provider list output, model-map JSON encoding, and default model IDs.
+- `ServerSmoke` covers `GET /provider` against a local no-network models.dev file, including catalog provider output, connected-provider overlay, connected IDs, and default model IDs.
 
 `AiSdkProviderSmoke` is the executable fixture for the first AI SDK runtime path. It covers:
 

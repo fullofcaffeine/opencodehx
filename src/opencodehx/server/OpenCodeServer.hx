@@ -5,6 +5,7 @@ import genes.ts.Unknown;
 import js.html.Response;
 import js.lib.Promise;
 import opencodehx.auth.AuthStore;
+import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigWriter;
 import opencodehx.externs.hono.Hono;
 import opencodehx.externs.hono.Hono.HonoContext;
@@ -29,7 +30,10 @@ import opencodehx.pty.PtyTypes.PtyID;
 import opencodehx.pty.PtyTypes.PtySocket;
 import opencodehx.pty.PtyTypes.PtySocketMessage;
 import opencodehx.provider.AiSdkProvider;
+import opencodehx.provider.ProviderModelsDev;
 import opencodehx.provider.ProviderRegistry;
+import opencodehx.provider.ProviderTypes.ModelsDevCatalog;
+import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.permission.PermissionAsyncRuntime;
 import opencodehx.permission.PermissionAsyncRuntime.PermissionAsyncService;
 import opencodehx.question.QuestionRuntime;
@@ -46,6 +50,7 @@ import opencodehx.session.SessionLive.liveRunPlan;
 import opencodehx.session.SessionProcessor;
 import opencodehx.server.ServerProjectProtocol.decodeProjectUpdate;
 import opencodehx.server.ServerProviderProtocol.encodeConfigProviders;
+import opencodehx.server.ServerProviderProtocol.encodeProviderList;
 import opencodehx.server.ServerProtocol.DecodeResult;
 import opencodehx.server.ServerProtocol.GlobalSessionResponse;
 import opencodehx.server.ServerProtocol.ServerEventTypes;
@@ -125,6 +130,7 @@ class OpenCodeServer {
 		app.get("/health", c -> json(c, {ok: true, service: "opencodehx"}));
 		app.get("/config", c -> getConfig(c));
 		app.get("/config/providers", c -> getConfigProviders(c));
+		app.get("/provider", c -> getProviders(c));
 		app.get("/event", c -> eventStream(c));
 		app.get("/permission", c -> listPermissions(c));
 		app.get("/question", c -> listQuestions(c));
@@ -428,6 +434,21 @@ class OpenCodeServer {
 			auth: AuthStore.load(env),
 		});
 		return json(c, encodeConfigProviders(registry));
+	}
+
+	@:async
+	function getProviders(c:HonoContext):Promise<Response> {
+		final env = NodeProcess.env();
+		final config = liveLocalConfig(routingDirectory(c));
+		final connectedRegistry = new ProviderRegistry({
+			config: config,
+			env: env,
+			auth: AuthStore.load(env),
+		});
+		final catalog = @:await ProviderModelsDev.get();
+		final all = providerList(config, catalog, connectedRegistry.all());
+		final connected = [for (provider in connectedRegistry.all()) provider.id.toString()];
+		return json(c, encodeProviderList(all, connected));
 	}
 
 	function listProjects(c:HonoContext):Response {
@@ -773,6 +794,37 @@ class OpenCodeServer {
 
 	static function projectChanged(prev:ProjectInfo, next:ProjectInfo):Bool {
 		return prev.id.toString() != next.id.toString() || prev.vcs != next.vcs || prev.worktree != next.worktree;
+	}
+
+	static function providerList(config:ConfigInfo, catalog:ModelsDevCatalog, connected:Array<ProviderInfo>):Array<ProviderInfo> {
+		final merged = ProviderRegistry.fromModelsDevCatalog(catalog);
+		for (providerID in merged.keys()) {
+			if (!providerAllowed(config, providerID))
+				merged.remove(providerID);
+		}
+		for (provider in connected)
+			merged.set(provider.id.toString(), provider);
+		final out:Array<ProviderInfo> = [];
+		for (providerID in merged.keys())
+			out.push(merged.get(providerID));
+		out.sort((left, right) -> compareString(left.id.toString(), right.id.toString()));
+		return out;
+	}
+
+	static function providerAllowed(config:ConfigInfo, providerID:String):Bool {
+		if (contains(config.disabledProviders, providerID))
+			return false;
+		return config.enabledProviders == null || contains(config.enabledProviders, providerID);
+	}
+
+	static function contains(values:Null<Array<String>>, value:String):Bool {
+		return values != null && values.indexOf(value) != -1;
+	}
+
+	static function compareString(left:String, right:String):Int {
+		if (left == right)
+			return 0;
+		return left < right ? -1 : 1;
 	}
 
 	static function projectResponse(project:ProjectInfo):ProjectRouteResponse {

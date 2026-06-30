@@ -32,6 +32,12 @@ typedef ConfigProvidersRouteResponse = {
 	@:native("default") final defaultModels:ProviderRouteDefaultModels;
 }
 
+typedef ProviderListRouteResponse = {
+	final all:Array<ProviderRouteProvider>;
+	@:native("default") final defaultModels:ProviderRouteDefaultModels;
+	final connected:Array<String>;
+}
+
 /**
 	Encodes provider registry records into upstream-shaped server JSON.
 
@@ -46,6 +52,14 @@ function encodeConfigProviders(registry:ProviderRegistry):ConfigProvidersRouteRe
 	return {
 		providers: [for (provider in providers) encodeProvider(provider)],
 		defaultModels: defaultModelIDs(providers),
+	};
+}
+
+function encodeProviderList(providers:Array<ProviderInfo>, connected:Array<String>):ProviderListRouteResponse {
+	return {
+		all: [for (provider in providers) encodeProvider(provider)],
+		defaultModels: defaultModelIDs(providers),
+		connected: connected.copy(),
 	};
 }
 

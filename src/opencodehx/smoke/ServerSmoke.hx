@@ -154,7 +154,7 @@ class ServerSmoke {
 	static function configRoute(server:OpenCodeServer, root:String):Promise<Void> {
 		Fs.writeFileSync(NodePath.join(root, "opencode.json"),
 			'{"' + "$" +
-			'schema":"${ConfigInfo.DEFAULT_SCHEMA}","model":"server/model","default_agent":"reviewer","enabled_providers":["server-provider"],"provider":{"server-provider":{"npm":"@ai-sdk/openai-compatible","name":"Server Provider","models":{"server-model":{"name":"Server Model"}}}}}');
+			'schema":"${ConfigInfo.DEFAULT_SCHEMA}","model":"server/model","default_agent":"reviewer","enabled_providers":["server-provider","catalog-provider"],"provider":{"server-provider":{"npm":"@ai-sdk/openai-compatible","name":"Server Provider","models":{"server-model":{"name":"Server Model"}}}}}');
 		final body = @:await jsonResponse(@:await server.app.request("/config"));
 		final config = requiredRecord(Unknown.fromBoundary(body), "server config route");
 		eq(requiredString(config, "model", "server config model"), "server/model", "server config model");
@@ -174,6 +174,23 @@ class ServerSmoke {
 		eq(requiredString(model, "name", "server config provider model name"), "Server Model", "server config provider model name");
 		final defaults = requiredRecord(providerResult.get("default"), "server config providers default");
 		eq(requiredString(defaults, "server-provider", "server config provider default"), "server-model", "server config provider default");
+		final modelsPath = NodePath.join(root, "server-models-dev.json");
+		Fs.writeFileSync(modelsPath,
+			'{"catalog-provider":{"id":"catalog-provider","name":"Catalog Provider","env":[],"models":{"catalog-model":{"id":"catalog-model","name":"Catalog Model","limit":{"context":1000,"output":200}}}}}');
+		final originalModelsPath = NodeProcess.envValue("OPENCODE_MODELS_PATH");
+		NodeProcess.setEnv("OPENCODE_MODELS_PATH", modelsPath);
+		final providerListBody = @:await jsonResponse(@:await server.app.request("/provider"));
+		final providerListResult = requiredRecord(Unknown.fromBoundary(providerListBody), "server provider list route");
+		final allProviders = requiredArray(providerListResult.get("all"), "server provider list all");
+		eq(allProviders.length, 2, "server provider list count");
+		eq(providerArrayHasID(allProviders, "catalog-provider"), true, "server provider list catalog provider");
+		eq(providerArrayHasID(allProviders, "server-provider"), true, "server provider list connected provider");
+		final connected = requiredArray(providerListResult.get("connected"), "server provider list connected");
+		eq(UnknownNarrow.string(connected.get(0)), "server-provider", "server provider list connected id");
+		final providerDefaults = requiredRecord(providerListResult.get("default"), "server provider list default");
+		eq(requiredString(providerDefaults, "catalog-provider", "server provider catalog default"), "catalog-model", "server provider catalog default");
+		eq(requiredString(providerDefaults, "server-provider", "server provider connected default"), "server-model", "server provider connected default");
+		restoreEnv("OPENCODE_MODELS_PATH", originalModelsPath);
 	}
 
 	@:async
@@ -1440,6 +1457,15 @@ class ServerSmoke {
 		for (index in 0...items.length) {
 			final item = UnknownNarrow.record(items.get(index));
 			if (item != null && UnknownNarrow.string(item.get("worktree")) == worktree)
+				return true;
+		}
+		return false;
+	}
+
+	static function providerArrayHasID(items:genes.ts.UnknownArray, providerID:String):Bool {
+		for (index in 0...items.length) {
+			final item = UnknownNarrow.record(items.get(index));
+			if (item != null && UnknownNarrow.string(item.get("id")) == providerID)
 				return true;
 		}
 		return false;
