@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 727,
+    "Dynamic": 715,
     "DynamicAccess": 559,
-    "cast": 213,
+    "cast": 207,
     "untyped": 5,
-    "Syntax.code": 28,
+    "Syntax.code": 25,
     "@:ts.type": 82,
-    "Reflect.field": 437,
+    "Reflect.field": 430,
     "Reflect.hasField": 46,
     "Reflect.setField": 47,
     "Any": 0
@@ -279,11 +279,8 @@
       "Dynamic": 1
     },
     "src/opencodehx/plugin/PluginMeta.hx": {
-      "Dynamic": 12,
       "DynamicAccess": 5,
-      "cast": 6,
-      "Syntax.code": 4,
-      "Reflect.field": 7
+      "Syntax.code": 1
     },
     "src/opencodehx/plugin/PluginRuntime.hx": {
       "Dynamic": 1,

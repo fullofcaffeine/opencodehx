@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 2144 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 2116 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -27,6 +27,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - Session tool calls and `ToolState` records use `ToolCallInput` plus `ToolStateMetadata` instead of raw `Dynamic` for stored tool input and tool-state metadata.
 - Open message DTO fields for symbol ranges, JSON schema output format, user summary diffs/tools, assistant error/structured data, part metadata, and retry errors use `MessageJson` backed by generic `genes.ts.JsonValue` checked construction instead of raw `Dynamic`, broad `Unknown`, or a product-local JSON alias.
 - Tool and LSP smoke metadata checks no longer use `Reflect.field` or a local `cast Reflect.field` helper for stable JSON metadata assertions.
+- `PluginMeta` reloads persisted plugin metadata through `genes.ts.UnknownRecord` and `UnknownNarrow` instead of `Dynamic` plus reflection.
 
 ## Remaining Hotspots
 

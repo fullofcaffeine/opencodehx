@@ -1,5 +1,8 @@
 package opencodehx.plugin;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import haxe.Json;
 import opencodehx.externs.node.Fs;
@@ -76,7 +79,7 @@ class PluginMeta {
 
 		final parsed = PluginShared.parsePluginSpecifier(spec);
 		final pkg = PluginShared.readPluginPackage(target);
-		final version = pkg == null ? null : cast pkg.json.get("version");
+		final version = pkg == null ? null : UnknownNarrow.string(Unknown.fromBoundary(pkg.json.get("version")));
 		final fingerprint = target + "|" + parsed.version + "|" + (version == null ? "" : version);
 		return empty(id, source, spec, target, parsed.version, version, null, fingerprint);
 	}
@@ -103,10 +106,13 @@ class PluginMeta {
 		final out = new DynamicAccess<PluginMetaEntry>();
 		if (!Fs.existsSync(file))
 			return out;
-		final raw:Dynamic = Json.parse(Fs.readFileSync(file, "utf8"));
-		for (id in Reflect.fields(raw)) {
-			final item:Dynamic = Reflect.field(raw, id);
-			out.set(id, decodeEntry(item));
+		final root = UnknownNarrow.record(Unknown.fromBoundary(Json.parse(Fs.readFileSync(file, "utf8"))));
+		if (root == null)
+			return out;
+		for (id in root.keys()) {
+			final item = UnknownNarrow.record(root.get(id));
+			if (item != null)
+				out.set(id, decodeEntry(item));
 		}
 		return out;
 	}
@@ -116,7 +122,7 @@ class PluginMeta {
 		Fs.writeFileSync(file, Json.stringify(store, null, "  "), {encoding: "utf8"});
 	}
 
-	static function decodeEntry(item:Dynamic):PluginMetaEntry {
+	static function decodeEntry(item:UnknownRecord):PluginMetaEntry {
 		return {
 			id: stringField(item, "id"),
 			source: sourceField(item),
@@ -133,49 +139,35 @@ class PluginMeta {
 		};
 	}
 
-	static function stringField(data:Dynamic, field:String):String {
-		final value = Reflect.field(data, field);
-		return isString(value) ? cast value : "";
+	static function stringField(data:UnknownRecord, field:String):String {
+		final value = UnknownNarrow.string(data.get(field));
+		return value == null ? "" : value;
 	}
 
-	static function optionalString(data:Dynamic, field:String):Null<String> {
-		final value = Reflect.field(data, field);
-		return isString(value) ? cast value : null;
+	static function optionalString(data:UnknownRecord, field:String):Null<String> {
+		return UnknownNarrow.string(data.get(field));
 	}
 
-	static function optionalFloat(data:Dynamic, field:String):Null<Float> {
-		final value = Reflect.field(data, field);
-		return isNumber(value) ? cast value : null;
+	static function optionalFloat(data:UnknownRecord, field:String):Null<Float> {
+		return UnknownNarrow.finiteNumber(data.get(field));
 	}
 
-	static function floatField(data:Dynamic, field:String):Float {
-		final value = Reflect.field(data, field);
-		return isNumber(value) ? cast value : 0;
+	static function floatField(data:UnknownRecord, field:String):Float {
+		final value = UnknownNarrow.finiteNumber(data.get(field));
+		return value == null ? 0 : value;
 	}
 
-	static function intField(data:Dynamic, field:String):Int {
-		final value = Reflect.field(data, field);
-		return isNumber(value) ? cast value : 0;
+	static function intField(data:UnknownRecord, field:String):Int {
+		final value = UnknownNarrow.int32(data.get(field));
+		return value == null ? 0 : value;
 	}
 
-	static function sourceField(data:Dynamic):PluginSource {
+	static function sourceField(data:UnknownRecord):PluginSource {
 		return stringField(data, "source") == "file" ? File : Npm;
 	}
 
-	static function isString(value:Dynamic):Bool {
-		// Plugin metadata is read from JSON. Keep raw JS type checks contained
-		// to this decoder and return typed records immediately.
-		return js.Syntax.code("typeof {0} === 'string'", value);
-	}
-
-	static function isNumber(value:Dynamic):Bool {
-		// See isString: this is the numeric companion for JSON metadata fields.
-		return js.Syntax.code("typeof {0} === 'number' && Number.isFinite({0})", value);
-	}
-
-	static function stringValue(value:Dynamic):String {
-		// See isString: keep raw conversion inside metadata fingerprinting.
-		return js.Syntax.code("String({0})", value);
+	static function stringValue(value:Float):String {
+		return Std.string(value);
 	}
 
 	static function runtimeNow():Float {
