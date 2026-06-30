@@ -1,6 +1,9 @@
 package opencodehx.plugin;
 
-import haxe.DynamicAccess;
+import genes.ts.Unknown;
+import genes.ts.UnknownArray;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.Json;
 import opencodehx.config.ConfigPlugin;
 import opencodehx.externs.node.Fs;
@@ -20,7 +23,7 @@ typedef ParsedPluginSpecifier = {
 typedef PluginPackage = {
 	final dir:String;
 	final pkg:String;
-	final json:DynamicAccess<Dynamic>;
+	final json:UnknownRecord;
 }
 
 typedef PluginEntry = {
@@ -81,10 +84,9 @@ class PluginShared {
 		final pkg = NodePath.join(dir, "package.json");
 		if (!Fs.existsSync(pkg))
 			return null;
-		final raw:Dynamic = Json.parse(Fs.readFileSync(pkg, "utf8"));
-		final json = new DynamicAccess<Dynamic>();
-		for (name in Reflect.fields(raw))
-			json.set(name, Reflect.field(raw, name));
+		final json = UnknownNarrow.record(Unknown.fromBoundary(Json.parse(Fs.readFileSync(pkg, "utf8"))));
+		if (json == null)
+			return null;
 		return {dir: dir, pkg: pkg, json: json};
 	}
 
@@ -96,37 +98,37 @@ class PluginShared {
 		final hit = pkg != null ? pkg : readPluginPackage(target);
 		if (hit == null)
 			throw 'Plugin package ${target} is missing package.json';
-		final name = hit.json.get("name");
-		if (!isString(name) || StringTools.trim(cast name) == "")
+		final name = stringField(hit.json, "name");
+		if (name == null || StringTools.trim(name) == "")
 			throw 'Plugin package ${hit.pkg} is missing name';
-		return StringTools.trim(cast name);
+		return StringTools.trim(name);
 	}
 
 	public static function readPackageThemes(spec:String, pkg:PluginPackage):Array<String> {
-		final field = pkg.json.get("oc-themes");
-		if (field == null)
+		if (!pkg.json.hasOwn("oc-themes"))
 			return [];
-		if (!isArray(field))
+		final list = UnknownNarrow.array(pkg.json.get("oc-themes"));
+		if (list == null)
 			throw 'Plugin ${spec} has invalid oc-themes field';
 		final out:Array<String> = [];
-		final list:Array<Dynamic> = cast field;
-		for (item in list) {
-			if (!isString(item))
+		for (index in 0...list.length) {
+			final item = stringAt(list, index);
+			if (item == null)
 				throw 'Plugin ${spec} has invalid oc-themes entry';
-			final raw = StringTools.trim(cast item);
+			final raw = StringTools.trim(item);
 			if (raw == "")
 				throw 'Plugin ${spec} has empty oc-themes entry';
 			if (StringTools.startsWith(raw, "file://") || isAbsolutePath(raw))
-				throw 'Plugin ${spec} oc-themes entry must be relative: ${item}';
+				throw 'Plugin ${spec} oc-themes entry must be relative: ${raw}';
 			out.push(NodePath.join(pkg.dir, raw));
 		}
 		return out;
 	}
 
 	static function packageEntrypoint(pkg:PluginPackage):String {
-		final main = pkg.json.get("main");
-		if (isString(main) && StringTools.trim(cast main) != "")
-			return Url.pathToFileURL(NodePath.resolve(pkg.dir, cast main)).href;
+		final main = stringField(pkg.json, "main");
+		if (main != null && StringTools.trim(main) != "")
+			return Url.pathToFileURL(NodePath.resolve(pkg.dir, main)).href;
 		return Url.pathToFileURL(pkg.dir).href;
 	}
 
@@ -154,15 +156,12 @@ class PluginShared {
 		return NodePath.isAbsolute(raw) || isWindowsAbsolutePath(raw);
 	}
 
-	static function isString(value:Dynamic):Bool {
-		// Package metadata is untrusted JSON. Haxe has no native unknown/string
-		// guard, so keep the raw JS typeof check inside this decoder.
-		return js.Syntax.code("typeof {0} === 'string'", value);
+	static function stringField(data:UnknownRecord, field:String):Null<String> {
+		return UnknownNarrow.string(data.get(field));
 	}
 
-	static function isArray(value:Dynamic):Bool {
-		// See isString: this is a package metadata boundary guard.
-		return js.Syntax.code("Array.isArray({0})", value);
+	static function stringAt(items:UnknownArray, index:Int):Null<String> {
+		return UnknownNarrow.string(items.get(index));
 	}
 
 	static function isWindowsAbsolutePath(raw:String):Bool {

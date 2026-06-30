@@ -79,7 +79,7 @@ class PluginMeta {
 
 		final parsed = PluginShared.parsePluginSpecifier(spec);
 		final pkg = PluginShared.readPluginPackage(target);
-		final version = pkg == null ? null : UnknownNarrow.string(Unknown.fromBoundary(pkg.json.get("version")));
+		final version = pkg == null ? null : UnknownNarrow.string(pkg.json.get("version"));
 		final fingerprint = target + "|" + parsed.version + "|" + (version == null ? "" : version);
 		return empty(id, source, spec, target, parsed.version, version, null, fingerprint);
 	}
