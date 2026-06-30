@@ -1,5 +1,7 @@
 package opencodehx.provider.copilot;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.Json;
 import opencodehx.externs.ai.AiSdk.AiJsonValue;
 import opencodehx.provider.copilot.CopilotResponsesCompletion.CopilotResponsesAnnotation;
@@ -259,10 +261,11 @@ class CopilotResponsesResponseDecoder {
 	}
 
 	static function field(object:Dynamic, name:String):Dynamic {
-		return Reflect.field(object, name);
+		final record = UnknownNarrow.record(Unknown.fromBoundary(object));
+		return record == null ? null : record.get(name);
 	}
 
 	static function isObject(value:Dynamic):Bool {
-		return value != null && Reflect.isObject(value);
+		return UnknownNarrow.record(Unknown.fromBoundary(value)) != null;
 	}
 }

@@ -23,7 +23,7 @@
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 108,
+    "Reflect.field": 106,
     "Reflect.hasField": 27,
     "Reflect.setField": 45,
     "Any": 0
@@ -308,8 +308,7 @@
     },
     "src/opencodehx/provider/copilot/CopilotChatSseDecoder.hx": {
       "Dynamic": 25,
-      "cast": 3,
-      "Reflect.field": 1
+      "cast": 3
     },
     "src/opencodehx/provider/copilot/CopilotChatStream.hx": {
       "Dynamic": 2
@@ -332,8 +331,7 @@
       "cast": 1
     },
     "src/opencodehx/provider/copilot/CopilotResponsesResponseDecoder.hx": {
-      "Dynamic": 30,
-      "Reflect.field": 1
+      "Dynamic": 30
     },
     "src/opencodehx/provider/copilot/CopilotResponsesStream.hx": {
       "Dynamic": 12,

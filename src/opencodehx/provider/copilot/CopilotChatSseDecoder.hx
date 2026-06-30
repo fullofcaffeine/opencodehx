@@ -1,5 +1,7 @@
 package opencodehx.provider.copilot;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.Json;
 import opencodehx.provider.copilot.CopilotChatCompletion.CopilotCompletionTokensDetails;
 import opencodehx.provider.copilot.CopilotChatCompletion.CopilotPromptTokensDetails;
@@ -245,17 +247,12 @@ class CopilotChatSseDecoder {
 	}
 
 	static function field(value:Dynamic, name:String):Dynamic {
-		return Reflect.field(value, name);
+		final record = UnknownNarrow.record(Unknown.fromBoundary(value));
+		return record == null ? null : record.get(name);
 	}
 
 	static function isRecord(value:Dynamic):Bool {
-		if (value == null
-			|| Std.isOfType(value, Array)
-			|| Std.isOfType(value, String)
-			|| Std.isOfType(value, Bool)
-			|| isNumber(value))
-			return false;
-		return Reflect.isObject(value);
+		return UnknownNarrow.record(Unknown.fromBoundary(value)) != null;
 	}
 
 	static function isNumber(value:Dynamic):Bool {
