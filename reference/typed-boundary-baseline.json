@@ -17,14 +17,14 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 646,
+    "Dynamic": 644,
     "DynamicAccess": 539,
-    "cast": 167,
+    "cast": 166,
     "untyped": 5,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 370,
-    "Reflect.hasField": 36,
+    "Reflect.field": 366,
+    "Reflect.hasField": 35,
     "Reflect.setField": 47,
     "Any": 0
   },
@@ -74,10 +74,7 @@
       "Reflect.setField": 1
     },
     "src/opencodehx/config/ConfigLsp.hx": {
-      "Dynamic": 4,
-      "cast": 1,
-      "Reflect.field": 4,
-      "Reflect.hasField": 1
+      "Dynamic": 2
     },
     "src/opencodehx/config/ConfigManaged.hx": {
       "Dynamic": 1,

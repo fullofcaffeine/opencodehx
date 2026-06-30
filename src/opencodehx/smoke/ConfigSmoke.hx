@@ -458,6 +458,28 @@ class ConfigSmoke {
 				case _: false;
 			}
 		});
+
+		expectFailure(() -> {
+			final invalidExtensionsDir = directory(root, "lsp-invalid-extensions");
+			write(invalidExtensionsDir, "opencode.json", '{"lsp":{"my-lsp":{"command":["my-lsp-bin"],"extensions":"ml"}}}');
+			ConfigLoader.loadProject(invalidExtensionsDir, {defaultUsername: "fixture-user"});
+		}, "custom lsp extensions must be array", function(failure) {
+			return switch failure {
+				case InvalidError(_, issues): issues.indexOf("lsp.my-lsp.extensions: expected array") != -1;
+				case _: false;
+			}
+		});
+
+		expectFailure(() -> {
+			final invalidExtensionItemDir = directory(root, "lsp-invalid-extension-item");
+			write(invalidExtensionItemDir, "opencode.json", '{"lsp":{"my-lsp":{"command":["my-lsp-bin"],"extensions":[".ml",1]}}}');
+			ConfigLoader.loadProject(invalidExtensionItemDir, {defaultUsername: "fixture-user"});
+		}, "custom lsp extensions must contain strings", function(failure) {
+			return switch failure {
+				case InvalidError(_, issues): issues.indexOf("lsp.my-lsp.extensions: expected string entries") != -1;
+				case _: false;
+			}
+		});
 	}
 
 	static function markdownParsing():Void {

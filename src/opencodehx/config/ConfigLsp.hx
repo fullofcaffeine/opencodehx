@@ -1,42 +1,52 @@
 package opencodehx.config;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownArray;
+import genes.ts.UnknownNarrow;
+
 class ConfigLsp {
 	static inline final CUSTOM_EXTENSIONS_REQUIRED = "For custom LSP servers, 'extensions' array is required.";
 	static final BUILTIN = ["typescript"];
 
 	public static function validate(value:Dynamic, issues:Array<String>):Dynamic {
-		if (Std.isOfType(value, Bool))
+		final unknown = Unknown.fromBoundary(value);
+		if (UnknownNarrow.bool(unknown) != null)
 			return value;
-		if (value == null || !Reflect.isObject(value) || Std.isOfType(value, Array)) {
+		final record = UnknownNarrow.record(unknown);
+		if (record == null) {
 			issues.push("lsp: expected boolean or object");
 			return value;
 		}
-		for (id in Reflect.fields(value))
-			validateServer(id, Reflect.field(value, id), issues);
+		for (id in record.keys())
+			validateServer(id, record.get(id), issues);
 		return value;
 	}
 
-	static function validateServer(id:String, server:Dynamic, issues:Array<String>):Void {
-		if (server == null || !Reflect.isObject(server) || Std.isOfType(server, Array)) {
+	static function validateServer(id:String, server:Unknown, issues:Array<String>):Void {
+		final record = UnknownNarrow.record(server);
+		if (record == null) {
 			issues.push('lsp.${id}: expected object');
 			return;
 		}
-		if (Reflect.field(server, "disabled") == true)
+		if (UnknownNarrow.bool(record.get("disabled")) == true)
 			return;
 		if (BUILTIN.indexOf(id) != -1)
 			return;
-		if (!Reflect.hasField(server, "extensions")) {
+		if (!record.hasOwn("extensions")) {
 			issues.push(CUSTOM_EXTENSIONS_REQUIRED);
 			return;
 		}
-		final extensions = Reflect.field(server, "extensions");
-		if (!Std.isOfType(extensions, Array)) {
+		final extensions = UnknownNarrow.array(record.get("extensions"));
+		if (extensions == null) {
 			issues.push('lsp.${id}.extensions: expected array');
 			return;
 		}
-		for (item in (cast extensions : Array<Dynamic>)) {
-			if (!Std.isOfType(item, String))
+		validateExtensions(id, extensions, issues);
+	}
+
+	static function validateExtensions(id:String, extensions:UnknownArray, issues:Array<String>):Void {
+		for (index in 0...extensions.length)
+			if (UnknownNarrow.string(extensions.get(index)) == null)
 				issues.push('lsp.${id}.extensions: expected string entries');
-		}
 	}
 }
