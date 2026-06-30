@@ -1,6 +1,6 @@
 # PTY Runtime
 
-**Beads:** `opencodehx-3qi`, `opencodehx-m5b`, `opencodehx-o48`
+**Beads:** `opencodehx-3qi`, `opencodehx-m5b`, `opencodehx-o48`, `opencodehx-000.11.17`
 **Upstream oracle:** `../opencode/packages/opencode/src/pty/index.ts`, `../opencode/packages/opencode/src/pty/pty.node.ts`, `../opencode/packages/opencode/test/pty/*.test.ts`
 
 ## Slice
@@ -15,6 +15,7 @@ OpenCodeHX now has a real Node PTY lifecycle and WebSocket interaction seam:
 - `PtyService` buffers recent output, tracks a monotonic cursor, sends upstream-style `0x00 + JSON.stringify({cursor})` control frames on connect/replay, and chunks replay output.
 - `connect()` returns typed message/close callbacks for route adapters and keys subscribers by the same `ws.data` object-identity rule upstream uses to prevent recycled socket wrappers from leaking output.
 - `OpenCodeServer` exposes `/pty`, `/pty/:ptyID`, and `/pty/:ptyID/connect` routes for create/list/get/update/delete plus WebSocket write/replay/tail behavior.
+- `PtyRouteProtocol` narrows create/update JSON bodies through `genes.ts.UnknownRecord`, `UnknownArray`, and `UnknownNarrow` before constructing `PtyCreateInput`/`PtyUpdateInput`; the only open object shape left on this route is the validated string env map passed to Node PTY.
 
 ## Evidence
 

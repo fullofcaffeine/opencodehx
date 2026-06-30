@@ -17,14 +17,14 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 692,
+    "Dynamic": 676,
     "DynamicAccess": 549,
-    "cast": 183,
+    "cast": 182,
     "untyped": 5,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 413,
-    "Reflect.hasField": 46,
+    "Reflect.field": 401,
+    "Reflect.hasField": 41,
     "Reflect.setField": 47,
     "Any": 0
   },
@@ -391,11 +391,7 @@
       "Dynamic": 4
     },
     "src/opencodehx/server/PtyRouteProtocol.hx": {
-      "Dynamic": 16,
-      "DynamicAccess": 3,
-      "cast": 1,
-      "Reflect.field": 12,
-      "Reflect.hasField": 5
+      "DynamicAccess": 3
     },
     "src/opencodehx/server/ServerEventStream.hx": {
       "DynamicAccess": 2,

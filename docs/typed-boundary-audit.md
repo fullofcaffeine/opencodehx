@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 2040 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 2006 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -32,6 +32,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - LSP diagnostics now use `LspDiagnostics`, a typed URI-keyed registry, instead of `DynamicAccess<Array<LspDiagnosticInfo>>`.
 - `AuthStore` and `AccountStore` decode auth JSON and active-account SQLite rows through `genes.ts.UnknownRecord`/`UnknownNarrow` instead of local reflection/cast helpers.
 - `FormatRuntime` narrows formatter object config through `genes.ts.UnknownRecord`/`UnknownArray`/`UnknownNarrow` instead of local reflection/cast helpers.
+- `PtyRouteProtocol` decodes PTY create/update request bodies through `genes.ts.UnknownRecord`/`UnknownArray`/`UnknownNarrow`, preserving typed PTY DTOs and copying only validated env strings into the Node PTY env map.
 
 ## Remaining Hotspots
 

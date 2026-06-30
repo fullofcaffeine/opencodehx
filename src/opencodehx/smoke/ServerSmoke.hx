@@ -413,6 +413,15 @@ class ServerSmoke {
 		await(workspaceRemoteHttp());
 		await(projectGitInitRoutes(server, root));
 
+		final invalidPtyCreate = await(server.app.request("/pty", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({args: "bad"}),
+		}));
+		eq(invalidPtyCreate.status, 400, "pty invalid create status");
+		final invalidPtyCreateBody = requiredRecord(Unknown.fromBoundary(await(jsonResponse(invalidPtyCreate))), "pty invalid create error");
+		eq(requiredString(invalidPtyCreateBody, "error", "pty invalid create error"), "args: expected string array", "pty invalid create error");
+
 		// Parsed PTY route JSON is inspected as a smoke boundary payload here;
 		// production PTY request bodies decode through PtyRouteProtocol first.
 		final ptyCreated = await(jsonResponse(await(server.app.request("/pty", {
@@ -432,6 +441,14 @@ class ServerSmoke {
 			body: Json.stringify({title: "Renamed PTY", size: {cols: 90, rows: 25}}),
 		}))));
 		eq(Reflect.field(ptyUpdated, "title"), "Renamed PTY", "pty updated title");
+		final invalidPtyUpdate = await(server.app.request('/pty/${ptyID}', {
+			method: "PUT",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({size: {cols: 80.5, rows: 25}}),
+		}));
+		eq(invalidPtyUpdate.status, 400, "pty invalid update status");
+		final invalidPtyUpdateBody = requiredRecord(Unknown.fromBoundary(await(jsonResponse(invalidPtyUpdate))), "pty invalid update error");
+		eq(requiredString(invalidPtyUpdateBody, "error", "pty invalid update error"), "size.cols: expected integer", "pty invalid update error");
 		final ptyDeleted = await(jsonResponse(await(server.app.request('/pty/${ptyID}', {method: "DELETE"}))));
 		eq(ptyDeleted, true, "pty delete route");
 		final ptyMissing = await(server.app.request('/pty/${ptyID}'));

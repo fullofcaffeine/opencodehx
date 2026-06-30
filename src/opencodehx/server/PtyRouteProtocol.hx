@@ -1,6 +1,9 @@
 package opencodehx.server;
 
 import genes.ts.Unknown;
+import genes.ts.UnknownArray;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import opencodehx.pty.PtyTypes.PtyCreateInput;
 import opencodehx.pty.PtyTypes.PtySize;
@@ -52,80 +55,95 @@ class PtyRouteProtocol {
 		});
 	}
 
-	static function object(raw:Unknown):Null<Dynamic> {
-		// Justified Dynamic boundary: PTY route bodies arrive as generated TS
-		// `unknown`. Haxe reflection needs Dynamic to inspect JSON fields, so
-		// every access stays local and returns typed PTY DTOs or an error.
-		final data:Dynamic = cast raw;
-		if (data == null || !Reflect.isObject(data) || Std.isOfType(data, Array))
-			return null;
-		return data;
+	static function object(raw:Unknown):Null<UnknownRecord> {
+		return UnknownNarrow.record(raw);
 	}
 
-	static function optionalString(data:Dynamic, field:String):{value:Null<String>, issue:Null<String>} {
-		if (!Reflect.hasField(data, field) || Reflect.field(data, field) == null)
+	static function optionalString(data:UnknownRecord, field:String):{value:Null<String>, issue:Null<String>} {
+		if (!data.hasOwn(field))
 			return {value: null, issue: null};
-		final value:Dynamic = Reflect.field(data, field);
-		if (!Std.isOfType(value, String))
+		final value = data.get(field);
+		if (isAbsent(value))
+			return {value: null, issue: null};
+		final stringValue = UnknownNarrow.string(value);
+		if (stringValue == null)
 			return {value: null, issue: '${field}: expected string'};
-		return {value: value, issue: null};
+		return {value: stringValue, issue: null};
 	}
 
-	static function optionalStringArray(data:Dynamic, field:String):{value:Null<Array<String>>, issue:Null<String>} {
-		if (!Reflect.hasField(data, field) || Reflect.field(data, field) == null)
+	static function optionalStringArray(data:UnknownRecord, field:String):{value:Null<Array<String>>, issue:Null<String>} {
+		if (!data.hasOwn(field))
 			return {value: null, issue: null};
-		final value:Dynamic = Reflect.field(data, field);
-		if (!Std.isOfType(value, Array))
+		final value = data.get(field);
+		if (isAbsent(value))
+			return {value: null, issue: null};
+		final array = UnknownNarrow.array(value);
+		if (array == null)
 			return {value: null, issue: '${field}: expected string array'};
+		return decodeStringArray(array, field);
+	}
+
+	static function decodeStringArray(value:UnknownArray, field:String):{value:Null<Array<String>>, issue:Null<String>} {
 		final out:Array<String> = [];
-		for (item in (value : Array<Dynamic>)) {
-			if (!Std.isOfType(item, String))
+		for (index in 0...value.length) {
+			final item = UnknownNarrow.string(value.get(index));
+			if (item == null)
 				return {value: null, issue: '${field}: expected string array'};
 			out.push(item);
 		}
 		return {value: out, issue: null};
 	}
 
-	static function optionalStringMap(data:Dynamic, field:String):{value:Null<DynamicAccess<String>>, issue:Null<String>} {
-		if (!Reflect.hasField(data, field) || Reflect.field(data, field) == null)
+	static function optionalStringMap(data:UnknownRecord, field:String):{value:Null<DynamicAccess<String>>, issue:Null<String>} {
+		if (!data.hasOwn(field))
 			return {value: null, issue: null};
-		final value:Dynamic = Reflect.field(data, field);
-		if (!Reflect.isObject(value) || Std.isOfType(value, Array))
+		final value = data.get(field);
+		if (isAbsent(value))
+			return {value: null, issue: null};
+		final record = UnknownNarrow.record(value);
+		if (record == null)
 			return {value: null, issue: '${field}: expected string map'};
 		final out = new DynamicAccess<String>();
-		for (key in Reflect.fields(value)) {
-			final item:Dynamic = Reflect.field(value, key);
-			if (!Std.isOfType(item, String))
+		for (key in record.keys()) {
+			final item = UnknownNarrow.string(record.get(key));
+			if (item == null)
 				return {value: null, issue: '${field}.${key}: expected string'};
 			out.set(key, item);
 		}
 		return {value: out, issue: null};
 	}
 
-	static function optionalSize(data:Dynamic, field:String):{value:Null<PtySize>, issue:Null<String>} {
-		if (!Reflect.hasField(data, field) || Reflect.field(data, field) == null)
+	static function optionalSize(data:UnknownRecord, field:String):{value:Null<PtySize>, issue:Null<String>} {
+		if (!data.hasOwn(field))
 			return {value: null, issue: null};
-		final value:Dynamic = Reflect.field(data, field);
-		if (!Reflect.isObject(value) || Std.isOfType(value, Array))
+		final value = data.get(field);
+		if (isAbsent(value))
+			return {value: null, issue: null};
+		final record = UnknownNarrow.record(value);
+		if (record == null)
 			return {value: null, issue: '${field}: expected object'};
-		final cols = requiredInt(value, "cols", field);
+		final cols = requiredInt(record, "cols", field);
 		if (cols.issue != null)
 			return {value: null, issue: cols.issue};
-		final rows = requiredInt(value, "rows", field);
+		final rows = requiredInt(record, "rows", field);
 		if (rows.issue != null)
 			return {value: null, issue: rows.issue};
 		return {value: {cols: cols.value, rows: rows.value}, issue: null};
 	}
 
-	static function requiredInt(data:Dynamic, field:String, owner:String):{value:Int, issue:Null<String>} {
-		if (!Reflect.hasField(data, field) || Reflect.field(data, field) == null)
+	static function requiredInt(data:UnknownRecord, field:String, owner:String):{value:Int, issue:Null<String>} {
+		if (!data.hasOwn(field))
 			return {value: 0, issue: '${owner}.${field}: expected integer'};
-		final value:Dynamic = Reflect.field(data, field);
-		if (!Std.isOfType(value, Int) && !Std.isOfType(value, Float))
+		final value = data.get(field);
+		if (isAbsent(value))
 			return {value: 0, issue: '${owner}.${field}: expected integer'};
-		final number:Float = value;
-		if (Math.isNaN(number))
+		final intValue = UnknownNarrow.int32(value);
+		if (intValue == null)
 			return {value: 0, issue: '${owner}.${field}: expected integer'};
-		return {value: Std.int(number), issue: null};
+		return {value: intValue, issue: null};
+	}
+
+	static inline function isAbsent(value:Unknown):Bool {
+		return UnknownNarrow.isNull(value) || UnknownNarrow.isUndefined(value);
 	}
 }
