@@ -23,8 +23,8 @@
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 250,
-    "Reflect.hasField": 34,
+    "Reflect.field": 238,
+    "Reflect.hasField": 32,
     "Reflect.setField": 47,
     "Any": 0
   },
@@ -486,8 +486,8 @@
       "Dynamic": 7,
       "DynamicAccess": 20,
       "cast": 2,
-      "Reflect.field": 40,
-      "Reflect.hasField": 5
+      "Reflect.field": 28,
+      "Reflect.hasField": 3
     },
     "src/opencodehx/smoke/ProviderTransformSmoke.hx": {
       "Dynamic": 5,

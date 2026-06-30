@@ -27,6 +27,7 @@ import opencodehx.provider.ProviderModelsDev;
 import opencodehx.provider.ProviderModelsDev.ModelsDevFetchFunction;
 import opencodehx.provider.ProviderModelsDev.ModelsDevFetchRequest;
 import opencodehx.provider.ProviderModelsDev.ModelsDevOptions;
+import opencodehx.provider.ProviderOptionAccess;
 import opencodehx.provider.ProviderRegistry;
 import opencodehx.provider.ProviderTypes.ModelsDevCatalog;
 import opencodehx.provider.ProviderTypes.ModelsDevModel;
@@ -34,6 +35,7 @@ import opencodehx.provider.ProviderTypes.ModelsDevProvider;
 import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderIDs;
+import opencodehx.provider.ProviderTypes.ProviderHeaders;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
@@ -85,7 +87,7 @@ class ProviderSmoke {
 		final envRegistry = registry(config({}), {ANTHROPIC_API_KEY: "test-api-key"});
 		final anthropic = envRegistry.getProvider(ProviderIDs.known("anthropic"));
 		eq(anthropic.source, "env", "anthropic env source");
-		eq(Reflect.hasField(Reflect.field(anthropic.options, "headers"), "anthropic-beta"), true, "anthropic custom headers");
+		eq(stringMapHas(ProviderOptionAccess.stringMap(anthropic.options, "headers"), "anthropic-beta"), true, "anthropic custom headers");
 
 		final envDetails = registry(config({
 			provider: {
@@ -133,11 +135,12 @@ class ProviderSmoke {
 		}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
 		final envConfiguredAnthropic = envWithConfig.getProvider(ProviderIDs.known("anthropic"));
 		eq(envConfiguredAnthropic.source, "env", "env source survives config merge");
-		eq(Reflect.field(envConfiguredAnthropic.options, "timeout"), 60000, "env provider config option merge");
-		final mergedHeaders = Reflect.field(envConfiguredAnthropic.options, "headers");
-		eq(Reflect.field(mergedHeaders, "X-Custom"), "custom-value", "provider nested option deep merge");
-		eq(Reflect.hasField(mergedHeaders, "anthropic-beta"), true, "provider loader header survives deep merge");
-		eq(Reflect.field(envWithConfig.getProvider(ProviderIDs.known("openai")).options, "timeout"), 30000, "multiple configured providers load together");
+		eq(ProviderOptionAccess.numberValue(envConfiguredAnthropic.options, "timeout", null), 60000.0, "env provider config option merge");
+		final mergedHeaders = ProviderOptionAccess.stringMap(envConfiguredAnthropic.options, "headers");
+		eq(stringMapValue(mergedHeaders, "X-Custom"), "custom-value", "provider nested option deep merge");
+		eq(stringMapHas(mergedHeaders, "anthropic-beta"), true, "provider loader header survives deep merge");
+		eq(ProviderOptionAccess.numberValue(envWithConfig.getProvider(ProviderIDs.known("openai")).options, "timeout", null), 30000.0,
+			"multiple configured providers load together");
 
 		final configured = registry(config({
 			provider: {
@@ -152,8 +155,8 @@ class ProviderSmoke {
 		}));
 		final provider = configured.getProvider(ProviderIDs.known("anthropic"));
 		eq(provider.source, "config", "anthropic config source");
-		eq(Reflect.field(provider.options, "apiKey"), "config-api-key", "config api key");
-		eq(Reflect.field(provider.options, "timeout"), 60000, "config timeout");
+		eq(ProviderOptionAccess.string(provider.options, "apiKey", null), "config-api-key", "config api key");
+		eq(ProviderOptionAccess.numberValue(provider.options, "timeout", null), 60000.0, "config timeout");
 	}
 
 	static function registryFilters():Void {
@@ -463,12 +466,13 @@ class ProviderSmoke {
 			},
 		}), {AWS_REGION: "us-east-1", AWS_PROFILE: "default"});
 		final bedrock = bedrockConfig.getProvider(ProviderIDs.known("amazon-bedrock"));
-		eq(Reflect.field(bedrock.options, "region"), "eu-west-1", "bedrock config region");
-		eq(Reflect.field(bedrock.options, "profile"), "config-profile", "bedrock config profile");
-		eq(Reflect.field(bedrock.options, "baseURL"), "https://bedrock-runtime.example.com", "bedrock endpoint baseURL");
+		eq(ProviderOptionAccess.string(bedrock.options, "region", null), "eu-west-1", "bedrock config region");
+		eq(ProviderOptionAccess.string(bedrock.options, "profile", null), "config-profile", "bedrock config profile");
+		eq(ProviderOptionAccess.string(bedrock.options, "baseURL", null), "https://bedrock-runtime.example.com", "bedrock endpoint baseURL");
 
 		final bedrockEnv = registry(config({}), {AWS_REGION: "eu-west-1", AWS_PROFILE: "default"});
-		eq(Reflect.field(bedrockEnv.getProvider(ProviderIDs.known("amazon-bedrock")).options, "region"), "eu-west-1", "bedrock env region");
+		eq(ProviderOptionAccess.string(bedrockEnv.getProvider(ProviderIDs.known("amazon-bedrock"))
+			.options, "region", null), "eu-west-1", "bedrock env region");
 
 		final bedrockAuth = registry(config({
 			provider: {
@@ -477,7 +481,7 @@ class ProviderSmoke {
 		}), {}, {"amazon-bedrock": {type: "api", key: "bearer"}});
 		final authBedrock = bedrockAuth.getProvider(ProviderIDs.known("amazon-bedrock"));
 		eq(authBedrock != null, true, "bedrock auth bearer");
-		eq(Reflect.field(authBedrock.options, "apiKey"), "bearer", "bedrock bearer apiKey");
+		eq(ProviderOptionAccess.string(authBedrock.options, "apiKey", null), "bearer", "bedrock bearer apiKey");
 
 		final webIdentity = registry(config({
 			provider: {
@@ -1288,6 +1292,14 @@ class ProviderSmoke {
 		if (json == null)
 			throw '${label}: expected JSON value';
 		return JsonCodec.stringify(json);
+	}
+
+	static function stringMapHas(map:Null<ProviderHeaders>, field:String):Bool {
+		return map != null && map.exists(field);
+	}
+
+	static function stringMapValue(map:Null<ProviderHeaders>, field:String):Null<String> {
+		return map == null ? null : map.get(field);
 	}
 
 	static function config(data:Dynamic):ConfigInfo {

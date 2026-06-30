@@ -36,6 +36,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ServerSessionProtocol` decodes session create/select/update route bodies through `genes.ts.UnknownRecord`/`UnknownNarrow`, keeping runtime JS narrowing out of macro-owned `ServerProtocol`.
 - `CliSmoke` parses run/export transcript JSON and diagnostic golden JSON through `genes.ts.UnknownRecord`/`UnknownArray` helpers instead of threading `Dynamic` and `Reflect.field` through stable provider/request/message/event/diagnostic assertions.
 - `ProviderSmoke` parses fake-provider transcript JSON through `genes.ts.UnknownRecord`/`UnknownArray` helpers and decodes the assistant message through `JsonCodec` plus `MessageCodec.parseWithParts`, avoiding smoke-local `Dynamic`, `Reflect.field`, and casts for stable transcript assertions.
+- `ProviderSmoke` reads env/config and Bedrock provider option assertions through `ProviderOptionAccess` instead of raw reflection over the open provider SDK passthrough map.
 
 ## Remaining Hotspots
 
