@@ -161,15 +161,14 @@ class McpRuntime {
 	}
 
 	public static function transportOptions(config:McpServerConfig):McpTransportOptions {
-		// MCP SDK transport options are a third-party constructor boundary with
-		// optional fields. Keep this open only while assembling the exact object
-		// shape; callers receive the typed facade immediately.
-		final out:Dynamic = {};
+		final includeAuth = config.oauth != false;
+		if (config.headers != null && includeAuth)
+			return {requestInit: {headers: config.headers}, authProvider: true};
 		if (config.headers != null)
-			Reflect.setField(out, "requestInit", {headers: config.headers});
-		if (config.oauth != false)
-			Reflect.setField(out, "authProvider", true);
-		return cast out;
+			return {requestInit: {headers: config.headers}};
+		if (includeAuth)
+			return {authProvider: true};
+		return {};
 	}
 
 	function refreshTools(name:String, client:McpClient):Void {
