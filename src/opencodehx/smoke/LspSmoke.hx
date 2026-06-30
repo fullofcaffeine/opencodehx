@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
+import haxe.Json;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
@@ -159,7 +160,7 @@ class LspSmoke {
 		}, ctx);
 		eq(result.title, "hover src/test.ts:1:1", "lsp tool title");
 		eq(permissions.join(","), "lsp", "lsp tool permission");
-		eq(Reflect.field(result.metadata, "result").length, 1, "lsp tool metadata result");
+		eq(Json.stringify(result.metadata).indexOf('"method":"textDocument/hover"') != -1, true, "lsp tool metadata result");
 		expectToolFailure(() -> registry.execute(ToolIDs.known("lsp"), {
 			operation: "hover",
 			filePath: "src/missing.ts",

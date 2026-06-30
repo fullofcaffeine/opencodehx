@@ -303,7 +303,7 @@ class ToolSmoke {
 		}, ctx);
 		eq(hello.title, "Print hello", "bash title");
 		eq(hello.output, "hello", "bash output");
-		eq(Reflect.field(hello.metadata, "exit"), 0, "bash exit");
+		eq(metadataText(hello).indexOf('"exit":0') != -1, true, "bash exit");
 
 		final cwd = registry.execute(ToolIDs.known("bash"), {
 			command: "node -e \"process.stdout.write(process.cwd())\"",
@@ -323,7 +323,7 @@ class ToolSmoke {
 			command: "node -e \"process.stdout.write('x'.repeat(31000))\"",
 			description: "Large output"
 		}, ctx);
-		eq(Reflect.field(truncated.metadata, "truncated"), true, "bash truncated metadata");
+		eq(metadataText(truncated).indexOf('"truncated":true') != -1, true, "bash truncated metadata");
 		eq(truncated.output.indexOf("...output truncated...") == 0, true, "bash truncation output");
 
 		final timeout = registry.execute(ToolIDs.known("bash"), {
@@ -426,7 +426,7 @@ class ToolSmoke {
 
 	static function readExec(registry:ToolRegistry, ctx:ToolContext):Void {
 		final file = registry.execute(ToolIDs.known("read"), {filePath: "src/a.ts", limit: 1}, ctx);
-		eq(Reflect.field(file.metadata, "truncated"), false, "read file not truncated");
+		eq(metadataText(file).indexOf('"truncated":false') != -1, true, "read file not truncated");
 		eq(file.output.indexOf("<type>file</type>") != -1, true, "read file type");
 		eq(file.output.indexOf("1: export const needle = 1;") != -1, true, "read line");
 
@@ -682,7 +682,7 @@ class ToolSmoke {
 		final result = registry.execute(ToolIDs.known("write"), {filePath: "src/new.txt", content: "fresh\n"}, ctx);
 		eq(result.output, "Wrote file successfully.", "write output");
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/new.txt"), "utf8"), "fresh\n", "write content");
-		eq(Reflect.field(result.metadata, "exists"), false, "write existed metadata");
+		eq(metadataText(result).indexOf('"exists":false') != -1, true, "write existed metadata");
 
 		final existing = NodePath.join(ctx.directory, "src/existing.txt");
 		Fs.writeFileSync(existing, "old\n", "utf8");
@@ -887,8 +887,7 @@ class ToolSmoke {
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/patch-added.txt"), "utf8"), "one\ntwo\n", "patch add content");
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/c.ts"), "utf8").indexOf("other = 3") != -1, true, "patch update content");
 		eq(Fs.existsSync(NodePath.join(ctx.directory, "src/b.txt")), false, "patch delete content");
-		final files = cast Reflect.field(result.metadata, "files");
-		eq(Reflect.field(files[0], "type"), "add", "patch metadata type");
+		eq(metadataText(result).indexOf('"type":"add"') != -1, true, "patch metadata type");
 
 		write(ctx.directory, "src/move-from.txt", "move me\n");
 		registry.execute(ToolIDs.known("apply_patch"), {
@@ -1202,6 +1201,10 @@ Use this skill.
 
 	static function jsonPath(path:String):String {
 		return StringTools.replace(path, "\\", "\\\\");
+	}
+
+	static function metadataText(result:ToolResult):String {
+		return Json.stringify(result.metadata);
 	}
 
 	static function expectToolFailure(run:() -> Void, matches:ToolFailure->Bool, label:String):Void {

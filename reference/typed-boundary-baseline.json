@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 728,
+    "Dynamic": 727,
     "DynamicAccess": 559,
-    "cast": 216,
+    "cast": 213,
     "untyped": 5,
     "Syntax.code": 28,
     "@:ts.type": 82,
-    "Reflect.field": 450,
+    "Reflect.field": 437,
     "Reflect.hasField": 46,
     "Reflect.setField": 47,
     "Any": 0
@@ -46,7 +46,7 @@
       "cast": 2
     },
     "src/opencodehx/cli/Cli.hx": {
-      "Dynamic": 2
+      "Dynamic": 1
     },
     "src/opencodehx/cli/ErrorFormatter.hx": {
       "cast": 2
@@ -302,7 +302,7 @@
     "src/opencodehx/provider/AiSdkProvider.hx": {
       "Dynamic": 3,
       "DynamicAccess": 10,
-      "cast": 5,
+      "cast": 3,
       "Syntax.code": 1
     },
     "src/opencodehx/provider/CloudflareAiGatewayLoader.hx": {
@@ -482,7 +482,7 @@
       "Dynamic": 4,
       "DynamicAccess": 6,
       "cast": 5,
-      "Reflect.field": 14,
+      "Reflect.field": 12,
       "Reflect.hasField": 2
     },
     "src/opencodehx/smoke/ControlPlaneSmoke.hx": {
@@ -526,8 +526,7 @@
     },
     "src/opencodehx/smoke/LspSmoke.hx": {
       "Dynamic": 1,
-      "DynamicAccess": 2,
-      "Reflect.field": 1
+      "DynamicAccess": 2
     },
     "src/opencodehx/smoke/McpAcpSmoke.hx": {
       "DynamicAccess": 2,
@@ -575,7 +574,7 @@
       "Dynamic": 36,
       "DynamicAccess": 9,
       "cast": 17,
-      "Reflect.field": 67
+      "Reflect.field": 65
     },
     "src/opencodehx/smoke/SessionPersistenceSmoke.hx": {
       "Dynamic": 1
@@ -584,7 +583,7 @@
       "Dynamic": 6,
       "DynamicAccess": 25,
       "cast": 1,
-      "Reflect.field": 10
+      "Reflect.field": 8
     },
     "src/opencodehx/smoke/SkillSmoke.hx": {
       "Dynamic": 2,
@@ -607,8 +606,7 @@
     },
     "src/opencodehx/smoke/ToolSmoke.hx": {
       "Dynamic": 5,
-      "cast": 3,
-      "Reflect.field": 6
+      "cast": 2
     },
     "src/opencodehx/smoke/UtilSmoke.hx": {
       "Dynamic": 11,
