@@ -70,6 +70,21 @@ class AuthStore {
 			data.remove(key);
 		data.remove(normalized + "/");
 		data.set(normalized, info);
+		write(data);
+	}
+
+	public static function remove(key:String):Void {
+		final env = NodeProcess.env();
+		final normalized = trimRightSlashes(key);
+		final data = load(env);
+		data.remove(key);
+		data.remove(normalized);
+		data.remove(normalized + "/");
+		write(data);
+	}
+
+	private static function write(data:AuthMap):Void {
+		final env = NodeProcess.env();
 		final file = NodePath.join(GlobalPaths.data(env), "auth.json");
 		Fs.mkdirSync(NodePath.dirname(file), {recursive: true});
 		Fs.writeFileSync(file, Json.stringify(data));

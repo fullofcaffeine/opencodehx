@@ -9,6 +9,7 @@ import opencodehx.fixtures.DynamicFixture;
 import opencodehx.fx.Task;
 import opencodehx.host.node.NodePath;
 import opencodehx.smoke.AiSdkProviderSmoke;
+import opencodehx.smoke.AuthSmoke;
 import opencodehx.smoke.BusSmoke;
 import opencodehx.smoke.CliSmoke;
 import opencodehx.smoke.ConfigSmoke;
@@ -97,6 +98,8 @@ class Main {
 				log("cli-smoke:ok");
 				ConfigSmoke.run();
 				log("config-smoke:ok");
+				AuthSmoke.run();
+				log("auth-smoke:ok");
 				FileSmoke.run();
 				log("file-smoke:ok");
 				return FileSmoke.runAsync();

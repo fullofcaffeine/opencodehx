@@ -20,7 +20,7 @@ This slice adds the first Haxe-owned provider registry:
 - `ProviderRegistry.fromModelsDevProvider` normalizes the upstream `models.dev` provider/model payload shape into the typed provider registry model, including experimental modes.
 - `ProviderModelsDev` adds the first models.dev fetch/cache seam with injected fetcher support, Node cache file selection, forced refresh, local file override, snapshot fallback, and typed catalog output.
 - `ProviderRegistry` covers the first Cloudflare AI Gateway loading seam: required account/gateway/token env or auth credentials autoload the provider, and config metadata options survive the provider merge.
-- `opencodehx.auth.AuthStore` owns the Node auth storage seam for `OPENCODE_AUTH_CONTENT` and XDG data `auth.json`, validating upstream `api`, `oauth`, and `wellknown` entry shapes before provider/config code sees them.
+- `opencodehx.auth.AuthStore` owns the Node auth storage seam for `OPENCODE_AUTH_CONTENT` and XDG data `auth.json`, validating upstream `api`, `oauth`, and `wellknown` entry shapes before provider/config code sees them. Its set/remove path normalizes trailing slash URL keys the same way upstream `auth/auth.test.ts` expects.
 - `CloudflareAiGatewayLoader` wires the real `ai-gateway-provider` package into the typed AI SDK loader surface, forwarding account/gateway credentials plus cache/log/metadata options through narrow externs before calling `gateway.chat(...)`; the smoke also validates the SDK's generated `cf-aig-*` request headers.
 - `ProviderRegistry` ports upstream OpenCode provider paid-model gating: public access keeps free models and a public API key, while env/auth/config API keys keep paid models visible.
 - `opencodehx.plugin.PluginConfigHooks` models the upstream `server().config(cfg)` hook order for provider loading: typed plugin hooks mutate the live config before `ProviderRegistry` reads `cfg.provider`, `enabled_providers`, or `disabled_providers`; individual hook failures are isolated so later hooks still run.
@@ -44,8 +44,9 @@ This slice adds the first Haxe-owned provider registry:
 
 ## Evidence
 
-`ProviderSmoke` is the executable fixture for this slice. It covers:
+`ProviderSmoke` and the auth-focused storage smoke are the executable fixtures for this slice. They cover:
 
+- `AuthSmoke` covers upstream auth storage normalization: `set` trims trailing slash URL keys, setting a normalized key cleans up old slash forms, `remove` deletes normalized and trailing-slash forms, and non-URL provider IDs still set/remove normally.
 - Anthropic env loading, config option overlays, nested provider option deep merge, multiple configured providers loading together, env-source precedence when config also augments the provider, fallback env variable lookup, and single-vs-multiple env key capture.
 - Custom providers, brand-new providers, custom model aliases, provider-name defaults, provider `api` to model API URL inheritance, provider `baseURL` options, new model SDK/API inheritance from existing providers, Google Vertex proxy `baseURL` preservation, per-model provider API/package overrides, model defaults, custom cost/cache values, tool-call capability defaults/overrides, text/image modality defaults and overrides, default zero limits, and model headers.
 - Provider and model filtering, including empty enabled lists, enabled-plus-disabled precedence, and combined whitelist/blacklist behavior.
