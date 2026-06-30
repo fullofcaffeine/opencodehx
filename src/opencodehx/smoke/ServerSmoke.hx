@@ -781,44 +781,51 @@ class ServerSmoke {
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({sessionID: "ses_missing"}),
 		}));
-		eq(Reflect.field(missingSelect, "status"), 404, "missing select session status");
+		eq(missingSelect.status, 404, "missing select session status");
 
-		final second = await(jsonResponse(await(server.app.request("/session", {
+		final secondResponse = await(server.app.request("/session", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({prompt: "Second", title: "unique-search-term-abc"}),
-		}))));
-		final third = await(jsonResponse(await(server.app.request("/session", {
+		}));
+		final second = requiredRecord(Unknown.fromBoundary(await(jsonResponse(secondResponse))), "second session");
+		final thirdResponse = await(server.app.request("/session", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({prompt: "Third", title: "other-session-xyz"}),
-		}))));
-		eq(Reflect.field(second, "id"), "ses_server_2", "second session id");
-		eq(Reflect.field(third, "id"), "ses_server_3", "third session id");
-		final limited:Dynamic = await(jsonResponse(await(server.app.request("/session?limit=2"))));
+		}));
+		final third = requiredRecord(Unknown.fromBoundary(await(jsonResponse(thirdResponse))), "third session");
+		eq(requiredString(second, "id", "second session id"), "ses_server_2", "second session id");
+		eq(requiredString(third, "id", "third session id"), "ses_server_3", "third session id");
+		final limited = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/session?limit=2"))))), "session list limited");
 		eq(limited.length, 2, "session list limit");
-		eq(Reflect.field(cast limited[0], "id"), "ses_server_3", "newest limited session");
-		final searched:Dynamic = await(jsonResponse(await(server.app.request("/session?search=unique-search"))));
+		eq(requiredString(requiredRecord(limited.get(0), "session list limited first"), "id", "newest limited session"), "ses_server_3",
+			"newest limited session");
+		final searched = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/session?search=unique-search"))))), "session search");
 		eq(searched.length, 1, "session search count");
-		eq(Reflect.field(cast searched[0], "id"), "ses_server_2", "session search id");
-		final future:Dynamic = await(jsonResponse(await(server.app.request("/session?start=9999999999999"))));
+		eq(requiredString(requiredRecord(searched.get(0), "session search first"), "id", "session search id"), "ses_server_2", "session search id");
+		final future = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/session?start=9999999999999"))))),
+			"future session list");
 		eq(future.length, 0, "future start filter");
 
 		final globalLimitedResponse = await(server.app.request("/experimental/session?limit=2"));
 		final globalCursor:Null<String> = globalLimitedResponse.headers.get("x-next-cursor");
 		eq(globalCursor != null, true, "global session cursor");
-		final globalLimited:Dynamic = await(jsonResponse(globalLimitedResponse));
+		final globalLimited = requiredArray(Unknown.fromBoundary(await(jsonResponse(globalLimitedResponse))), "global session list");
 		eq(globalLimited.length, 2, "global session list limit");
-		eq(Reflect.field(cast globalLimited[0], "id"), "ses_server_3", "global newest session");
-		final globalProject = Reflect.field(cast globalLimited[0], "project");
-		eq(Reflect.field(globalProject, "id"), "global", "global project id");
-		eq(Reflect.field(globalProject, "worktree"), root, "global project worktree");
-		final globalNext:Dynamic = await(jsonResponse(await(server.app.request('/experimental/session?limit=10&cursor=${globalCursor}'))));
+		final globalFirst = requiredRecord(globalLimited.get(0), "global session list first");
+		eq(requiredString(globalFirst, "id", "global newest session"), "ses_server_3", "global newest session");
+		final globalProject = requiredRecord(globalFirst.get("project"), "global project");
+		eq(requiredString(globalProject, "id", "global project id"), "global", "global project id");
+		eq(requiredString(globalProject, "worktree", "global project worktree"), root, "global project worktree");
+		final globalNext = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request('/experimental/session?limit=10&cursor=${globalCursor}'))))),
+			"global cursor page");
 		eq(globalNext.length, 1, "global cursor page size");
-		eq(Reflect.field(cast globalNext[0], "id"), "ses_server_1", "global cursor next id");
-		final globalSearch:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?search=other-session"))));
+		eq(requiredString(requiredRecord(globalNext.get(0), "global cursor first"), "id", "global cursor next id"), "ses_server_1", "global cursor next id");
+		final globalSearch = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/experimental/session?search=other-session"))))),
+			"global search");
 		eq(globalSearch.length, 1, "global search count");
-		eq(Reflect.field(cast globalSearch[0], "id"), "ses_server_3", "global search id");
+		eq(requiredString(requiredRecord(globalSearch.get(0), "global search first"), "id", "global search id"), "ses_server_3", "global search id");
 		final archivedCreated = await(jsonResponse(await(server.app.request("/session", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
