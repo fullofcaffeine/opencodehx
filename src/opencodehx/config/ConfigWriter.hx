@@ -1,6 +1,8 @@
 package opencodehx.config;
 
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.Json;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigLoader.LoadOptions;
@@ -116,7 +118,8 @@ class ConfigWriter {
 
 	static function patchJsonc(input:String, patch:WritableConfigJson, ?path:Array<String>):String {
 		final target = path == null ? [] : path;
-		if (!isRecord(patch)) {
+		final patchRecord = writableRecord(patch);
+		if (patchRecord == null) {
 			final edits = JsoncParser.modify(input, target, patch, {
 				formattingOptions: {
 					insertSpaces: true,
@@ -127,24 +130,26 @@ class ConfigWriter {
 		}
 
 		var result = input;
-		for (field in Reflect.fields(patch)) {
+		for (field in patchRecord.keys()) {
 			final nextPath = target.concat([field]);
-			result = patchJsonc(result, Reflect.field(patch, field), nextPath);
+			result = patchJsonc(result, patchRecord.get(field), nextPath);
 		}
 		return result;
 	}
 
 	static function mergeWritable(current:WritableConfigJson, patch:WritableConfigJson):WritableConfigJson {
-		if (!isRecord(current) || !isRecord(patch))
+		final currentRecord = writableRecord(current);
+		final patchRecord = writableRecord(patch);
+		if (currentRecord == null || patchRecord == null)
 			return patch;
 
 		final result:WritableConfigObject = {};
-		for (field in Reflect.fields(current)) {
-			result.set(field, cast Reflect.field(current, field));
+		for (field in currentRecord.keys()) {
+			result.set(field, currentRecord.get(field));
 		}
-		for (field in Reflect.fields(patch)) {
+		for (field in patchRecord.keys()) {
 			final currentValue:WritableConfigJson = result.get(field);
-			final patchValue:WritableConfigJson = cast Reflect.field(patch, field);
+			final patchValue:WritableConfigJson = patchRecord.get(field);
 			result.set(field, mergeWritable(currentValue, patchValue));
 		}
 		return Unknown.fromBoundary(result);
@@ -239,18 +244,10 @@ class ConfigWriter {
 			target.set(field, Unknown.fromBoundary(value));
 	}
 
-	static function isRecord(value:WritableConfigJson):Bool {
-		// WritableConfigJson is generated as TS `unknown`; runtime reflection is
-		// contained here to decide whether JSONC patching should recurse.
-		final rawValue:Dynamic = cast value;
-		if (rawValue == null || Std.isOfType(rawValue, Array))
-			return false;
-		if (Std.isOfType(rawValue, String)
-			|| Std.isOfType(rawValue, Bool)
-			|| Std.isOfType(rawValue, Float)
-			|| Std.isOfType(rawValue, Int))
-			return false;
-		return Reflect.isObject(rawValue);
+	static function writableRecord(value:WritableConfigJson):Null<UnknownRecord> {
+		// WritableConfigJson is generated as TS `unknown`; this narrows only the
+		// recursive object case and leaves primitive/array writes as leaf edits.
+		return UnknownNarrow.record(value);
 	}
 
 	static function withGlobalScope(?options:LoadOptions):LoadOptions {
