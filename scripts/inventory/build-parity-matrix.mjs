@@ -437,7 +437,16 @@ function directEvidence(path) {
     ["sync/index.test.ts", ["partial", "src/opencodehx/smoke/ProjectRuntimeSmoke.hx; src/opencodehx/smoke/ServerSmoke.hx; docs/project-runtime-parity.md", "typed sequencing, custom aggregate fields, aggregate history, persistence hooks, publish/replay bus behavior, restart-style reload, remove, server replay/history routes, unknown-type errors, and sequence gaps are covered; full SyncEvent definition/projector/database/GlobalBus/payload registry graph remains deferred", "ProjectRuntimeSmoke SyncEventStore fixture plus ServerSmoke /sync routes", m11Owners.foundation]],
     ["control-plane/adaptors.test.ts", ["direct", "src/opencodehx/controlplane/WorkspaceAdaptors.hx; src/opencodehx/smoke/ControlPlaneSmoke.hx; docs/server-hono-seam.md", "typed workspace adaptor registry smoke covers project-scoped isolation, latest registration wins, and list metadata for custom adaptors", "ControlPlaneSmoke workspace adaptor registry fixtures", "none"]],
     ["control-plane/sse.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; src/opencodehx/sync/WorkspaceSyncSse.hx; docs/project-runtime-parity.md", "WorkspaceSyncSse parser smoke covers upstream CRLF, multiline JSON data, and non-JSON id/retry fallback behavior", "ServerSmoke WorkspaceSyncSse parser fixtures", "none"]],
-    ["server/session-list.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md", "route-level smoke covers upstream directory, root, start, search, and limit filter behavior", "ServerSmoke GET /session filter fixtures", "none"]],
+    [
+      "server/session-list.test.ts",
+      [
+        "direct",
+        "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md",
+        "route-level smoke covers upstream directory, root, start, search, and limit filter behavior plus session detail and child-session list routes",
+        "ServerSmoke GET /session filter fixtures plus GET /session/:id and /session/:id/children fixtures",
+        "none",
+      ],
+    ],
     ["server/global-session-list.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md", "route-level smoke covers /experimental/session listing across routed projects, project metadata, cursor pagination, search, and archived-session exclusion/inclusion", "ServerSmoke GET /experimental/session fixtures plus PATCH /session/:id archive fixture", "none"]],
     ["server/project-init-git.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; src/opencodehx/project/ProjectRuntime.hx; src/opencodehx/snapshot/SnapshotRuntime.hx; docs/server-hono-seam.md", "route-level smoke covers /project/git/init, /project/current, git initialization, instance reload/disposed events, no .git/opencode cache creation, already-git no-reload behavior, and server-attached snapshot tracking after reload", "ServerSmoke project git init route fixtures", "none"]],
     ["server/session-messages.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx", "message page, cursor header, bad cursor, missing session, and high-volume legacy limit behavior are covered", "ServerSmoke GET /session/:id/message fixtures", "none"]],

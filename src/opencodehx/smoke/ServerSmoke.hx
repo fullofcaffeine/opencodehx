@@ -667,14 +667,41 @@ class ServerSmoke {
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({prompt: "Child", title: "child-session", parentID: sessionID}),
 		});
-		final child = @:await jsonResponse(childResponse);
-		final childID = Std.string(Reflect.field(child, "id"));
-		eq(Reflect.field(child, "parentID"), sessionID, "create child parent id");
+		final child = requiredRecord(Unknown.fromBoundary(@:await jsonResponse(childResponse)), "create child session");
+		final childID = requiredString(child, "id", "create child session id");
+		eq(requiredString(child, "parentID", "create child parent id"), sessionID, "create child parent id");
+		final secondChildResponse = @:await server.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Second child", title: "second-child-session", parentID: sessionID}),
+		});
+		final secondChild = requiredRecord(Unknown.fromBoundary(@:await jsonResponse(secondChildResponse)), "create second child session");
+		final secondChildID = requiredString(secondChild, "id", "create second child session id");
+		final parentDetail = requiredRecord(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request('/session/${sessionID}'))),
+			"session get parent");
+		eq(requiredString(parentDetail, "id", "session get parent id"), sessionID, "session get parent id");
+		eq(requiredString(parentDetail, "title", "session get parent title"), "Server fixture", "session get parent title");
+		final childDetail = requiredRecord(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request('/session/${childID}'))), "session get child");
+		eq(requiredString(childDetail, "parentID", "session get child parent id"), sessionID, "session get child parent id");
+		final children = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request('/session/${sessionID}/children'))),
+			"session children");
+		final childrenIDs = responseIDsFromArray(children);
+		eq(childrenIDs[0], secondChildID, "session children newest first");
+		eq(childrenIDs[1], childID, "session children includes first child");
+		eq(childrenIDs.indexOf(alternateID), -1, "session children excludes unrelated session");
+		final childChildren = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request('/session/${childID}/children'))),
+			"session child children");
+		eq(childChildren.length, 0, "session child has no children");
+		final missingGet:Response = @:await server.app.request("/session/ses_missing");
+		eq(missingGet.status, 404, "missing session get status");
+		final missingChildren:Response = @:await server.app.request("/session/ses_missing/children");
+		eq(missingChildren.status, 404, "missing session children status");
 		final rootsResponse = @:await server.app.request("/session?roots=true");
 		final roots:Dynamic = @:await jsonResponse(rootsResponse);
 		final rootIDs = responseIDs(roots);
 		eq(rootIDs.indexOf(sessionID) != -1, true, "root filter keeps root session");
 		eq(rootIDs.indexOf(childID), -1, "root filter excludes child session");
+		eq(rootIDs.indexOf(secondChildID), -1, "root filter excludes second child session");
 
 		final aborted = await(jsonResponse(await(server.app.request('/session/${sessionID}/abort', {method: "POST"}))));
 		eq(aborted, true, "abort route");
@@ -1469,6 +1496,15 @@ class ServerSmoke {
 		final out:Array<String> = [];
 		for (item in cast(items, Array<Dynamic>)) {
 			out.push(Std.string(Reflect.field(item, "id")));
+		}
+		return out;
+	}
+
+	static function responseIDsFromArray(items:genes.ts.UnknownArray):Array<String> {
+		final out:Array<String> = [];
+		for (index in 0...items.length) {
+			final item = requiredRecord(items.get(index), "response id item");
+			out.push(requiredString(item, "id", "response id item"));
 		}
 		return out;
 	}

@@ -120,6 +120,8 @@ class OpenCodeServer {
 		app.post("/project/git/init", c -> initGitProject(c));
 		app.post("/session", c -> createSession(c));
 		app.patch("/session/:sessionID", c -> updateSession(c));
+		app.get("/session/:sessionID/children", c -> sessionChildren(c));
+		app.get("/session/:sessionID", c -> getSession(c));
 		app.get("/session/:sessionID/message", c -> sessionMessages(c));
 		app.post("/session/:sessionID/abort", c -> abortSession(c));
 		app.post("/permission/:requestID/reply", c -> replyPermission(c));
@@ -424,6 +426,35 @@ class OpenCodeServer {
 			});
 		}
 		return json(c, projectResponse(next));
+	}
+
+	function getSession(c:HonoContext):Response {
+		final sessionID = param(c, "sessionID");
+		try {
+			return json(c, ServerProtocol.encodeSession(store.getSession(SessionID.make(sessionID))));
+		} catch (_:StorageException) {
+			return json(c, ServerProtocol.error("Session not found"), 404);
+		}
+	}
+
+	function sessionChildren(c:HonoContext):Response {
+		final parentID = param(c, "sessionID");
+		try {
+			store.getSession(SessionID.make(parentID));
+		} catch (_:StorageException) {
+			return json(c, ServerProtocol.error("Session not found"), 404);
+		}
+		final items:Array<SessionResponse> = [];
+		final newestFirst = sessionOrder.copy();
+		newestFirst.reverse();
+		for (id in newestFirst) {
+			try {
+				final info = store.getSession(SessionID.make(id));
+				if (info.parentID != null && info.parentID.toString() == parentID)
+					items.push(ServerProtocol.encodeSession(info));
+			} catch (_:StorageException) {}
+		}
+		return json(c, items);
 	}
 
 	function sessionMessages(c:HonoContext):Response {
