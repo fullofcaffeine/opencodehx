@@ -17,7 +17,7 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 515,
+    "Dynamic": 495,
     "DynamicAccess": 540,
     "cast": 136,
     "untyped": 4,
@@ -461,7 +461,7 @@
       "Dynamic": 2
     },
     "src/opencodehx/smoke/ProjectRuntimeSmoke.hx": {
-      "Dynamic": 22
+      "Dynamic": 2
     },
     "src/opencodehx/smoke/ProviderSmoke.hx": {
       "Dynamic": 5,

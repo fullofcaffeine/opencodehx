@@ -144,7 +144,7 @@ class SmokeFileWatchBackend implements FileWatchBackend {
 class ProjectRuntimeSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-project-"));
-		try {
+		withFinally(() -> {
 			noCommitGitProject(root);
 			committedProjectAndGit(root);
 			vcsDiffs(root);
@@ -162,11 +162,22 @@ class ProjectRuntimeSmoke {
 			syncEvents();
 			syncEventSystem();
 			syncSqliteEvents(root);
-			Fs.rmSync(root, {recursive: true, force: true});
+		}, () -> Fs.rmSync(root, {recursive: true, force: true}));
+	}
+
+	static function withFinally(work:Void->Void, cleanup:Void->Void):Void {
+		withCleanup(work, cleanup);
+		cleanup();
+	}
+
+	static function withCleanup(work:Void->Void, cleanup:Void->Void):Void {
+		try {
+			work();
 			// Dynamic is required at this JS runtime cleanup boundary because Haxe code,
-			// Node externs, and Git helpers may throw strings, Haxe exceptions, or JS errors.
+			// Node externs, SQLite, and Git helpers may throw strings, Haxe exceptions,
+			// or JS errors. Keep it centralized in the smoke cleanup helper.
 		} catch (error:Dynamic) {
-			Fs.rmSync(root, {recursive: true, force: true});
+			cleanup();
 			throw error;
 		}
 	}
@@ -380,7 +391,7 @@ class ProjectRuntimeSmoke {
 		ProjectRuntime.reset();
 		final dir = directory(root, "migrate-first-project");
 		final store = new SqliteSessionStore(NodePath.join(root, "migrate-first.db"));
-		try {
+		withFinally(() -> {
 			git(dir, ["init"]);
 			final pre = ProjectRuntime.fromDirectory(dir, store).project;
 			eq(pre.id.toString(), ProjectID.global().toString(), "migration pre-commit global project");
@@ -390,19 +401,13 @@ class ProjectRuntimeSmoke {
 			final real = ProjectRuntime.fromDirectory(dir, store).project;
 			neq(real.id.toString(), ProjectID.global().toString(), "migration real project id");
 			eq(store.getSession(sessionID).projectID, real.id.toString(), "global session migrated on first project creation");
-			store.close();
-			// Dynamic is required at this JS runtime cleanup boundary because SQLite,
-			// Node externs, and Git helpers may throw strings, Haxe exceptions, or JS errors.
-		} catch (error:Dynamic) {
-			store.close();
-			throw error;
-		}
+		}, () -> store.close());
 
 		ProjectRuntime.reset();
 		final existingDir = directory(root, "migrate-existing-project");
 		initCommittedRepo(existingDir);
 		final existingStore = new SqliteSessionStore(NodePath.join(root, "migrate-existing.db"));
-		try {
+		withFinally(() -> {
 			final project = ProjectRuntime.fromDirectory(existingDir, existingStore).project;
 			existingStore.upsertProject({id: ProjectID.global().toString(), worktree: "/"});
 			final matching = SessionID.make("ses_migrate_existing");
@@ -415,13 +420,7 @@ class ProjectRuntimeSmoke {
 			eq(existingStore.getSession(matching).projectID, project.id.toString(), "global session migrated for existing project");
 			eq(existingStore.getSession(empty).projectID, ProjectID.global().toString(), "empty-directory session stays global");
 			eq(existingStore.getSession(other).projectID, ProjectID.global().toString(), "unrelated global session stays global");
-			existingStore.close();
-			// Dynamic is required at this JS runtime cleanup boundary because SQLite,
-			// Node externs, and Git helpers may throw strings, Haxe exceptions, or JS errors.
-		} catch (error:Dynamic) {
-			existingStore.close();
-			throw error;
-		}
+		}, () -> existingStore.close());
 	}
 
 	static function worktreeProject(root:String):Void {
@@ -433,7 +432,7 @@ class ProjectRuntimeSmoke {
 		eq(info.name, "my-feature-branch", "worktree slug");
 		eq(info.branch, "opencode/my-feature-branch", "worktree branch");
 
-		try {
+		withCleanup(() -> {
 			WorktreeRuntime.create(main, info);
 			final child = ProjectRuntime.fromDirectory(info.directory);
 			final expectedSandbox = realpath(info.directory);
@@ -442,12 +441,7 @@ class ProjectRuntimeSmoke {
 			eq(ProjectRuntime.get(main.id).sandboxes.indexOf(expectedSandbox) != -1, true, "worktree sandbox tracked");
 			WorktreeRuntime.remove(main, info.directory);
 			eq(Fs.existsSync(info.directory), false, "worktree removed");
-			// Dynamic is required at this JS runtime cleanup boundary because Git
-			// failures can arrive as strings, Haxe exceptions, or JS errors.
-		} catch (error:Dynamic) {
-			WorktreeRuntime.remove(main, info.directory);
-			throw error;
-		}
+		}, () -> WorktreeRuntime.remove(main, info.directory));
 	}
 
 	static function worktreeEdges(root:String):Void {
@@ -483,7 +477,7 @@ class ProjectRuntimeSmoke {
 		};
 		var failedDirectory:Null<String> = null;
 		var failedBootstrapDirectory:Null<String> = null;
-		try {
+		withCleanup(() -> {
 			WorktreeRuntime.createFromInfo(main, info, extraStartCommand, bootstrap);
 			unsubscribe();
 			eq(events.length > 0, true, "worktree ready event emitted");
@@ -531,9 +525,7 @@ class ProjectRuntimeSmoke {
 			eq(bootstrapFailure.branch, failedBootstrapInfo.branch, "worktree bootstrap failed event branch");
 			eq(InstanceRuntime.get(failedBootstrapInfo.directory) == null, true, "failed bootstrap instance not cached");
 			WorktreeRuntime.remove(main, failedBootstrapInfo.directory);
-			// Dynamic is required at this JS runtime cleanup boundary because Git
-			// failures can arrive as strings, Haxe exceptions, or JS errors.
-		} catch (error:Dynamic) {
+		}, () -> {
 			unsubscribe();
 			instanceUnsubscribe();
 			WorktreeRuntime.remove(main, info.directory);
@@ -541,8 +533,7 @@ class ProjectRuntimeSmoke {
 				WorktreeRuntime.remove(main, failedDirectory);
 			if (failedBootstrapDirectory != null)
 				WorktreeRuntime.remove(main, failedBootstrapDirectory);
-			throw error;
-		}
+		});
 	}
 
 	static function worktreePlatformFailures(root:String):Void {
@@ -580,7 +571,7 @@ class ProjectRuntimeSmoke {
 		final bin = directory(root, "git-shim-bin");
 		final shim = NodePath.join(bin, "git");
 		final originalPath = NodeProcess.envValue("PATH");
-		try {
+		withCleanup(() -> {
 			WorktreeRuntime.create(main, info);
 			Fs.writeFileSync(shim, removeShimScript(realGit), "utf8");
 			Fs.chmodSync(shim, 0x1ed);
@@ -590,13 +581,10 @@ class ProjectRuntimeSmoke {
 			eq(Git.run(main.worktree, ["worktree", "list", "--porcelain"]).stdout.indexOf('worktree ${info.directory}'), -1,
 				"worktree remove detached list cleaned");
 			neq(Git.run(main.worktree, ["show-ref", "--verify", "--quiet", 'refs/heads/${info.branch}']).code, 0, "worktree remove detached branch deleted");
-			// Dynamic is required at this JS runtime cleanup boundary because Git
-			// failures can arrive as strings, Haxe exceptions, or JS errors.
-		} catch (error:Dynamic) {
+		}, () -> {
 			restorePath(originalPath);
 			WorktreeRuntime.remove(main, info.directory);
-			throw error;
-		}
+		});
 		restorePath(originalPath);
 	}
 
@@ -604,7 +592,7 @@ class ProjectRuntimeSmoke {
 		if (NodeProcess.platform() != "win32")
 			return;
 		final info = WorktreeRuntime.makeWorktreeInfo(main, "Remove Fsmonitor");
-		try {
+		withCleanup(() -> {
 			WorktreeRuntime.create(main, info);
 			git(info.directory, ["config", "core.fsmonitor", "true"]);
 			Git.run(info.directory, ["fsmonitor--daemon", "stop"]);
@@ -618,12 +606,7 @@ class ProjectRuntimeSmoke {
 			eq(WorktreeRuntime.remove(main, info.directory), true, "worktree fsmonitor remove");
 			eq(Fs.existsSync(info.directory), false, "worktree fsmonitor directory removed");
 			neq(Git.run(main.worktree, ["show-ref", "--verify", "--quiet", 'refs/heads/${info.branch}']).code, 0, "worktree fsmonitor branch deleted");
-			// Dynamic is required at this JS runtime cleanup boundary because Git
-			// failures can arrive as strings, Haxe exceptions, or JS errors.
-		} catch (error:Dynamic) {
-			WorktreeRuntime.remove(main, info.directory);
-			throw error;
-		}
+		}, () -> WorktreeRuntime.remove(main, info.directory));
 	}
 
 	static function locateGit(cwd:String):Null<String> {
@@ -784,7 +767,7 @@ class ProjectRuntimeSmoke {
 		final backend = new SmokeFileWatchBackend();
 		final watcher = new FileWatcherRuntime(dir, fileBus, backend);
 		final vcs = new VcsRuntime(dir, branchBus, fileBus);
-		try {
+		withFinally(() -> {
 			eq(watcher.init(false, true), true, "native watcher seam subscribed git dir");
 			final gitDir = NodePath.join(dir, ".git");
 			eq(backend.watched.indexOf(gitDir) != -1, true, "native watcher seam watches git dir");
@@ -794,16 +777,10 @@ class ProjectRuntimeSmoke {
 			eq(vcs.branch(), "feature/vcs-watch", "vcs watcher refreshed branch");
 			eq(hasVcsEvent(branchBus.snapshot(), BranchUpdated, "feature/vcs-watch"), true, "vcs watcher branch bus event");
 			eq(fileBus.snapshot()[0].file, NodePath.join(gitDir, "HEAD"), "native watcher bus publishes HEAD path");
-			// Dynamic is required at this JS runtime cleanup boundary because Haxe
-			// code, Node externs, and Git helpers may throw strings, Haxe
-			// exceptions, or JS errors.
-		} catch (error:Dynamic) {
+		}, () -> {
 			watcher.dispose();
 			vcs.dispose();
-			throw error;
-		}
-		watcher.dispose();
-		vcs.dispose();
+		});
 		eq(backend.closed, true, "native watcher handle closed");
 	}
 
@@ -813,7 +790,7 @@ class ProjectRuntimeSmoke {
 		final fileBus = new EventBus<FileUpdatedEvent>();
 		final backend = new SmokeFileWatchBackend();
 		final watcher = new FileWatcherRuntime(gitDir, fileBus, backend);
-		try {
+		withFinally(() -> {
 			eq(watcher.init(true, true), true, "file watcher service subscribed roots");
 			final watchedGit = NodePath.join(gitDir, ".git");
 			eq(backend.watched.indexOf(gitDir) != -1, true, "file watcher watches root");
@@ -834,31 +811,23 @@ class ProjectRuntimeSmoke {
 			eq(afterHead.length, 4, "file watcher publishes git HEAD");
 			eq(afterHead[3].file, NodePath.join(watchedGit, "HEAD"), "file watcher HEAD path");
 			eq(afterHead[3].event, Change, "file watcher HEAD event");
-			watcher.dispose();
-			eq(backend.closed, true, "file watcher service closed handles");
-			eq(backend.emit(gitDir, "after-dispose.txt", Add), false, "file watcher cleanup stops root events");
-			eq(fileBus.snapshot().length, 4, "file watcher no event after dispose");
-		} catch (error:Dynamic) {
-			watcher.dispose();
-			throw error;
-		}
+		}, () -> watcher.dispose());
+		eq(backend.closed, true, "file watcher service closed handles");
+		eq(backend.emit(gitDir, "after-dispose.txt", Add), false, "file watcher cleanup stops root events");
+		eq(fileBus.snapshot().length, 4, "file watcher no event after dispose");
 
 		final plainDir = directory(root, "file-watcher-plain");
 		final plainBus = new EventBus<FileUpdatedEvent>();
 		final plainBackend = new SmokeFileWatchBackend();
 		final plainWatcher = new FileWatcherRuntime(plainDir, plainBus, plainBackend);
-		try {
+		withFinally(() -> {
 			eq(plainWatcher.init(true, true), true, "file watcher non-git root subscribed");
 			eq(plainBackend.watched.indexOf(plainDir) != -1, true, "file watcher non-git watches root");
 			plainBackend.emit(plainDir, "plain.txt", Add);
 			eq(plainBus.snapshot().length, 1, "file watcher non-git add count");
 			eq(plainBus.snapshot()[0].file, NodePath.join(plainDir, "plain.txt"), "file watcher non-git add path");
 			eq(plainBus.snapshot()[0].event, Add, "file watcher non-git add event");
-		} catch (error:Dynamic) {
-			plainWatcher.dispose();
-			throw error;
-		}
-		plainWatcher.dispose();
+		}, () -> plainWatcher.dispose());
 	}
 
 	static function hasVcsEvent(events:Array<VcsEvent>, type:VcsEventType, branch:String):Bool {
@@ -1442,19 +1411,13 @@ class ProjectRuntimeSmoke {
 		initCommittedRepo(dir);
 		final bare = NodePath.join(root, "clone-source.git");
 		final clone = NodePath.join(root, "clone-copy");
-		try {
+		withFinally(() -> {
 			git(root, ["clone", "--bare", dir, bare]);
 			git(root, ["clone", bare, clone]);
 			final source = ProjectRuntime.fromDirectory(dir).project;
 			final copied = ProjectRuntime.fromDirectory(clone).project;
 			eq(copied.id.toString(), source.id.toString(), "clone project id shared");
-			finallyCleanup([bare, clone]);
-			// Dynamic is required at this JS runtime cleanup boundary because Git
-			// failures can arrive as strings, Haxe exceptions, or JS errors.
-		} catch (error:Dynamic) {
-			finallyCleanup([bare, clone]);
-			throw error;
-		}
+		}, () -> finallyCleanup([bare, clone]));
 	}
 
 	static function bareProjectCache(root:String):Void {
@@ -1463,7 +1426,7 @@ class ProjectRuntimeSmoke {
 		initCommittedRepo(dir);
 		final bare = NodePath.join(root, "bare-source.git");
 		final worktree = NodePath.join(root, "bare-worktree");
-		try {
+		withFinally(() -> {
 			git(root, ["clone", "--bare", dir, bare]);
 			git(bare, ["worktree", "add", worktree, "HEAD"]);
 			final project = ProjectRuntime.fromDirectory(worktree).project;
@@ -1471,13 +1434,7 @@ class ProjectRuntimeSmoke {
 			eq(realpath(project.worktree), realpath(bare), "bare project worktree");
 			eq(Fs.existsSync(NodePath.join(bare, "opencode")), true, "bare project cache");
 			eq(Fs.existsSync(NodePath.join(NodePath.join(root, ".git"), "opencode")), false, "bare wrong parent cache");
-			finallyCleanup([bare, worktree]);
-			// Dynamic is required at this JS runtime cleanup boundary because Git
-			// failures can arrive as strings, Haxe exceptions, or JS errors.
-		} catch (error:Dynamic) {
-			finallyCleanup([bare, worktree]);
-			throw error;
-		}
+		}, () -> finallyCleanup([bare, worktree]));
 	}
 
 	static function git(cwd:String, args:Array<String>):Void {
