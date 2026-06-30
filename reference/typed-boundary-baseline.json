@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 524,
+    "Dynamic": 523,
     "DynamicAccess": 540,
     "cast": 138,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 103,
+    "Reflect.field": 102,
     "Reflect.hasField": 24,
     "Reflect.setField": 41,
     "Any": 0
@@ -481,10 +481,9 @@
       "cast": 7
     },
     "src/opencodehx/smoke/PtySmoke.hx": {
-      "Dynamic": 5,
+      "Dynamic": 4,
       "cast": 6,
-      "untyped": 1,
-      "Reflect.field": 1
+      "untyped": 1
     },
     "src/opencodehx/smoke/SdkCompatSmoke.hx": {
       "Dynamic": 1

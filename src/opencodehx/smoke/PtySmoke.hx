@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.Json;
 import js.lib.Error;
 import js.lib.Uint8Array;
@@ -277,8 +278,13 @@ private class FakePtySocket {
 		for (index in 0...sink.length) {
 			final item = sink[sink.length - index - 1];
 			if (item.length > 0 && item.charCodeAt(0) == 0) {
-				final parsed:Dynamic = Json.parse(item.substr(1));
-				return Std.int(Reflect.field(parsed, "cursor"));
+				final parsed = UnknownNarrow.record(Unknown.fromBoundary(Json.parse(item.substr(1))));
+				if (parsed == null)
+					throw "pty cursor frame: expected object";
+				final cursor = UnknownNarrow.number(parsed.get("cursor"));
+				if (cursor == null)
+					throw "pty cursor frame: expected numeric cursor";
+				return Std.int(cursor);
 			}
 		}
 		return -1;
