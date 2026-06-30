@@ -826,18 +826,20 @@ class ServerSmoke {
 			"global search");
 		eq(globalSearch.length, 1, "global search count");
 		eq(requiredString(requiredRecord(globalSearch.get(0), "global search first"), "id", "global search id"), "ses_server_3", "global search id");
-		final archivedCreated = await(jsonResponse(await(server.app.request("/session", {
+		final archivedCreateResponse = await(server.app.request("/session", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({prompt: "Archived", title: "archived-session"}),
-		}))));
-		final archivedID = Std.string(Reflect.field(archivedCreated, "id"));
-		final archivedPatch = await(jsonResponse(await(server.app.request('/session/${archivedID}', {
+		}));
+		final archivedCreated = requiredRecord(Unknown.fromBoundary(await(jsonResponse(archivedCreateResponse))), "archived session");
+		final archivedID = requiredString(archivedCreated, "id", "archived session id");
+		final archivedPatchResponse = await(server.app.request('/session/${archivedID}', {
 			method: "PATCH",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({time: {archived: 12345}}),
-		}))));
-		eq(Reflect.field(archivedPatch, "id"), archivedID, "archive patch session id");
+		}));
+		final archivedPatch = requiredRecord(Unknown.fromBoundary(await(jsonResponse(archivedPatchResponse))), "archive patch session");
+		eq(requiredString(archivedPatch, "id", "archive patch session id"), archivedID, "archive patch session id");
 		final invalidArchive = await(server.app.request('/session/${archivedID}', {
 			method: "PATCH",
 			headers: {"content-type": "application/json"},
@@ -846,11 +848,14 @@ class ServerSmoke {
 		eq(invalidArchive.status, 400, "archive invalid status");
 		final invalidArchiveBody = requiredRecord(Unknown.fromBoundary(await(jsonResponse(invalidArchive))), "archive invalid error");
 		eq(requiredString(invalidArchiveBody, "error", "archive invalid error"), "time.archived: expected number", "archive invalid error");
-		final archivedDefault:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?search=archived-session"))));
+		final archivedDefault = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/experimental/session?search=archived-session"))))),
+			"global archived default");
 		eq(archivedDefault.length, 0, "global archived excluded by default");
-		final archivedIncluded:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?search=archived-session&archived=true"))));
+		final archivedIncluded = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/experimental/session?search=archived-session&archived=true"))))),
+			"global archived included");
 		eq(archivedIncluded.length, 1, "global archived included when requested");
-		eq(Reflect.field(cast archivedIncluded[0], "id"), archivedID, "global archived included id");
+		eq(requiredString(requiredRecord(archivedIncluded.get(0), "global archived included first"), "id", "global archived included id"), archivedID,
+			"global archived included id");
 
 		final alternateDirectory = NodePath.join(root, "alternate-workspace");
 		final alternateResponse = @:await server.app.request("/session", {
