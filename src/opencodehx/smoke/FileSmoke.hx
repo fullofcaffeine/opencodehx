@@ -1,5 +1,7 @@
 package opencodehx.smoke;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import js.lib.Promise;
 import js.lib.Uint8Array;
 import opencodehx.externs.node.Fs;
@@ -98,9 +100,11 @@ class FileSmoke {
 
 		final jsonFile = NodePath.join(tmp, "data.json");
 		AppFileSystem.writeJson(jsonFile, {name: "test", count: 42});
-		final json:Dynamic = AppFileSystem.readJson(jsonFile);
-		eq(Reflect.field(json, "name"), "test", "appfs json name");
-		eq(Reflect.field(json, "count"), 42, "appfs json count");
+		final json = UnknownNarrow.record(Unknown.fromBoundary(AppFileSystem.readJson(jsonFile)));
+		if (json == null)
+			throw "appfs readJson expected object";
+		eq(UnknownNarrow.string(json.get("name")), "test", "appfs json name");
+		eq(UnknownNarrow.number(json.get("count")), 42, "appfs json count");
 		eq(AppFileSystem.readFileString(jsonFile).indexOf("\n") != -1, true, "appfs writeJson formatted newline");
 		eq(AppFileSystem.readFileString(jsonFile).indexOf("  ") != -1, true, "appfs writeJson formatted spaces");
 		final invalidJson = NodePath.join(tmp, "invalid.json");

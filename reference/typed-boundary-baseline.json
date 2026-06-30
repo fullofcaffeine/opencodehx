@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 523,
+    "Dynamic": 522,
     "DynamicAccess": 540,
     "cast": 138,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 102,
+    "Reflect.field": 100,
     "Reflect.hasField": 21,
     "Reflect.setField": 41,
     "Any": 0
@@ -435,8 +435,7 @@
       "Reflect.field": 2
     },
     "src/opencodehx/smoke/FileSmoke.hx": {
-      "Dynamic": 7,
-      "Reflect.field": 2
+      "Dynamic": 6
     },
     "src/opencodehx/smoke/FixtureSmoke.hx": {
       "Dynamic": 1
