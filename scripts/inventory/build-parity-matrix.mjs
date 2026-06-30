@@ -442,8 +442,8 @@ function directEvidence(path) {
       [
         "direct",
         "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md",
-        "route-level smoke covers upstream directory, root, start, search, and limit filter behavior plus session detail and child-session list routes",
-        "ServerSmoke GET /session filter fixtures plus GET /session/:id and /session/:id/children fixtures",
+        "route-level smoke covers upstream directory, root, start, search, and limit filter behavior plus session detail, child-session list, and delete routes",
+        "ServerSmoke GET /session filter fixtures plus GET /session/:id, GET /session/:id/children, and DELETE /session/:id fixtures",
         "none",
       ],
     ],

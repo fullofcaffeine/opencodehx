@@ -707,6 +707,36 @@ class ServerSmoke {
 		eq(aborted, true, "abort route");
 		final missingAbort:Response = await(server.app.request("/session/ses_missing/abort", {method: "POST"}));
 		eq(missingAbort.status, 404, "missing abort status");
+		final deleteParent = requiredRecord(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Delete parent", title: "delete-parent-session"}),
+		}))), "delete parent session");
+		final deleteParentID = requiredString(deleteParent, "id", "delete parent session id");
+		final deleteChild = requiredRecord(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Delete child", title: "delete-child-session", parentID: deleteParentID}),
+		}))), "delete child session");
+		final deleteChildID = requiredString(deleteChild, "id", "delete child session id");
+		eq(requiredString(deleteChild, "parentID", "delete child parent id"), deleteParentID, "delete child parent id");
+		final deleted = @:await jsonResponse(@:await server.app.request('/session/${deleteParentID}', {method: "DELETE"}));
+		eq(deleted, true, "delete session route");
+		final deletedParentGet:Response = @:await server.app.request('/session/${deleteParentID}');
+		eq(deletedParentGet.status, 404, "deleted parent get status");
+		final deletedChildGet:Response = @:await server.app.request('/session/${deleteChildID}');
+		eq(deletedChildGet.status, 404, "deleted child cascade status");
+		final deletedMessages:Response = @:await server.app.request('/session/${deleteParentID}/message');
+		eq(deletedMessages.status, 404, "deleted session messages status");
+		final deletedChildren:Response = @:await server.app.request('/session/${deleteParentID}/children');
+		eq(deletedChildren.status, 404, "deleted session children status");
+		final repeatedDelete:Response = @:await server.app.request('/session/${deleteParentID}', {method: "DELETE"});
+		eq(repeatedDelete.status, 404, "delete missing session status");
+		final afterDelete = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/session?limit=200"))),
+			"session list after delete");
+		final afterDeleteIDs = responseIDsFromArray(afterDelete);
+		eq(afterDeleteIDs.indexOf(deleteParentID), -1, "session list excludes deleted parent");
+		eq(afterDeleteIDs.indexOf(deleteChildID), -1, "session list excludes deleted child");
 
 		final eventResponse = @:await server.app.request("/event");
 		final eventText = @:await readSseUntil(eventResponse, '"type":"server.heartbeat"', 80);

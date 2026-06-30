@@ -119,6 +119,7 @@ class OpenCodeServer {
 		app.get("/project/current", c -> currentProject(c));
 		app.post("/project/git/init", c -> initGitProject(c));
 		app.post("/session", c -> createSession(c));
+		app.delete("/session/:sessionID", c -> deleteSession(c));
 		app.patch("/session/:sessionID", c -> updateSession(c));
 		app.get("/session/:sessionID/children", c -> sessionChildren(c));
 		app.get("/session/:sessionID", c -> getSession(c));
@@ -457,6 +458,17 @@ class OpenCodeServer {
 		return json(c, items);
 	}
 
+	function deleteSession(c:HonoContext):Response {
+		final sessionID = param(c, "sessionID");
+		if (!hasSession(sessionID))
+			return json(c, ServerProtocol.error("Session not found"), 404);
+		final removed = descendantSessionIDs(sessionID);
+		store.deleteSession(SessionID.make(sessionID));
+		for (id in removed)
+			sessionOrder.remove(id);
+		return json(c, true);
+	}
+
 	function sessionMessages(c:HonoContext):Response {
 		final sessionID = param(c, "sessionID");
 		if (!hasSession(sessionID))
@@ -663,6 +675,27 @@ class OpenCodeServer {
 		} catch (_:StorageException) {
 			return false;
 		}
+	}
+
+	function descendantSessionIDs(parentID:String):Array<String> {
+		final out:Array<String> = [parentID];
+		var changed = true;
+		while (changed) {
+			changed = false;
+			for (id in sessionOrder) {
+				if (out.indexOf(id) != -1)
+					continue;
+				try {
+					final info = store.getSession(SessionID.make(id));
+					final parent = info.parentID;
+					if (parent != null && out.indexOf(parent.toString()) != -1) {
+						out.push(id);
+						changed = true;
+					}
+				} catch (_:StorageException) {}
+			}
+		}
+		return out;
 	}
 
 	static function projectChanged(prev:ProjectInfo, next:ProjectInfo):Bool {
