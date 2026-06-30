@@ -1,5 +1,7 @@
 package opencodehx.config;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo.AgentInfo;
 import opencodehx.config.ConfigInfo.AgentMap;
@@ -8,6 +10,15 @@ import opencodehx.config.ConfigInfo.PermissionConfigValue;
 import opencodehx.provider.ProviderOpenRecords;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 
+private typedef AgentMarkdownData = DynamicAccess<ConfigMarkdown.MarkdownValue>;
+
+/**
+ * Loads markdown-backed agent and mode definitions into typed config records.
+ *
+ * Markdown frontmatter remains an `Unknown` boundary in `ConfigMarkdown`; this
+ * module owns the narrowing for agent fields, permission maps, and provider
+ * option passthrough keys.
+ */
 class ConfigAgent {
 	static final KNOWN_KEYS = [
 		"name",
@@ -82,7 +93,7 @@ class ConfigAgent {
 		};
 	}
 
-	static function options(data:DynamicAccess<ConfigMarkdown.MarkdownValue>):ProviderOptions {
+	static function options(data:AgentMarkdownData):ProviderOptions {
 		final result = ProviderOpenRecords.options();
 		final explicit = objectField(data, "options");
 		if (explicit != null) {
@@ -111,72 +122,65 @@ class ConfigAgent {
 	}
 
 	static function permissionValue(value:ConfigMarkdown.MarkdownValue):Null<PermissionConfigValue> {
-		final rawValue = raw(value);
-		if (Std.isOfType(rawValue, String))
-			return cast rawValue;
-		if (rawValue != null && Reflect.isObject(rawValue) && !Std.isOfType(rawValue, Array)) {
+		final text = UnknownNarrow.string(value);
+		if (text != null)
+			return text;
+		final record = UnknownNarrow.record(value);
+		if (record != null) {
 			final result = new DynamicAccess<String>();
-			for (field in Reflect.fields(rawValue)) {
-				final child = raw(cast Reflect.field(rawValue, field));
-				if (Std.isOfType(child, String))
-					result.set(field, cast child);
+			for (field in record.keys()) {
+				final child = UnknownNarrow.string(record.get(field));
+				if (child != null)
+					result.set(field, child);
 			}
 			return result;
 		}
 		return null;
 	}
 
-	static function stringField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<String> {
-		final value = raw(data.get(field));
-		return Std.isOfType(value, String) ? cast value : null;
+	static function stringField(data:AgentMarkdownData, field:String):Null<String> {
+		return UnknownNarrow.string(valueAt(data, field));
 	}
 
-	static function boolField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<Bool> {
-		final value = raw(data.get(field));
-		return Std.isOfType(value, Bool) ? cast value : null;
+	static function boolField(data:AgentMarkdownData, field:String):Null<Bool> {
+		return UnknownNarrow.bool(valueAt(data, field));
 	}
 
-	static function floatField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<Float> {
-		final value = raw(data.get(field));
-		return Std.isOfType(value, Float) || Std.isOfType(value, Int) ? cast value : null;
+	static function floatField(data:AgentMarkdownData, field:String):Null<Float> {
+		return UnknownNarrow.number(valueAt(data, field));
 	}
 
-	static function intField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<Int> {
-		final value = raw(data.get(field));
-		if (Std.isOfType(value, Int))
-			return cast value;
-		if (Std.isOfType(value, Float) && Math.floor(cast value) == value)
-			return Std.int(cast value);
+	static function intField(data:AgentMarkdownData, field:String):Null<Int> {
+		final value = UnknownNarrow.number(valueAt(data, field));
+		if (value != null && Math.floor(value) == value)
+			return Std.int(value);
 		return null;
 	}
 
-	static function boolMapField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<DynamicAccess<Bool>> {
+	static function boolMapField(data:AgentMarkdownData, field:String):Null<DynamicAccess<Bool>> {
 		final object = objectField(data, field);
 		if (object == null)
 			return null;
 		final result = new DynamicAccess<Bool>();
 		for (key in object.keys()) {
-			final value = raw(object.get(key));
-			if (Std.isOfType(value, Bool))
-				result.set(key, cast value);
+			final value = UnknownNarrow.bool(object.get(key));
+			if (value != null)
+				result.set(key, value);
 		}
 		return result;
 	}
 
-	static function objectField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<DynamicAccess<ConfigMarkdown.MarkdownValue>> {
-		final value = raw(data.get(field));
-		if (value != null && Reflect.isObject(value) && !Std.isOfType(value, Array)) {
-			final result = new DynamicAccess<ConfigMarkdown.MarkdownValue>();
-			for (child in Reflect.fields(value))
-				result.set(child, cast Reflect.field(value, child));
-			return result;
-		}
-		return null;
+	static function objectField(data:AgentMarkdownData, field:String):Null<AgentMarkdownData> {
+		final record = UnknownNarrow.record(valueAt(data, field));
+		if (record == null)
+			return null;
+		final result = new DynamicAccess<ConfigMarkdown.MarkdownValue>();
+		for (child in record.keys())
+			result.set(child, record.get(child));
+		return result;
 	}
 
-	static inline function raw(value:Null<ConfigMarkdown.MarkdownValue>):Dynamic {
-		// MarkdownValue is `genes.ts.Unknown`; this decoder locally inspects runtime
-		// frontmatter shapes before returning typed AgentInfo fields.
-		return cast value;
+	static inline function valueAt(data:AgentMarkdownData, field:String):Unknown {
+		return Unknown.fromBoundary(data.get(field));
 	}
 }
