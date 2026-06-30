@@ -36,6 +36,10 @@ import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
+import opencodehx.question.QuestionRuntime;
+import opencodehx.question.QuestionRuntime.QuestionAnswer;
+import opencodehx.question.QuestionRuntime.QuestionInfo;
+import opencodehx.question.QuestionRuntime.QuestionRejectedError;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTrace;
 import opencodehx.server.ServerTypes.ServerListener;
@@ -522,6 +526,7 @@ class ServerSmoke {
 		eq(Reflect.field(created, "title"), "Server fixture", "created title");
 		final statusAfterCreate = UnknownNarrow.record(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/session/status"))))));
 		eq(statusAfterCreate != null && statusAfterCreate.keys().length == 0, true, "session status idle after completed create");
+		await(questionRoutes(server, root));
 
 		final invalidCreate = await(server.app.request("/session", {
 			method: "POST",
@@ -724,6 +729,102 @@ class ServerSmoke {
 		neq(Reflect.field(firstProjectMeta, "id"), Reflect.field(secondProjectMeta, "id"), "global multi-project distinct project ids");
 		eq(Reflect.field(firstProjectMeta, "worktree"), firstProjectDir, "global first project worktree");
 		eq(Reflect.field(secondProjectMeta, "worktree"), secondProjectDir, "global second project worktree");
+	}
+
+	@:async
+	static function questionRoutes(server:OpenCodeServer, root:String):Promise<Void> {
+		final rootContext = InstanceRuntime.fromDirectory(root);
+		if (rootContext == null)
+			throw "question route root context";
+		final rootService = QuestionRuntime.forContext(rootContext);
+		final rootPromise = rootService.ask({
+			sessionID: SessionID.make("ses_question_root"),
+			questions: [serverQuestion("Root question?", "Root", ["Approve", "Skip"])],
+			tool: {messageID: MessageID.make("msg_question_root"), callID: "call_question_root"},
+		});
+		final listRaw = Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/question")));
+		final list = requiredArray(listRaw, "question route list");
+		eq(list.length, 1, "question route list count");
+		final first = requiredRecord(list.get(0), "question route first");
+		final requestID = requiredString(first, "id", "question route request id");
+		eq(requiredString(first, "sessionID", "question route session"), "ses_question_root", "question route session id");
+		final questions = requiredArray(first.get("questions"), "question route questions");
+		final firstQuestion = requiredRecord(questions.get(0), "question route question");
+		eq(requiredString(firstQuestion, "question", "question route text"), "Root question?", "question route question text");
+		final tool = requiredRecord(first.get("tool"), "question route tool");
+		eq(requiredString(tool, "callID", "question route tool call"), "call_question_root", "question route tool call id");
+
+		final invalidReply = @:await server.app.request('/question/${requestID}/reply', {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({answers: "Approve"}),
+		});
+		eq(invalidReply.status, 400, "question route invalid reply");
+		final unknownReply = @:await jsonResponse(@:await server.app.request("/question/que_unknown/reply", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({answers: [["Missing"]]}),
+		}));
+		eq(unknownReply, true, "question route unknown reply no-op");
+		final reply = @:await jsonResponse(@:await server.app.request('/question/${requestID}/reply', {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({answers: [["Approve"]]}),
+		}));
+		eq(reply, true, "question route reply response");
+		eq(questionAnswers(@:await rootPromise), "Approve", "question route reply resolves promise");
+		final emptyList = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/question"))), "question route empty list");
+		eq(emptyList.length, 0, "question route reply clears list");
+
+		final alternate = NodePath.join(root, "question-route-alt");
+		Fs.mkdirSync(alternate, {recursive: true});
+		final alternateContext = InstanceRuntime.fromDirectory(alternate);
+		if (alternateContext == null)
+			throw "question route alternate context";
+		final alternateService = QuestionRuntime.forContext(alternateContext);
+		final rejected = alternateService.ask({
+			sessionID: SessionID.make("ses_question_alt"),
+			questions: [serverQuestion("Alt question?", "Alt", ["Reject"])],
+		});
+		final rootAfterAlt = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/question"))), "question route root isolated");
+		eq(rootAfterAlt.length, 0, "question route root isolation");
+		final alternateList = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/question", {
+			headers: {"x-opencode-directory": StringTools.urlEncode(alternate)},
+		}))), "question route alternate list");
+		eq(alternateList.length, 1, "question route alternate count");
+		final alternateID = requiredString(requiredRecord(alternateList.get(0), "question route alternate first"), "id", "question route alternate id");
+		final reject = @:await jsonResponse(@:await server.app.request('/question/${alternateID}/reject', {
+			method: "POST",
+			headers: {"x-opencode-directory": StringTools.urlEncode(alternate)},
+		}));
+		eq(reject, true, "question route reject response");
+		eq(@:await questionRejection(rejected), "rejected", "question route reject promise");
+		final unknownReject = @:await jsonResponse(@:await server.app.request("/question/que_unknown/reject", {
+			method: "POST",
+			headers: {"x-opencode-directory": StringTools.urlEncode(alternate)},
+		}));
+		eq(unknownReject, true, "question route unknown reject no-op");
+	}
+
+	static function serverQuestion(text:String, header:String, labels:Array<String>):QuestionInfo {
+		return {
+			question: text,
+			header: header,
+			options: [for (label in labels) {label: label, description: label}],
+		};
+	}
+
+	static function questionAnswers(answers:Array<QuestionAnswer>):String {
+		final out:Array<String> = [];
+		for (answer in answers)
+			out.push(answer.join("/"));
+		return out.join("|");
+	}
+
+	static function questionRejection(promise:Promise<Array<QuestionAnswer>>):Promise<String> {
+		return promise.then(_ -> "resolved").catchError(error -> {
+			return Std.isOfType(error, QuestionRejectedError) ? "rejected" : "other";
+		});
 	}
 
 	@:async
@@ -1057,6 +1158,20 @@ class ServerSmoke {
 		if (record == null)
 			throw '${label}: expected object';
 		return record;
+	}
+
+	static function requiredArray(raw:Unknown, label:String):genes.ts.UnknownArray {
+		final array = UnknownNarrow.array(raw);
+		if (array == null)
+			throw '${label}: expected array';
+		return array;
+	}
+
+	static function requiredString(record:genes.ts.UnknownRecord, field:String, label:String):String {
+		final value = UnknownNarrow.string(record.get(field));
+		if (value == null)
+			throw '${label}: expected string field ${field}';
+		return value;
 	}
 
 	static function assistantErrorName(raw:Unknown, label:String):Null<String> {

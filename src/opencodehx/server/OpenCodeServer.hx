@@ -23,6 +23,9 @@ import opencodehx.pty.PtyTypes.PtyID;
 import opencodehx.pty.PtyTypes.PtySocket;
 import opencodehx.pty.PtyTypes.PtySocketMessage;
 import opencodehx.provider.AiSdkProvider;
+import opencodehx.question.QuestionRuntime;
+import opencodehx.question.QuestionRuntime.QuestionID;
+import opencodehx.question.QuestionRuntime.QuestionService;
 import opencodehx.session.MessageCodec;
 import opencodehx.session.MessageError.MessageException;
 import opencodehx.session.SessionID;
@@ -106,6 +109,7 @@ class OpenCodeServer {
 	function routes():Void {
 		app.get("/health", c -> json(c, {ok: true, service: "opencodehx"}));
 		app.get("/event", c -> eventStream(c));
+		app.get("/question", c -> listQuestions(c));
 		app.get("/session", c -> listSessions(c));
 		app.get("/session/status", c -> sessionStatuses(c));
 		app.get("/experimental/session", c -> listGlobalSessions(c));
@@ -115,6 +119,8 @@ class OpenCodeServer {
 		app.patch("/session/:sessionID", c -> updateSession(c));
 		app.get("/session/:sessionID/message", c -> sessionMessages(c));
 		app.post("/session/:sessionID/abort", c -> abortSession(c));
+		app.post("/question/:requestID/reply", c -> replyQuestion(c));
+		app.post("/question/:requestID/reject", c -> rejectQuestion(c));
 		app.post("/sync/start", c -> json(c, syncRuntime.start()));
 		app.post("/sync/replay", c -> syncReplay(c));
 		app.post("/sync/history", c -> syncHistory(c));
@@ -271,6 +277,42 @@ class OpenCodeServer {
 		return jsonText(sessionStatus.activeJsonText());
 	}
 
+	@:async
+	function listQuestions(c:HonoContext):Promise<Response> {
+		final service = questionService(c);
+		if (service == null)
+			return json(c, ServerProtocol.error("Instance not available"), 404);
+		return json(c, @:await service.list());
+	}
+
+	@:async
+	function replyQuestion(c:HonoContext):Promise<Response> {
+		final service = questionService(c);
+		if (service == null)
+			return json(c, ServerProtocol.error("Instance not available"), 404);
+		final decoded = ServerQuestionProtocol.decodeReply(@:await readJson(c));
+		final request = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		@:await service.reply({
+			requestID: QuestionID.make(param(c, "requestID")),
+			answers: request.answers,
+		});
+		return json(c, true);
+	}
+
+	@:async
+	function rejectQuestion(c:HonoContext):Promise<Response> {
+		final service = questionService(c);
+		if (service == null)
+			return json(c, ServerProtocol.error("Instance not available"), 404);
+		@:await service.reject(QuestionID.make(param(c, "requestID")));
+		return json(c, true);
+	}
+
 	function listSessions(c:HonoContext):Response {
 		final queryOptions = ServerProtocol.decodeSessionListQuery(name -> query(c, name));
 		final items:Array<SessionResponse> = [];
@@ -319,6 +361,12 @@ class OpenCodeServer {
 		final dir = routingDirectory(c);
 		final project = ProjectRuntime.fromDirectory(dir, store).project;
 		return json(c, projectResponse(project));
+	}
+
+	function questionService(c:HonoContext):Null<QuestionService> {
+		final dir = routingDirectory(c);
+		final context = InstanceRuntime.fromDirectory(dir);
+		return context == null ? null : QuestionRuntime.forContext(context);
 	}
 
 	function initGitProject(c:HonoContext):Response {

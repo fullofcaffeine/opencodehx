@@ -1,6 +1,6 @@
 # Question Runtime
 
-**Bead:** `opencodehx-e9p`
+**Beads:** `opencodehx-e9p`, `opencodehx-do7x`
 
 ## Upstream Oracle
 
@@ -25,6 +25,12 @@ OpenCodeHX now has a typed Haxe-owned question service seam:
 
 `QuestionRuntime.forContext(context)` scopes a `QuestionService` to an `InstanceRuntime` directory. Pending requests are isolated per context and are rejected when the owning instance is disposed or reloaded.
 
+`OpenCodeServer` exposes the first upstream-shaped question route surface for the routed instance directory:
+
+- `GET /question`
+- `POST /question/:requestID/reply`
+- `POST /question/:requestID/reject`
+
 `QuestionSmoke` covers the core upstream behavior:
 
 - `ask` returns a pending Promise and adds a request to `list`
@@ -36,12 +42,13 @@ OpenCodeHX now has a typed Haxe-owned question service seam:
 - question state is isolated across directories
 - pending questions reject on instance dispose and reload
 
+`ServerSmoke` covers question route list/reply/reject behavior, invalid reply body rejection, unknown reply/reject no-op behavior, optional tool metadata preservation through the list response, and `x-opencode-directory` isolation.
+
 ## Boundaries
 
 This is not the full upstream Effect service yet. The current runtime does not claim:
 
 - `Question.defaultLayer` / Effect `Deferred` wiring
-- question server routes
 - the `question` tool wrapper and formatted tool output
 - UI/TUI question prompts
 - OpenAPI/HTTP schema generation
