@@ -580,9 +580,11 @@ class ProviderSmoke {
 			CLOUDFLARE_GATEWAY_ID: "test-gateway",
 			CLOUDFLARE_API_TOKEN: "test-token",
 		});
-		final metadata = Reflect.field(configured.getProvider(ProviderIDs.known("cloudflare-ai-gateway")).options, "metadata");
-		eq(Reflect.field(metadata, "invoked_by"), "test", "cloudflare metadata invoked_by");
-		eq(Reflect.field(metadata, "project"), "opencode", "cloudflare metadata project");
+		final metadata = ProviderOptionAccess.unknownRecord(configured.getProvider(ProviderIDs.known("cloudflare-ai-gateway")).options, "metadata");
+		if (metadata == null)
+			throw "cloudflare metadata: expected record";
+		eq(UnknownNarrow.string(metadata.get("invoked_by")), "test", "cloudflare metadata invoked_by");
+		eq(UnknownNarrow.string(metadata.get("project")), "opencode", "cloudflare metadata project");
 	}
 
 	static function gitlabDuoLoading():Void {
@@ -592,17 +594,20 @@ class ProviderSmoke {
 		final gitlab = requireProvider(envLoaded.getProvider(ProviderIDs.known("gitlab")), "gitlab env");
 		eq(gitlab.source, "env", "gitlab env source");
 		eq(gitlab.key, "test-gitlab-token", "gitlab env key");
-		eq(Reflect.field(gitlab.options, "instanceUrl"), "https://gitlab.com", "gitlab default instanceUrl");
-		final headers = Reflect.field(gitlab.options, "aiGatewayHeaders");
-		eq(Std.string(Reflect.field(headers, "anthropic-beta")).indexOf("context-1m-2025-08-07") != -1, true, "gitlab context header");
-		final featureFlags = Reflect.field(gitlab.options, "featureFlags");
-		eq(Reflect.field(featureFlags, "duo_agent_platform_agentic_chat"), true, "gitlab agentic chat feature flag");
+		eq(ProviderOptionAccess.string(gitlab.options, "instanceUrl", null), "https://gitlab.com", "gitlab default instanceUrl");
+		final headers = ProviderOptionAccess.stringMap(gitlab.options, "aiGatewayHeaders");
+		eq(requiredStringMapValue(headers, "anthropic-beta", "gitlab context header").indexOf("context-1m-2025-08-07") != -1, true, "gitlab context header");
+		final featureFlags = ProviderOptionAccess.boolMap(gitlab.options, "featureFlags");
+		if (featureFlags == null)
+			throw "gitlab feature flags: expected record";
+		eq(featureFlags.get("duo_agent_platform_agentic_chat"), true, "gitlab agentic chat feature flag");
 		eq(gitlab.models.exists("duo-chat-haiku-4-5"), true, "gitlab haiku static model");
 		eq(gitlab.models.exists("duo-chat-sonnet-4-5"), true, "gitlab sonnet static model");
 		eq(gitlab.models.exists("duo-chat-opus-4-5"), true, "gitlab opus static model");
 
 		final envInstance = registry(config({}), {GITLAB_TOKEN: "env-token", GITLAB_INSTANCE_URL: "https://gitlab.example.com"});
-		eq(Reflect.field(envInstance.getProvider(ProviderIDs.known("gitlab")).options, "instanceUrl"), "https://gitlab.example.com", "gitlab env instanceUrl");
+		eq(ProviderOptionAccess.string(envInstance.getProvider(ProviderIDs.known("gitlab")).options, "instanceUrl", null), "https://gitlab.example.com",
+			"gitlab env instanceUrl");
 
 		final configured = registry(config({
 			provider: {
@@ -624,14 +629,16 @@ class ProviderSmoke {
 		final configuredGitlab = configured.getProvider(ProviderIDs.known("gitlab"));
 		eq(configuredGitlab.source, "config", "gitlab config apiKey source");
 		eq(configuredGitlab.key, "config-token", "gitlab config apiKey precedence");
-		eq(Reflect.field(configuredGitlab.options, "instanceUrl"), "https://gitlab.company.internal", "gitlab config instanceUrl");
-		final configuredHeaders = Reflect.field(configuredGitlab.options, "aiGatewayHeaders");
-		eq(Reflect.field(configuredHeaders, "X-GitLab-Fixture"), "configured", "gitlab custom gateway header");
-		eq(Std.string(Reflect.field(configuredHeaders, "anthropic-beta")).indexOf("context-1m-2025-08-07") != -1, true,
+		eq(ProviderOptionAccess.string(configuredGitlab.options, "instanceUrl", null), "https://gitlab.company.internal", "gitlab config instanceUrl");
+		final configuredHeaders = ProviderOptionAccess.stringMap(configuredGitlab.options, "aiGatewayHeaders");
+		eq(stringMapValue(configuredHeaders, "X-GitLab-Fixture"), "configured", "gitlab custom gateway header");
+		eq(requiredStringMapValue(configuredHeaders, "anthropic-beta", "gitlab default gateway header").indexOf("context-1m-2025-08-07") != -1, true,
 			"gitlab default gateway header survives config");
-		final configuredFlags = Reflect.field(configuredGitlab.options, "featureFlags");
-		eq(Reflect.field(configuredFlags, "duo_agent_platform"), false, "gitlab feature flag override");
-		eq(Reflect.field(configuredFlags, "custom_flag"), true, "gitlab custom feature flag");
+		final configuredFlags = ProviderOptionAccess.boolMap(configuredGitlab.options, "featureFlags");
+		if (configuredFlags == null)
+			throw "configured gitlab feature flags: expected record";
+		eq(configuredFlags.get("duo_agent_platform"), false, "gitlab feature flag override");
+		eq(configuredFlags.get("custom_flag"), true, "gitlab custom feature flag");
 
 		final apiAuth = registry(config({}), {}, {gitlab: {type: "api", key: "glpat-test-pat-token"}});
 		eq(apiAuth.getProvider(ProviderIDs.known("gitlab")).key, "glpat-test-pat-token", "gitlab api auth key");
@@ -1300,6 +1307,13 @@ class ProviderSmoke {
 
 	static function stringMapValue(map:Null<ProviderHeaders>, field:String):Null<String> {
 		return map == null ? null : map.get(field);
+	}
+
+	static function requiredStringMapValue(map:Null<ProviderHeaders>, field:String, label:String):String {
+		final value = stringMapValue(map, field);
+		if (value == null)
+			throw '${label}: expected string field ${field}';
+		return value;
 	}
 
 	static function config(data:Dynamic):ConfigInfo {
