@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 2090 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 2057 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -30,6 +30,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `PluginMeta` reloads persisted plugin metadata through `genes.ts.UnknownRecord` and `UnknownNarrow` instead of `Dynamic` plus reflection.
 - `PluginShared` reads package.json metadata through `genes.ts.UnknownRecord`, with typed string/array narrowing for package name, entrypoint, version, and `oc-themes`.
 - LSP diagnostics now use `LspDiagnostics`, a typed URI-keyed registry, instead of `DynamicAccess<Array<LspDiagnosticInfo>>`.
+- `AuthStore` and `AccountStore` decode auth JSON and active-account SQLite rows through `genes.ts.UnknownRecord`/`UnknownNarrow` instead of local reflection/cast helpers.
 
 ## Remaining Hotspots
 

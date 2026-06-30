@@ -2,6 +2,8 @@ package opencodehx.account;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import js.lib.Promise;
 import opencodehx.config.ConfigLoader.AccountRemoteConfig;
@@ -81,13 +83,14 @@ class AccountStore {
 	}
 
 	static function decodeActiveRow(value:Unknown):Null<ActiveAccountRow> {
-		if (!isRecord(value))
+		final record = UnknownNarrow.record(value);
+		if (record == null)
 			return null;
-		final id = fieldString(value, "id");
-		final email = fieldString(value, "email");
-		final url = fieldString(value, "url");
-		final accessToken = fieldString(value, "accessToken");
-		final activeOrgID = fieldString(value, "activeOrgID");
+		final id = fieldString(record, "id");
+		final email = fieldString(record, "email");
+		final url = fieldString(record, "url");
+		final accessToken = fieldString(record, "accessToken");
+		final activeOrgID = fieldString(record, "activeOrgID");
 		if (id == null || email == null || url == null || accessToken == null || activeOrgID == null)
 			return null;
 		return {
@@ -117,21 +120,7 @@ class AccountStore {
 		return out;
 	}
 
-	static function isRecord(value:Unknown):Bool {
-		// SQLite rows arrive as untrusted JS objects. The cast is local to this
-		// decoder and only feeds primitive field narrowing below.
-		final raw:Dynamic = cast value;
-		return raw != null && !Std.isOfType(raw, Array) && Reflect.isObject(raw);
-	}
-
-	static function fieldString(record:Unknown, field:String):Null<String> {
-		// Reflect.field is required because SQLite column aliases are runtime
-		// strings. Wrap the value as Unknown before narrowing to String.
-		final object:Dynamic = cast record;
-		final value = Unknown.fromBoundary(Reflect.field(object, field));
-		final raw:Dynamic = cast value;
-		// Haxe cannot refine a Dynamic value after Std.isOfType. The cast is
-		// guarded and stays inside this SQLite row decoder.
-		return Std.isOfType(raw, String) ? cast raw : null;
+	static function fieldString(record:UnknownRecord, field:String):Null<String> {
+		return UnknownNarrow.string(record.get(field));
 	}
 }

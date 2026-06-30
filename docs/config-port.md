@@ -19,7 +19,7 @@ Implemented:
 - `OPENCODE_CONFIG_DIR` loads `opencode.{json,jsonc}` as an explicit directory source and overrides project-local config in this early slice.
 - `OPENCODE_CONFIG` and `OPENCODE_CONFIG_CONTENT` overlays for early env-driven parity.
 - Remote well-known config loading from authenticated `/.well-known/opencode` URLs through the async loader, including trailing-slash normalization, token env substitution, default `$schema`, and project-over-remote precedence.
-- Remote active account/org config as both an explicit async loader source and an `AccountService`-backed loader path, including `OPENCODE_CONSOLE_TOKEN` injection for config-template substitution, token refresh through the account service, account-config-over-project precedence, no-active-account fallback, and best-effort account-service failure fallback.
+- Remote active account/org config as both an explicit async loader source and an `AccountService`-backed loader path, including `OPENCODE_CONSOLE_TOKEN` injection for config-template substitution, active-account SQLite row narrowing through `genes.ts.UnknownRecord`, token refresh through the account service, account-config-over-project precedence, no-active-account fallback, and best-effort account-service failure fallback.
 - Managed config source parsing for MDM/mobileconfig JSON, including metadata-key stripping and final managed-over-user precedence through an explicit loader source.
 - Best-effort `$schema` write-back for file-backed configs without expanding `{env:...}` or `{file:...}` tokens into the persisted file.
 - Typed plugin specs for string and `[specifier, options]` config entries, aligned plugin origins, and upstream-style later-wins deduplication by package identity or exact file URL.

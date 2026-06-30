@@ -17,29 +17,25 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 709,
+    "Dynamic": 698,
     "DynamicAccess": 549,
-    "cast": 201,
+    "cast": 184,
     "untyped": 5,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 428,
+    "Reflect.field": 423,
     "Reflect.hasField": 46,
     "Reflect.setField": 47,
     "Any": 0
   },
   "files": {
     "src/opencodehx/account/AccountStore.hx": {
-      "Dynamic": 7,
-      "DynamicAccess": 6,
-      "cast": 6,
-      "Reflect.field": 2
+      "Dynamic": 3,
+      "DynamicAccess": 6
     },
     "src/opencodehx/auth/AuthStore.hx": {
-      "Dynamic": 9,
-      "DynamicAccess": 6,
-      "cast": 11,
-      "Reflect.field": 3
+      "Dynamic": 2,
+      "DynamicAccess": 6
     },
     "src/opencodehx/bus/BusRuntime.hx": {
       "Dynamic": 2,

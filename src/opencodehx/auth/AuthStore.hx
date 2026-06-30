@@ -1,6 +1,8 @@
 package opencodehx.auth;
 
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import haxe.Json;
 import opencodehx.config.ConfigLoader.WellKnownAuth;
@@ -106,10 +108,11 @@ class AuthStore {
 
 	private static function decodeMap(raw:Unknown):AuthMap {
 		final result = empty();
-		if (!isRecord(raw))
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
 			return result;
-		for (field in recordFields(raw)) {
-			final entry = decodeEntry(fieldValue(raw, field));
+		for (field in record.keys()) {
+			final entry = decodeEntry(record.get(field));
 			if (entry != null)
 				result.set(trimRightSlashes(field), entry);
 		}
@@ -117,32 +120,33 @@ class AuthStore {
 	}
 
 	private static function decodeEntry(raw:Unknown):Null<AuthEntry> {
-		if (!isRecord(raw))
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
 			return null;
-		final type = stringValue(fieldValue(raw, "type"));
+		final type = stringField(record, "type");
 		return switch type {
 			case "api":
-				final key = stringValue(fieldValue(raw, "key"));
+				final key = stringField(record, "key");
 				if (key == null) null; else {
 					type: "api",
 					key: key,
-					metadata: metadata(fieldValue(raw, "metadata")),
+					metadata: metadata(record.get("metadata")),
 				};
 			case "oauth":
-				final refresh = stringValue(fieldValue(raw, "refresh"));
-				final access = stringValue(fieldValue(raw, "access"));
-				final expires = numberValue(fieldValue(raw, "expires"));
+				final refresh = stringField(record, "refresh");
+				final access = stringField(record, "access");
+				final expires = numberField(record, "expires");
 				if (refresh == null || access == null || expires == null) null; else {
 					type: "oauth",
 					refresh: refresh,
 					access: access,
 					expires: expires,
-					accountId: stringValue(fieldValue(raw, "accountId")),
-					enterpriseUrl: stringValue(fieldValue(raw, "enterpriseUrl")),
+					accountId: stringField(record, "accountId"),
+					enterpriseUrl: stringField(record, "enterpriseUrl"),
 				};
 			case "wellknown":
-				final key = stringValue(fieldValue(raw, "key"));
-				final token = stringValue(fieldValue(raw, "token"));
+				final key = stringField(record, "key");
+				final token = stringField(record, "token");
 				if (key == null || token == null) null; else {
 					type: "wellknown",
 					key: key,
@@ -154,11 +158,12 @@ class AuthStore {
 	}
 
 	private static function metadata(raw:Unknown):Null<AuthMetadata> {
-		if (!isRecord(raw))
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
 			return null;
 		final out:AuthMetadata = new DynamicAccess<String>();
-		for (field in recordFields(raw)) {
-			final value = stringValue(fieldValue(raw, field));
+		for (field in record.keys()) {
+			final value = UnknownNarrow.string(record.get(field));
 			if (value != null)
 				out.set(field, value);
 		}
@@ -169,39 +174,12 @@ class AuthStore {
 		return new DynamicAccess<AuthEntry>();
 	}
 
-	private static function isRecord(value:Unknown):Bool {
-		// Runtime JSON category checks require inspecting the unknown value.
-		// Keep the cast local and return only a boolean narrowing result.
-		final raw:Dynamic = cast value;
-		return raw != null && !Std.isOfType(raw, Array) && Reflect.isObject(raw);
+	private static function stringField(record:UnknownRecord, field:String):Null<String> {
+		return UnknownNarrow.string(record.get(field));
 	}
 
-	private static function stringValue(value:Unknown):Null<String> {
-		// Runtime JSON primitive narrowing: the cast is guarded by Std.isOfType
-		// and never escapes this decoder as Dynamic.
-		final raw:Dynamic = cast value;
-		return Std.isOfType(raw, String) ? cast raw : null;
-	}
-
-	private static function numberValue(value:Unknown):Null<Float> {
-		// Runtime JSON primitive narrowing: the cast is guarded by Std.isOfType
-		// and never escapes this decoder as Dynamic.
-		final raw:Dynamic = cast value;
-		return Std.isOfType(raw, Int) || Std.isOfType(raw, Float) ? cast raw : null;
-	}
-
-	private static function recordFields(record:Unknown):Array<String> {
-		// Unknown is intentionally cast only inside this decoder boundary after
-		// the broad object check above; every field is narrowed before escaping.
-		final object:Dynamic = cast record;
-		return Reflect.fields(object);
-	}
-
-	private static function fieldValue(record:Unknown, name:String):Unknown {
-		// Reflect.field is needed for runtime JSON object keys. Wrapping the
-		// result as Unknown forces every consumer to narrow before use.
-		final object:Dynamic = cast record;
-		return Unknown.fromBoundary(Reflect.field(object, name));
+	private static function numberField(record:UnknownRecord, field:String):Null<Float> {
+		return UnknownNarrow.number(record.get(field));
 	}
 
 	private static function trimRightSlashes(value:String):String {
