@@ -1,5 +1,7 @@
 package opencodehx.util;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.Json;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
@@ -28,10 +30,10 @@ class ModuleResolver {
 			return resolveFile(NodePath.join(root, subpath));
 		final pkg = NodePath.join(root, "package.json");
 		if (Fs.existsSync(pkg)) {
-			final value:Dynamic = Json.parse(Fs.readFileSync(pkg, "utf8"));
-			final main = Reflect.field(value, "main");
-			if (Std.isOfType(main, String)) {
-				final resolved = resolveFile(NodePath.join(root, Std.string(main)));
+			final value = UnknownNarrow.record(Unknown.fromBoundary(Json.parse(Fs.readFileSync(pkg, "utf8"))));
+			final main = value == null ? null : UnknownNarrow.string(value.get("main"));
+			if (main != null) {
+				final resolved = resolveFile(NodePath.join(root, main));
 				if (resolved != null)
 					return resolved;
 			}

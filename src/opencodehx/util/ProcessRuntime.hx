@@ -1,5 +1,7 @@
 package opencodehx.util;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.extern.EitherType;
 import js.html.AbortSignal;
@@ -188,8 +190,9 @@ class ProcessRuntime {
 	}
 
 	static function errorMessage(error:Dynamic):String {
-		final message = Reflect.field(error, "message");
-		return message == null ? Std.string(error) : Std.string(message);
+		final record = UnknownNarrow.record(Unknown.fromBoundary(error));
+		final message = record == null ? null : UnknownNarrow.string(record.get("message"));
+		return message == null ? Std.string(error) : message;
 	}
 }
 

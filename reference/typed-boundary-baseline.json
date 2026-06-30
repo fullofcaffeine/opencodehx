@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 522,
+    "Dynamic": 521,
     "DynamicAccess": 540,
     "cast": 138,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 100,
+    "Reflect.field": 98,
     "Reflect.hasField": 21,
     "Reflect.setField": 41,
     "Any": 0
@@ -575,14 +575,9 @@
     "src/opencodehx/util/LogRuntime.hx": {
       "Dynamic": 1
     },
-    "src/opencodehx/util/ModuleResolver.hx": {
-      "Dynamic": 1,
-      "Reflect.field": 1
-    },
     "src/opencodehx/util/ProcessRuntime.hx": {
       "Dynamic": 2,
-      "DynamicAccess": 5,
-      "Reflect.field": 1
+      "DynamicAccess": 5
     },
     "src/opencodehx/util/Which.hx": {
       "DynamicAccess": 4
