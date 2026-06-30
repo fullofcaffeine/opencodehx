@@ -29,6 +29,7 @@ Implemented:
 - Local config updates that merge writable config into `config.json`, matching the server route's instance update target.
 - JSONC-preserving global updates through upstream's `jsonc-parser` behavior, with plugin provenance omitted from persisted config.
 - `ConfigWriter.toWritableJson` exposes the single upstream-key JSON encoder for server/readback surfaces, and `OpenCodeServer` uses it for `GET /config` instead of serializing `ConfigInfo` internals directly.
+- `OpenCodeServer` exposes `GET /config/providers` over the live local config/provider registry, with a route encoder that turns provider model maps and default model IDs into upstream-shaped JSON records.
 - Best-effort legacy global TOML migration from extensionless `config`, including `provider`/`model` to `model` translation, modern `config.json` write-back, and legacy file removal.
 - Markdown-backed command discovery from `command/**/*.md` and `commands/**/*.md`, including nested path-derived names and typed command records.
 - Markdown-backed agent discovery from `agent/**/*.md` and `agents/**/*.md`, including nested path-derived names, typed agent records, tool-to-permission migration, color, options passthrough, and primary-mode promotion.
@@ -56,7 +57,7 @@ Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and is grouped around:
 - Plugin and dependency config: plugin merge/dedup/origin alignment, plugin directory discovery, plugin path resolution, and dependency bootstrap gitignore/install success/failure behavior.
 - User-authored config files: markdown file-reference/frontmatter parsing, command/agent/mode discovery, JSON project agent colors, config-backed agent lookup color propagation, and LSP config refinement.
 - Writable and legacy config paths: global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, top-level legacy tools migration, env-driven finalization flags, and legacy TUI key stripping.
-- Server route output: `ServerSmoke` covers `GET /config` returning local routed config with upstream JSON keys such as `default_agent` and `enabled_providers`.
+- Server route output: `ServerSmoke` covers `GET /config` returning local routed config with upstream JSON keys such as `default_agent` and `enabled_providers`, plus `GET /config/providers` returning configured providers, model records, and default model IDs.
 - Focused TUI config: `tui.json` precedence, keybind/plugin/plugin-enabled merges, tuple plugin options, Windows keybind normalization, nested `tui` flattening, legacy migration backup/strip/read-only fallback behavior, and env/file substitution.
 
 `UtilSmoke` covers strict color hex-to-ANSI conversion and invalid hex/theme inputs.

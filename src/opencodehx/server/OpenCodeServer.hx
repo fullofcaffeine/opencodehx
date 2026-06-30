@@ -4,6 +4,7 @@ import genes.js.Async.await;
 import genes.ts.Unknown;
 import js.html.Response;
 import js.lib.Promise;
+import opencodehx.auth.AuthStore;
 import opencodehx.config.ConfigWriter;
 import opencodehx.externs.hono.Hono;
 import opencodehx.externs.hono.Hono.HonoContext;
@@ -14,6 +15,7 @@ import opencodehx.externs.hono.NodeWs.NodeWebSocketRuntime;
 import opencodehx.externs.web.AbortControllerWithReason;
 import opencodehx.externs.web.WebStreams.WebArrayBuffer;
 import opencodehx.externs.web.WebStreams.WebBinary;
+import opencodehx.host.node.NodeProcess;
 import opencodehx.project.InstanceBootstrapRuntime;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
@@ -27,6 +29,7 @@ import opencodehx.pty.PtyTypes.PtyID;
 import opencodehx.pty.PtyTypes.PtySocket;
 import opencodehx.pty.PtyTypes.PtySocketMessage;
 import opencodehx.provider.AiSdkProvider;
+import opencodehx.provider.ProviderRegistry;
 import opencodehx.permission.PermissionAsyncRuntime;
 import opencodehx.permission.PermissionAsyncRuntime.PermissionAsyncService;
 import opencodehx.question.QuestionRuntime;
@@ -42,6 +45,7 @@ import opencodehx.session.SessionLive.liveResolve;
 import opencodehx.session.SessionLive.liveRunPlan;
 import opencodehx.session.SessionProcessor;
 import opencodehx.server.ServerProjectProtocol.decodeProjectUpdate;
+import opencodehx.server.ServerProviderProtocol.encodeConfigProviders;
 import opencodehx.server.ServerProtocol.DecodeResult;
 import opencodehx.server.ServerProtocol.GlobalSessionResponse;
 import opencodehx.server.ServerProtocol.ServerEventTypes;
@@ -120,6 +124,7 @@ class OpenCodeServer {
 	function routes():Void {
 		app.get("/health", c -> json(c, {ok: true, service: "opencodehx"}));
 		app.get("/config", c -> getConfig(c));
+		app.get("/config/providers", c -> getConfigProviders(c));
 		app.get("/event", c -> eventStream(c));
 		app.get("/permission", c -> listPermissions(c));
 		app.get("/question", c -> listQuestions(c));
@@ -413,6 +418,16 @@ class OpenCodeServer {
 
 	function getConfig(c:HonoContext):Response {
 		return json(c, ConfigWriter.toWritableJson(liveLocalConfig(routingDirectory(c))));
+	}
+
+	function getConfigProviders(c:HonoContext):Response {
+		final env = NodeProcess.env();
+		final registry = new ProviderRegistry({
+			config: liveLocalConfig(routingDirectory(c)),
+			env: env,
+			auth: AuthStore.load(env),
+		});
+		return json(c, encodeConfigProviders(registry));
 	}
 
 	function listProjects(c:HonoContext):Response {

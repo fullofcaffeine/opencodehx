@@ -153,13 +153,27 @@ class ServerSmoke {
 	@:async
 	static function configRoute(server:OpenCodeServer, root:String):Promise<Void> {
 		Fs.writeFileSync(NodePath.join(root, "opencode.json"),
-			'{"' + "$" + 'schema":"${ConfigInfo.DEFAULT_SCHEMA}","model":"server/model","default_agent":"reviewer","enabled_providers":["server-provider"]}');
+			'{"' + "$" +
+			'schema":"${ConfigInfo.DEFAULT_SCHEMA}","model":"server/model","default_agent":"reviewer","enabled_providers":["server-provider"],"provider":{"server-provider":{"npm":"@ai-sdk/openai-compatible","name":"Server Provider","models":{"server-model":{"name":"Server Model"}}}}}');
 		final body = @:await jsonResponse(@:await server.app.request("/config"));
 		final config = requiredRecord(Unknown.fromBoundary(body), "server config route");
 		eq(requiredString(config, "model", "server config model"), "server/model", "server config model");
 		eq(requiredString(config, "default_agent", "server config default agent"), "reviewer", "server config default agent");
 		final providers = requiredArray(config.get("enabled_providers"), "server config enabled providers");
 		eq(UnknownNarrow.string(providers.get(0)), "server-provider", "server config enabled provider");
+		final providersBody = @:await jsonResponse(@:await server.app.request("/config/providers"));
+		final providerResult = requiredRecord(Unknown.fromBoundary(providersBody), "server config providers route");
+		final providerList = requiredArray(providerResult.get("providers"), "server config provider list");
+		eq(providerList.length, 1, "server config providers count");
+		final provider = requiredRecord(providerList.get(0), "server config provider item");
+		eq(requiredString(provider, "id", "server config provider id"), "server-provider", "server config provider id");
+		eq(requiredString(provider, "name", "server config provider name"), "Server Provider", "server config provider name");
+		eq(requiredString(provider, "source", "server config provider source"), "config", "server config provider source");
+		final models = requiredRecord(provider.get("models"), "server config provider models");
+		final model = requiredRecord(models.get("server-model"), "server config provider model");
+		eq(requiredString(model, "name", "server config provider model name"), "Server Model", "server config provider model name");
+		final defaults = requiredRecord(providerResult.get("default"), "server config providers default");
+		eq(requiredString(defaults, "server-provider", "server config provider default"), "server-model", "server config provider default");
 	}
 
 	@:async
