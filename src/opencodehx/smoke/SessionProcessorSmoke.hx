@@ -23,6 +23,7 @@ import opencodehx.permission.PermissionTypes.PermissionRule;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
+import opencodehx.provider.ProviderOptionAccess;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderMessage;
 import opencodehx.provider.ProviderTypes.ProviderMessageContent;
@@ -297,16 +298,16 @@ class SessionProcessorSmoke {
 			agentOptions: agentOptions,
 			variant: "high",
 		});
-		eq(options.get("promptCacheKey"), "ses_options", "llm options provider base");
-		eq(options.get("store"), true, "llm options model overrides base");
-		eq(options.get("reasoningEffort"), "high", "llm options variant overrides generated");
-		eq(options.get("textVerbosity"), "high", "llm options agent applied");
-		eq(options.get("instructions"), "system header\nplugin tail", "llm options oauth instructions");
-		final nested:Dynamic = options.get("nested");
-		eq(Reflect.field(nested, "fromBase"), "agent", "llm options nested agent overrides model");
-		eq(Reflect.field(nested, "fromAgent"), "yes", "llm options nested agent key");
-		eq(Reflect.field(nested, "fromVariant"), true, "llm options nested variant key");
-		eq(Reflect.field(nested, "keepModel"), false, "llm options nested variant overrides model");
+		eq(requiredOptionString(options, "promptCacheKey", "llm options provider base"), "ses_options", "llm options provider base");
+		eq(requiredOptionBool(options, "store", "llm options model store"), true, "llm options model overrides base");
+		eq(requiredOptionString(options, "reasoningEffort", "llm options reasoning effort"), "high", "llm options variant overrides generated");
+		eq(requiredOptionString(options, "textVerbosity", "llm options text verbosity"), "high", "llm options agent applied");
+		eq(requiredOptionString(options, "instructions", "llm options instructions"), "system header\nplugin tail", "llm options oauth instructions");
+		final nested = requiredOptionRecord(options, "nested", "llm options nested");
+		eq(requiredRecordString(nested, "fromBase", "llm options nested fromBase"), "agent", "llm options nested agent overrides model");
+		eq(requiredRecordString(nested, "fromAgent", "llm options nested fromAgent"), "yes", "llm options nested agent key");
+		eq(requiredRecordBool(nested, "fromVariant", "llm options nested fromVariant"), true, "llm options nested variant key");
+		eq(requiredRecordBool(nested, "keepModel", "llm options nested keepModel"), false, "llm options nested variant overrides model");
 
 		final small = SessionLlm.requestOptions({
 			model: model,
@@ -317,11 +318,11 @@ class SessionProcessorSmoke {
 			agentOptions: record1("agentSmall", true),
 			variant: "high",
 		});
-		eq(small.get("reasoningEffort"), "low", "llm options small base effort");
-		eq(small.get("agentSmall"), true, "llm options small agent option");
-		eq(small.get("instructions"), null, "llm options non-oauth omits instructions");
-		final smallNested:Dynamic = small.get("nested");
-		eq(Reflect.field(smallNested, "fromVariant"), null, "llm options small skips variant");
+		eq(requiredOptionString(small, "reasoningEffort", "llm options small effort"), "low", "llm options small base effort");
+		eq(requiredOptionBool(small, "agentSmall", "llm options small agent"), true, "llm options small agent option");
+		eq(ProviderOptionAccess.string(small, "instructions", null), null, "llm options non-oauth omits instructions");
+		final smallNested = requiredOptionRecord(small, "nested", "llm options small nested");
+		eq(smallNested.hasOwn("fromVariant"), false, "llm options small skips variant");
 
 		final missingVariant = SessionLlm.requestOptions({
 			model: model,
@@ -331,7 +332,7 @@ class SessionProcessorSmoke {
 			system: [],
 			variant: "missing",
 		});
-		eq(missingVariant.get("reasoningEffort"), "medium", "llm options missing variant keeps base");
+		eq(requiredOptionString(missingVariant, "reasoningEffort", "llm options missing variant effort"), "medium", "llm options missing variant keeps base");
 	}
 
 	static function llmRequestParams():Void {
@@ -400,7 +401,7 @@ class SessionProcessorSmoke {
 			headers: headers,
 		});
 		eq(defaults.maxRetries, 0, "llm stream options retry default");
-		eq(Reflect.field(defaults, "toolChoice"), null, "llm stream options absent tool choice");
+		eq(defaults.toolChoice, null, "llm stream options absent tool choice");
 	}
 
 	static function llmWorkflowApproval():Void {
@@ -435,7 +436,7 @@ class SessionProcessorSmoke {
 
 		final stringResult = SessionLlm.workflowToolExecutionResult(Unknown.fromBoundary("plain output"));
 		eq(stringResult.result, "plain output", "llm workflow tool string result");
-		eq(Reflect.field(stringResult, "title"), null, "llm workflow tool string no title");
+		eq(stringResult.title, null, "llm workflow tool string no title");
 
 		final objectResult = SessionLlm.workflowToolExecutionResult(Unknown.fromBoundary({
 			output: "file contents",
@@ -444,7 +445,8 @@ class SessionProcessorSmoke {
 		}));
 		eq(objectResult.result, "file contents", "llm workflow tool object output");
 		eq(objectResult.title, "Read README", "llm workflow tool object title");
-		eq(Reflect.field(objectResult.metadata, "lines"), 3, "llm workflow tool object metadata");
+		final metadata = requiredUnknownRecord(objectResult.metadata, "llm workflow tool object metadata");
+		eq(UnknownNarrow.number(metadata.get("lines")), 3.0, "llm workflow tool object metadata");
 
 		final fallback = SessionLlm.workflowToolExecutionResult(Unknown.fromBoundary({title: "Only title"}));
 		eq(fallback.result, '{"title":"Only title"}', "llm workflow tool object json fallback");
@@ -861,6 +863,45 @@ description: Review workflow.
 
 	static function optionMap():ProviderOptions {
 		return new DynamicAccess<Dynamic>();
+	}
+
+	static function requiredOptionString(options:ProviderOptions, field:String, label:String):String {
+		final value = ProviderOptionAccess.string(options, field, null);
+		if (value == null)
+			throw '${label}: expected string field ${field}';
+		return value;
+	}
+
+	static function requiredOptionBool(options:ProviderOptions, field:String, label:String):Bool {
+		final value = ProviderOptionAccess.bool(options, field, null);
+		if (value == null)
+			throw '${label}: expected bool field ${field}';
+		return value;
+	}
+
+	static function requiredOptionRecord(options:ProviderOptions, field:String, label:String):UnknownRecord {
+		return requiredUnknownRecord(Unknown.fromBoundary(options.get(field)), label);
+	}
+
+	static function requiredUnknownRecord(value:Unknown, label:String):UnknownRecord {
+		final record = UnknownNarrow.record(value);
+		if (record == null)
+			throw '${label}: expected record';
+		return record;
+	}
+
+	static function requiredRecordString(record:UnknownRecord, field:String, label:String):String {
+		final value = UnknownNarrow.string(record.get(field));
+		if (value == null)
+			throw '${label}: expected string field ${field}';
+		return value;
+	}
+
+	static function requiredRecordBool(record:UnknownRecord, field:String, label:String):Bool {
+		final value = UnknownNarrow.bool(record.get(field));
+		if (value == null)
+			throw '${label}: expected bool field ${field}';
+		return value;
 	}
 
 	static function contains(value:String, expected:String, label:String):Void {
