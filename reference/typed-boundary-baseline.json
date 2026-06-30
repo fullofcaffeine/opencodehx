@@ -17,9 +17,9 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 643,
+    "Dynamic": 641,
     "DynamicAccess": 538,
-    "cast": 164,
+    "cast": 162,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
@@ -405,8 +405,7 @@
       "cast": 1
     },
     "src/opencodehx/session/SessionProcessor.hx": {
-      "Dynamic": 4,
-      "cast": 2
+      "Dynamic": 2
     },
     "src/opencodehx/session/SessionRetry.hx": {
       "Dynamic": 1,

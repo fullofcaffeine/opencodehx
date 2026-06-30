@@ -1322,19 +1322,19 @@ class SessionProcessor {
 		// AI SDK providers may surface tool input as a parsed JSON value or as a
 		// JSON string. Tool schemas remain the authority, so this boundary only
 		// normalizes the transport shape before ToolRegistry validation.
-		final raw:Dynamic = cast input;
-		if (raw == null)
+		if (UnknownNarrow.isNull(input) || UnknownNarrow.isUndefined(input))
 			return ToolCallInput.fromBoundary({});
-		if (Std.isOfType(raw, String)) {
-			try {
-				return ToolCallInput.fromBoundary(Json.parse(cast raw));
-			} catch (_:Dynamic) {
-				// If a provider sends a non-JSON string, keep it as-is and let the
-				// target tool report a normal invalid-arguments diagnostic.
-				return ToolCallInput.fromBoundary(raw);
-			}
+		final text = UnknownNarrow.string(input);
+		if (text != null) {
+			return switch JsonCodec.parse(text) {
+				case Ok(value): ToolCallInput.fromBoundary(value);
+				case Error(_):
+					// If a provider sends a non-JSON string, keep it as-is and let the
+					// target tool report a normal invalid-arguments diagnostic.
+					ToolCallInput.fromBoundary(text);
+			};
 		}
-		return ToolCallInput.fromBoundary(raw);
+		return ToolCallInput.fromBoundary(input);
 	}
 
 	static function toolHistoryTurn(outcome:SessionToolOutcome):AiModelToolResultTurn {

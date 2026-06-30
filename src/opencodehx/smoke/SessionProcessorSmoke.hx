@@ -1349,6 +1349,19 @@ description: Review workflow.
 			assertToolOutcome(toolResult.tool);
 			assertAssistantParts(toolResult.messages[1].parts, "ai sdk tool", "tool_1", "The file says: ai sdk tool fixture.");
 
+			final nonJsonRuntime = AiSdkMockModel.inspectableToolThenText("This continuation should not run.", "read", "not-json");
+			final nonJsonRun = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_non_json_tool_input",
+				prompt: "Try a malformed tool input.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: nonJsonRuntime.language,
+			});
+			eq(nonJsonRuntime.mock.doStreamCalls.length, 1, "ai sdk non-json tool input call count");
+			eq(nonJsonRun.events[4].status, "error", "ai sdk non-json tool input error status");
+			assertToolError(nonJsonRun.tool, "arguments: expected object", "ai sdk non-json tool input");
+
 			final liveOptions = optionMap();
 			liveOptions.set("setCacheKey", true);
 			final liveModel = modelWithOptionsVariants("google", "gemini-2.5-pro", "@ai-sdk/google", liveOptions, new FakeProvider().model.variants);
@@ -1775,6 +1788,15 @@ description: Review workflow.
 			throw "session processor: expected tool outcome";
 		eq(outcome.success, true, "tool outcome success");
 		eq(outcome.call.tool, "read", "tool outcome name");
+	}
+
+	static function assertToolError(outcome:Null<opencodehx.session.SessionProcessor.SessionToolOutcome>, expected:String, label:String):Void {
+		if (outcome == null)
+			throw label + ": expected tool outcome";
+		eq(outcome.success, false, label + " tool outcome failure");
+		if (outcome.error == null)
+			throw label + ": expected tool error";
+		contains(outcome.error, expected, label + " tool error");
 	}
 
 	static function requireToolResult(outcome:Null<opencodehx.session.SessionProcessor.SessionToolOutcome>, label:String):opencodehx.tool.ToolTypes.ToolResult {
