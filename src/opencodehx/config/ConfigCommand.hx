@@ -1,8 +1,12 @@
 package opencodehx.config;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo.CommandInfo;
 import opencodehx.config.ConfigInfo.CommandMap;
+
+private typedef CommandMarkdownData = DynamicAccess<ConfigMarkdown.MarkdownValue>;
 
 class ConfigCommand {
 	public static function load(dir:String):CommandMap {
@@ -21,13 +25,15 @@ class ConfigCommand {
 		return result;
 	}
 
-	static function stringField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<String> {
-		final value = data.get(field);
-		return Std.isOfType(value, String) ? cast value : null;
+	static function stringField(data:CommandMarkdownData, field:String):Null<String> {
+		return UnknownNarrow.string(valueAt(data, field));
 	}
 
-	static function boolField(data:DynamicAccess<ConfigMarkdown.MarkdownValue>, field:String):Null<Bool> {
-		final value = data.get(field);
-		return Std.isOfType(value, Bool) ? cast value : null;
+	static function boolField(data:CommandMarkdownData, field:String):Null<Bool> {
+		return UnknownNarrow.bool(valueAt(data, field));
+	}
+
+	static inline function valueAt(data:CommandMarkdownData, field:String):Unknown {
+		return Unknown.fromBoundary(data.get(field));
 	}
 }

@@ -18,8 +18,8 @@
   ],
   "totals": {
     "Dynamic": 643,
-    "DynamicAccess": 539,
-    "cast": 166,
+    "DynamicAccess": 538,
+    "cast": 164,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
@@ -51,8 +51,7 @@
       "DynamicAccess": 10
     },
     "src/opencodehx/config/ConfigCommand.hx": {
-      "DynamicAccess": 4,
-      "cast": 2
+      "DynamicAccess": 3
     },
     "src/opencodehx/config/ConfigDependencyRuntime.hx": {
       "Dynamic": 2
