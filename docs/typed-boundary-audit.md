@@ -46,6 +46,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ConfigSmoke` narrows the remote MCP override assertion through `UnknownRecord`/`UnknownNarrow` instead of casting a smoke-local typedef from `Reflect.field`.
 - `ServerSmoke` reads listener/app health and the first PTY create/list/get/update/missing route assertions through `UnknownRecord`/`UnknownArray` helpers and typed `Response.status` instead of raw reflection and casts.
 - `ServerSmoke` reads sync replay/history route responses through `UnknownRecord`/`UnknownArray` helpers and typed `Response.status` instead of raw `Dynamic`, reflection, and casts.
+- `ServerSmoke` reads basic session create/list/message/status responses through `UnknownRecord`/`UnknownArray` helpers and typed `Response.status`; legacy high-volume message helper narrowing remains a separate slice.
 
 ## Remaining Hotspots
 

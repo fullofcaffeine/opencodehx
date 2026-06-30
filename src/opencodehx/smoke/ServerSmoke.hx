@@ -679,14 +679,15 @@ class ServerSmoke {
 		eq(scheduled[1].canceled, true, "workspace sync task clears pending timer");
 		await(workspaceProxy(workspaceSync));
 
-		final created = await(jsonResponse(await(server.app.request("/session", {
+		final createdResponse = await(server.app.request("/session", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({prompt: "Say hello from the server.", title: "Server fixture"}),
-		}))));
-		final sessionID = Std.string(Reflect.field(created, "id"));
+		}));
+		final created = requiredRecord(Unknown.fromBoundary(await(jsonResponse(createdResponse))), "created session");
+		final sessionID = requiredString(created, "id", "created session id");
 		eq(sessionID, "ses_server_1", "created session id");
-		eq(Reflect.field(created, "title"), "Server fixture", "created title");
+		eq(requiredString(created, "title", "created title"), "Server fixture", "created title");
 		final statusAfterCreate = UnknownNarrow.record(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/session/status"))))));
 		eq(statusAfterCreate != null && statusAfterCreate.keys().length == 0, true, "session status idle after completed create");
 		await(permissionRoutes(server, root));
@@ -701,16 +702,16 @@ class ServerSmoke {
 		final invalidCreateBody = requiredRecord(Unknown.fromBoundary(await(jsonResponse(invalidCreate))), "invalid create error");
 		eq(requiredString(invalidCreateBody, "error", "invalid create error"), "prompt: expected string", "invalid create error");
 
-		final list:Dynamic = await(jsonResponse(await(server.app.request("/session"))));
-		eq(Reflect.field(cast list[0], "id"), sessionID, "listed session id");
+		final list = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/session"))))), "session list");
+		eq(requiredString(requiredRecord(list.get(0), "session list first"), "id", "listed session id"), sessionID, "listed session id");
 
 		final messagesResponse = await(server.app.request('/session/${sessionID}/message?limit=1'));
-		eq(Reflect.field(messagesResponse, "status"), 200, "messages status");
+		eq(messagesResponse.status, 200, "messages status");
 		final cursor:Null<String> = messagesResponse.headers.get("x-next-cursor");
 		eq(cursor != null, true, "messages cursor");
-		final messages = await(jsonResponse(messagesResponse));
+		final messages = requiredArray(Unknown.fromBoundary(await(jsonResponse(messagesResponse))), "message page");
 		eq(messages.length, 1, "message page length");
-		final firstMessage = requiredRecord(requiredArray(Unknown.fromBoundary(messages), "message page").get(0), "message page first");
+		final firstMessage = requiredRecord(messages.get(0), "message page first");
 		final firstMessageInfo = requiredRecord(firstMessage.get("info"), "message page first info");
 		final firstMessageID = requiredString(firstMessageInfo, "id", "message page first id");
 		final messageDetailResponse = @:await server.app.request('/session/${sessionID}/message/${firstMessageID}');
@@ -739,14 +740,14 @@ class ServerSmoke {
 		eq(afterMessageDelete.length, 1, "delete message remaining count");
 
 		final badCursor = await(server.app.request('/session/${sessionID}/message?limit=1&before=bad'));
-		eq(Reflect.field(badCursor, "status"), 400, "bad cursor status");
+		eq(badCursor.status, 400, "bad cursor status");
 		final cursorWithoutLimit = await(server.app.request('/session/${sessionID}/message?before=${StringTools.urlEncode(cursor)}'));
-		eq(Reflect.field(cursorWithoutLimit, "status"), 400, "message cursor without limit status");
+		eq(cursorWithoutLimit.status, 400, "message cursor without limit status");
 		final missing = await(server.app.request("/session/ses_missing/message?limit=1"));
-		eq(Reflect.field(missing, "status"), 404, "missing session status");
+		eq(missing.status, 404, "missing session status");
 		final legacySessionID = seedHighVolumeMessages(NodePath.join(root, "opencodehx.db"), root);
 		final legacyResponse = await(server.app.request('/session/${legacySessionID}/message?limit=510'));
-		eq(Reflect.field(legacyResponse, "status"), 200, "legacy message limit status");
+		eq(legacyResponse.status, 200, "legacy message limit status");
 		final legacyMessages = await(jsonResponse(legacyResponse));
 		eq(legacyMessages.length, 510, "legacy message limit count");
 		eq(messageResponseID(legacyMessages[0]), "msg_legacy_10", "legacy message page head");

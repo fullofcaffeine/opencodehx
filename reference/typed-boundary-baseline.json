@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 566,
+    "Dynamic": 565,
     "DynamicAccess": 539,
-    "cast": 153,
+    "cast": 152,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 180,
+    "Reflect.field": 172,
     "Reflect.hasField": 27,
     "Reflect.setField": 47,
     "Any": 0
@@ -501,10 +501,10 @@
       "Dynamic": 1
     },
     "src/opencodehx/smoke/ServerSmoke.hx": {
-      "Dynamic": 32,
+      "Dynamic": 31,
       "DynamicAccess": 9,
-      "cast": 14,
-      "Reflect.field": 48
+      "cast": 13,
+      "Reflect.field": 40
     },
     "src/opencodehx/smoke/SessionPersistenceSmoke.hx": {
       "Dynamic": 1
