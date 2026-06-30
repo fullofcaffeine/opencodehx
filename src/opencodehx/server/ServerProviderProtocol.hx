@@ -4,6 +4,13 @@ import genes.ts.JsonCodec;
 import genes.ts.JsonObject;
 import genes.ts.Unknown;
 import haxe.Json as HaxeJson;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthHook;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthMethod;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthMethodType;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthPrompt;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthPromptWhen;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthPromptWhenOp;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthSelectOption;
 import opencodehx.provider.ProviderRegistry;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderModel;
@@ -38,6 +45,18 @@ typedef ProviderListRouteResponse = {
 	final connected:Array<String>;
 }
 
+typedef ProviderAuthRouteResponse = JsonObject;
+
+typedef ProviderAuthRouteWhen = {
+	final key:String;
+	final op:PluginAuthPromptWhenOp;
+	final value:String;
+}
+
+typedef ProviderAuthRouteSelectOption = JsonObject;
+typedef ProviderAuthRoutePrompt = JsonObject;
+typedef ProviderAuthRouteMethod = JsonObject;
+
 /**
 	Encodes provider registry records into upstream-shaped server JSON.
 
@@ -61,6 +80,16 @@ function encodeProviderList(providers:Array<ProviderInfo>, connected:Array<Strin
 		defaultModels: defaultModelIDs(providers),
 		connected: connected.copy(),
 	};
+}
+
+function encodeProviderAuthMethods(hooks:Array<PluginAuthHook>):ProviderAuthRouteResponse {
+	final entries:Array<JsonEntry<Array<ProviderAuthRouteMethod>>> = [];
+	for (hook in hooks)
+		entries.push({
+			key: hook.provider.toString(),
+			value: [for (method in hook.methods) encodeAuthMethod(method)],
+		});
+	return objectFromEntries(entries);
 }
 
 function encodeProvider(provider:ProviderInfo):ProviderRouteProvider {
@@ -99,15 +128,80 @@ function sortedModels(provider:ProviderInfo):Array<ProviderModel> {
 	return ProviderRegistry.sort(models);
 }
 
+function encodeAuthMethod(method:PluginAuthMethod):ProviderAuthRouteMethod {
+	final parts = [jsonField("type", method.type), jsonField("label", method.label),];
+	final prompts = method.prompts.orNull();
+	if (prompts != null)
+		parts.push(jsonField("prompts", encodeAuthPrompts(prompts)));
+	return objectFromParts(parts);
+}
+
+function encodeAuthPrompts(prompts:Array<PluginAuthPrompt>):Array<ProviderAuthRoutePrompt> {
+	return [for (prompt in prompts) encodeAuthPrompt(prompt)];
+}
+
+function encodeAuthPrompt(prompt:PluginAuthPrompt):ProviderAuthRoutePrompt {
+	return switch prompt {
+		case Text(value):
+			final parts = [
+				jsonField("type", "text"),
+				jsonField("key", value.key),
+				jsonField("message", value.message),
+			];
+			final placeholder = value.placeholder.orNull();
+			final when = value.when.orNull();
+			if (placeholder != null)
+				parts.push(jsonField("placeholder", placeholder));
+			if (when != null)
+				parts.push(jsonField("when", encodeAuthWhen(when)));
+			objectFromParts(parts);
+		case Select(value):
+			final parts = [
+				jsonField("type", "select"),
+				jsonField("key", value.key),
+				jsonField("message", value.message),
+				jsonField("options", [for (option in value.options) encodeAuthOption(option)]),
+			];
+			final when = value.when.orNull();
+			if (when != null)
+				parts.push(jsonField("when", encodeAuthWhen(when)));
+			objectFromParts(parts);
+	};
+}
+
+function encodeAuthWhen(when:PluginAuthPromptWhen):ProviderAuthRouteWhen {
+	return {
+		key: when.key,
+		op: when.op,
+		value: when.value,
+	};
+}
+
+function encodeAuthOption(option:PluginAuthSelectOption):ProviderAuthRouteSelectOption {
+	final parts = [jsonField("label", option.label), jsonField("value", option.value),];
+	final hint = option.hint.orNull();
+	if (hint != null)
+		parts.push(jsonField("hint", hint));
+	return objectFromParts(parts);
+}
+
 function objectFromEntries<T>(entries:Array<JsonEntry<T>>):JsonObject {
 	// Haxe cannot express computed-property object literals with a precise
 	// recursive JSON-object type. Build this wire record through JSON's own
 	// escaping/parsing rules, then validate the native object before returning it.
 	final parts:Array<String> = [];
 	for (entry in entries)
-		parts.push(HaxeJson.stringify(entry.key) + ":" + HaxeJson.stringify(entry.value));
+		parts.push(jsonField(entry.key, entry.value));
+	return objectFromParts(parts);
+}
+
+function objectFromParts(parts:Array<String>):JsonObject {
 	final value = JsonCodec.narrowObject(Unknown.fromBoundary(HaxeJson.parse("{" + parts.join(",") + "}")));
 	if (value == null)
 		throw new haxe.Exception("provider route object encoding failed");
 	return value;
+}
+
+function jsonField<T>(key:String, value:T):String {
+	return HaxeJson.stringify(key) + ":" + HaxeJson.stringify(value);
 }

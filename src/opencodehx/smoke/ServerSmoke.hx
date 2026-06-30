@@ -34,8 +34,13 @@ import opencodehx.host.node.NodeProcess;
 import opencodehx.project.InstanceRuntime.InstanceContext;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthHook;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthMethodType;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthPrompt;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthPromptWhenOp;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
+import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.permission.PermissionAsyncRuntime;
 import opencodehx.permission.PermissionAsyncRuntime.PermissionCorrectedError;
 import opencodehx.permission.PermissionAsyncRuntime.PermissionRejectedError;
@@ -191,6 +196,39 @@ class ServerSmoke {
 		eq(requiredString(providerDefaults, "catalog-provider", "server provider catalog default"), "catalog-model", "server provider catalog default");
 		eq(requiredString(providerDefaults, "server-provider", "server provider connected default"), "server-model", "server provider connected default");
 		restoreEnv("OPENCODE_MODELS_PATH", originalModelsPath);
+
+		final emptyAuth = requiredRecord(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/provider/auth"))),
+			"server provider auth empty");
+		eq(emptyAuth.keys().length, 0, "server provider auth empty");
+		final authRoot = NodePath.join(root, "provider-auth");
+		Fs.mkdirSync(authRoot, {recursive: true});
+		final authServer = new OpenCodeServer({
+			directory: authRoot,
+			dbPath: NodePath.join(authRoot, "opencodehx-auth.db"),
+			providerAuthHooks: providerAuthHooks(),
+		});
+		final authBody = @:await jsonResponse(@:await authServer.app.request("/provider/auth"));
+		final auth = requiredRecord(Unknown.fromBoundary(authBody), "server provider auth route");
+		final methods = requiredArray(auth.get("plugin-provider"), "server provider auth methods");
+		eq(methods.length, 2, "server provider auth method count");
+		final api = requiredRecord(methods.get(0), "server provider auth api method");
+		eq(requiredString(api, "type", "server provider auth api type"), "api", "server provider auth api type");
+		eq(requiredString(api, "label", "server provider auth api label"), "Plugin API", "server provider auth api label");
+		eq(api.keys().indexOf("prompts"), -1, "server provider auth omits absent prompts");
+		final oauth = requiredRecord(methods.get(1), "server provider auth oauth method");
+		eq(requiredString(oauth, "type", "server provider auth oauth type"), "oauth", "server provider auth oauth type");
+		final prompts = requiredArray(oauth.get("prompts"), "server provider auth prompts");
+		eq(prompts.length, 2, "server provider auth prompt count");
+		final textPrompt = requiredRecord(prompts.get(0), "server provider auth text prompt");
+		eq(requiredString(textPrompt, "type", "server provider auth text prompt type"), "text", "server provider auth text prompt type");
+		eq(requiredString(textPrompt, "placeholder", "server provider auth text placeholder"), "token", "server provider auth text placeholder");
+		final selectPrompt = requiredRecord(prompts.get(1), "server provider auth select prompt");
+		final selectOptions = requiredArray(selectPrompt.get("options"), "server provider auth select options");
+		final selectOption = requiredRecord(selectOptions.get(0), "server provider auth select option");
+		eq(requiredString(selectOption, "hint", "server provider auth select hint"), "fast", "server provider auth select hint");
+		final when = requiredRecord(selectPrompt.get("when"), "server provider auth select when");
+		eq(requiredString(when, "op", "server provider auth select when op"), "neq", "server provider auth select when op");
+		authServer.close();
 	}
 
 	@:async
@@ -1460,6 +1498,52 @@ class ServerSmoke {
 				return true;
 		}
 		return false;
+	}
+
+	static function providerAuthHooks():Array<PluginAuthHook> {
+		return [
+			{
+				provider: ProviderID.make("plugin-provider"),
+				methods: [
+					{
+						type: PluginAuthMethodType.Api,
+						label: "Plugin API",
+					},
+					{
+						type: PluginAuthMethodType.OAuth,
+						label: "Plugin OAuth",
+						prompts: [
+							PluginAuthPrompt.Text({
+								key: "apiKey",
+								message: "API key",
+								placeholder: "token",
+								when: {
+									key: "mode",
+									op: PluginAuthPromptWhenOp.Eq,
+									value: "manual",
+								},
+							}),
+							PluginAuthPrompt.Select({
+								key: "region",
+								message: "Region",
+								options: [
+									{
+										label: "US",
+										value: "us",
+										hint: "fast",
+									}
+								],
+								when: {
+									key: "mode",
+									op: PluginAuthPromptWhenOp.NotEq,
+									value: "auto",
+								},
+							})
+						],
+					}
+				],
+			}
+		];
 	}
 
 	static function providerArrayHasID(items:genes.ts.UnknownArray, providerID:String):Bool {

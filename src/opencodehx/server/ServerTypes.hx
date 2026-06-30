@@ -2,6 +2,7 @@ package opencodehx.server;
 
 import js.lib.Promise;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthHook;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.sync.SyncRouteRuntime;
@@ -26,6 +27,7 @@ typedef ServerOptions = {
 	@:optional final syncRuntime:SyncRouteRuntime;
 	@:optional final liveAiSdk:ServerLiveAiSdkOptions;
 	@:optional final liveConfig:ServerLiveConfigOptions;
+	@:optional final providerAuthHooks:Array<PluginAuthHook>;
 }
 
 typedef ServerListener = {

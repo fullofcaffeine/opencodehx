@@ -1,6 +1,6 @@
 # Provider Registry Port
 
-**Beads:** `opencodehx-024`, `opencodehx-025`, `opencodehx-nrh`, `opencodehx-hup`, `opencodehx-7aan`, `opencodehx-acxa`
+**Beads:** `opencodehx-024`, `opencodehx-025`, `opencodehx-nrh`, `opencodehx-hup`, `opencodehx-7aan`, `opencodehx-acxa`, `opencodehx-24ys`
 **Upstream oracle:** `../opencode/packages/opencode/src/provider/provider.ts`, `schema.ts`, `models.ts`, `auth/index.ts`, `config/provider.ts`, `env/index.ts`, plus `../opencode/packages/opencode/test/provider/provider.test.ts` and `amazon-bedrock.test.ts`.
 
 ## Slice
@@ -37,8 +37,9 @@ This slice adds the first Haxe-owned provider registry:
 - `CopilotResponsesLanguageModel` ports the first Haxe-owned GitHub Copilot/OpenAI Responses `LanguageModelV3` path for `gpt-5` non-mini models, including typed request-body construction, non-stream result mapping, and core SSE event mapping.
 - `CopilotLanguageLoader` wires configured `@ai-sdk/github-copilot` models through the upstream `shouldUseCopilotResponsesApi` rule: chat models use `ProviderRegistry.resolveCopilotChat`, while `gpt-5` non-mini models use `ProviderRegistry.resolveCopilotResponses`.
 - `ProviderOptionAccess` centralizes typed reads from open provider SDK options, keeping `Record<string, any>`-style boundary access localized and narrowed before loaders consume it.
-- `opencodehx.server.ServerProviderProtocol` encodes the first server provider-list JSON shapes for `GET /config/providers` and `GET /provider`, keeping provider `models` and `default` string-keyed records out of route logic while preserving upstream's provider/model ID map contract.
+- `opencodehx.server.ServerProviderProtocol` encodes the first server provider-list JSON shapes for `GET /config/providers`, `GET /provider`, and `GET /provider/auth`, keeping provider `models`, `default`, and auth-method string-keyed records out of route logic while preserving upstream's provider/model ID map contract.
 - `OpenCodeServer` now exposes the first `/provider` route: it loads `ProviderModelsDev`, filters by local enabled/disabled provider config, overlays connected `ProviderRegistry` providers, and returns upstream-shaped `all`, `default`, and `connected` fields.
+- `OpenCodeServer` now exposes the first `/provider/auth` route. The current route returns typed, injected plugin-auth method hooks as upstream-shaped provider method arrays; live plugin loading plus OAuth authorize/callback persistence remains deferred.
 
 ## Evidence
 
@@ -62,6 +63,7 @@ This slice adds the first Haxe-owned provider registry:
 - The pre-existing credential-free fake provider transcript harness.
 - `ServerSmoke` covers `GET /config/providers` for a configured provider, including provider list output, model-map JSON encoding, and default model IDs.
 - `ServerSmoke` covers `GET /provider` against a local no-network models.dev file, including catalog provider output, connected-provider overlay, connected IDs, and default model IDs.
+- `ServerSmoke` covers `GET /provider/auth` for the empty default and an injected plugin-auth provider, including API/OAuth methods, prompt omission for methods without prompts, text/select prompts, option hints, and prompt `when` conditions.
 
 `AiSdkProviderSmoke` is the executable fixture for the first AI SDK runtime path. It covers:
 
@@ -248,7 +250,7 @@ This is not the full provider runtime:
 
 - More bundled and non-bundled provider loading beyond the current OpenAI-compatible/OpenAI-family/Google-family/Anthropic/Bedrock/Mistral/Groq/Cohere/Perplexity/OpenRouter/DeepInfra/Cerebras/Gateway/TogetherAI/Vercel/Alibaba/Venice/GitLab/Cloudflare AI Gateway evidence, dynamic provider installation/loading, deeper provider-specific request options beyond the current typed factory settings, live Bedrock credential-chain/signing evidence, Cloudflare user-agent parity once the SDK exposes a typed seam for it, and real external plugin runtime/loading hooks remain `opencodehx-nrh`.
 - Deeper Copilot Responses parity remains provider-runtime scope: provider-executed tool argument schemas, richer annotations/logprobs, image/code/file-search payload details, and live session-loop consumption need broader upstream fixtures before they should be treated as complete.
-- GitLab live workflow model discovery, `gitlab-ai-provider` model-class routing, OAuth browser/login flows, and auth persistence remain deferred to their owning provider/auth/plugin slices.
+- GitLab live workflow model discovery, `gitlab-ai-provider` model-class routing, OAuth browser/login flows, `/provider/:providerID/oauth/*` authorize/callback routes, and auth persistence remain deferred to their owning provider/auth/plugin slices.
 
 ## genes-ts Notes
 

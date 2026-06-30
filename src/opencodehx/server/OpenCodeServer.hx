@@ -29,6 +29,7 @@ import opencodehx.pty.PtyTypes.PtyConnectHandler;
 import opencodehx.pty.PtyTypes.PtyID;
 import opencodehx.pty.PtyTypes.PtySocket;
 import opencodehx.pty.PtyTypes.PtySocketMessage;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthHook;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.ProviderModelsDev;
 import opencodehx.provider.ProviderRegistry;
@@ -50,6 +51,7 @@ import opencodehx.session.SessionLive.liveRunPlan;
 import opencodehx.session.SessionProcessor;
 import opencodehx.server.ServerProjectProtocol.decodeProjectUpdate;
 import opencodehx.server.ServerProviderProtocol.encodeConfigProviders;
+import opencodehx.server.ServerProviderProtocol.encodeProviderAuthMethods;
 import opencodehx.server.ServerProviderProtocol.encodeProviderList;
 import opencodehx.server.ServerProtocol.DecodeResult;
 import opencodehx.server.ServerProtocol.GlobalSessionResponse;
@@ -95,6 +97,7 @@ class OpenCodeServer {
 	final sessionStatus:ServerSessionStatusRuntime;
 	final liveAiSdk:Null<ServerLiveAiSdkOptions>;
 	final liveConfig:Null<ServerLiveConfigOptions>;
+	final providerAuthHooks:Array<PluginAuthHook>;
 	final liveAborts = new Map<String, AbortControllerWithReason>();
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
@@ -110,6 +113,7 @@ class OpenCodeServer {
 		sessionStatus = new ServerSessionStatusRuntime(event -> eventBus.publish(event));
 		liveAiSdk = options.liveAiSdk;
 		liveConfig = options.liveConfig;
+		providerAuthHooks = options.providerAuthHooks == null ? [] : options.providerAuthHooks.copy();
 		app = new Hono();
 		ws = NodeWs.createNodeWebSocket({app: app});
 		routes();
@@ -131,6 +135,7 @@ class OpenCodeServer {
 		app.get("/config", c -> getConfig(c));
 		app.get("/config/providers", c -> getConfigProviders(c));
 		app.get("/provider", c -> getProviders(c));
+		app.get("/provider/auth", c -> getProviderAuth(c));
 		app.get("/event", c -> eventStream(c));
 		app.get("/permission", c -> listPermissions(c));
 		app.get("/question", c -> listQuestions(c));
@@ -449,6 +454,10 @@ class OpenCodeServer {
 		final all = providerList(config, catalog, connectedRegistry.all());
 		final connected = [for (provider in connectedRegistry.all()) provider.id.toString()];
 		return json(c, encodeProviderList(all, connected));
+	}
+
+	function getProviderAuth(c:HonoContext):Response {
+		return json(c, encodeProviderAuthMethods(providerAuthHooks));
 	}
 
 	function listProjects(c:HonoContext):Response {
