@@ -44,6 +44,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ConfigSmoke` reads LSP server presence, disabled flags, and extensions through `ConfigLsp` Unknown-based accessors instead of raw reflection over the still-open `ConfigInfo.lsp` boundary.
 - `ConfigSmoke` builds local-update permission patches with the typed `PermissionConfigValue` map and asserts through map reads instead of object-literal casts or reflection.
 - `ConfigSmoke` narrows the remote MCP override assertion through `UnknownRecord`/`UnknownNarrow` instead of casting a smoke-local typedef from `Reflect.field`.
+- `ServerSmoke` reads listener/app health and the first PTY create/list/get/update/missing route assertions through `UnknownRecord`/`UnknownArray` helpers and typed `Response.status` instead of raw reflection and casts.
 
 ## Remaining Hotspots
 

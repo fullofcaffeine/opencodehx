@@ -141,8 +141,8 @@ class ServerSmoke {
 			await(liveAiSdkSessionRoute(root));
 			await(liveConfigSessionRoute(root));
 			listener = await(server.listen(0, "127.0.0.1"));
-			final health = await(fetchJson(listener.url + "/health"));
-			eq(Reflect.field(health, "ok"), true, "listener health");
+			final health = requiredRecord(Unknown.fromBoundary(await(fetchJson(listener.url + "/health"))), "listener health");
+			eq(UnknownNarrow.bool(health.get("ok")), true, "listener health");
 			await(ptyWebSocketRoute(listener.url));
 			await(listener.stop(true));
 			server.close();
@@ -408,7 +408,8 @@ class ServerSmoke {
 	static function appRequestRoutes(server:OpenCodeServer, root:String, workspaceSync:WorkspaceSyncRuntime, syncRuntime:SyncRouteRuntime,
 			remoteSync:SyncRouteRuntime):Promise<Void> {
 		final health = await(jsonResponse(await(server.app.request("/health"))));
-		eq(Reflect.field(health, "service"), "opencodehx", "health service");
+		final healthRecord = requiredRecord(Unknown.fromBoundary(health), "health route");
+		eq(requiredString(healthRecord, "service", "health service"), "opencodehx", "health service");
 		await(configRoute(server, root));
 		await(workspaceRemoteHttp());
 		await(projectGitInitRoutes(server, root));
@@ -424,23 +425,25 @@ class ServerSmoke {
 
 		// Parsed PTY route JSON is inspected as a smoke boundary payload here;
 		// production PTY request bodies decode through PtyRouteProtocol first.
-		final ptyCreated = await(jsonResponse(await(server.app.request("/pty", {
+		final ptyCreateResponse = await(server.app.request("/pty", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({command: "cat", title: "Server PTY"}),
-		}))));
-		final ptyID = Std.string(Reflect.field(ptyCreated, "id"));
-		eq(Reflect.field(ptyCreated, "title"), "Server PTY", "pty created title");
-		final ptyList:Dynamic = await(jsonResponse(await(server.app.request("/pty"))));
-		eq(Reflect.field(cast ptyList[0], "id"), ptyID, "pty listed id");
-		final ptyGet = await(jsonResponse(await(server.app.request('/pty/${ptyID}'))));
-		eq(Reflect.field(ptyGet, "status"), "running", "pty get status");
-		final ptyUpdated = await(jsonResponse(await(server.app.request('/pty/${ptyID}', {
+		}));
+		final ptyCreated = requiredRecord(Unknown.fromBoundary(await(jsonResponse(ptyCreateResponse))), "pty created");
+		final ptyID = requiredString(ptyCreated, "id", "pty created id");
+		eq(requiredString(ptyCreated, "title", "pty created title"), "Server PTY", "pty created title");
+		final ptyList = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/pty"))))), "pty list");
+		eq(requiredString(requiredRecord(ptyList.get(0), "pty listed item"), "id", "pty listed id"), ptyID, "pty listed id");
+		final ptyGet = requiredRecord(Unknown.fromBoundary(await(jsonResponse(await(server.app.request('/pty/${ptyID}'))))), "pty get");
+		eq(requiredString(ptyGet, "status", "pty get status"), "running", "pty get status");
+		final ptyUpdateResponse = await(server.app.request('/pty/${ptyID}', {
 			method: "PUT",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({title: "Renamed PTY", size: {cols: 90, rows: 25}}),
-		}))));
-		eq(Reflect.field(ptyUpdated, "title"), "Renamed PTY", "pty updated title");
+		}));
+		final ptyUpdated = requiredRecord(Unknown.fromBoundary(await(jsonResponse(ptyUpdateResponse))), "pty updated");
+		eq(requiredString(ptyUpdated, "title", "pty updated title"), "Renamed PTY", "pty updated title");
 		final invalidPtyUpdate = await(server.app.request('/pty/${ptyID}', {
 			method: "PUT",
 			headers: {"content-type": "application/json"},
@@ -452,7 +455,7 @@ class ServerSmoke {
 		final ptyDeleted = await(jsonResponse(await(server.app.request('/pty/${ptyID}', {method: "DELETE"}))));
 		eq(ptyDeleted, true, "pty delete route");
 		final ptyMissing = await(server.app.request('/pty/${ptyID}'));
-		eq(Reflect.field(ptyMissing, "status"), 404, "pty missing route");
+		eq(ptyMissing.status, 404, "pty missing route");
 
 		final syncReplay = await(jsonResponse(await(server.app.request("/sync/replay", {
 			method: "POST",
