@@ -156,6 +156,7 @@ function nextBeadFor(path, area) {
 
 function directEvidence(path) {
   const exact = new Map([
+    ["account/repo.test.ts", ["direct", "src/opencodehx/account/AccountRepo.hx; src/opencodehx/smoke/AccountSmoke.hx; docs/account-repo.md", "Effect service layering is not ported here, but upstream SQLite account row/state semantics are covered against an isolated temp database", "AccountSmoke account repo fixtures", "none"]],
     ["util/format.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#formatDuration; docs/util-port.md", "none", "UtilSmoke.formatDuration"]],
     ["util/lazy.test.ts", ["ported", "src/opencodehx/smoke/UtilSmoke.hx#lazy; docs/util-port.md", "none", "UtilSmoke.lazy"]],
     ["util/iife.test.ts", ["ported", "src/opencodehx/util/Iife.hx; src/opencodehx/smoke/UtilSmoke.hx#iife; docs/util-port.md", "none", "UtilSmoke.iife"]],

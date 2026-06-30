@@ -8,6 +8,7 @@ import opencodehx.cli.Cli;
 import opencodehx.fixtures.DynamicFixture;
 import opencodehx.fx.Task;
 import opencodehx.host.node.NodePath;
+import opencodehx.smoke.AccountSmoke;
 import opencodehx.smoke.AiSdkProviderSmoke;
 import opencodehx.smoke.AuthSmoke;
 import opencodehx.smoke.BusSmoke;
@@ -100,6 +101,8 @@ class Main {
 				log("config-smoke:ok");
 				AuthSmoke.run();
 				log("auth-smoke:ok");
+				AccountSmoke.run();
+				log("account-smoke:ok");
 				FileSmoke.run();
 				log("file-smoke:ok");
 				return FileSmoke.runAsync();
