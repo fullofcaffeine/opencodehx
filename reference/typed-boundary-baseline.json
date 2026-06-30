@@ -23,7 +23,7 @@
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 366,
+    "Reflect.field": 365,
     "Reflect.hasField": 34,
     "Reflect.setField": 47,
     "Any": 0
@@ -589,9 +589,6 @@
     },
     "src/opencodehx/tool/ApplyPatchTool.hx": {
       "Dynamic": 1
-    },
-    "src/opencodehx/tool/BashTool.hx": {
-      "Reflect.field": 1
     },
     "src/opencodehx/tool/EditTool.hx": {
       "Dynamic": 1

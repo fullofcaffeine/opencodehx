@@ -1,5 +1,7 @@
 package opencodehx.tool;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import js.lib.Error;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
@@ -136,7 +138,7 @@ class BashTool {
 		if (truncated)
 			output = "...output truncated...\n\n" + output;
 		final meta:Array<String> = [];
-		if (error != null && Std.string(Reflect.field(error, "code")) == "ETIMEDOUT") {
+		if (isTimeoutError(error)) {
 			meta.push('bash tool terminated command after exceeding timeout ${timeout} ms.');
 		}
 		if (signal != null && signal != "")
@@ -155,6 +157,15 @@ class BashTool {
 				signal: signal,
 			}),
 		};
+	}
+
+	static function isTimeoutError(error:Null<Error>):Bool {
+		if (error == null)
+			return false;
+		final record = UnknownNarrow.record(Unknown.fromBoundary(error));
+		if (record == null)
+			return false;
+		return UnknownNarrow.string(record.get("code")) == "ETIMEDOUT";
 	}
 
 	static function joinOutput(stdout:String, stderr:String):String {
