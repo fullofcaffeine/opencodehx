@@ -406,12 +406,7 @@ class AiSdkMockModel {
 			// zero is unused and the first real stream lives at index one.
 			doStream: [first, first, second],
 		});
-		// MockLanguageModelV3 implements the AI SDK LanguageModelV3 interface,
-		// but Haxe cannot see that external TypeScript `implements` clause.
-		return {
-			language: cast mock,
-			mock: mock,
-		};
+		return inspectableMock(mock);
 	}
 
 	public static function inspectableTwoToolsThenText(text:String, ?firstToolName:String, ?firstInput:String, ?secondToolName:String,
@@ -438,12 +433,7 @@ class AiSdkMockModel {
 			// zero is unused and the first real stream lives at index one.
 			doStream: [first, first, second, third],
 		});
-		// MockLanguageModelV3 implements the AI SDK LanguageModelV3 interface,
-		// but Haxe cannot see that external TypeScript `implements` clause.
-		return {
-			language: cast mock,
-			mock: mock,
-		};
+		return inspectableMock(mock);
 	}
 
 	public static function error(message:String):AiLanguageModel {
@@ -452,6 +442,19 @@ class AiSdkMockModel {
 			AiProviderStreamPart.error(Unknown.fromBoundary(message)),
 			AiProviderStreamPart.finish(finishReason(AiFinishReason.Error, "error"), usage(1, 0)),
 		], null, null);
+	}
+
+	public static function inspectableErrorThenText(message:String, text:String):AiSdkInspectableMock {
+		final first = errorStream(message);
+		final second = textStream("txt_retry", text);
+		final mock = new MockLanguageModelV3({
+			provider: "opencodehx-test",
+			modelId: "mock-error-then-text",
+			// ai/test records the call before indexing array fixtures, so index
+			// zero is unused and the first real stream lives at index one.
+			doStream: [first, first, second],
+		});
+		return inspectableMock(mock);
 	}
 
 	public static function abortable():AiLanguageModel {
@@ -475,8 +478,14 @@ class AiSdkMockModel {
 			modelId: modelId,
 			doStream: streamResult(chunks, initialDelayInMs, chunkDelayInMs),
 		});
+		return inspectableMock(mock);
+	}
+
+	static function inspectableMock(mock:MockLanguageModelV3):AiSdkInspectableMock {
 		// MockLanguageModelV3 implements the AI SDK LanguageModelV3 interface,
-		// but Haxe cannot see that external TypeScript `implements` clause.
+		// but Haxe cannot see that external TypeScript `implements` clause. Keep
+		// the assertion at this test fixture boundary so app code receives the
+		// real typed language-model extern instead of repeating casts per mock.
 		return {
 			language: cast mock,
 			mock: mock,
@@ -498,6 +507,14 @@ class AiSdkMockModel {
 			AiProviderStreamPart.streamStart(),
 			AiProviderStreamPart.toolCall(callID, name, payload),
 			AiProviderStreamPart.finish(finishReason(AiFinishReason.ToolCalls, "tool_calls"), usage(3, 4)),
+		], null, null);
+	}
+
+	static function errorStream(message:String):AiProviderStreamResult {
+		return streamResult([
+			AiProviderStreamPart.streamStart(),
+			AiProviderStreamPart.error(Unknown.fromBoundary(message)),
+			AiProviderStreamPart.finish(finishReason(AiFinishReason.Error, "error"), usage(1, 0)),
 		], null, null);
 	}
 

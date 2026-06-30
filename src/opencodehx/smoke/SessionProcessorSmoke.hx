@@ -1216,6 +1216,35 @@ description: Review workflow.
 			eq(retryResult.events[3].message, "Rate limit exceeded", "ai sdk retry event message");
 			assertRetryPart(retryResult.messages[1].parts, "ai sdk retry part", 1.0, "Error");
 
+			final retryLoopRuntime = AiSdkMockModel.inspectableErrorThenText("Rate limit exceeded", "Recovered after retry.");
+			final retryWaitAttempts:Array<Int> = [];
+			final retryLoop = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_retry_loop",
+				prompt: "Retry once, then recover.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: retryLoopRuntime.language,
+				retryPolicy: {
+					maxAttempts: 2,
+					wait: retry -> {
+						retryWaitAttempts.push(retry.attempt);
+						return Promise.resolve(true);
+					},
+				},
+			});
+			eq(retryWaitAttempts.length, 1, "ai sdk retry loop wait count");
+			eq(retryWaitAttempts[0], 1, "ai sdk retry loop wait attempt");
+			eq(retryLoopRuntime.mock.doStreamCalls.length, 2, "ai sdk retry loop stream calls");
+			eq(hasSessionEvent(retryLoop.events, "retry", "Rate limit exceeded"), true, "ai sdk retry loop event");
+			eq(retryLoop.retry == null, true, "ai sdk retry loop final retry cleared");
+			switch retryLoop.messages[1].parts[0] {
+				case TextPart(text):
+					eq(text.text, "Recovered after retry.", "ai sdk retry loop assistant text");
+				case _:
+					throw "session processor async: expected retry-loop text";
+			}
+
 			final abortResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_abort",
 				projectID: "proj_ai_sdk_abort",

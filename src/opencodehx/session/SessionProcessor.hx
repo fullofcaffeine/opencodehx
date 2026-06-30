@@ -29,6 +29,8 @@ import opencodehx.externs.ai.AiSdk.AiModelToolResultTurn;
 import opencodehx.externs.ai.AiSdk.AiModelUserMessagePart;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkStreamEvent;
+import opencodehx.provider.AiSdkProvider.AiSdkStreamInput;
+import opencodehx.provider.AiSdkProvider.AiSdkStreamResult;
 import opencodehx.provider.FakeProvider;
 import opencodehx.provider.FakeProvider.FakeProviderEvent;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
@@ -101,6 +103,17 @@ typedef SessionProviderIdentity = {
 	final system:Array<String>;
 }
 
+typedef SessionRetryPolicy = {
+	@:optional final maxAttempts:Int;
+	@:optional final wait:SessionRetryStatus->Promise<Bool>;
+}
+
+typedef SessionAiSdkStreamAttempt = {
+	final stream:AiSdkStreamResult;
+	final retry:Null<SessionRetryStatus>;
+	final providerError:Null<SessionProviderError>;
+}
+
 typedef SessionFileInput = {
 	final mime:String;
 	final url:String;
@@ -160,6 +173,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final headers:ProviderHeaders;
 	@:optional final variant:String;
 	@:optional final retryAttempt:Int;
+	@:optional final retryPolicy:SessionRetryPolicy;
 }
 
 typedef SessionProcessorResult = {
@@ -319,7 +333,7 @@ class SessionProcessor {
 		} else {
 			events.push({type: "start"});
 			final requestMessages = SessionLlm.requestModelMessages(provider.system, prompt, false, false, messageHistory);
-			final stream = @:await AiSdkProvider.stream({
+			final streamAttempt = @:await streamAiSdkWithRetry(input, {
 				model: input.language,
 				prompt: prompt,
 				messages: requestMessages,
@@ -334,22 +348,12 @@ class SessionProcessor {
 				providerModel: input.model,
 				transformOptions: streamOptions.options,
 				maxRetries: streamOptions.maxRetries,
-			});
-			streamAborted = stream.aborted;
-			tokens = tokenUsageFromAiSdk(stream.totalUsage);
-			modelToolCall = firstModelToolCall(stream.events);
-			for (event in encodeAiSdkEvents(stream.events))
-				events.push(event);
-			providerError = firstAiSdkProviderError(stream.errors);
-			retry = providerError == null ? null : SessionRetry.status(providerError, retryAttempt(input.retryAttempt));
-			if (retry != null) {
-				events.push({
-					type: "retry",
-					attempt: retry.attempt,
-					message: retry.message,
-					nextDelay: retry.nextDelay,
-				});
-			}
+			}, events);
+			streamAborted = streamAttempt.stream.aborted;
+			tokens = tokenUsageFromAiSdk(streamAttempt.stream.totalUsage);
+			modelToolCall = firstModelToolCall(streamAttempt.stream.events);
+			providerError = streamAttempt.providerError;
+			retry = streamAttempt.retry;
 		}
 
 		final assistantText = collectText(events);
@@ -450,6 +454,50 @@ class SessionProcessor {
 
 	static function retryAttempt(configured:Null<Int>):Int {
 		return configured == null ? 1 : configured;
+	}
+
+	@:async
+	static function streamAiSdkWithRetry(input:SessionAiSdkProcessorInput, streamInput:AiSdkStreamInput,
+			events:Array<SessionEvent>):Promise<SessionAiSdkStreamAttempt> {
+		var attempt = retryAttempt(input.retryAttempt);
+		var calls = 0;
+		final maxAttempts = retryMaxAttempts(input.retryPolicy);
+		while (true) {
+			calls++;
+			final stream = @:await AiSdkProvider.stream(streamInput);
+			for (event in encodeAiSdkEvents(stream.events))
+				events.push(event);
+			final providerError = firstAiSdkProviderError(stream.errors);
+			final retry = providerError == null ? null : SessionRetry.status(providerError, attempt);
+			if (retry == null || stream.aborted)
+				return {stream: stream, retry: retry, providerError: providerError};
+			events.push(retryEvent(retry));
+			if (calls >= maxAttempts)
+				return {stream: stream, retry: retry, providerError: providerError};
+			final wait = input.retryPolicy == null ? null : input.retryPolicy.wait;
+			if (wait != null) {
+				final keepGoing = @:await wait(retry);
+				if (!keepGoing)
+					return {stream: stream, retry: retry, providerError: providerError};
+			}
+			attempt++;
+		}
+	}
+
+	static function retryMaxAttempts(policy:Null<SessionRetryPolicy>):Int {
+		if (policy == null)
+			return 1;
+		final maxAttempts:Null<Int> = policy.maxAttempts;
+		return maxAttempts == null ? 1 : maxAttempts;
+	}
+
+	static function retryEvent(retry:SessionRetryStatus):SessionEvent {
+		return {
+			type: "retry",
+			attempt: retry.attempt,
+			message: retry.message,
+			nextDelay: retry.nextDelay,
+		};
 	}
 
 	static function firstAiSdkProviderError(errors:Array<String>):Null<SessionProviderError> {
