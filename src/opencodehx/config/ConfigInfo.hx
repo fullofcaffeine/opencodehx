@@ -1,6 +1,8 @@
 package opencodehx.config;
 
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import haxe.extern.EitherType;
 import opencodehx.config.ConfigPlugin.PluginOrigin;
@@ -281,28 +283,24 @@ class ConfigInfo {
 	public static function mergeObject(current:Dynamic, next:Dynamic):Dynamic {
 		if (current == null)
 			return next;
-		if (!isObjectRecord(current) || !isObjectRecord(next))
+		final currentRecord = objectRecord(current);
+		final nextRecord = objectRecord(next);
+		if (currentRecord == null || nextRecord == null)
 			return next;
 
-		final result:Dynamic = {};
-		for (field in Reflect.fields(current)) {
-			Reflect.setField(result, field, Reflect.field(current, field));
+		final result = new DynamicAccess<Unknown>();
+		for (field in currentRecord.keys()) {
+			result.set(field, currentRecord.get(field));
 		}
-		for (field in Reflect.fields(next)) {
-			final currentValue = Reflect.field(result, field);
-			final nextValue = Reflect.field(next, field);
-			Reflect.setField(result, field, mergeObject(currentValue, nextValue));
+		for (field in nextRecord.keys()) {
+			final currentValue = result.get(field);
+			final nextValue = nextRecord.get(field);
+			result.set(field, Unknown.fromBoundary(mergeObject(currentValue, nextValue)));
 		}
 		return result;
 	}
 
-	static function isObjectRecord(value:Dynamic):Bool {
-		if (value == null)
-			return false;
-		if (Std.isOfType(value, Array))
-			return false;
-		if (Std.isOfType(value, String) || Std.isOfType(value, Bool) || Std.isOfType(value, Float) || Std.isOfType(value, Int))
-			return false;
-		return Reflect.isObject(value);
+	static function objectRecord(value:Dynamic):Null<UnknownRecord> {
+		return UnknownNarrow.record(Unknown.fromBoundary(value));
 	}
 }
