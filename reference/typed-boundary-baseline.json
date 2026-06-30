@@ -24,7 +24,7 @@
     "Syntax.code": 23,
     "@:ts.type": 82,
     "Reflect.field": 106,
-    "Reflect.hasField": 27,
+    "Reflect.hasField": 24,
     "Reflect.setField": 45,
     "Any": 0
   },
@@ -287,8 +287,7 @@
     "src/opencodehx/provider/ProviderTransform.hx": {
       "Dynamic": 2,
       "DynamicAccess": 4,
-      "cast": 6,
-      "Reflect.hasField": 3
+      "cast": 6
     },
     "src/opencodehx/provider/ProviderTypes.hx": {
       "Dynamic": 3,

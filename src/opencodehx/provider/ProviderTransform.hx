@@ -890,18 +890,9 @@ class ProviderTransform {
 	}
 
 	static function hasSchemaIntent(schema:ProviderJsonSchema):Bool {
-		return hasSchemaCombiner(schema)
-			|| schema.type != null
-			|| schema.properties != null
-			|| schema.patternProperties != null
-			|| schema.items != null
-			|| schema.prefixItems != null
-			|| schema.required != null
-			|| schema.not != null
-			|| schema.enumValues != null
-			|| Reflect.hasField(schema, "const")
-			|| Reflect.hasField(schema, "$ref")
-			|| Reflect.hasField(schema, "additionalProperties");
+		return hasSchemaCombiner(schema) || schema.type != null || schema.properties != null || schema.patternProperties != null || schema.items != null
+			|| schema.prefixItems != null || schema.required != null || schema.not != null || schema.enumValues != null || schema.constValue != null
+			|| schema.ref != null || schema.additionalProperties != null;
 	}
 
 	static function normalizeEnumLiterals(schema:ProviderJsonSchema):Void {

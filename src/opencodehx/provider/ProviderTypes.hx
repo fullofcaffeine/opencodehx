@@ -191,6 +191,10 @@ typedef ProviderJsonSchema = {
 	@:optional var allOf:Array<ProviderJsonSchema>;
 	@:optional var not:ProviderJsonSchema;
 	@:optional var additionalProperties:Bool;
+	@:native("$ref") @:optional var ref:String;
+	// JSON Schema `const` can be any JSON literal. Keep it opaque here because
+	// provider schema transforms only need presence; decode it before reading.
+	@:native("const") @:optional var constValue:Unknown;
 	// JSON Schema enum values are arbitrary literals. Keep Dynamic confined to
 	// this schema-boundary field and normalize/narrow before application use.
 	@:native("enum") @:optional var enumValues:Array<Dynamic>;
