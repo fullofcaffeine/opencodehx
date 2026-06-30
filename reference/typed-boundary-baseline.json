@@ -17,7 +17,7 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 495,
+    "Dynamic": 468,
     "DynamicAccess": 540,
     "cast": 136,
     "untyped": 4,
@@ -326,7 +326,7 @@
       "cast": 1
     },
     "src/opencodehx/provider/copilot/CopilotResponsesResponseDecoder.hx": {
-      "Dynamic": 30
+      "Dynamic": 3
     },
     "src/opencodehx/provider/copilot/CopilotResponsesStream.hx": {
       "Dynamic": 1,

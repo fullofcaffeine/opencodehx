@@ -1,7 +1,9 @@
 package opencodehx.provider.copilot;
 
 import genes.ts.Unknown;
+import genes.ts.JsonCodec;
 import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.Json;
 import opencodehx.externs.ai.AiSdk.AiJsonValue;
 import opencodehx.provider.copilot.CopilotResponsesCompletion.CopilotResponsesAnnotation;
@@ -44,8 +46,9 @@ class CopilotResponsesResponseDecoder {
 		try {
 			final parsed = parseObject(rawValue, "Responses error response");
 			final error = field(parsed, "error");
-			if (isObject(error)) {
-				final message = optionalString(field(error, "message"));
+			final errorRecord = optionalObject(error);
+			if (errorRecord != null) {
+				final message = optionalString(field(errorRecord, "message"));
 				if (message != null && message != "")
 					return message;
 			}
@@ -56,79 +59,83 @@ class CopilotResponsesResponseDecoder {
 		return fallback;
 	}
 
-	static function parseObject(rawValue:String, label:String):Dynamic {
-		final parsed:Dynamic = Json.parse(rawValue);
-		if (!isObject(parsed) || Std.isOfType(parsed, Array))
+	static function parseObject(rawValue:String, label:String):UnknownRecord {
+		final parsed = Unknown.fromBoundary(Json.parse(rawValue));
+		final record = optionalObject(parsed);
+		if (record == null)
 			throw new CopilotInvalidResponsesResponseError('${label}: expected object.');
-		return parsed;
+		return record;
 	}
 
-	static function outputArray(value:Dynamic):Array<CopilotResponsesOutputItem> {
-		if (!Std.isOfType(value, Array))
+	static function outputArray(value:Unknown):Array<CopilotResponsesOutputItem> {
+		final raw = UnknownNarrow.array(value);
+		if (raw == null)
 			throw new CopilotInvalidResponsesResponseError("Responses response: expected output to be an array.");
-		final raw:Array<Dynamic> = value;
 		final out:Array<CopilotResponsesOutputItem> = [];
-		for (item in raw)
-			out.push(outputItem(item));
+		for (index in 0...raw.length)
+			out.push(outputItem(raw.get(index)));
 		return out;
 	}
 
-	static function outputItem(value:Dynamic):CopilotResponsesOutputItem {
-		if (!isObject(value))
+	static function outputItem(value:Unknown):CopilotResponsesOutputItem {
+		final record = optionalObject(value);
+		if (record == null)
 			throw new CopilotInvalidResponsesResponseError("Responses output item: expected object.");
-		final type = requiredString(value, "type");
+		final type = requiredString(record, "type");
 		return {
 			type: type,
-			role: optionalString(field(value, "role")),
-			id: optionalString(field(value, "id")),
-			content: optionalOutputTextArray(field(value, "content")),
-			call_id: optionalString(field(value, "call_id")),
-			name: optionalString(field(value, "name")),
-			arguments: optionalString(field(value, "arguments")),
-			encrypted_content: optionalString(field(value, "encrypted_content")),
-			summary: CopilotResponsesResponseDecoder.summaryArray(field(value, "summary")),
-			status: optionalString(field(value, "status")),
-			queries: stringArray(field(value, "queries")),
+			role: optionalString(field(record, "role")),
+			id: optionalString(field(record, "id")),
+			content: optionalOutputTextArray(field(record, "content")),
+			call_id: optionalString(field(record, "call_id")),
+			name: optionalString(field(record, "name")),
+			arguments: optionalString(field(record, "arguments")),
+			encrypted_content: optionalString(field(record, "encrypted_content")),
+			summary: CopilotResponsesResponseDecoder.summaryArray(field(record, "summary")),
+			status: optionalString(field(record, "status")),
+			queries: stringArray(field(record, "queries")),
 			results: null,
-			code: optionalString(field(value, "code")),
-			container_id: optionalString(field(value, "container_id")),
-			outputs: jsonValueOrNull(field(value, "outputs")),
-			result: jsonValueOrNull(field(value, "result")),
-			action: jsonValueOrNull(field(value, "action")),
+			code: optionalString(field(record, "code")),
+			container_id: optionalString(field(record, "container_id")),
+			outputs: jsonValueOrNull(field(record, "outputs")),
+			result: jsonValueOrNull(field(record, "result")),
+			action: jsonValueOrNull(field(record, "action")),
 		};
 	}
 
-	static function optionalOutputTextArray(value:Dynamic):Array<CopilotResponsesOutputText> {
-		if (value == null)
+	static function optionalOutputTextArray(value:Unknown):Array<CopilotResponsesOutputText> {
+		if (isNullish(value))
 			return null;
-		if (!Std.isOfType(value, Array))
+		final raw = UnknownNarrow.array(value);
+		if (raw == null)
 			throw new CopilotInvalidResponsesResponseError("Responses message content: expected array.");
-		final raw:Array<Dynamic> = value;
 		final out:Array<CopilotResponsesOutputText> = [];
-		for (item in raw)
-			out.push(outputText(item));
+		for (index in 0...raw.length)
+			out.push(outputText(raw.get(index)));
 		return out;
 	}
 
-	static function outputText(value:Dynamic):CopilotResponsesOutputText {
-		if (!isObject(value))
+	static function outputText(value:Unknown):CopilotResponsesOutputText {
+		final record = optionalObject(value);
+		if (record == null)
 			throw new CopilotInvalidResponsesResponseError("Responses output text: expected object.");
 		return {
-			type: requiredString(value, "type"),
-			text: requiredString(value, "text"),
-			annotations: annotationArray(field(value, "annotations")),
+			type: requiredString(record, "type"),
+			text: requiredString(record, "text"),
+			annotations: annotationArray(field(record, "annotations")),
 		};
 	}
 
-	static function annotationArray(value:Dynamic):Array<CopilotResponsesAnnotation> {
-		if (value == null)
+	static function annotationArray(value:Unknown):Array<CopilotResponsesAnnotation> {
+		if (isNullish(value))
 			return [];
-		if (!Std.isOfType(value, Array))
+		final raw = UnknownNarrow.array(value);
+		if (raw == null)
 			throw new CopilotInvalidResponsesResponseError("Responses annotations: expected array.");
-		final raw:Array<Dynamic> = value;
 		final out:Array<CopilotResponsesAnnotation> = [];
-		for (item in raw) {
-			if (!isObject(item))
+		for (index in 0...raw.length) {
+			final item = optionalObject(raw.get(index));
+			if (item == null)
 				throw new CopilotInvalidResponsesResponseError("Responses annotation: expected object.");
 			out.push({
 				type: requiredString(item, "type"),
@@ -142,15 +149,16 @@ class CopilotResponsesResponseDecoder {
 		return out;
 	}
 
-	static function summaryArray(value:Dynamic):Array<CopilotResponsesSummaryPart> {
-		if (value == null)
+	static function summaryArray(value:Unknown):Array<CopilotResponsesSummaryPart> {
+		if (isNullish(value))
 			return [];
-		if (!Std.isOfType(value, Array))
+		final raw = UnknownNarrow.array(value);
+		if (raw == null)
 			throw new CopilotInvalidResponsesResponseError("Responses reasoning summary: expected array.");
-		final raw:Array<Dynamic> = value;
 		final out:Array<CopilotResponsesSummaryPart> = [];
-		for (item in raw) {
-			if (!isObject(item))
+		for (index in 0...raw.length) {
+			final item = optionalObject(raw.get(index));
+			if (item == null)
 				throw new CopilotInvalidResponsesResponseError("Responses reasoning summary item: expected object.");
 			out.push({
 				type: requiredString(item, "type"),
@@ -160,112 +168,125 @@ class CopilotResponsesResponseDecoder {
 		return out;
 	}
 
-	static function usage(value:Dynamic):CopilotResponsesUsage {
-		if (!isObject(value))
+	static function usage(value:Unknown):CopilotResponsesUsage {
+		final record = optionalObject(value);
+		if (record == null)
 			throw new CopilotInvalidResponsesResponseError("Responses usage: expected object.");
 		return {
-			input_tokens: requiredNumber(value, "input_tokens"),
-			input_tokens_details: inputDetails(field(value, "input_tokens_details")),
-			output_tokens: requiredNumber(value, "output_tokens"),
-			output_tokens_details: outputDetails(field(value, "output_tokens_details")),
+			input_tokens: requiredNumber(record, "input_tokens"),
+			input_tokens_details: inputDetails(field(record, "input_tokens_details")),
+			output_tokens: requiredNumber(record, "output_tokens"),
+			output_tokens_details: outputDetails(field(record, "output_tokens_details")),
 		};
 	}
 
-	static function inputDetails(value:Dynamic):Null<CopilotResponsesInputTokensDetails> {
-		if (value == null)
+	static function inputDetails(value:Unknown):Null<CopilotResponsesInputTokensDetails> {
+		if (isNullish(value))
 			return null;
-		if (!isObject(value))
+		final record = optionalObject(value);
+		if (record == null)
 			throw new CopilotInvalidResponsesResponseError("Responses input token details: expected object.");
-		return {cached_tokens: optionalNumber(field(value, "cached_tokens"))};
+		return {cached_tokens: optionalNumber(field(record, "cached_tokens"))};
 	}
 
-	static function outputDetails(value:Dynamic):Null<CopilotResponsesOutputTokensDetails> {
-		if (value == null)
+	static function outputDetails(value:Unknown):Null<CopilotResponsesOutputTokensDetails> {
+		if (isNullish(value))
 			return null;
-		if (!isObject(value))
+		final record = optionalObject(value);
+		if (record == null)
 			throw new CopilotInvalidResponsesResponseError("Responses output token details: expected object.");
-		return {reasoning_tokens: optionalNumber(field(value, "reasoning_tokens"))};
+		return {reasoning_tokens: optionalNumber(field(record, "reasoning_tokens"))};
 	}
 
-	static function optionalIncomplete(value:Dynamic):Null<CopilotResponsesIncompleteDetails> {
-		if (value == null)
+	static function optionalIncomplete(value:Unknown):Null<CopilotResponsesIncompleteDetails> {
+		if (isNullish(value))
 			return null;
-		if (!isObject(value))
+		final record = optionalObject(value);
+		if (record == null)
 			throw new CopilotInvalidResponsesResponseError("Responses incomplete details: expected object.");
-		return {reason: optionalString(field(value, "reason"))};
+		return {reason: optionalString(field(record, "reason"))};
 	}
 
-	static function optionalError(value:Dynamic):Null<CopilotResponsesErrorBody> {
-		if (value == null)
+	static function optionalError(value:Unknown):Null<CopilotResponsesErrorBody> {
+		if (isNullish(value))
 			return null;
-		if (!isObject(value))
+		final record = optionalObject(value);
+		if (record == null)
 			throw new CopilotInvalidResponsesResponseError("Responses error: expected object.");
 		return {
-			code: requiredString(value, "code"),
-			message: requiredString(value, "message"),
+			code: requiredString(record, "code"),
+			message: requiredString(record, "message"),
 		};
 	}
 
-	static function stringArray(value:Dynamic):Array<String> {
-		if (value == null)
+	static function stringArray(value:Unknown):Array<String> {
+		if (isNullish(value))
 			return null;
-		if (!Std.isOfType(value, Array))
+		final raw = UnknownNarrow.array(value);
+		if (raw == null)
 			throw new CopilotInvalidResponsesResponseError("Responses string array: expected array.");
-		final raw:Array<Dynamic> = value;
 		final out:Array<String> = [];
-		for (item in raw) {
-			if (!Std.isOfType(item, String))
+		for (index in 0...raw.length) {
+			final text = UnknownNarrow.string(raw.get(index));
+			if (text == null)
 				throw new CopilotInvalidResponsesResponseError("Responses string array: expected string item.");
-			final text:String = item;
 			out.push(text);
 		}
 		return out;
 	}
 
-	static function requiredString(object:Dynamic, name:String):String {
+	static function requiredString(object:UnknownRecord, name:String):String {
 		final value = field(object, name);
-		if (!Std.isOfType(value, String))
+		final text = UnknownNarrow.string(value);
+		if (text == null)
 			throw new CopilotInvalidResponsesResponseError('Responses field ${name}: expected string.');
-		final text:String = value;
 		return text;
 	}
 
-	static function optionalString(value:Dynamic):Null<String> {
-		if (value == null)
+	static function optionalString(value:Unknown):Null<String> {
+		if (isNullish(value))
 			return null;
-		if (!Std.isOfType(value, String))
+		final text = UnknownNarrow.string(value);
+		if (text == null)
 			throw new CopilotInvalidResponsesResponseError("Responses optional field: expected string.");
-		final text:String = value;
 		return text;
 	}
 
-	static function requiredNumber(object:Dynamic, name:String):Float {
+	static function requiredNumber(object:UnknownRecord, name:String):Float {
 		final value = field(object, name);
-		if (!Std.isOfType(value, Float) && !Std.isOfType(value, Int))
+		final number = UnknownNarrow.number(value);
+		if (number == null)
 			throw new CopilotInvalidResponsesResponseError('Responses field ${name}: expected number.');
-		final number:Float = value;
 		return number;
 	}
 
-	static function optionalNumber(value:Dynamic):Null<Float> {
-		if (value == null)
+	static function optionalNumber(value:Unknown):Null<Float> {
+		if (isNullish(value))
 			return null;
-		if (!Std.isOfType(value, Float) && !Std.isOfType(value, Int))
+		final number = UnknownNarrow.number(value);
+		if (number == null)
 			throw new CopilotInvalidResponsesResponseError("Responses optional field: expected number.");
-		final number:Float = value;
 		return number;
 	}
 
-	static function jsonValueOrNull(value:Dynamic):Null<AiJsonValue> {
-		return value == null ? null : AiJsonValue.fromBoundary(value);
+	static function jsonValueOrNull(value:Unknown):Null<AiJsonValue> {
+		if (isNullish(value))
+			return null;
+		final json = JsonCodec.narrow(value);
+		if (json == null)
+			throw new CopilotInvalidResponsesResponseError("Responses JSON field: expected JSON-compatible value.");
+		return AiJsonValue.fromJson(json);
 	}
 
-	static function field(object:Dynamic, name:String):Dynamic {
-		final record = UnknownNarrow.record(Unknown.fromBoundary(object));
-		return record == null ? null : record.get(name);
+	static function field(object:UnknownRecord, name:String):Unknown {
+		return object.get(name);
 	}
 
-	static function isObject(value:Dynamic):Bool {
-		return UnknownNarrow.record(Unknown.fromBoundary(value)) != null;
+	static function optionalObject(value:Unknown):Null<UnknownRecord> {
+		return UnknownNarrow.record(value);
+	}
+
+	static function isNullish(value:Unknown):Bool {
+		return UnknownNarrow.isNull(value) || UnknownNarrow.isUndefined(value);
 	}
 }

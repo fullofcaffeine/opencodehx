@@ -1,6 +1,7 @@
 package opencodehx.externs.ai;
 
 import genes.Register;
+import genes.ts.JsonValue;
 import genes.ts.Unknown;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
@@ -413,6 +414,13 @@ abstract AiJsonObject(Unknown) from Unknown to Unknown {
 abstract AiJsonValue(Unknown) from Unknown to Unknown {
 	public static inline function fromBoundary<T>(value:T):AiJsonValue {
 		return Unknown.fromBoundary(value);
+	}
+
+	public static inline function fromJson(value:JsonValue):AiJsonValue {
+		// genes.ts.JsonValue and AI SDK JSONValue have the same native JSON
+		// runtime shape but come from separate TS aliases. Keep the assertion at
+		// this SDK bridge after callers have constructed or validated JSON.
+		return Register.unsafeCast(value);
 	}
 }
 
