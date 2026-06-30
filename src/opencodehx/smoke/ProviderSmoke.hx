@@ -11,6 +11,7 @@ import haxe.Json;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigInfo.ConfigProviderMap;
 import opencodehx.config.ConfigInfo.ConfigProviderConfig;
 import opencodehx.config.ConfigInfo.ConfigProviderModelConfig;
 import opencodehx.externs.node.Fs;
@@ -1347,28 +1348,43 @@ class ProviderSmoke {
 
 	static function config(data:Dynamic):ConfigInfo {
 		final info = ConfigInfo.empty("fixture-user");
-		info.disabledProviders = strings(Reflect.field(data, "disabled_providers"));
-		info.enabledProviders = strings(Reflect.field(data, "enabled_providers"));
-		info.model = stringField(data, "model");
-		info.smallModel = stringField(data, "small_model");
-		// Fixture boundary: test object literals mirror JSON config and are narrowed by the app types.
-		info.provider = cast Reflect.field(data, "provider");
+		final record = UnknownNarrow.record(Unknown.fromBoundary(data));
+		if (record == null)
+			return info;
+		info.disabledProviders = strings(record.get("disabled_providers"));
+		info.enabledProviders = strings(record.get("enabled_providers"));
+		info.model = stringField(record, "model");
+		info.smallModel = stringField(record, "small_model");
+		info.provider = providerConfig(record.get("provider"));
 		return info;
 	}
 
-	static function strings(value:Dynamic):Null<Array<String>> {
-		if (!Std.isOfType(value, Array))
+	static function providerConfig(value:Unknown):Null<ConfigProviderMap> {
+		if (UnknownNarrow.record(value) == null)
+			return null;
+		// Fixture boundary: provider config object literals mirror JSON config
+		// entries and are consumed by ProviderRegistry's typed config-loading
+		// path. Keep the assertion here so unrelated fixture fields still
+		// narrow normally above.
+		final providers:Dynamic = value;
+		return cast providers;
+	}
+
+	static function strings(value:Unknown):Null<Array<String>> {
+		final values = UnknownNarrow.array(value);
+		if (values == null)
 			return null;
 		final result:Array<String> = [];
-		final arr:Array<Dynamic> = cast value;
-		for (item in arr)
-			result.push(Std.string(item));
+		for (index in 0...values.length) {
+			final item = UnknownNarrow.string(values.get(index));
+			if (item != null)
+				result.push(item);
+		}
 		return result;
 	}
 
-	static function stringField(data:Dynamic, field:String):Null<String> {
-		final value = Reflect.field(data, field);
-		return Std.isOfType(value, String) ? Std.string(value) : null;
+	static function stringField(data:UnknownRecord, field:String):Null<String> {
+		return UnknownNarrow.string(data.get(field));
 	}
 
 	static function modelCount(registry:ProviderRegistry, providerID:String):Int {
