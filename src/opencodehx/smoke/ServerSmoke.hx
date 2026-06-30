@@ -1384,7 +1384,7 @@ class ServerSmoke {
 		eq(captures[0].init.headers.get("accept-encoding"), null, "workspace proxy strips accept encoding");
 		eq(captures[0].init.headers.get("x-opencode-directory"), null, "workspace proxy strips directory header");
 		eq(captures[0].init.headers.get("x-opencode-workspace"), null, "workspace proxy strips workspace header");
-		eq(Reflect.field(response, "status"), 201, "workspace proxy response status");
+		eq(response.status, 201, "workspace proxy response status");
 		eq(response.headers.get("content-length"), null, "workspace proxy strips response content length");
 		eq(response.headers.get("content-encoding"), null, "workspace proxy strips response content encoding");
 		eq(response.headers.get("x-proxy-result"), "ok", "workspace proxy preserves response header");
@@ -1397,7 +1397,7 @@ class ServerSmoke {
 					headers: {"x-opencode-sync": '{"workspace_session_1":99}'},
 				}));
 			}));
-		eq(Reflect.field(timeout, "status"), 504, "workspace proxy fence timeout status");
+		eq(timeout.status, 504, "workspace proxy fence timeout status");
 		eq(await(timeout.text()), 'Timed out waiting for sync fence: {"workspace_session_1":99}', "workspace proxy fence timeout body");
 
 		final disconnected = new WorkspaceSyncRuntime(new SyncRouteRuntime(["item.created.1"]));
@@ -1411,18 +1411,18 @@ class ServerSmoke {
 			"wrk_disconnected", {url: "https://workspace.test/base", headers: null}, disconnected, (_, _) -> {
 				return Promise.resolve(new Response("should not fetch", {status: 200}));
 			}));
-		eq(Reflect.field(broken, "status"), 503, "workspace proxy disconnected status");
+		eq(broken.status, 503, "workspace proxy disconnected status");
 		eq(await(broken.text()), "broken sync connection for workspace: wrk_disconnected", "workspace proxy disconnected body");
 	}
 
 	@:async
 	static function ptyWebSocketRoute(baseUrl:String):Promise<Void> {
-		final created = await(fetchJson(baseUrl + "/pty", {
+		final created = requiredRecord(Unknown.fromBoundary(await(fetchJson(baseUrl + "/pty", {
 			method: "POST",
 			headers: jsonHeaders(),
 			body: Json.stringify({command: "cat", title: "Server WebSocket PTY"}),
-		}));
-		final ptyID = Std.string(Reflect.field(created, "id"));
+		}))), "pty websocket created");
+		final ptyID = requiredString(created, "id", "pty websocket created id");
 		final wsUrl = StringTools.replace(baseUrl, "http://", "ws://") + '/pty/${ptyID}/connect';
 		final first = await(ptyWebsocket(wsUrl + "?cursor=0", "server-ws\n", "server-ws"));
 		eq(first.text.indexOf("server-ws") != -1, true, "pty websocket write output");

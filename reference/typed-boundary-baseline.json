@@ -23,7 +23,7 @@
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 172,
+    "Reflect.field": 168,
     "Reflect.hasField": 27,
     "Reflect.setField": 47,
     "Any": 0
@@ -504,7 +504,7 @@
       "Dynamic": 31,
       "DynamicAccess": 9,
       "cast": 13,
-      "Reflect.field": 40
+      "Reflect.field": 36
     },
     "src/opencodehx/smoke/SessionPersistenceSmoke.hx": {
       "Dynamic": 1
