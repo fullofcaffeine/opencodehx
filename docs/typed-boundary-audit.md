@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1477 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1474 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -60,6 +60,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ConfigWriter` recurses through writable JSON/JSONC config trees with `UnknownRecord.keys/get` instead of `Reflect.fields`, `Reflect.field`, and casts.
 - `ConfigInfo.mergeObject` merges open config maps through `UnknownRecord.keys/get` instead of recursive `Reflect.fields`/`Reflect.field`/`Reflect.setField`.
 - `McpRuntime.transportOptions` assembles SDK transport options through typed record branches instead of `Dynamic`, `Reflect.setField`, and a final cast.
+- `McpAcpSmoke` asserts typed MCP transport option presence through optional fields instead of `Reflect.hasField`.
 - Copilot chat SSE and Responses decoders read private JSON object fields through `UnknownRecord` helpers instead of reflection while preserving typed decoder outputs.
 - `CopilotResponsesStream` maps OpenAI Responses SSE chunks through `UnknownRecord`/`UnknownNarrow` field helpers instead of local `Dynamic` JSON access and `Reflect.field`.
 - Provider JSON Schema intent checks now use modeled `const`, `$ref`, and `additionalProperties` fields instead of `Reflect.hasField`; the `const` value remains an opaque documented JSON-literal boundary until inspected.

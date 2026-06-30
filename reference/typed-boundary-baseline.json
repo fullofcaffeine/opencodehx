@@ -24,7 +24,7 @@
     "Syntax.code": 23,
     "@:ts.type": 82,
     "Reflect.field": 102,
-    "Reflect.hasField": 24,
+    "Reflect.hasField": 21,
     "Reflect.setField": 41,
     "Any": 0
   },
@@ -449,8 +449,7 @@
       "Dynamic": 1
     },
     "src/opencodehx/smoke/McpAcpSmoke.hx": {
-      "DynamicAccess": 2,
-      "Reflect.hasField": 3
+      "DynamicAccess": 2
     },
     "src/opencodehx/smoke/MessageSmoke.hx": {
       "Dynamic": 4,

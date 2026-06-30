@@ -30,7 +30,7 @@ class McpAcpSmoke {
 		final headers = new DynamicAccess<String>();
 		headers.set("Authorization", "Bearer token");
 		final withHeaders = McpRuntime.transportOptions({type: "remote", url: "https://mcp.example", headers: headers});
-		eq(Reflect.hasField(withHeaders, "requestInit"), true, "mcp transport headers present");
+		eq(withHeaders.requestInit != null, true, "mcp transport headers present");
 		eq(withHeaders.requestInit.headers.get("Authorization"), "Bearer token", "mcp transport header value");
 		eq(withHeaders.authProvider, true, "mcp oauth default enabled");
 
@@ -40,10 +40,10 @@ class McpAcpSmoke {
 			headers: headers,
 			oauth: false
 		});
-		eq(Reflect.hasField(oauthDisabled, "authProvider"), false, "mcp oauth false omits auth provider");
+		eq(oauthDisabled.authProvider == null, true, "mcp oauth false omits auth provider");
 
 		final noHeaders = McpRuntime.transportOptions({type: "remote", url: "https://mcp.example"});
-		eq(Reflect.hasField(noHeaders, "requestInit"), false, "mcp transport omits empty request init");
+		eq(noHeaders.requestInit == null, true, "mcp transport omits empty request init");
 	}
 
 	static function mcpLifecycle():Void {
