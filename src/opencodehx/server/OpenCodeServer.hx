@@ -182,7 +182,7 @@ class OpenCodeServer {
 
 	@:async
 	function createSession(c:HonoContext):Promise<Response> {
-		final decoded = ServerProtocol.decodeCreateSession(await(readJson(c)));
+		final decoded = ServerSessionProtocol.decodeCreate(await(readJson(c)));
 		final request = switch decoded {
 			case Rejected(message):
 				return json(c, ServerProtocol.error(message), 400);
@@ -660,7 +660,7 @@ class OpenCodeServer {
 	@:async
 	function updateSession(c:HonoContext):Promise<Response> {
 		final sessionID = param(c, "sessionID");
-		final decoded = ServerProtocol.decodeUpdateSession(await(readJson(c)));
+		final decoded = ServerSessionProtocol.decodeUpdate(await(readJson(c)));
 		final request = switch decoded {
 			case Rejected(message):
 				return json(c, ServerProtocol.error(message), 400);
@@ -682,7 +682,7 @@ class OpenCodeServer {
 
 	@:async
 	function selectSession(c:HonoContext):Promise<Response> {
-		final decoded = ServerProtocol.decodeSelectSession(await(readJson(c)));
+		final decoded = ServerSessionProtocol.decodeSelect(await(readJson(c)));
 		final request = switch decoded {
 			case Rejected(message):
 				return json(c, ServerProtocol.error(message), 400);

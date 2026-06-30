@@ -691,7 +691,9 @@ class ServerSmoke {
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({prompt: 7}),
 		}));
-		eq(Reflect.field(invalidCreate, "status"), 400, "invalid create body status");
+		eq(invalidCreate.status, 400, "invalid create body status");
+		final invalidCreateBody = requiredRecord(Unknown.fromBoundary(await(jsonResponse(invalidCreate))), "invalid create error");
+		eq(requiredString(invalidCreateBody, "error", "invalid create error"), "prompt: expected string", "invalid create error");
 
 		final list:Dynamic = await(jsonResponse(await(server.app.request("/session"))));
 		eq(Reflect.field(cast list[0], "id"), sessionID, "listed session id");
@@ -756,13 +758,17 @@ class ServerSmoke {
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({sessionID: "invalid_session_id"}),
 		}));
-		eq(Reflect.field(invalidSelect, "status"), 400, "invalid select status");
+		eq(invalidSelect.status, 400, "invalid select status");
+		final invalidSelectBody = requiredRecord(Unknown.fromBoundary(await(jsonResponse(invalidSelect))), "invalid select error");
+		eq(requiredString(invalidSelectBody, "error", "invalid select error"), "Invalid session ID", "invalid select error");
 		final missingFieldSelect = await(server.app.request("/tui/select-session", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({}),
 		}));
-		eq(Reflect.field(missingFieldSelect, "status"), 400, "missing select field status");
+		eq(missingFieldSelect.status, 400, "missing select field status");
+		final missingFieldSelectBody = requiredRecord(Unknown.fromBoundary(await(jsonResponse(missingFieldSelect))), "missing select error");
+		eq(requiredString(missingFieldSelectBody, "error", "missing select error"), "Invalid session ID", "missing select error");
 		final missingSelect = await(server.app.request("/tui/select-session", {
 			method: "POST",
 			headers: {"content-type": "application/json"},
@@ -818,6 +824,14 @@ class ServerSmoke {
 			body: Json.stringify({time: {archived: 12345}}),
 		}))));
 		eq(Reflect.field(archivedPatch, "id"), archivedID, "archive patch session id");
+		final invalidArchive = await(server.app.request('/session/${archivedID}', {
+			method: "PATCH",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({time: {archived: "later"}}),
+		}));
+		eq(invalidArchive.status, 400, "archive invalid status");
+		final invalidArchiveBody = requiredRecord(Unknown.fromBoundary(await(jsonResponse(invalidArchive))), "archive invalid error");
+		eq(requiredString(invalidArchiveBody, "error", "archive invalid error"), "time.archived: expected number", "archive invalid error");
 		final archivedDefault:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?search=archived-session"))));
 		eq(archivedDefault.length, 0, "global archived excluded by default");
 		final archivedIncluded:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?search=archived-session&archived=true"))));

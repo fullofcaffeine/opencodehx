@@ -5,7 +5,6 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type;
 #end
-import genes.ts.Unknown;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionInfo.SessionInfo;
 
@@ -198,54 +197,6 @@ class ServerProtocol {
 	public static inline final DEFAULT_PROMPT = "Say hello from the fixture.";
 	public static inline final DEFAULT_LIMIT = 100000;
 
-	public static function decodeCreateSession(raw:Unknown):DecodeResult<CreateSessionRequest> {
-		return switch optionalString(raw, "prompt") {
-			case Rejected(message):
-				Rejected(message);
-			case Decoded(rawPrompt):
-				final prompt = emptyToDefault(rawPrompt, DEFAULT_PROMPT);
-				switch optionalString(raw, "title") {
-					case Rejected(message):
-						Rejected(message);
-					case Decoded(rawTitle):
-						switch optionalString(raw, "parentID") {
-							case Rejected(message):
-								Rejected(message);
-							case Decoded(parentID):
-								final parentIDValid = parentID == null || StringTools.startsWith(parentID, "ses_");
-								if (!parentIDValid) Rejected("Invalid parent session ID"); else Decoded({
-									prompt: prompt,
-									title: emptyToDefault(rawTitle, prompt),
-									parentID: parentID,
-								});
-						}
-				}
-		}
-	}
-
-	public static function decodeSelectSession(raw:Unknown):DecodeResult<SelectSessionRequest> {
-		return switch optionalString(raw, "sessionID") {
-			case Rejected(_):
-				Rejected("Invalid session ID");
-			case Decoded(value):
-				if (value == null || !StringTools.startsWith(value, "ses_")) Rejected("Invalid session ID"); else Decoded({sessionID: value});
-		}
-	}
-
-	public static function decodeUpdateSession(raw:Unknown):DecodeResult<UpdateSessionRequest> {
-		return switch optionalString(raw, "title") {
-			case Rejected(message):
-				Rejected(message);
-			case Decoded(title):
-				switch optionalNestedFloat(raw, "time", "archived") {
-					case Rejected(message):
-						Rejected(message);
-					case Decoded(archived):
-						Decoded({title: title, archived: archived});
-				}
-		}
-	}
-
 	public static function decodeSessionListQuery(read:String->Null<String>):SessionListQuery {
 		return {
 			directory: blankToNull(read("directory")),
@@ -405,44 +356,6 @@ class ServerProtocol {
 
 	public static inline function sessionStatusEvent(sessionID:String, status:SessionStatusInfo):ServerEvent {
 		return {type: SessionStatus, properties: {sessionID: sessionID, status: status}};
-	}
-
-	static function optionalString(raw:Unknown, field:String):DecodeResult<Null<String>> {
-		// Justified Dynamic boundary: Hono request JSON is generated TS
-		// `unknown`, and Haxe Reflect can only inspect object fields through
-		// Dynamic. Keep the cast local, guard every field read, and return typed
-		// route DTOs instead of leaking Dynamic into route logic.
-		final data:Dynamic = cast raw;
-		if (data == null || !Reflect.hasField(data, field) || Reflect.field(data, field) == null)
-			return Decoded(null);
-		final value:Dynamic = Reflect.field(data, field);
-		if (!Std.isOfType(value, String))
-			return Rejected('${field}: expected string');
-		return Decoded(value);
-	}
-
-	static function optionalNestedFloat(raw:Unknown, parent:String, field:String):DecodeResult<Null<Float>> {
-		// Justified Dynamic boundary: Hono request JSON arrives as `unknown`;
-		// the nested update DTO is immediately narrowed to `Null<Float>`.
-		final data:Dynamic = cast raw;
-		if (data == null || !Reflect.hasField(data, parent) || Reflect.field(data, parent) == null)
-			return Decoded(null);
-		final nested:Dynamic = Reflect.field(data, parent);
-		if (!Reflect.isObject(nested))
-			return Rejected('${parent}: expected object');
-		if (!Reflect.hasField(nested, field) || Reflect.field(nested, field) == null)
-			return Decoded(null);
-		final value:Dynamic = Reflect.field(nested, field);
-		if (!Std.isOfType(value, Int) && !Std.isOfType(value, Float))
-			return Rejected('${parent}.${field}: expected number');
-		final parsed = Std.parseFloat(Std.string(value));
-		return Math.isNaN(parsed) ? Rejected('${parent}.${field}: expected number') : Decoded(parsed);
-	}
-
-	static function emptyToDefault(value:Null<String>, fallback:String):String {
-		if (value == null || StringTools.trim(value) == "")
-			return fallback;
-		return value;
 	}
 
 	static function blankToNull(value:Null<String>):Null<String> {
