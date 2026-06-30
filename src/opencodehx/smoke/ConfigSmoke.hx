@@ -47,10 +47,6 @@ import opencodehx.npm.Npm.NpmHttpResponse;
 import opencodehx.npm.Npm.NpmReifyRequest;
 import opencodehx.provider.ProviderOptionAccess;
 
-typedef RemoteMcpEntry = {
-	final enabled:Bool;
-}
-
 typedef ConfigNpmFixture = {
 	final deps:NpmDeps;
 	final requests:Array<NpmReifyRequest>;
@@ -111,8 +107,9 @@ class ConfigSmoke {
 
 			eq(SmokeFetchStub.configFetchedUrl(), "https://example.com/.well-known/opencode", "remote well-known URL normalized");
 			eq(config.username, "remote-token", "remote well-known env token substitution");
-			final jira:RemoteMcpEntry = cast Reflect.field(config.mcp, "jira");
-			eq(jira.enabled, true, "project config overrides remote well-known config");
+			final mcp = require(UnknownNarrow.record(Unknown.fromBoundary(config.mcp)), "remote mcp map");
+			final jira = require(UnknownNarrow.record(mcp.get("jira")), "jira mcp config");
+			eq(UnknownNarrow.bool(jira.get("enabled")), true, "project config overrides remote well-known config");
 			eq(config.model, "account/model", "account config overrides project config");
 			final providers = require(config.provider, "account provider map");
 			final provider = require(providers.get("opencode"), "account provider config");

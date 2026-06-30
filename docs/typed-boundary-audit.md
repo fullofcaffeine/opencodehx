@@ -43,6 +43,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ConfigSmoke` reads plugin tuple/resolved option assertions through `ConfigPlugin.stringOption(...)`, keeping plugin passthrough narrowing in the config plugin boundary instead of raw smoke reflection.
 - `ConfigSmoke` reads LSP server presence, disabled flags, and extensions through `ConfigLsp` Unknown-based accessors instead of raw reflection over the still-open `ConfigInfo.lsp` boundary.
 - `ConfigSmoke` builds local-update permission patches with the typed `PermissionConfigValue` map and asserts through map reads instead of object-literal casts or reflection.
+- `ConfigSmoke` narrows the remote MCP override assertion through `UnknownRecord`/`UnknownNarrow` instead of casting a smoke-local typedef from `Reflect.field`.
 
 ## Remaining Hotspots
 
