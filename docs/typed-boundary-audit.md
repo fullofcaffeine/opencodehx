@@ -34,7 +34,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `FormatRuntime` narrows formatter object config through `genes.ts.UnknownRecord`/`UnknownArray`/`UnknownNarrow` instead of local reflection/cast helpers.
 - `PtyRouteProtocol` decodes PTY create/update request bodies through `genes.ts.UnknownRecord`/`UnknownArray`/`UnknownNarrow`, preserving typed PTY DTOs and copying only validated env strings into the Node PTY env map.
 - `ServerSessionProtocol` decodes session create/select/update route bodies through `genes.ts.UnknownRecord`/`UnknownNarrow`, keeping runtime JS narrowing out of macro-owned `ServerProtocol`.
-- `CliSmoke` parses run/export transcript JSON through `genes.ts.UnknownRecord`/`UnknownArray` helpers instead of threading `Dynamic` and `Reflect.field` through stable provider/request/message/event assertions.
+- `CliSmoke` parses run/export transcript JSON and diagnostic golden JSON through `genes.ts.UnknownRecord`/`UnknownArray` helpers instead of threading `Dynamic` and `Reflect.field` through stable provider/request/message/event/diagnostic assertions.
 
 ## Remaining Hotspots
 

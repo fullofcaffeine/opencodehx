@@ -1115,21 +1115,21 @@ class CliSmoke {
 	}
 
 	static function diagnosticFormatting():Void {
-		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
-		final cli:Dynamic = Reflect.field(golden, "cli");
+		final golden = parseRecord(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")), "diagnostics golden");
+		final cli = requiredRecordField(golden, "cli", "diagnostics golden");
 		final account = ErrorFormatter.format(Unknown.fromBoundary(new AccountTransportError({
 			method: "POST",
 			url: "https://console.opencode.ai/auth/device/code",
 		})));
-		eq(account, Reflect.field(cli, "accountTransport"), "account transport diagnostic");
+		eq(account, requiredString(cli.get("accountTransport"), "diagnostics golden cli accountTransport"), "account transport diagnostic");
 
 		final provider = ErrorFormatter.format(Unknown.fromBoundary(new ProviderException(ProviderFailure.ModelNotFound(ProviderID.make("fixture-provider"),
 			ModelID.make("missing-model"), ["gpt-5.2", "gpt-5.1"]))));
-		eq(provider, Reflect.field(cli, "providerModelNotFound"), "provider model diagnostic");
+		eq(provider, requiredString(cli.get("providerModelNotFound"), "diagnostics golden cli providerModelNotFound"), "provider model diagnostic");
 
 		final config = ErrorFormatter.format(Unknown.fromBoundary(new ConfigException(ConfigFailure.InvalidError("/workspace/opencode.json",
 			["Unknown field provider.bad", "Invalid permission value"]))));
-		eq(config, Reflect.field(cli, "configInvalid"), "config invalid diagnostic");
+		eq(config, requiredString(cli.get("configInvalid"), "diagnostics golden cli configInvalid"), "config invalid diagnostic");
 	}
 
 	static function writeAccountDatabase(path:String, url:String):Void {
