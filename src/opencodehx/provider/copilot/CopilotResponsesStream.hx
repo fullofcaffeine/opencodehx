@@ -2,6 +2,8 @@ package opencodehx.provider.copilot;
 
 import genes.ts.Undefinable;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import haxe.Json;
 import js.lib.Date;
@@ -39,9 +41,8 @@ typedef CopilotResponsesStreamUsageState = {
 /**
  * Maps OpenAI Responses SSE chunks into AI SDK stream parts.
  *
- * The raw event payload is a JSON boundary, so this file contains localized
- * `Dynamic` field access. The mapper validates the discriminants it consumes
- * and emits only SDK stream-part records to callers.
+ * The raw event payload is a JSON boundary. The mapper narrows only the fields
+ * it consumes and emits SDK stream-part records to callers.
  */
 class CopilotResponsesStream {
 	public static function collectText(rawText:String, includeRawChunks:Bool, warnings:Array<CopilotChatWarning>,
@@ -64,9 +65,10 @@ class CopilotResponsesStream {
 			if (payload == "[DONE]")
 				continue;
 			try {
-				final value:Dynamic = Json.parse(payload);
+				final raw = Unknown.fromBoundary(Json.parse(payload));
+				final value = eventRecord(raw);
 				if (includeRawChunks)
-					out.push({type: "raw", rawValue: Unknown.fromBoundary(value)});
+					out.push({type: "raw", rawValue: raw});
 				final type = stringField(value, "type");
 				switch type {
 					case "response.created":
@@ -170,19 +172,19 @@ class CopilotResponsesStream {
 					case "response.completed" | "response.incomplete":
 						final response = objectField(value, "response");
 						final incomplete = field(response, "incomplete_details");
-						final rawReason = incomplete == null ? null : optionalString(field(incomplete, "reason"));
+						final rawReason = isMissing(incomplete) ? null : optionalString(field(objectValue(incomplete, "incomplete_details"), "reason"));
 						finishReason = CopilotResponsesCompletion.finishReason(rawReason, hasFunctionCall);
 						final rawUsage = objectField(response, "usage");
 						usage.inputTokens = numberField(rawUsage, "input_tokens");
 						usage.outputTokens = numberField(rawUsage, "output_tokens");
 						final inputDetails = field(rawUsage, "input_tokens_details");
-						if (inputDetails != null)
-							usage.cachedInputTokens = optionalNumber(field(inputDetails, "cached_tokens"));
+						if (!isMissing(inputDetails))
+							usage.cachedInputTokens = optionalNumber(field(objectValue(inputDetails, "input_tokens_details"), "cached_tokens"));
 						final outputDetails = field(rawUsage, "output_tokens_details");
-						if (outputDetails != null)
-							usage.reasoningTokens = optionalNumber(field(outputDetails, "reasoning_tokens"));
+						if (!isMissing(outputDetails))
+							usage.reasoningTokens = optionalNumber(field(objectValue(outputDetails, "output_tokens_details"), "reasoning_tokens"));
 					case "error":
-						out.push({type: "error", error: Unknown.fromBoundary(value)});
+						out.push({type: "error", error: raw});
 						finishReason = {unified: AiFinishReason.Error, raw: Undefinable.absent()};
 					case _:
 				}
@@ -311,54 +313,67 @@ class CopilotResponsesStream {
 		return metadata;
 	}
 
-	static function field(object:Dynamic, name:String):Dynamic {
-		return Reflect.field(object, name);
+	static function eventRecord(value:Unknown):UnknownRecord {
+		return objectValue(value, "Responses stream event");
 	}
 
-	static function objectField(object:Dynamic, name:String):Dynamic {
-		final value = field(object, name);
-		if (value == null || !Reflect.isObject(value))
-			throw 'Responses stream field ${name}: expected object';
-		return value;
+	static function objectValue(value:Unknown, label:String):UnknownRecord {
+		final record = UnknownNarrow.record(value);
+		if (record == null)
+			throw '${label}: expected object';
+		return record;
 	}
 
-	static function stringField(object:Dynamic, name:String):String {
+	static function field(object:UnknownRecord, name:String):Unknown {
+		return object.get(name);
+	}
+
+	static function objectField(object:UnknownRecord, name:String):UnknownRecord {
 		final value = field(object, name);
-		if (!Std.isOfType(value, String))
+		return objectValue(value, 'Responses stream field ${name}');
+	}
+
+	static function stringField(object:UnknownRecord, name:String):String {
+		final value = field(object, name);
+		final text = UnknownNarrow.string(value);
+		if (text == null)
 			throw 'Responses stream field ${name}: expected string';
-		final text:String = value;
 		return text;
 	}
 
-	static function optionalString(value:Dynamic):Null<String> {
-		if (value == null)
+	static function optionalString(value:Unknown):Null<String> {
+		if (isMissing(value))
 			return null;
-		if (!Std.isOfType(value, String))
+		final text = UnknownNarrow.string(value);
+		if (text == null)
 			throw "Responses stream optional field: expected string";
-		final text:String = value;
 		return text;
 	}
 
-	static function numberField(object:Dynamic, name:String):Float {
+	static function numberField(object:UnknownRecord, name:String):Float {
 		final value = field(object, name);
-		if (!Std.isOfType(value, Float) && !Std.isOfType(value, Int))
+		final number = UnknownNarrow.number(value);
+		if (number == null)
 			throw 'Responses stream field ${name}: expected number';
-		final number:Float = value;
 		return number;
 	}
 
-	static function optionalNumber(value:Dynamic):Null<Float> {
-		if (value == null)
+	static function optionalNumber(value:Unknown):Null<Float> {
+		if (isMissing(value))
 			return null;
-		if (!Std.isOfType(value, Float) && !Std.isOfType(value, Int))
+		final number = UnknownNarrow.number(value);
+		if (number == null)
 			throw "Responses stream optional field: expected number";
-		final number:Float = value;
 		return number;
 	}
 
-	static function intField(object:Dynamic, name:String):Int {
+	static function intField(object:UnknownRecord, name:String):Int {
 		final value = numberField(object, name);
 		return Std.int(value);
+	}
+
+	static function isMissing(value:Unknown):Bool {
+		return UnknownNarrow.isNull(value) || UnknownNarrow.isUndefined(value);
 	}
 
 	static function stringOrAbsent(value:Null<String>):Undefinable<String> {

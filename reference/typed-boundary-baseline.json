@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 535,
+    "Dynamic": 524,
     "DynamicAccess": 540,
     "cast": 138,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 104,
+    "Reflect.field": 103,
     "Reflect.hasField": 24,
     "Reflect.setField": 41,
     "Any": 0
@@ -330,10 +330,9 @@
       "Dynamic": 30
     },
     "src/opencodehx/provider/copilot/CopilotResponsesStream.hx": {
-      "Dynamic": 12,
+      "Dynamic": 1,
       "DynamicAccess": 5,
-      "untyped": 1,
-      "Reflect.field": 1
+      "untyped": 1
     },
     "src/opencodehx/pty/PtyService.hx": {
       "DynamicAccess": 3,
