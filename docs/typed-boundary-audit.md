@@ -40,6 +40,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ProviderSmoke` reads Cloudflare metadata and GitLab instance/header/feature-flag option assertions through `ProviderOptionAccess` maps instead of raw reflection over provider passthrough options.
 - `ProviderSmoke` reads custom provider/model, variant, and Vertex proxy option assertions through `ProviderOptionAccess` plus `UnknownRecord` field checks; only the local fixture `config(...)` builder still uses reflection there.
 - `SessionProcessorSmoke` reads request-option nested records, optional stream tool-choice, and workflow tool metadata through `ProviderOptionAccess`, typed optional fields, and `UnknownRecord` helpers instead of smoke-local reflection.
+- `ConfigSmoke` reads plugin tuple/resolved option assertions through `ConfigPlugin.stringOption(...)`, keeping plugin passthrough narrowing in the config plugin boundary instead of raw smoke reflection.
 
 ## Remaining Hotspots
 

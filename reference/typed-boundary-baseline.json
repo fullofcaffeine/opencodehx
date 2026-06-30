@@ -23,7 +23,7 @@
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 206,
+    "Reflect.field": 203,
     "Reflect.hasField": 29,
     "Reflect.setField": 47,
     "Any": 0
@@ -416,7 +416,7 @@
       "Dynamic": 4,
       "DynamicAccess": 6,
       "cast": 5,
-      "Reflect.field": 12,
+      "Reflect.field": 9,
       "Reflect.hasField": 2
     },
     "src/opencodehx/smoke/ControlPlaneSmoke.hx": {

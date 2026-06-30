@@ -688,7 +688,7 @@ Strictly follow da rules', "weird-model-id.md");
 		final shared = config.pluginOrigins[1];
 		eq(shared.scope, PluginScopeLocal, "plugin origin scope");
 		contains(shared.source, ".opencode", "plugin origin source");
-		eq(Reflect.field(shared.spec.options, "source"), "local", "plugin tuple options preserved");
+		eq(ConfigPlugin.stringOption(shared.spec, "source"), "local", "plugin tuple options preserved");
 	}
 
 	static function pluginDirectoryDiscovery(root:String):Void {
@@ -758,13 +758,13 @@ Strictly follow da rules', "weird-model-id.md");
 		eq(names.indexOf(indexUrl) != -1, true, "plugin directory index fallback resolved");
 
 		final tuple = require(findOrigin(config.pluginOrigins, indexUrl), "resolved tuple plugin origin");
-		eq(Reflect.field(tuple.spec.options, "source"), "tuple", "resolved plugin tuple options preserved");
+		eq(ConfigPlugin.stringOption(tuple.spec, "source"), "tuple", "resolved plugin tuple options preserved");
 
 		final option = new DynamicAccess<PluginOptionValue>();
 		option.set("source", Unknown.fromBoundary("direct"));
 		final direct = ConfigPlugin.resolveSpec({specifier: "./plugin.ts", options: option}, NodePath.join(opencodeDir, "opencode.json"));
 		eq(ConfigPlugin.specifier(direct), fileUrl, "direct plugin resolver");
-		eq(Reflect.field(direct.options, "source"), "direct", "direct resolver preserves options");
+		eq(ConfigPlugin.stringOption(direct, "source"), "direct", "direct resolver preserves options");
 	}
 
 	static function agentColorConfig(root:String):Void {
