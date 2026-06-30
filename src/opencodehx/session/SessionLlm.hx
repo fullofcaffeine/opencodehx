@@ -570,11 +570,8 @@ class SessionLlm {
 		if (source == null)
 			return;
 		for (key in source.keys()) {
-			// ProviderOptions is an SDK-owned passthrough record. These Dynamic
-			// reads are contained to guarded deep-merge semantics for request
-			// assembly and do not escape as app-facing domain data.
-			final incoming:Dynamic = source.get(key);
-			final current:Dynamic = target.get(key);
+			final incoming = optionValue(source, key);
+			final current = optionValue(target, key);
 			if (isOptionRecord(current) && isOptionRecord(incoming)) {
 				target.set(key, mergeOptionRecords(current, incoming));
 			} else {
@@ -583,16 +580,27 @@ class SessionLlm {
 		}
 	}
 
-	static function mergeOptionRecords(current:Dynamic, incoming:Dynamic):ProviderOptions {
+	static inline function optionValue(options:ProviderOptions, key:String):Unknown {
+		return Unknown.fromBoundary(options.get(key));
+	}
+
+	static function mergeOptionRecords(current:Unknown, incoming:Unknown):ProviderOptions {
 		final out = optionMap();
 		// ProviderOptions is the documented provider-SDK passthrough boundary.
-		// Reflection is guarded to plain option records and the merged record is
-		// immediately returned as provider options, not app-facing domain data.
-		for (field in Reflect.fields(current))
-			out.set(field, Reflect.field(current, field));
-		for (field in Reflect.fields(incoming)) {
-			final next:Dynamic = Reflect.field(incoming, field);
-			final previous:Dynamic = out.get(field);
+		// Open SDK records are narrowed to a read-only unknown-record view before
+		// recursive merging, then returned as provider options rather than
+		// app-facing domain data.
+		final currentRecord = UnknownNarrow.record(current);
+		if (currentRecord != null) {
+			for (field in currentRecord.keys())
+				out.set(field, currentRecord.get(field));
+		}
+		final incomingRecord = UnknownNarrow.record(incoming);
+		if (incomingRecord == null)
+			return out;
+		for (field in incomingRecord.keys()) {
+			final next = incomingRecord.get(field);
+			final previous = optionValue(out, field);
 			if (isOptionRecord(previous) && isOptionRecord(next))
 				out.set(field, mergeOptionRecords(previous, next));
 			else
@@ -601,12 +609,8 @@ class SessionLlm {
 		return out;
 	}
 
-	static function isOptionRecord(value:Dynamic):Bool {
-		if (value == null)
-			return false;
-		if (Std.isOfType(value, Array) || Std.isOfType(value, String) || Std.isOfType(value, Bool) || Std.isOfType(value, Float) || Std.isOfType(value, Int))
-			return false;
-		return Reflect.isObject(value);
+	static function isOptionRecord(value:Unknown):Bool {
+		return UnknownNarrow.record(value) != null;
 	}
 
 	static function optionMap():ProviderOptions {

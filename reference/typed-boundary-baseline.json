@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 663,
+    "Dynamic": 655,
     "DynamicAccess": 547,
     "cast": 179,
     "untyped": 5,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 386,
+    "Reflect.field": 382,
     "Reflect.hasField": 38,
     "Reflect.setField": 47,
     "Any": 0
@@ -416,10 +416,9 @@
       "Dynamic": 2
     },
     "src/opencodehx/session/SessionLlm.hx": {
-      "Dynamic": 11,
+      "Dynamic": 3,
       "DynamicAccess": 18,
-      "cast": 1,
-      "Reflect.field": 4
+      "cast": 1
     },
     "src/opencodehx/session/SessionProcessor.hx": {
       "Dynamic": 4,
