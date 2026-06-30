@@ -549,6 +549,33 @@ class ServerSmoke {
 		eq(cursor != null, true, "messages cursor");
 		final messages = await(jsonResponse(messagesResponse));
 		eq(messages.length, 1, "message page length");
+		final firstMessage = requiredRecord(requiredArray(Unknown.fromBoundary(messages), "message page").get(0), "message page first");
+		final firstMessageInfo = requiredRecord(firstMessage.get("info"), "message page first info");
+		final firstMessageID = requiredString(firstMessageInfo, "id", "message page first id");
+		final messageDetailResponse = @:await server.app.request('/session/${sessionID}/message/${firstMessageID}');
+		final messageDetailBody = @:await jsonResponse(messageDetailResponse);
+		final messageDetail = requiredRecord(Unknown.fromBoundary(messageDetailBody), "message detail");
+		final messageDetailInfo = requiredRecord(messageDetail.get("info"), "message detail info");
+		eq(requiredString(messageDetailInfo, "id", "message detail id"), firstMessageID, "message detail id");
+		final messageDetailParts = requiredArray(messageDetail.get("parts"), "message detail parts");
+		eq(messageDetailParts.length > 0, true, "message detail parts");
+		final missingMessage:Response = @:await server.app.request('/session/${sessionID}/message/msg_missing');
+		eq(missingMessage.status, 404, "missing message detail status");
+		final missingSessionMessage:Response = @:await server.app.request('/session/ses_missing/message/${firstMessageID}');
+		eq(missingSessionMessage.status, 404, "missing session message detail status");
+
+		final deleteMessage = @:await jsonResponse(@:await server.app.request('/session/${sessionID}/message/${firstMessageID}', {
+			method: "DELETE",
+		}));
+		eq(deleteMessage, true, "delete message route");
+		final deletedMessageGet:Response = @:await server.app.request('/session/${sessionID}/message/${firstMessageID}');
+		eq(deletedMessageGet.status, 404, "deleted message get status");
+		final repeatedMessageDelete:Response = @:await server.app.request('/session/${sessionID}/message/${firstMessageID}', {method: "DELETE"});
+		eq(repeatedMessageDelete.status, 404, "delete missing message status");
+		final afterMessageDeleteResponse = @:await server.app.request('/session/${sessionID}/message');
+		final afterMessageDeleteBody = @:await jsonResponse(afterMessageDeleteResponse);
+		final afterMessageDelete = requiredArray(Unknown.fromBoundary(afterMessageDeleteBody), "delete message page after");
+		eq(afterMessageDelete.length, 1, "delete message remaining count");
 
 		final badCursor = await(server.app.request('/session/${sessionID}/message?limit=1&before=bad'));
 		eq(Reflect.field(badCursor, "status"), 400, "bad cursor status");

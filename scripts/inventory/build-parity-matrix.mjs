@@ -449,7 +449,16 @@ function directEvidence(path) {
     ],
     ["server/global-session-list.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; docs/server-hono-seam.md", "route-level smoke covers /experimental/session listing across routed projects, project metadata, cursor pagination, search, and archived-session exclusion/inclusion", "ServerSmoke GET /experimental/session fixtures plus PATCH /session/:id archive fixture", "none"]],
     ["server/project-init-git.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx; src/opencodehx/project/ProjectRuntime.hx; src/opencodehx/snapshot/SnapshotRuntime.hx; docs/server-hono-seam.md", "route-level smoke covers /project/git/init, /project/current, git initialization, instance reload/disposed events, no .git/opencode cache creation, already-git no-reload behavior, and server-attached snapshot tracking after reload", "ServerSmoke project git init route fixtures", "none"]],
-    ["server/session-messages.test.ts", ["direct", "src/opencodehx/smoke/ServerSmoke.hx", "message page, cursor header, bad cursor, missing session, and high-volume legacy limit behavior are covered", "ServerSmoke GET /session/:id/message fixtures", "none"]],
+    [
+      "server/session-messages.test.ts",
+      [
+        "direct",
+        "src/opencodehx/smoke/ServerSmoke.hx",
+        "message page, cursor header, bad cursor, missing session, message detail, message delete, and high-volume legacy limit behavior are covered",
+        "ServerSmoke GET /session/:id/message plus GET/DELETE /session/:id/message/:messageID fixtures",
+        "none",
+      ],
+    ],
     [
       "server/session-actions.test.ts",
       [

@@ -25,6 +25,7 @@ interface SessionStore {
 	function updateSession(info:SessionInfo):Void;
 	function deleteSession(id:SessionID):Void;
 	function upsertMessage(info:Info):Void;
+	function getMessage(sessionID:SessionID, messageID:MessageID):WithParts;
 	function removeMessage(sessionID:SessionID, messageID:MessageID):Void;
 	function upsertPart(part:Part, time:Float):Void;
 	function removePart(sessionID:SessionID, messageID:MessageID, partID:PartID):Void;

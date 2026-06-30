@@ -30,6 +30,7 @@ import opencodehx.question.QuestionRuntime.QuestionID;
 import opencodehx.question.QuestionRuntime.QuestionService;
 import opencodehx.session.MessageCodec;
 import opencodehx.session.MessageError.MessageException;
+import opencodehx.session.MessageID;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionLive.SessionLivePlan;
 import opencodehx.session.SessionLive.liveResolve;
@@ -123,6 +124,8 @@ class OpenCodeServer {
 		app.patch("/session/:sessionID", c -> updateSession(c));
 		app.get("/session/:sessionID/children", c -> sessionChildren(c));
 		app.get("/session/:sessionID", c -> getSession(c));
+		app.get("/session/:sessionID/message/:messageID", c -> getMessage(c));
+		app.delete("/session/:sessionID/message/:messageID", c -> deleteMessage(c));
 		app.get("/session/:sessionID/message", c -> sessionMessages(c));
 		app.post("/session/:sessionID/abort", c -> abortSession(c));
 		app.post("/permission/:requestID/reply", c -> replyPermission(c));
@@ -501,6 +504,27 @@ class OpenCodeServer {
 			return json(c, ServerProtocol.error("Invalid message cursor"), 400);
 		} catch (_:StorageException) {
 			return json(c, ServerProtocol.error("Invalid message cursor"), 400);
+		}
+	}
+
+	function getMessage(c:HonoContext):Response {
+		try {
+			final message = store.getMessage(SessionID.make(param(c, "sessionID")), MessageID.make(param(c, "messageID")));
+			return json(c, MessageCodec.encodeWithParts(message));
+		} catch (_:StorageException) {
+			return json(c, ServerProtocol.error("Message not found"), 404);
+		}
+	}
+
+	function deleteMessage(c:HonoContext):Response {
+		final sessionID = SessionID.make(param(c, "sessionID"));
+		final messageID = MessageID.make(param(c, "messageID"));
+		try {
+			store.getMessage(sessionID, messageID);
+			store.removeMessage(sessionID, messageID);
+			return json(c, true);
+		} catch (_:StorageException) {
+			return json(c, ServerProtocol.error("Message not found"), 404);
 		}
 	}
 

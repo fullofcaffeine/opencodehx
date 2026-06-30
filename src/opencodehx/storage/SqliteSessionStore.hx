@@ -81,6 +81,20 @@ class SqliteSessionStore implements SessionStore {
 			[id, sessionID, time, time, Json.stringify(record)],);
 	}
 
+	public function getMessage(sessionID:SessionID, messageID:MessageID):WithParts {
+		final row = sql.get("select * from message where id = ? and session_id = ?", [messageID.toString(), sessionID.toString()]);
+		if (row == null) {
+			final session = sql.get("select id from session where id = ?", [sessionID.toString()]);
+			if (session == null)
+				throw new StorageException(NotFound('Session not found: ${sessionID.toString()}'));
+			throw new StorageException(NotFound('Message not found: ${messageID.toString()}'));
+		}
+		final messages = hydrate([row]);
+		if (messages.length == 0)
+			throw new StorageException(NotFound('Message not found: ${messageID.toString()}'));
+		return messages[0];
+	}
+
 	public function removeMessage(sessionID:SessionID, messageID:MessageID):Void {
 		sql.run("delete from message where id = ? and session_id = ?", [messageID.toString(), sessionID.toString()]);
 	}
