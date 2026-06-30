@@ -1666,11 +1666,50 @@ class ServerSmoke {
 			}))));
 			final committedCurrent = requiredRecord(Unknown.fromBoundary(committedCurrentBody), "committed project current");
 			eq(requiredString(committedCurrent, "worktree", "committed project current worktree"), committedReal, "committed project current worktree");
+			final committedID = requiredString(committedCurrent, "id", "committed project current id");
 			final projectListBody = await(jsonResponse(await(server.app.request("/project"))));
 			final projectList = requiredArray(Unknown.fromBoundary(projectListBody), "project list");
 			eq(projectList.length >= 2, true, "project list count");
 			eq(projectListHasWorktree(projectList, plainReal), true, "project list plain worktree");
 			eq(projectListHasWorktree(projectList, committedReal), true, "project list committed worktree");
+			final updatedBody = await(jsonResponse(await(server.app.request('/project/${committedID}', {
+				method: "PATCH",
+				headers: {
+					"content-type": "application/json",
+				},
+				body: Json.stringify({
+					name: "Renamed committed project",
+					icon: {
+						color: "blue",
+					},
+					commands: {
+						start: "npm test",
+					},
+				}),
+			}))));
+			final updated = requiredRecord(Unknown.fromBoundary(updatedBody), "project update");
+			eq(requiredString(updated, "id", "project update id"), committedID, "project update id");
+			eq(requiredString(updated, "name", "project update name"), "Renamed committed project", "project update name");
+			final updatedIcon = requiredRecord(updated.get("icon"), "project update icon");
+			eq(requiredString(updatedIcon, "color", "project update icon color"), "blue", "project update icon color");
+			final updatedCommands = requiredRecord(updated.get("commands"), "project update commands");
+			eq(requiredString(updatedCommands, "start", "project update command start"), "npm test", "project update command start");
+			final missingUpdate = await(server.app.request("/project/proj_missing", {
+				method: "PATCH",
+				headers: {
+					"content-type": "application/json",
+				},
+				body: Json.stringify({name: "Missing"}),
+			}));
+			eq(missingUpdate.status, 404, "project update missing status");
+			final invalidUpdate = await(server.app.request('/project/${committedID}', {
+				method: "PATCH",
+				headers: {
+					"content-type": "application/json",
+				},
+				body: Json.stringify({name: 42}),
+			}));
+			eq(invalidUpdate.status, 400, "project update invalid status");
 			final reloaded = InstanceRuntime.get(plain);
 			if (reloaded == null)
 				throw "project init reloaded instance: expected instance context";

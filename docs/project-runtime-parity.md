@@ -37,7 +37,8 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - storage-backed global sessions are migrated to the real project ID when a committed project is discovered,
   - empty-directory and unrelated global sessions remain under the global project,
   - host paths are canonicalized through real filesystem paths when they exist, and
-  - the server `/project` route lists opened projects through the same typed project response adapter used by `/project/current`.
+  - the server `/project` route lists opened projects through the same typed project response adapter used by `/project/current`, and
+  - the server `PATCH /project/:projectID` route updates typed name, icon, and command metadata while preserving 404/400 error behavior.
 - Worktrees:
   - friendly names are slugged into stable branch/directory names,
   - repeated names avoid existing directories and branch names,

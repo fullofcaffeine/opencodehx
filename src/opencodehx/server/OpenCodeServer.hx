@@ -18,6 +18,9 @@ import opencodehx.project.InstanceBootstrapRuntime;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.project.ProjectRuntime.ProjectInfo;
+import opencodehx.project.ProjectRuntime.ProjectCommands;
+import opencodehx.project.ProjectRuntime.ProjectIcon;
+import opencodehx.project.ProjectRuntime.ProjectID;
 import opencodehx.pty.PtyService;
 import opencodehx.pty.PtyTypes.PtyConnectHandler;
 import opencodehx.pty.PtyTypes.PtyID;
@@ -38,6 +41,7 @@ import opencodehx.session.SessionLive.liveLocalConfig;
 import opencodehx.session.SessionLive.liveResolve;
 import opencodehx.session.SessionLive.liveRunPlan;
 import opencodehx.session.SessionProcessor;
+import opencodehx.server.ServerProjectProtocol.decodeProjectUpdate;
 import opencodehx.server.ServerProtocol.DecodeResult;
 import opencodehx.server.ServerProtocol.GlobalSessionResponse;
 import opencodehx.server.ServerProtocol.ServerEventTypes;
@@ -64,6 +68,8 @@ typedef ProjectRouteResponse = {
 	final worktree:String;
 	final vcs:Null<String>;
 	final name:Null<String>;
+	final icon:Null<ProjectIcon>;
+	final commands:Null<ProjectCommands>;
 	final time:ProjectRouteTime;
 	final sandboxes:Array<String>;
 }
@@ -123,6 +129,7 @@ class OpenCodeServer {
 		app.get("/project", c -> listProjects(c));
 		app.get("/project/current", c -> currentProject(c));
 		app.post("/project/git/init", c -> initGitProject(c));
+		app.patch("/project/:projectID", c -> updateProject(c));
 		app.post("/session", c -> createSession(c));
 		app.delete("/session/:sessionID", c -> deleteSession(c));
 		app.patch("/session/:sessionID", c -> updateSession(c));
@@ -444,6 +451,21 @@ class OpenCodeServer {
 		return json(c, projectResponse(next));
 	}
 
+	@:async
+	function updateProject(c:HonoContext):Promise<Response> {
+		final projectID = ProjectID.make(param(c, "projectID"));
+		if (ProjectRuntime.get(projectID) == null)
+			return json(c, ServerProtocol.error("Project not found"), 404);
+		final decoded = decodeProjectUpdate(projectID, @:await readJson(c));
+		final update = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		return json(c, projectResponse(ProjectRuntime.update(update)));
+	}
+
 	function getSession(c:HonoContext):Response {
 		final sessionID = param(c, "sessionID");
 		try {
@@ -744,6 +766,8 @@ class OpenCodeServer {
 			worktree: project.worktree,
 			vcs: project.vcs == null ? null : Std.string(project.vcs),
 			name: project.name,
+			icon: project.icon,
+			commands: project.commands,
 			time: {
 				created: project.time.created,
 				updated: project.time.updated,
