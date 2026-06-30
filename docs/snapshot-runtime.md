@@ -13,6 +13,7 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 - `SnapshotRuntime.diff(directory, hash)` returns a simple changed-file diff summary.
 - `SnapshotRuntime.diffFull(directory, from, to)` returns typed file diff summaries for stored snapshots.
 - `SnapshotRuntime.track(context)` keeps the server/instance entry point and verifies the snapshot service is attached.
+- `SnapshotFileDiff` is a pure DTO module, separate from the Node-backed runtime, so session/server types can reference stored diff summaries without importing host seams.
 
 `SnapshotSmoke` covers representative upstream behavior:
 

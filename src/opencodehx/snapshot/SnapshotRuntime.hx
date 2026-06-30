@@ -12,14 +12,6 @@ typedef SnapshotPatch = {
 	final files:Array<String>;
 }
 
-typedef SnapshotFileDiff = {
-	final file:String;
-	final patch:String;
-	final additions:Int;
-	final deletions:Int;
-	final status:String;
-}
-
 private typedef SnapshotEntry = {
 	final content:String;
 }

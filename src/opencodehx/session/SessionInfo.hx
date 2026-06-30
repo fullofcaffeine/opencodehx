@@ -1,10 +1,13 @@
 package opencodehx.session;
 
+import opencodehx.permission.PermissionTypes.PermissionRule;
+import opencodehx.snapshot.SnapshotFileDiff;
+
 typedef SessionSummary = {
 	final additions:Int;
 	final deletions:Int;
 	final files:Int;
-	@:optional final diffs:Array<Dynamic>;
+	@:optional final diffs:Array<SnapshotFileDiff>;
 }
 
 typedef SessionShare = {
@@ -37,7 +40,7 @@ typedef SessionInfo = {
 	@:optional final summary:SessionSummary;
 	@:optional final share:SessionShare;
 	@:optional final revert:SessionRevert;
-	@:optional final permission:Dynamic;
+	@:optional final permission:Array<PermissionRule>;
 	final time:SessionTime;
 }
 

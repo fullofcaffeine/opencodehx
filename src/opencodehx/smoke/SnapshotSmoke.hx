@@ -115,7 +115,7 @@ class SnapshotSmoke {
 		eq(patch.files.indexOf(abs(dir, file)) == -1, true, label);
 	}
 
-	static function hasDiff(diffs:Array<opencodehx.snapshot.SnapshotRuntime.SnapshotFileDiff>, file:String):Bool {
+	static function hasDiff(diffs:Array<opencodehx.snapshot.SnapshotFileDiff>, file:String):Bool {
 		for (diff in diffs) {
 			if (diff.file == file)
 				return true;
