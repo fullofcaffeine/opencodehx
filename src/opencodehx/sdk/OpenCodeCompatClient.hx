@@ -13,9 +13,13 @@ import opencodehx.externs.web.WebStreams.WebResponseStreams;
 import opencodehx.externs.web.WebStreams.WebTextDecoder;
 import opencodehx.session.MessageCodec;
 import opencodehx.session.MessageTypes.WithParts;
-import opencodehx.server.ServerProtocol.SessionResponse;
 import opencodehx.server.ServerProtocol.ServerEvent;
+import opencodehx.server.ServerProtocol.ServerEventProperties;
 import opencodehx.server.ServerProtocol.ServerEventTypes;
+import opencodehx.server.ServerProtocol.SessionResponse;
+import opencodehx.server.ServerProtocol.SessionStatusInfo;
+import opencodehx.server.ServerProtocol.SessionStatusType;
+import opencodehx.server.ServerProtocol.SessionStatusTypes;
 
 typedef CompatClientConfig = {
 	final baseUrl:String;
@@ -212,14 +216,44 @@ class OpenCodeCompatClient {
 		final propertiesRaw = record.get("properties");
 		final properties = UnknownNarrow.record(propertiesRaw);
 		final sessionID = properties == null ? null : UnknownNarrow.string(properties.get("sessionID"));
+		final status = properties == null ? null : decodeStatus(properties.get("status"), "event.properties.status");
 		final typeText = requireString(record, "type", "event");
 		final eventType = ServerEventTypes.fromBoundary(typeText);
 		if (eventType == null)
 			throw 'event.type: unknown server event type ${typeText}';
 		return {
 			type: eventType,
-			properties: sessionID == null ? {} : {sessionID: sessionID},
+			properties: eventProperties(sessionID, status),
 		};
+	}
+
+	static function eventProperties(sessionID:Null<String>, status:Null<SessionStatusInfo>):ServerEventProperties {
+		if (sessionID != null && status != null)
+			return {sessionID: sessionID, status: status};
+		if (sessionID != null)
+			return {sessionID: sessionID};
+		if (status != null)
+			return {status: status};
+		return {};
+	}
+
+	static function decodeStatus(raw:Unknown, label:String):Null<SessionStatusInfo> {
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
+			return null;
+		final typeText = requireString(record, "type", label);
+		final statusType = SessionStatusTypes.fromBoundary(typeText);
+		if (statusType == null)
+			throw '${label}.type: unknown session status ${typeText}';
+		if (statusType == SessionStatusType.Retry) {
+			return {
+				type: statusType,
+				attempt: Std.int(requireFloat(record, "attempt", label)),
+				message: requireString(record, "message", label),
+				next: requireFloat(record, "next", label),
+			};
+		}
+		return {type: statusType};
 	}
 
 	static function requireRecord(raw:Unknown, label:String):UnknownRecord {

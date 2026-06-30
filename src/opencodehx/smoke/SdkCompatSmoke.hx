@@ -9,6 +9,7 @@ import opencodehx.sdk.OpenCodeCompatClient;
 import opencodehx.session.MessageTypes.Info;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerProtocol.ServerEventTypes;
+import opencodehx.server.ServerProtocol.SessionStatusType;
 import opencodehx.server.ServerTypes.ServerListener;
 
 class SdkCompatSmoke {
@@ -49,6 +50,7 @@ class SdkCompatSmoke {
 			eq(messageID(secondPage.items[0].info), "msg_user_one_ses_server_1", "sdk resume second page older message");
 			final received = @:await events;
 			eq(received[0].type, ServerEventTypes.known("server.connected"), "sdk event connected");
+			eq(hasSessionStatus(received, created.id, SessionStatusType.Busy), true, "sdk event session busy");
 			eq(hasSessionCreated(received, created.id), true, "sdk event session created");
 			@:await listener.stop(true);
 			server.close();
@@ -65,6 +67,18 @@ class SdkCompatSmoke {
 	static function hasSessionCreated(events:Array<opencodehx.server.ServerProtocol.ServerEvent>, sessionID:String):Bool {
 		for (event in events) {
 			if (event.type == ServerEventTypes.known("session.created") && event.properties.sessionID == sessionID)
+				return true;
+		}
+		return false;
+	}
+
+	static function hasSessionStatus(events:Array<opencodehx.server.ServerProtocol.ServerEvent>, sessionID:String, status:SessionStatusType):Bool {
+		for (event in events) {
+			final eventStatus = event.properties.status;
+			if (event.type == ServerEventTypes.known("session.status")
+				&& event.properties.sessionID == sessionID
+				&& eventStatus != null
+				&& eventStatus.type == status)
 				return true;
 		}
 		return false;

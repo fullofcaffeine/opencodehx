@@ -1466,10 +1466,18 @@ try {
 		assert.equal(createdSession.id, "ses_server_1", "installed server session id");
 		assert.equal(createdSession.title, "Installed package session", "installed server session title");
 		const eventText = await events.readUntil((text) => {
-			return text.includes('"type":"server.connected"') && text.includes('"type":"session.created"') && text.includes(`"sessionID":"${createdSession.id}"`);
+			return (
+				text.includes('"type":"server.connected"') &&
+				text.includes('"type":"session.created"') &&
+				text.includes('"type":"session.status"') &&
+				text.includes(`"sessionID":"${createdSession.id}"`)
+			);
 		});
 		assert.match(eventText, /"type":"server\.connected"/, "installed server SSE connected event");
 		assert.match(eventText, /"type":"session\.created"/, "installed server SSE session event");
+		assert.match(eventText, /"type":"session\.status"/, "installed server SSE status event");
+		const statuses = await fetchJson(`${server.url}/session/status`);
+		assert.deepEqual(statuses, {}, "installed server status is idle after create");
 		const sessions = await fetchJson(`${server.url}/session`);
 		assert.equal(sessions.some((session) => session.id === createdSession.id), true, "installed server lists created session");
 		const sessionID = encodeURIComponent(createdSession.id);

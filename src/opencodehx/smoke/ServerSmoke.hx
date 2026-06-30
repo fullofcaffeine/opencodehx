@@ -395,6 +395,8 @@ class ServerSmoke {
 		final sessionID = Std.string(Reflect.field(created, "id"));
 		eq(sessionID, "ses_server_1", "created session id");
 		eq(Reflect.field(created, "title"), "Server fixture", "created title");
+		final statusAfterCreate = UnknownNarrow.record(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/session/status"))))));
+		eq(statusAfterCreate != null && statusAfterCreate.keys().length == 0, true, "session status idle after completed create");
 
 		final invalidCreate = await(server.app.request("/session", {
 			method: "POST",
@@ -541,12 +543,16 @@ class ServerSmoke {
 
 		final aborted = await(jsonResponse(await(server.app.request('/session/${sessionID}/abort', {method: "POST"}))));
 		eq(aborted, true, "abort route");
+		final missingAbort:Response = await(server.app.request("/session/ses_missing/abort", {method: "POST"}));
+		eq(missingAbort.status, 404, "missing abort status");
 
 		final eventResponse = @:await server.app.request("/event");
-		final eventText = @:await readSseEvents(eventResponse, 10);
+		final eventText = @:await readSseUntil(eventResponse, '"type":"server.heartbeat"', 80);
 		eq(eventText.indexOf('"type":"server.connected"') != -1, true, "sse connected event");
 		eq(eventText.indexOf('"type":"server.heartbeat"') != -1, true, "sse heartbeat event");
 		eq(eventText.indexOf('"type":"session.created"') != -1, true, "sse session event");
+		eq(eventText.indexOf('"type":"session.status"') != -1, true, "sse session status event");
+		eq(eventText.indexOf('"type":"session.idle"') != -1, true, "sse session idle event");
 
 		final liveEventResponse = @:await server.app.request("/event");
 		final liveCreateResponse = @:await server.app.request("/session", {
@@ -558,7 +564,7 @@ class ServerSmoke {
 		final liveSessionID = Std.string(Reflect.field(liveCreated, "id"));
 		eq(StringTools.startsWith(liveSessionID, "ses_server_"), true, "live event session id");
 		final liveEventPattern = '"sessionID":"' + liveSessionID + '"';
-		final liveEventText = @:await readSseUntil(liveEventResponse, liveEventPattern, 16);
+		final liveEventText = @:await readSseUntil(liveEventResponse, liveEventPattern, 120);
 		eq(liveEventText.indexOf(liveEventPattern) != -1, true, "sse live session event");
 
 		final firstProjectDir = NodePath.join(root, "global-first-project");

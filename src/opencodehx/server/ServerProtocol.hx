@@ -38,8 +38,33 @@ typedef ServerErrorResponse = {
 	final error:String;
 }
 
+enum abstract SessionStatusType(String) to String {
+	var Idle = "idle";
+	var Busy = "busy";
+	var Retry = "retry";
+}
+
+class SessionStatusTypes {
+	public static function fromBoundary(type:String):Null<SessionStatusType> {
+		return switch type {
+			case "idle": Idle;
+			case "busy": Busy;
+			case "retry": Retry;
+			case _: null;
+		}
+	}
+}
+
+typedef SessionStatusInfo = {
+	final type:SessionStatusType;
+	@:optional final attempt:Int;
+	@:optional final message:String;
+	@:optional final next:Float;
+}
+
 typedef ServerEventProperties = {
 	@:optional final sessionID:String;
+	@:optional final status:SessionStatusInfo;
 }
 
 typedef ServerEvent = {
@@ -52,6 +77,8 @@ enum abstract ServerEventType(String) to String {
 	var ServerHeartbeat = "server.heartbeat";
 	var SessionCreated = "session.created";
 	var SessionSelected = "session.selected";
+	var SessionStatus = "session.status";
+	var SessionIdle = "session.idle";
 }
 
 class ServerEventTypes {
@@ -61,6 +88,8 @@ class ServerEventTypes {
 			case "server.heartbeat": ServerHeartbeat;
 			case "session.created": SessionCreated;
 			case "session.selected": SessionSelected;
+			case "session.status": SessionStatus;
+			case "session.idle": SessionIdle;
 			case _: null;
 		}
 	}
@@ -372,6 +401,10 @@ class ServerProtocol {
 
 	public static inline function sessionEvent(type:ServerEventType, sessionID:String):ServerEvent {
 		return {type: type, properties: {sessionID: sessionID}};
+	}
+
+	public static inline function sessionStatusEvent(sessionID:String, status:SessionStatusInfo):ServerEvent {
+		return {type: SessionStatus, properties: {sessionID: sessionID, status: status}};
 	}
 
 	static function optionalString(raw:Unknown, field:String):DecodeResult<Null<String>> {

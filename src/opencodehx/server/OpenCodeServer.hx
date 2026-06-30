@@ -29,6 +29,7 @@ import opencodehx.server.ServerProtocol.DecodeResult;
 import opencodehx.server.ServerProtocol.GlobalSessionResponse;
 import opencodehx.server.ServerProtocol.ServerEventTypes;
 import opencodehx.server.ServerProtocol.SessionResponse;
+import opencodehx.server.ServerSessionStatusRuntime;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.server.ServerTypes.ServerOptions;
 import opencodehx.storage.SessionStore;
@@ -61,6 +62,7 @@ class OpenCodeServer {
 	final eventBus = new ServerEventBus();
 	final syncRuntime:SyncRouteRuntime;
 	final ptyService:PtyService;
+	final sessionStatus:ServerSessionStatusRuntime;
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
 
@@ -72,6 +74,7 @@ class OpenCodeServer {
 		store = new SqliteSessionStore(options.dbPath);
 		syncRuntime = options.syncRuntime == null ? new SyncRouteRuntime(options.syncTypes) : options.syncRuntime;
 		ptyService = new PtyService(directory);
+		sessionStatus = new ServerSessionStatusRuntime(event -> eventBus.publish(event));
 		app = new Hono();
 		ws = NodeWs.createNodeWebSocket({app: app});
 		routes();
@@ -92,13 +95,14 @@ class OpenCodeServer {
 		app.get("/health", c -> json(c, {ok: true, service: "opencodehx"}));
 		app.get("/event", c -> eventStream(c));
 		app.get("/session", c -> listSessions(c));
+		app.get("/session/status", c -> sessionStatuses(c));
 		app.get("/experimental/session", c -> listGlobalSessions(c));
 		app.get("/project/current", c -> currentProject(c));
 		app.post("/project/git/init", c -> initGitProject(c));
 		app.post("/session", c -> createSession(c));
 		app.patch("/session/:sessionID", c -> updateSession(c));
 		app.get("/session/:sessionID/message", c -> sessionMessages(c));
-		app.post("/session/:sessionID/abort", c -> json(c, true));
+		app.post("/session/:sessionID/abort", c -> abortSession(c));
 		app.post("/sync/start", c -> json(c, syncRuntime.start()));
 		app.post("/sync/replay", c -> syncReplay(c));
 		app.post("/sync/history", c -> syncHistory(c));
@@ -124,6 +128,7 @@ class OpenCodeServer {
 		final sessionID = 'ses_server_${createdCount}';
 		final requestDirectory = routingDirectory(c);
 		final project = ProjectRuntime.fromDirectory(requestDirectory, store).project;
+		sessionStatus.busy(sessionID);
 		final result = SessionProcessor.run({
 			prompt: request.prompt,
 			directory: requestDirectory,
@@ -138,7 +143,23 @@ class OpenCodeServer {
 		if (sessionOrder.indexOf(result.request.sessionID) == -1)
 			sessionOrder.push(result.request.sessionID);
 		eventBus.publish(ServerProtocol.sessionEvent(ServerEventTypes.known("session.created"), result.request.sessionID));
+		sessionStatus.idle(result.request.sessionID);
 		return json(c, encoded);
+	}
+
+	function abortSession(c:HonoContext):Response {
+		final sessionID = param(c, "sessionID");
+		if (!hasSession(sessionID))
+			return json(c, ServerProtocol.error("Session not found"), 404);
+		sessionStatus.abort(sessionID);
+		return json(c, true);
+	}
+
+	function sessionStatuses(c:HonoContext):Response {
+		// Upstream returns a record keyed by active session ID. This synchronous
+		// scaffold has no externally observable active window yet, so expose the
+		// same empty JSON object without introducing a dynamic keyed map.
+		return json(c, {});
 	}
 
 	function listSessions(c:HonoContext):Response {
