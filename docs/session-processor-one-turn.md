@@ -54,6 +54,7 @@ This is not the full upstream Effect session loop yet. Server/TUI cancellation U
 
 - `SessionToolCall` and `SessionToolOutcome` are typed records rather than broad `Dynamic`, while individual tool inputs remain dynamic at the npm/OpenCode boundary.
 - AI SDK tool input stays `genes.ts.Unknown` until `SessionProcessor.toolInput` narrows null/string cases and hands the result to `ToolRegistry`; parsed JSON strings use `genes.ts.JsonCodec`, while non-JSON strings remain raw input for schema validation.
+- `SessionTranscript` types the fake/live transcript envelope used by CLI and harness output; only encoded Message V2 records remain `genes.ts.Unknown` at the JSON serialization boundary.
 - `SessionInfo` uses typed stored side shapes for summary diffs and permission rules: `SnapshotFileDiff[]` and `PermissionRule[]` replace the previous raw fields while storage/export still serialize them as upstream JSON.
 - Retryable provider failures are a typed Haxe enum first; only the final retry-part error payload is serialized into the upstream JSON shape.
 - Retry JSON message classification treats parsed provider text as `genes.ts.Unknown`, narrows through `UnknownRecord`, and copies out only the string fields needed for the upstream retry labels.

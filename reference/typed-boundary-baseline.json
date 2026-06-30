@@ -17,9 +17,9 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 639,
+    "Dynamic": 634,
     "DynamicAccess": 538,
-    "cast": 162,
+    "cast": 161,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
@@ -40,9 +40,6 @@
     "src/opencodehx/bus/BusRuntime.hx": {
       "Dynamic": 2,
       "cast": 2
-    },
-    "src/opencodehx/cli/Cli.hx": {
-      "Dynamic": 1
     },
     "src/opencodehx/cli/ErrorFormatter.hx": {
       "cast": 2
@@ -201,10 +198,6 @@
     },
     "src/opencodehx/fx/Task.hx": {
       "Dynamic": 3
-    },
-    "src/opencodehx/harness/TranscriptHarness.hx": {
-      "Dynamic": 2,
-      "cast": 1
     },
     "src/opencodehx/host/Clock.hx": {
       "Syntax.code": 1
@@ -400,9 +393,6 @@
       "Dynamic": 3,
       "DynamicAccess": 18,
       "cast": 1
-    },
-    "src/opencodehx/session/SessionProcessor.hx": {
-      "Dynamic": 2
     },
     "src/opencodehx/session/SessionRetry.hx": {
       "Dynamic": 1,

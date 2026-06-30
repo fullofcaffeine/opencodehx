@@ -201,6 +201,24 @@ typedef SessionProcessorResult = {
 	@:optional final tool:SessionToolOutcome;
 }
 
+typedef SessionTranscript = {
+	final provider:{
+		final id:String;
+		final modelID:String;
+		final source:String;
+	};
+	final request:{
+		final sessionID:String;
+		final prompt:String;
+		final system:Array<String>;
+		final tools:Array<String>;
+	};
+	final events:Array<SessionEvent>;
+	// MessageCodec emits upstream Message V2 JSON records. Keep those encoded
+	// payloads as Unknown at the transcript serialization boundary.
+	final messages:Array<Unknown>;
+}
+
 typedef SessionRecovery = {
 	final session:SessionInfo;
 	final messages:Array<WithParts>;
@@ -567,12 +585,12 @@ class SessionProcessor {
 		};
 	}
 
-	public static function toTranscript(processed:SessionProcessorResult):Dynamic {
+	public static function toTranscript(processed:SessionProcessorResult):SessionTranscript {
 		// Transcript output is the JSON oracle surface consumed by harnesses.
 		// Message records are typed until this final serialization boundary.
-		final encodedMessages:Array<Dynamic> = [];
+		final encodedMessages:Array<Unknown> = [];
 		for (message in processed.messages) {
-			encodedMessages.push(MessageCodec.encodeWithParts(message));
+			encodedMessages.push(Unknown.fromBoundary(MessageCodec.encodeWithParts(message)));
 		}
 		return {
 			provider: processed.provider,

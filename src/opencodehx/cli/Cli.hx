@@ -553,7 +553,7 @@ class Cli {
 	}
 
 	static function formatRunResult(processed:SessionProcessorResult, format:String):CliResult {
-		final transcript:Dynamic = SessionProcessor.toTranscript(processed);
+		final transcript = SessionProcessor.toTranscript(processed);
 		if (format == "json")
 			return ok(haxe.Json.stringify(transcript, null, "  "));
 		return ok(assistantText(processed));

@@ -40,4 +40,4 @@ OpenCodeHX does not have the headless session processor yet, so the upstream sid
 
 ## Haxe Modeling Lesson
 
-Provider info/model records are precise typedefs instead of `Dynamic`, and `opencodehx-024` moved keyed provider/model maps into typed `Map<String, ProviderModel>` records shared with the provider registry. The transcript itself is built from typed `WithParts` messages, then encoded at the boundary.
+Provider info/model records are precise typedefs instead of `Dynamic`, and `opencodehx-024` moved keyed provider/model maps into typed `Map<String, ProviderModel>` records shared with the provider registry. The transcript itself is built from typed `WithParts` messages, then encoded into a typed `SessionTranscript` envelope with only the serialized Message V2 records kept as `genes.ts.Unknown`.
