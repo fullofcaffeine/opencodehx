@@ -1,7 +1,18 @@
 package opencodehx.server;
 
 import js.lib.Promise;
+import opencodehx.externs.ai.AiSdk.AiLanguageModel;
+import opencodehx.provider.ProviderTypes.ProviderInfo;
+import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.sync.SyncRouteRuntime;
+
+typedef ServerLiveAiSdkOptions = {
+	final provider:ProviderInfo;
+	final model:ProviderModel;
+	final language:AiLanguageModel;
+	@:optional final agent:String;
+	@:optional final system:Array<String>;
+}
 
 typedef ServerOptions = {
 	final directory:String;
@@ -9,6 +20,7 @@ typedef ServerOptions = {
 	@:optional final hostname:String;
 	@:optional final syncTypes:Array<String>;
 	@:optional final syncRuntime:SyncRouteRuntime;
+	@:optional final liveAiSdk:ServerLiveAiSdkOptions;
 }
 
 typedef ServerListener = {

@@ -1,5 +1,6 @@
 package opencodehx.server;
 
+import haxe.Json;
 import opencodehx.server.ServerProtocol.ServerEvent;
 import opencodehx.server.ServerProtocol.ServerEventTypes;
 import opencodehx.server.ServerProtocol.SessionStatusInfo;
@@ -8,10 +9,10 @@ import opencodehx.server.ServerProtocol.SessionStatusType;
 /**
 	Server-owned session status registry for the first Hono route surface.
 
-	The current server route runs the local session processor synchronously, so
-	public reads only observe the upstream-shaped empty active-status record.
-	The typed registry still publishes busy/retry/idle status events and keeps
-	the active state ready for the later async live-session loop.
+	Default deterministic session creation completes synchronously, so public
+	reads observe the upstream-shaped empty active-status record there. Injected
+	live AI SDK routes keep `busy` visible while the stream is active, and later
+	config-backed server execution can reuse the same typed status state.
 **/
 class ServerSessionStatusRuntime {
 	final statuses = new Map<String, SessionStatusInfo>();
@@ -40,6 +41,13 @@ class ServerSessionStatusRuntime {
 
 	public function abort(sessionID:String):Void {
 		idle(sessionID);
+	}
+
+	public function activeJsonText():String {
+		final fields:Array<String> = [];
+		for (sessionID => status in statuses)
+			fields.push(Json.stringify(sessionID) + ":" + Json.stringify(status));
+		return "{" + fields.join(",") + "}";
 	}
 
 	function set(sessionID:String, status:SessionStatusInfo):Void {

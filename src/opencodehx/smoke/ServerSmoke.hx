@@ -32,6 +32,8 @@ import opencodehx.host.node.NodePath;
 import opencodehx.project.InstanceRuntime.InstanceContext;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
+import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
+import opencodehx.provider.FakeProvider;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTrace;
 import opencodehx.server.ServerTypes.ServerListener;
@@ -118,6 +120,7 @@ class ServerSmoke {
 		var listener:Null<ServerListener> = null;
 		try {
 			await(appRequestRoutes(server, root, workspaceSync, syncRuntime, remoteSync));
+			await(liveAiSdkSessionRoute(root));
 			listener = await(server.listen(0, "127.0.0.1"));
 			final health = await(fetchJson(listener.url + "/health"));
 			eq(Reflect.field(health, "ok"), true, "listener health");
@@ -134,6 +137,37 @@ class ServerSmoke {
 			Fs.rmSync(root, {recursive: true, force: true});
 			throw error;
 		}
+	}
+
+	@:async
+	static function liveAiSdkSessionRoute(root:String):Promise<Void> {
+		final liveRoot = NodePath.join(root, "live-ai-sdk-server");
+		Fs.mkdirSync(liveRoot, {recursive: true});
+		final provider = new FakeProvider();
+		final liveServer = new OpenCodeServer({
+			directory: liveRoot,
+			dbPath: NodePath.join(liveRoot, "opencodehx-live.db"),
+			liveAiSdk: {
+				provider: provider.info,
+				model: provider.model,
+				language: AiSdkMockModel.abortable(),
+				system: ["Server-owned live AI SDK fixture."],
+			},
+		});
+		final pending = Promise.resolve(liveServer.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Run behind the server.", title: "Server live AI SDK"}),
+		}));
+		await(waitForStatus(liveServer, "ses_server_1", "busy"));
+		final created = requiredRecord(Unknown.fromBoundary(await(jsonResponse(await(pending)))), "live server create");
+		eq(UnknownNarrow.string(created.get("id")), "ses_server_1", "live server session id");
+		eq(UnknownNarrow.string(created.get("title")), "Server live AI SDK", "live server session title");
+		final idleStatus = UnknownNarrow.record(Unknown.fromBoundary(await(jsonResponse(await(liveServer.app.request("/session/status"))))));
+		eq(idleStatus != null && idleStatus.keys().length == 0, true, "live server status idle after completion");
+		final messages = UnknownNarrow.array(Unknown.fromBoundary(await(jsonResponse(await(liveServer.app.request("/session/ses_server_1/message"))))));
+		eq(messages != null && messages.length == 2, true, "live server persisted message count");
+		liveServer.close();
 	}
 
 	@:async
@@ -901,6 +935,43 @@ class ServerSmoke {
 		} catch (error:Dynamic) {
 			reject(error);
 		}
+	}
+
+	@:async
+	static function waitForStatus(server:OpenCodeServer, sessionID:String, expected:String):Promise<Void> {
+		var attempts = 0;
+		while (attempts < 40) {
+			final statusRaw = Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/session/status")))));
+			final actual = sessionStatus(statusRaw, sessionID);
+			if (actual == expected)
+				return;
+			attempts += 1;
+			await(sleep(10));
+		}
+		throw 'timeout waiting for session ${sessionID} status ${expected}';
+	}
+
+	static function sessionStatus(raw:Unknown, sessionID:String):Null<String> {
+		final root = UnknownNarrow.record(raw);
+		if (root == null)
+			return null;
+		final item = UnknownNarrow.record(root.get(sessionID));
+		if (item == null)
+			return null;
+		return UnknownNarrow.string(item.get("type"));
+	}
+
+	static function requiredRecord(raw:Unknown, label:String):genes.ts.UnknownRecord {
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
+			throw '${label}: expected object';
+		return record;
+	}
+
+	static function sleep(ms:Int):Promise<Bool> {
+		return new Promise<Bool>((resolve, _) -> {
+			WebTimers.setTimeout(() -> resolve(true), ms);
+		});
 	}
 
 	static function ptyWebsocket(url:String, ?message:String, ?expected:String):Promise<PtyWebSocketResult> {

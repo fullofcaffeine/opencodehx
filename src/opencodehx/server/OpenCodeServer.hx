@@ -30,6 +30,7 @@ import opencodehx.server.ServerProtocol.GlobalSessionResponse;
 import opencodehx.server.ServerProtocol.ServerEventTypes;
 import opencodehx.server.ServerProtocol.SessionResponse;
 import opencodehx.server.ServerSessionStatusRuntime;
+import opencodehx.server.ServerTypes.ServerLiveAiSdkOptions;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.server.ServerTypes.ServerOptions;
 import opencodehx.storage.SessionStore;
@@ -63,6 +64,7 @@ class OpenCodeServer {
 	final syncRuntime:SyncRouteRuntime;
 	final ptyService:PtyService;
 	final sessionStatus:ServerSessionStatusRuntime;
+	final liveAiSdk:Null<ServerLiveAiSdkOptions>;
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
 
@@ -75,6 +77,7 @@ class OpenCodeServer {
 		syncRuntime = options.syncRuntime == null ? new SyncRouteRuntime(options.syncTypes) : options.syncRuntime;
 		ptyService = new PtyService(directory);
 		sessionStatus = new ServerSessionStatusRuntime(event -> eventBus.publish(event));
+		liveAiSdk = options.liveAiSdk;
 		app = new Hono();
 		ws = NodeWs.createNodeWebSocket({app: app});
 		routes();
@@ -128,6 +131,8 @@ class OpenCodeServer {
 		final sessionID = 'ses_server_${createdCount}';
 		final requestDirectory = routingDirectory(c);
 		final project = ProjectRuntime.fromDirectory(requestDirectory, store).project;
+		if (liveAiSdk != null)
+			return @:await createLiveAiSdkSession(c, request, sessionID, requestDirectory, project.id.toString());
 		sessionStatus.busy(sessionID);
 		final result = SessionProcessor.run({
 			prompt: request.prompt,
@@ -147,6 +152,41 @@ class OpenCodeServer {
 		return json(c, encoded);
 	}
 
+	@:async
+	function createLiveAiSdkSession(c:HonoContext, request:opencodehx.server.ServerProtocol.CreateSessionRequest, sessionID:String, requestDirectory:String,
+			projectID:String):Promise<Response> {
+		final live = liveAiSdk;
+		if (live == null)
+			return json(c, ServerProtocol.error("Live AI SDK runtime is not configured"), 500);
+		sessionStatus.busy(sessionID);
+		try {
+			final result = @:await SessionProcessor.runAiSdk({
+				prompt: request.prompt,
+				directory: requestDirectory,
+				sessionID: sessionID,
+				projectID: projectID,
+				store: store,
+				provider: live.provider,
+				model: live.model,
+				language: live.language,
+				agent: live.agent,
+				system: live.system,
+			});
+			final info = store.getSession(SessionID.make(result.request.sessionID));
+			final updated = ServerProtocol.withCreateRequest(info, request, requestDirectory, 1002 + createdCount);
+			store.updateSession(updated);
+			final encoded = ServerProtocol.encodeSession(updated);
+			if (sessionOrder.indexOf(result.request.sessionID) == -1)
+				sessionOrder.push(result.request.sessionID);
+			eventBus.publish(ServerProtocol.sessionEvent(ServerEventTypes.known("session.created"), result.request.sessionID));
+			sessionStatus.idle(result.request.sessionID);
+			return json(c, encoded);
+		} catch (error:haxe.Exception) {
+			sessionStatus.idle(sessionID);
+			return json(c, ServerProtocol.error(error.message), 500);
+		}
+	}
+
 	function abortSession(c:HonoContext):Response {
 		final sessionID = param(c, "sessionID");
 		if (!hasSession(sessionID))
@@ -156,10 +196,7 @@ class OpenCodeServer {
 	}
 
 	function sessionStatuses(c:HonoContext):Response {
-		// Upstream returns a record keyed by active session ID. This synchronous
-		// scaffold has no externally observable active window yet, so expose the
-		// same empty JSON object without introducing a dynamic keyed map.
-		return json(c, {});
+		return jsonText(sessionStatus.activeJsonText());
 	}
 
 	function listSessions(c:HonoContext):Response {
@@ -507,6 +544,10 @@ class OpenCodeServer {
 		if (status == null)
 			return c.json(payload);
 		return c.json(payload, status);
+	}
+
+	static function jsonText(text:String):Response {
+		return new Response(text, {headers: {"content-type": "application/json"}});
 	}
 
 	static function param(c:HonoContext, name:String):String {
