@@ -2,6 +2,10 @@ package opencodehx.smoke;
 
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownArray;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
+import genes.ts.JsonCodec;
 import haxe.DynamicAccess;
 import haxe.Json;
 import js.lib.Promise;
@@ -52,14 +56,15 @@ class ProviderSmoke {
 		eq(transcript.provider.id, "openai", "provider id");
 		eq(transcript.provider.modelID, "gpt-5.2", "model id");
 		eq(transcript.events.length, 3, "event count");
-		eq(Reflect.field(transcript.events[1], "text"), "Hello from the fake provider.", "delta text");
+		eq(transcript.events[1].text, "Hello from the fake provider.", "delta text");
 		eq(transcript.messages.length, 2, "message count");
 
 		final encoded = TranscriptHarness.oneTurnJson();
-		final parsed:Dynamic = Json.parse(encoded);
-		final first = Reflect.field(cast parsed.messages[0], "info");
-		eq(Reflect.field(first, "role"), "user", "encoded user role");
-		MessageCodec.decodeWithParts(parsed.messages[1], "provider-smoke-assistant");
+		final parsed = parseRecord(encoded, "provider transcript");
+		final messages = requiredArrayField(parsed, "messages", "provider transcript");
+		final first = requiredRecordField(recordAt(messages, 0, "provider transcript messages"), "info", "provider transcript first message");
+		eq(requiredString(first.get("role"), "provider transcript first message role"), "user", "encoded user role");
+		MessageCodec.parseWithParts(jsonString(messages.get(1), "provider transcript assistant message"), "provider-smoke-assistant");
 	}
 
 	@:async
@@ -1239,6 +1244,50 @@ class ProviderSmoke {
 		for (_ in catalog.keys())
 			count++;
 		return count;
+	}
+
+	static function parseRecord(text:String, label:String):UnknownRecord {
+		return requiredRecord(Unknown.fromBoundary(Json.parse(text)), label);
+	}
+
+	static function requiredRecord(raw:Unknown, label:String):UnknownRecord {
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
+			throw '${label}: expected object';
+		return record;
+	}
+
+	static function requiredArray(raw:Unknown, label:String):UnknownArray {
+		final array = UnknownNarrow.array(raw);
+		if (array == null)
+			throw '${label}: expected array';
+		return array;
+	}
+
+	static function requiredString(raw:Unknown, label:String):String {
+		final text = UnknownNarrow.string(raw);
+		if (text == null)
+			throw '${label}: expected string';
+		return text;
+	}
+
+	static function requiredRecordField(record:UnknownRecord, field:String, label:String):UnknownRecord {
+		return requiredRecord(record.get(field), '${label}.${field}');
+	}
+
+	static function requiredArrayField(record:UnknownRecord, field:String, label:String):UnknownArray {
+		return requiredArray(record.get(field), '${label}.${field}');
+	}
+
+	static function recordAt(array:UnknownArray, index:Int, label:String):UnknownRecord {
+		return requiredRecord(array.get(index), '${label}[${index}]');
+	}
+
+	static function jsonString(raw:Unknown, label:String):String {
+		final json = JsonCodec.narrow(raw);
+		if (json == null)
+			throw '${label}: expected JSON value';
+		return JsonCodec.stringify(json);
 	}
 
 	static function config(data:Dynamic):ConfigInfo {
