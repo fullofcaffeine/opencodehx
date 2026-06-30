@@ -965,8 +965,8 @@ class ServerSmoke {
 			headers: {"content-type": "application/json"},
 			body: Json.stringify({prompt: "Fourth", title: "live-event-session"}),
 		});
-		final liveCreated = @:await jsonResponse(liveCreateResponse);
-		final liveSessionID = Std.string(Reflect.field(liveCreated, "id"));
+		final liveCreated = requiredRecord(Unknown.fromBoundary(@:await jsonResponse(liveCreateResponse)), "live event session");
+		final liveSessionID = requiredString(liveCreated, "id", "live event session id");
 		eq(StringTools.startsWith(liveSessionID, "ses_server_"), true, "live event session id");
 		final liveEventPattern = '"sessionID":"' + liveSessionID + '"';
 		final liveEventText = @:await readSseUntil(liveEventResponse, liveEventPattern, 120);
@@ -976,34 +976,36 @@ class ServerSmoke {
 		final secondProjectDir = NodePath.join(root, "global-second-project");
 		initCommittedRepo(firstProjectDir, "# first\n");
 		initCommittedRepo(secondProjectDir, "# second\n");
-		final firstProjectSession = await(jsonResponse(await(server.app.request("/session", {
+		final firstProjectSessionResponse = await(server.app.request("/session", {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
 				"x-opencode-directory": StringTools.urlEncode(firstProjectDir),
 			},
 			body: Json.stringify({prompt: "First project", title: "first-project-session"}),
-		}))));
-		final secondProjectSession = await(jsonResponse(await(server.app.request("/session", {
+		}));
+		final firstProjectSession = requiredRecord(Unknown.fromBoundary(await(jsonResponse(firstProjectSessionResponse))), "first project session");
+		final secondProjectSessionResponse = await(server.app.request("/session", {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
 				"x-opencode-directory": StringTools.urlEncode(secondProjectDir),
 			},
 			body: Json.stringify({prompt: "Second project", title: "second-project-session"}),
-		}))));
-		final firstProjectSessionID = Std.string(Reflect.field(firstProjectSession, "id"));
-		final secondProjectSessionID = Std.string(Reflect.field(secondProjectSession, "id"));
-		final multiProjectGlobal:Dynamic = await(jsonResponse(await(server.app.request("/experimental/session?limit=200"))));
-		final firstProjectItem = responseByID(multiProjectGlobal, firstProjectSessionID);
-		final secondProjectItem = responseByID(multiProjectGlobal, secondProjectSessionID);
-		neq(firstProjectItem, null, "global multi-project first session listed");
-		neq(secondProjectItem, null, "global multi-project second session listed");
-		final firstProjectMeta = Reflect.field(firstProjectItem, "project");
-		final secondProjectMeta = Reflect.field(secondProjectItem, "project");
-		neq(Reflect.field(firstProjectMeta, "id"), Reflect.field(secondProjectMeta, "id"), "global multi-project distinct project ids");
-		eq(Reflect.field(firstProjectMeta, "worktree"), firstProjectDir, "global first project worktree");
-		eq(Reflect.field(secondProjectMeta, "worktree"), secondProjectDir, "global second project worktree");
+		}));
+		final secondProjectSession = requiredRecord(Unknown.fromBoundary(await(jsonResponse(secondProjectSessionResponse))), "second project session");
+		final firstProjectSessionID = requiredString(firstProjectSession, "id", "first project session id");
+		final secondProjectSessionID = requiredString(secondProjectSession, "id", "second project session id");
+		final multiProjectGlobal = requiredArray(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/experimental/session?limit=200"))))),
+			"global multi-project session list");
+		final firstProjectItem = responseRecordByID(multiProjectGlobal, firstProjectSessionID, "global multi-project first session listed");
+		final secondProjectItem = responseRecordByID(multiProjectGlobal, secondProjectSessionID, "global multi-project second session listed");
+		final firstProjectMeta = requiredRecord(firstProjectItem.get("project"), "global first project metadata");
+		final secondProjectMeta = requiredRecord(secondProjectItem.get("project"), "global second project metadata");
+		neq(requiredString(firstProjectMeta, "id", "global first project id"), requiredString(secondProjectMeta, "id", "global second project id"),
+			"global multi-project distinct project ids");
+		eq(requiredString(firstProjectMeta, "worktree", "global first project worktree"), firstProjectDir, "global first project worktree");
+		eq(requiredString(secondProjectMeta, "worktree", "global second project worktree"), secondProjectDir, "global second project worktree");
 	}
 
 	@:async
@@ -1822,14 +1824,6 @@ class ServerSmoke {
 		});
 	}
 
-	static function responseIDs(items:Dynamic):Array<String> {
-		final out:Array<String> = [];
-		for (item in cast(items, Array<Dynamic>)) {
-			out.push(Std.string(Reflect.field(item, "id")));
-		}
-		return out;
-	}
-
 	static function responseIDsFromArray(items:genes.ts.UnknownArray):Array<String> {
 		final out:Array<String> = [];
 		for (index in 0...items.length) {
@@ -1839,12 +1833,13 @@ class ServerSmoke {
 		return out;
 	}
 
-	static function responseByID(items:Dynamic, id:String):Null<Dynamic> {
-		for (item in cast(items, Array<Dynamic>)) {
-			if (Reflect.field(item, "id") == id)
+	static function responseRecordByID(items:genes.ts.UnknownArray, id:String, label:String):genes.ts.UnknownRecord {
+		for (index in 0...items.length) {
+			final item = requiredRecord(items.get(index), label);
+			if (requiredString(item, "id", label) == id)
 				return item;
 		}
-		return null;
+		throw label;
 	}
 
 	static function instanceServiceIDs(context:InstanceContext):String {
