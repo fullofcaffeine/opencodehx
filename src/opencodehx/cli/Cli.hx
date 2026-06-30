@@ -28,6 +28,10 @@ import opencodehx.provider.ProviderRegistry;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.server.OpenCodeServer;
 import opencodehx.server.ServerTypes.ServerListener;
+import opencodehx.session.SessionLive.liveAgentSelection;
+import opencodehx.session.SessionLive.liveLocalConfig;
+import opencodehx.session.SessionLive.liveModelText;
+import opencodehx.session.SessionLive.liveRun;
 import opencodehx.session.MessageTypes.WithParts;
 import opencodehx.session.SessionExport;
 import opencodehx.session.SessionID;
@@ -260,40 +264,9 @@ class Cli {
 		var persistence:Null<RunPersistence> = null;
 		try {
 			final env = NodeProcess.env();
-			final config = loadLocalRunConfig(resume.directory, env);
-			final auth = AuthStore.load(env);
-			final remote = @:await ConfigLoader.loadRemoteWellKnown(AuthStore.wellKnown(auth), {
-				env: env,
-				includeDefaultUsername: false,
-			});
-			final account = ConfigLoader.loadRemoteAccountConfigs(@:await AccountStore.loadRemoteConfigs(env), {
-				env: env,
-				includeDefaultUsername: false,
-			});
-			final mergedConfig = remote.merge(config).merge(account);
-			final registry = new ProviderRegistry({
-				config: mergedConfig,
-				env: env,
-				auth: auth,
-			});
-			final selectedAgent = runAgentSelection(mergedConfig, args);
-			final agentError = selectedAgent.error;
-			if (agentError != null)
-				return fail(agentError);
-			final resolvedModelText = runModelText(modelText, mergedConfig, selectedAgent.info);
-			if (resolvedModelText == null || resolvedModelText == "")
-				return fail("Live AI SDK runs require --model provider/model or config model for now.");
-			final parsed = ProviderRegistry.parseModel(resolvedModelText);
-			final provider = registry.getProvider(parsed.providerID);
-			if (provider == null)
-				return fail('Provider not available for live AI SDK run: ${parsed.providerID.toString()}');
-			final model = registry.getModel(parsed.providerID, parsed.modelID);
-			final language = registry.getLanguage(model);
 			persistence = runPersistence(resume.sessionID, resume.forkParentID);
 			final runSessionID = resume.sessionID == null ? persistence.sessionID : resume.sessionID;
-			final permission = permissionRuntime(mergedConfig, args, runSessionID, selectedAgent.info);
-			final selectedVariant = runVariantText(variant, selectedAgent.info);
-			final processed = @:await SessionProcessor.runAiSdk({
+			final live = @:await liveRun({
 				prompt: prompt,
 				directory: resume.directory,
 				sessionID: runSessionID,
@@ -301,27 +274,17 @@ class Cli {
 				turnTime: persistence.turnTime,
 				parentSessionID: resume.forkParentID,
 				store: persistence.store,
-				provider: provider,
-				model: model,
-				language: language,
 				files: filesResult.files,
 				history: resume.history,
-				permission: permission,
-				agent: selectedAgent.name,
-				system: @:await SessionSystemPrompt.buildAsync({
-					directory: resume.directory,
-					model: model,
-					agent: selectedAgent.info,
-					config: mergedConfig,
-				}),
-				agentOptions: runAgentOptions(selectedAgent.info),
-				agentTemperature: selectedAgent.info == null ? null : selectedAgent.info.temperature,
-				agentTopP: selectedAgent.info == null ? null : selectedAgent.info.top_p,
-				disabledTools: runAgentDisabledTools(selectedAgent.info),
-				variant: selectedVariant == "" ? null : selectedVariant,
+				modelText: modelText,
+				agentText: option(args, "--agent", ""),
+				variantText: variant,
+				skipPermissions: has(args, "--dangerously-skip-permissions"),
 			});
+			if (live.error != null || live.result == null)
+				return fail(live.error == null ? "Live AI SDK runs require --model provider/model or config model for now." : live.error);
 			closeStore(persistence.store);
-			return formatRunResult(processed, format);
+			return formatRunResult(live.result, format);
 		} catch (error:haxe.Exception) {
 			if (persistence != null)
 				closeStore(persistence.store);
@@ -514,6 +477,7 @@ class Cli {
 			directory: NodeProcess.cwd(),
 			dbPath: NodePath.join(dbDir, "server.sqlite"),
 			hostname: hostname,
+			liveConfig: {enabled: true},
 		});
 		try {
 			final listener = @:await server.listen(port, hostname);
@@ -572,82 +536,6 @@ class Cli {
 			i++;
 		}
 		return {files: files, error: null};
-	}
-
-	static function permissionRuntime(config:ConfigInfo, args:Array<String>, sessionID:Null<String>, ?agent:AgentInfo):Null<PermissionRuntime> {
-		final rulesets:Array<Array<PermissionRule>> = [];
-		if (agent != null)
-			rulesets.push(PermissionRules.fromConfig(agent.permission));
-		rulesets.push(PermissionRules.fromConfig(config.permission));
-		// PermissionRules uses last-match semantics, so config-level rules are
-		// appended after agent defaults and can still enforce global denies.
-		final rules = PermissionRules.merge(rulesets);
-		if (rules.length == 0 && !has(args, "--dangerously-skip-permissions"))
-			return null;
-		return new PermissionRuntime({
-			ruleset: rules,
-			sessionID: sessionID == null ? "" : sessionID,
-			prompt: has(args, "--dangerously-skip-permissions") ? (_->{reply: "once"}) : null,
-		});
-	}
-
-	static function runAgentSelection(config:ConfigInfo, args:Array<String>):RunAgentSelection {
-		var name = option(args, "--agent", "");
-		if (name == "" && config.defaultAgent != null)
-			name = config.defaultAgent;
-		if (name == "")
-			return {name: null, info: null, error: null};
-		final agents = config.agent;
-		if (agents == null)
-			return {name: name, info: null, error: 'Agent not available for live AI SDK run: ${name}'};
-		final agent = agents.get(name);
-		if (agent == null)
-			return {name: name, info: null, error: 'Agent not available for live AI SDK run: ${name}'};
-		if (agent.disable == true)
-			return {name: name, info: null, error: 'Agent is disabled for live AI SDK run: ${name}'};
-		return {name: name, info: agent, error: null};
-	}
-
-	static function runModelText(cliModel:String, config:ConfigInfo, agent:Null<AgentInfo>):Null<String> {
-		if (cliModel != "")
-			return cliModel;
-		if (agent != null && agent.model != null && agent.model != "")
-			return agent.model;
-		return config.model;
-	}
-
-	static function runVariantText(cliVariant:String, agent:Null<AgentInfo>):String {
-		if (cliVariant != "")
-			return cliVariant;
-		if (agent != null && agent.variant != null)
-			return agent.variant;
-		return "";
-	}
-
-	static function runAgentOptions(agent:Null<AgentInfo>):Null<ProviderOptions> {
-		if (agent == null || agent.options == null)
-			return null;
-		return agent.options;
-	}
-
-	static function runAgentDisabledTools(agent:Null<AgentInfo>):Null<Array<String>> {
-		if (agent == null || agent.tools == null)
-			return null;
-		final disabled:Array<String> = [];
-		for (tool in agent.tools.keys()) {
-			if (agent.tools.get(tool) == false)
-				pushUnique(disabled, normalizedToolID(tool));
-		}
-		return disabled.length == 0 ? null : disabled;
-	}
-
-	static function normalizedToolID(tool:String):String {
-		return tool == "patch" ? "apply_patch" : tool;
-	}
-
-	static function pushUnique(values:Array<String>, value:String):Void {
-		if (values.indexOf(value) == -1)
-			values.push(value);
 	}
 
 	static function liveDirectory(args:Array<String>):{final directory:String; final error:Null<String>;} {
@@ -737,18 +625,6 @@ class Cli {
 		return fallback;
 	}
 
-	static function loadLocalRunConfig(directory:String, env:Dynamic):ConfigInfo {
-		final config = ConfigInfo.empty("cli");
-		config.merge(ConfigWriter.loadGlobal(GlobalPaths.config(env), {env: env}));
-		config.merge(ConfigLoader.loadProject(directory, {
-			defaultUsername: config.username == null ? "cli" : config.username,
-			worktree: directory,
-			env: env,
-			includeDefaultUsername: false,
-		}));
-		return config;
-	}
-
 	static function optionMaybe(args:Array<String>, name:String):Null<String> {
 		if (args.length < 2)
 			return null;
@@ -772,9 +648,9 @@ class Cli {
 		if (directoryResult.error != null)
 			return {live: false, error: null};
 		try {
-			final config = loadLocalRunConfig(directoryResult.directory, NodeProcess.env());
-			final selectedAgent = runAgentSelection(config, args);
-			final model = runModelText("", config, selectedAgent.info);
+			final config = liveLocalConfig(directoryResult.directory);
+			final selectedAgent = liveAgentSelection(config, option(args, "--agent", ""));
+			final model = liveModelText("", config, selectedAgent.info);
 			return {live: model != null && model != "" && model != FAKE_MODEL, error: null};
 		} catch (error:haxe.Exception) {
 			return {live: false, error: ErrorFormatter.format(Unknown.fromBoundary(error))};

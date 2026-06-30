@@ -11,6 +11,7 @@ import js.html.Response;
 import js.lib.Error;
 import js.lib.Promise;
 import js.lib.Uint8Array;
+import opencodehx.config.ConfigInfo;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.web.AbortControllerWithReason;
@@ -29,6 +30,7 @@ import opencodehx.git.Git;
 import opencodehx.host.Clock;
 import opencodehx.host.node.NodeBuffer;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
 import opencodehx.project.InstanceRuntime.InstanceContext;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
@@ -121,6 +123,7 @@ class ServerSmoke {
 		try {
 			await(appRequestRoutes(server, root, workspaceSync, syncRuntime, remoteSync));
 			await(liveAiSdkSessionRoute(root));
+			await(liveConfigSessionRoute(root));
 			listener = await(server.listen(0, "127.0.0.1"));
 			final health = await(fetchJson(listener.url + "/health"));
 			eq(Reflect.field(health, "ok"), true, "listener health");
@@ -198,6 +201,64 @@ class ServerSmoke {
 		eq(assistantErrorName(abortedMessages, "live server aborted messages"), "MessageAbortedError", "live server abort persisted error");
 		eq(assistantText(abortedMessages, "live server aborted messages"), "Request aborted.", "live server abort persisted text");
 		abortServer.close();
+	}
+
+	@:async
+	static function liveConfigSessionRoute(root:String):Promise<Void> {
+		final liveRoot = NodePath.join(root, "live-config-server");
+		final configRoot = NodePath.join(liveRoot, "xdg");
+		final dataRoot = NodePath.join(liveRoot, "data");
+		final projectRoot = NodePath.join(liveRoot, "project");
+		final configDir = NodePath.join(configRoot, "opencode");
+		Fs.mkdirSync(configDir, {recursive: true});
+		Fs.mkdirSync(projectRoot, {recursive: true});
+		Fs.writeFileSync(NodePath.join(configDir, "opencode.json"),
+			'{"' + "$" +
+			'schema":"${ConfigInfo.DEFAULT_SCHEMA}","default_agent":"reviewer","provider":{"local-live":{"npm":"@ai-sdk/openai-compatible","name":"Local Live","options":{"baseURL":"https://local-live.example.com/v1","apiKey":"local-key"},"models":{"chat":{"name":"Chat"}}}},"agent":{"reviewer":{"model":"local-live/chat","prompt":"Server agent prompt from config.","tools":{"write":false}}}}');
+		final originalFetch = SmokeFetchStub.installCliLiveSuccess();
+		final originalXdgConfig = NodeProcess.envValue("XDG_CONFIG_HOME");
+		final originalXdgData = NodeProcess.envValue("XDG_DATA_HOME");
+		final originalHome = NodeProcess.envValue("OPENCODE_TEST_HOME");
+		NodeProcess.setEnv("XDG_CONFIG_HOME", configRoot);
+		NodeProcess.setEnv("XDG_DATA_HOME", dataRoot);
+		NodeProcess.setEnv("OPENCODE_TEST_HOME", liveRoot);
+		final liveServer = new OpenCodeServer({
+			directory: projectRoot,
+			dbPath: NodePath.join(liveRoot, "opencodehx-live-config.db"),
+			liveConfig: {enabled: true},
+		});
+		try {
+			final response = await(liveServer.app.request("/session", {
+				method: "POST",
+				headers: {"content-type": "application/json"},
+				body: Json.stringify({prompt: "Run with config model.", title: "Server live config"}),
+			}));
+			final created = requiredRecord(Unknown.fromBoundary(await(jsonResponse(response))), "live config server create");
+			eq(UnknownNarrow.string(created.get("id")), "ses_server_1", "live config server session id");
+			eq(UnknownNarrow.string(created.get("title")), "Server live config", "live config server session title");
+			eq(SmokeFetchStub.liveFetchedUrl(), "https://local-live.example.com/v1/chat/completions", "live config server request URL");
+			eq(SmokeFetchStub.liveAuth(), "Bearer local-key", "live config server auth header");
+			final requestBody = SmokeFetchStub.liveRequestBody();
+			eq(requestBody != null
+				&& requestBody.indexOf("Server agent prompt from config.") != -1, true, "live config server agent prompt body");
+			eq(requestBody != null && requestBody.indexOf('"name":"write"') == -1, true, "live config server disabled tool omitted");
+			final idleStatus = UnknownNarrow.record(Unknown.fromBoundary(await(jsonResponse(await(liveServer.app.request("/session/status"))))));
+			eq(idleStatus != null && idleStatus.keys().length == 0, true, "live config server status idle after completion");
+			final messages = Unknown.fromBoundary(await(jsonResponse(await(liveServer.app.request("/session/ses_server_1/message")))));
+			eq(assistantText(messages, "live config server messages"), "Hello from local live.", "live config server assistant text");
+			liveServer.close();
+			SmokeFetchStub.restore(originalFetch);
+			restoreEnv("XDG_CONFIG_HOME", originalXdgConfig);
+			restoreEnv("XDG_DATA_HOME", originalXdgData);
+			restoreEnv("OPENCODE_TEST_HOME", originalHome);
+		} catch (error:haxe.Exception) {
+			liveServer.close();
+			SmokeFetchStub.restore(originalFetch);
+			restoreEnv("XDG_CONFIG_HOME", originalXdgConfig);
+			restoreEnv("XDG_DATA_HOME", originalXdgData);
+			restoreEnv("OPENCODE_TEST_HOME", originalHome);
+			throw error;
+		}
 	}
 
 	@:async
@@ -1042,6 +1103,13 @@ class ServerSmoke {
 		return new Promise<Bool>((resolve, _) -> {
 			WebTimers.setTimeout(() -> resolve(true), ms);
 		});
+	}
+
+	static function restoreEnv(key:String, value:Null<String>):Void {
+		if (value == null)
+			NodeProcess.unsetEnv(key);
+		else
+			NodeProcess.setEnv(key, value);
 	}
 
 	static function ptyWebsocket(url:String, ?message:String, ?expected:String):Promise<PtyWebSocketResult> {

@@ -14,6 +14,10 @@ typedef ServerLiveAiSdkOptions = {
 	@:optional final system:Array<String>;
 }
 
+typedef ServerLiveConfigOptions = {
+	final enabled:Bool;
+}
+
 typedef ServerOptions = {
 	final directory:String;
 	final dbPath:String;
@@ -21,6 +25,7 @@ typedef ServerOptions = {
 	@:optional final syncTypes:Array<String>;
 	@:optional final syncRuntime:SyncRouteRuntime;
 	@:optional final liveAiSdk:ServerLiveAiSdkOptions;
+	@:optional final liveConfig:ServerLiveConfigOptions;
 }
 
 typedef ServerListener = {

@@ -26,6 +26,9 @@ import opencodehx.provider.AiSdkProvider;
 import opencodehx.session.MessageCodec;
 import opencodehx.session.MessageError.MessageException;
 import opencodehx.session.SessionID;
+import opencodehx.session.SessionLive.SessionLivePlan;
+import opencodehx.session.SessionLive.liveResolve;
+import opencodehx.session.SessionLive.liveRunPlan;
 import opencodehx.session.SessionProcessor;
 import opencodehx.server.ServerProtocol.DecodeResult;
 import opencodehx.server.ServerProtocol.GlobalSessionResponse;
@@ -33,6 +36,7 @@ import opencodehx.server.ServerProtocol.ServerEventTypes;
 import opencodehx.server.ServerProtocol.SessionResponse;
 import opencodehx.server.ServerSessionStatusRuntime;
 import opencodehx.server.ServerTypes.ServerLiveAiSdkOptions;
+import opencodehx.server.ServerTypes.ServerLiveConfigOptions;
 import opencodehx.server.ServerTypes.ServerListener;
 import opencodehx.server.ServerTypes.ServerOptions;
 import opencodehx.storage.SessionStore;
@@ -67,6 +71,7 @@ class OpenCodeServer {
 	final ptyService:PtyService;
 	final sessionStatus:ServerSessionStatusRuntime;
 	final liveAiSdk:Null<ServerLiveAiSdkOptions>;
+	final liveConfig:Null<ServerLiveConfigOptions>;
 	final liveAborts = new Map<String, AbortControllerWithReason>();
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
@@ -81,6 +86,7 @@ class OpenCodeServer {
 		ptyService = new PtyService(directory);
 		sessionStatus = new ServerSessionStatusRuntime(event -> eventBus.publish(event));
 		liveAiSdk = options.liveAiSdk;
+		liveConfig = options.liveConfig;
 		app = new Hono();
 		ws = NodeWs.createNodeWebSocket({app: app});
 		routes();
@@ -136,6 +142,11 @@ class OpenCodeServer {
 		final project = ProjectRuntime.fromDirectory(requestDirectory, store).project;
 		if (liveAiSdk != null)
 			return @:await createLiveAiSdkSession(c, request, sessionID, requestDirectory, project.id.toString());
+		if (liveConfig != null && liveConfig.enabled) {
+			final liveResponse = @:await createConfiguredLiveAiSdkSession(c, request, sessionID, requestDirectory, project.id.toString());
+			if (liveResponse != null)
+				return liveResponse;
+		}
 		sessionStatus.busy(sessionID);
 		final result = SessionProcessor.run({
 			prompt: request.prompt,
@@ -153,6 +164,51 @@ class OpenCodeServer {
 		eventBus.publish(ServerProtocol.sessionEvent(ServerEventTypes.known("session.created"), result.request.sessionID));
 		sessionStatus.idle(result.request.sessionID);
 		return json(c, encoded);
+	}
+
+	@:async
+	function createConfiguredLiveAiSdkSession(c:HonoContext, request:opencodehx.server.ServerProtocol.CreateSessionRequest, sessionID:String,
+			requestDirectory:String, projectID:String):Promise<Null<Response>> {
+		final config = liveConfig;
+		if (config == null || !config.enabled)
+			return null;
+		try {
+			final resolved = @:await liveResolve({
+				directory: requestDirectory,
+			});
+			if (resolved.error != null)
+				return json(c, ServerProtocol.error(resolved.error), 400);
+			final plan = resolved.plan;
+			if (plan == null)
+				return null;
+			final controller = new AbortControllerWithReason();
+			liveAborts.set(sessionID, controller);
+			sessionStatus.busy(sessionID);
+			final result = @:await liveRunPlan(plan, {
+				prompt: request.prompt,
+				directory: requestDirectory,
+				sessionID: sessionID,
+				projectID: projectID,
+				store: store,
+				abortSignal: controller.signal,
+			});
+			liveAborts.remove(sessionID);
+			final info = store.getSession(SessionID.make(result.request.sessionID));
+			final updated = ServerProtocol.withCreateRequest(info, request, requestDirectory, 1002 + createdCount);
+			store.updateSession(updated);
+			final encoded = ServerProtocol.encodeSession(updated);
+			if (sessionOrder.indexOf(result.request.sessionID) == -1)
+				sessionOrder.push(result.request.sessionID);
+			eventBus.publish(ServerProtocol.sessionEvent(ServerEventTypes.known("session.created"), result.request.sessionID));
+			if (sessionStatus.isActive(result.request.sessionID))
+				sessionStatus.idle(result.request.sessionID);
+			return json(c, encoded);
+		} catch (error:haxe.Exception) {
+			liveAborts.remove(sessionID);
+			if (sessionStatus.isActive(sessionID))
+				sessionStatus.idle(sessionID);
+			return json(c, ServerProtocol.error(error.message), 500);
+		}
 	}
 
 	@:async
