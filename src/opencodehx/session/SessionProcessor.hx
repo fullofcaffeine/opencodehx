@@ -389,7 +389,7 @@ class SessionProcessor {
 			continuations++;
 			toolHistory.push(toolHistoryTurn(currentOutcome));
 			final continuationMessages = SessionLlm.requestToolHistoryModelMessages(provider.system, prompt, toolHistory, false, false, messageHistory);
-			final continuation = @:await AiSdkProvider.stream({
+			final continuationAttempt = @:await streamAiSdkWithRetry(input, {
 				model: input.language,
 				prompt: prompt,
 				messages: continuationMessages,
@@ -404,14 +404,17 @@ class SessionProcessor {
 				providerModel: input.model,
 				transformOptions: streamOptions.options,
 				maxRetries: streamOptions.maxRetries,
-			});
+			}, events);
+			final continuation = continuationAttempt.stream;
 			streamAborted = continuation.aborted;
 			wasAborted = wasAborted || streamAborted;
 			final continuationEvents = encodeAiSdkEvents(continuation.events);
-			for (event in continuationEvents)
-				events.push(event);
 			final continuedText = collectText(continuationEvents);
 			final nextToolCall = firstModelToolCall(continuation.events);
+			if (continuationAttempt.providerError != null) {
+				providerError = continuationAttempt.providerError;
+				retry = continuationAttempt.retry;
+			}
 			if (nextToolCall != null) {
 				toolOutcome = appendAssistantTool(assistantRecord, sessionIDText, input.directory, agent, nextToolCall, registry, input.permission, events,
 					input.turnID, input.turnTime, instructionClaims, loadedInstructions, toolFilter);

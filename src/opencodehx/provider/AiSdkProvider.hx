@@ -457,6 +457,26 @@ class AiSdkMockModel {
 		return inspectableMock(mock);
 	}
 
+	public static function inspectableToolThenErrorThenText(message:String, text:String, ?toolName:String, ?input:String):AiSdkInspectableMock {
+		var name = "read";
+		if (toolName != null)
+			name = toolName;
+		var payload = "{\"path\":\"README.md\"}";
+		if (input != null)
+			payload = input;
+		final first = toolCallStream("tool_1", name, payload);
+		final second = errorStream(message);
+		final third = textStream("txt_retry_continuation", text);
+		final mock = new MockLanguageModelV3({
+			provider: "opencodehx-test",
+			modelId: "mock-tool-error-then-text",
+			// ai/test records the call before indexing array fixtures, so index
+			// zero is unused and the first real stream lives at index one.
+			doStream: [first, first, second, third],
+		});
+		return inspectableMock(mock);
+	}
+
 	public static function abortable():AiLanguageModel {
 		return model("mock-abort", [
 			AiProviderStreamPart.streamStart(),

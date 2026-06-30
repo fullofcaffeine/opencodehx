@@ -1245,6 +1245,32 @@ description: Review workflow.
 					throw "session processor async: expected retry-loop text";
 			}
 
+			final continuationRetryRuntime = AiSdkMockModel.inspectableToolThenErrorThenText("Rate limit exceeded", "Recovered continuation after retry.",
+				"read", "{\"filePath\":\"src/input.txt\"}");
+			final continuationRetryWaits:Array<Int> = [];
+			final continuationRetry = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_retry_continuation",
+				prompt: "Read, then retry the continuation.",
+				directory: root,
+				provider: fixture.info,
+				model: fixture.model,
+				language: continuationRetryRuntime.language,
+				retryPolicy: {
+					maxAttempts: 2,
+					wait: retry -> {
+						continuationRetryWaits.push(retry.attempt);
+						return Promise.resolve(true);
+					},
+				},
+			});
+			eq(continuationRetryWaits.length, 1, "ai sdk continuation retry wait count");
+			eq(continuationRetryWaits[0], 1, "ai sdk continuation retry wait attempt");
+			eq(continuationRetryRuntime.mock.doStreamCalls.length, 3, "ai sdk continuation retry stream calls");
+			eq(hasSessionEvent(continuationRetry.events, "retry", "Rate limit exceeded"), true, "ai sdk continuation retry event");
+			eq(continuationRetry.retry == null, true, "ai sdk continuation retry final retry cleared");
+			assertToolOutcome(continuationRetry.tool);
+			assertAssistantParts(continuationRetry.messages[1].parts, "ai sdk continuation retry", "tool_1", "Recovered continuation after retry.");
+
 			final abortResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_abort",
 				projectID: "proj_ai_sdk_abort",
