@@ -19,7 +19,7 @@ Implemented:
 - `OPENCODE_CONFIG_DIR` loads `opencode.{json,jsonc}` as an explicit directory source and overrides project-local config in this early slice.
 - `OPENCODE_CONFIG` and `OPENCODE_CONFIG_CONTENT` overlays for early env-driven parity.
 - Remote well-known config loading from authenticated `/.well-known/opencode` URLs through the async loader, including trailing-slash normalization, token env substitution, default `$schema`, and project-over-remote precedence.
-- Remote active account/org config as an explicit async loader source, including `OPENCODE_CONSOLE_TOKEN` injection for config-template substitution and account-config-over-project precedence.
+- Remote active account/org config as both an explicit async loader source and an `AccountService`-backed loader path, including `OPENCODE_CONSOLE_TOKEN` injection for config-template substitution, token refresh through the account service, account-config-over-project precedence, no-active-account fallback, and best-effort account-service failure fallback.
 - Managed config source parsing for MDM/mobileconfig JSON, including metadata-key stripping and final managed-over-user precedence through an explicit loader source.
 - Best-effort `$schema` write-back for file-backed configs without expanding `{env:...}` or `{file:...}` tokens into the persisted file.
 - Typed plugin specs for string and `[specifier, options]` config entries, aligned plugin origins, and upstream-style later-wins deduplication by package identity or exact file URL.
@@ -53,7 +53,7 @@ Implemented:
 Smoke coverage lives in `opencodehx.smoke.ConfigSmoke` and is grouped around:
 
 - Config discovery and merge order: missing defaults, JSONC precedence, ancestor and `.opencode` discovery, `OPENCODE_CONFIG_DIR`, project config disable behavior, and invalid JSON/schema fields.
-- Substitution and remote sources: env substitution, file substitution, remote well-known config, remote account config token substitution, managed config metadata stripping, and `$schema` auto-add with raw token preservation.
+- Substitution and remote sources: env substitution, file substitution, remote well-known config, explicit and account-service-backed remote account config token substitution, managed config metadata stripping, and `$schema` auto-add with raw token preservation.
 - Plugin and dependency config: plugin merge/dedup/origin alignment, plugin directory discovery, plugin path resolution, and dependency bootstrap gitignore/install success/failure behavior.
 - User-authored config files: markdown file-reference/frontmatter parsing, command/agent/mode discovery, JSON project agent colors, config-backed agent lookup color propagation, and LSP config refinement.
 - Writable and legacy config paths: global load/update precedence, JSONC comment-preserving global writes, legacy global TOML migration, local `config.json` writes, top-level legacy tools migration, env-driven finalization flags, and legacy TUI key stripping.
@@ -72,7 +72,7 @@ Markdown frontmatter is intentionally typed as an `unknown` boundary at parse ti
 
 Plugin options remain open passthrough maps because upstream models them as `Record<string, unknown>` for plugin packages to consume. Path-like specs are normalized for file-backed config loads, but this slice does not load plugin modules or install npm dependencies; those belong to the plugin/runtime slices.
 
-This slice does not reimplement upstream's Effect service layer, the real account repo/service, platform-specific managed preference discovery, live npm package-manager side effects, plugin runtime loading, or full TUI service/runtime layering. Dependency bootstrap is represented by a typed `ConfigDependencyRuntime` seam and deterministic smoke fixture; live package-manager harnessing should stay opt-in.
+This slice does not reimplement upstream's Effect service layer, platform-specific managed preference discovery, live npm package-manager side effects, plugin runtime loading, or full TUI service/runtime layering. Dependency bootstrap is represented by a typed `ConfigDependencyRuntime` seam and deterministic smoke fixture; live package-manager harnessing should stay opt-in.
 
 The writable JSON tree in `ConfigWriter` is intentionally typed as an `unknown` boundary in generated TypeScript. It exists only to round-trip arbitrary JSON/JSONC fields whose owning modules are not ported yet; app-facing code should stay on `ConfigInfo` and typed nested records.
 

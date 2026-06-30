@@ -24,6 +24,7 @@ import opencodehx.externs.web.Fetch.RemoteConfigObject;
 import opencodehx.externs.web.Fetch.WellKnownPayload;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.account.AccountService;
 
 typedef LoadOptions = {
 	@:optional final env:ConfigEnv;
@@ -45,7 +46,7 @@ typedef WellKnownAuth = {
 
 typedef AccountRemoteConfig = {
 	final url:String;
-	final config:RemoteConfigObject;
+	final config:genes.ts.UnknownRecord;
 	@:optional final token:String;
 }
 
@@ -154,6 +155,34 @@ class ConfigLoader {
 		if (result.username == null)
 			result.username = defaultUsername(opts);
 		return result;
+	}
+
+	@:async
+	public static function loadProjectWithAccountService(directory:String, account:AccountService, ?options:LoadOptions):Promise<ConfigInfo> {
+		final accountConfigs:Array<AccountRemoteConfig> = [];
+		final active = account.active();
+		if (active != null && active.activeOrgID != null) {
+			try {
+				final token = @:await account.token(active.id);
+				final config = @:await account.config(active.id, active.activeOrgID);
+				if (config != null) {
+					final input:AccountRemoteConfig = token == null ? {
+						url: active.url,
+						config: config,
+					} : {
+						url: active.url,
+						token: token.toString(),
+						config: config,
+						};
+					accountConfigs.push(input);
+				}
+			} catch (_:haxe.Exception) {
+				// Upstream treats active-account remote config as best-effort:
+				// config loading should continue if the account service cannot
+				// fetch org config or refresh a token.
+			}
+		}
+		return @:await loadProjectWithRemoteSources(directory, [], accountConfigs, options);
 	}
 
 	@:async

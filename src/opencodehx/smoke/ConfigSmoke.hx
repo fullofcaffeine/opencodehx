@@ -5,6 +5,14 @@ import genes.js.Async.await;
 import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
 import js.lib.Promise;
+import opencodehx.account.AccountRepo;
+import opencodehx.account.AccountRepo.AccountID;
+import opencodehx.account.AccountRepo.AccessToken;
+import opencodehx.account.AccountRepo.OrgID;
+import opencodehx.account.AccountRepo.RefreshToken;
+import opencodehx.account.AccountService;
+import opencodehx.account.AccountService.AccountHttpRequest;
+import opencodehx.account.AccountService.AccountHttpResponse;
 import opencodehx.agent.AgentRuntime;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigError.ConfigFailure;
@@ -28,13 +36,13 @@ import opencodehx.config.ConfigWriter;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.node.Url;
-import opencodehx.externs.web.Fetch.RemoteConfigObject;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.npm.Npm as NpmRuntime;
 import opencodehx.npm.Npm.NpmDeps;
 import opencodehx.npm.Npm.NpmHttpResponse;
 import opencodehx.npm.Npm.NpmReifyRequest;
+import opencodehx.provider.ProviderOptionAccess;
 
 typedef RemoteMcpEntry = {
 	final enabled:Bool;
@@ -103,11 +111,13 @@ class ConfigSmoke {
 			final jira:RemoteMcpEntry = cast Reflect.field(config.mcp, "jira");
 			eq(jira.enabled, true, "project config overrides remote well-known config");
 			eq(config.model, "account/model", "account config overrides project config");
-			eq(Reflect.field(env, "OPENCODE_CONSOLE_TOKEN"), "st_test_token", "account token injected into substitution env");
 			final providers = require(config.provider, "account provider map");
 			final provider = require(providers.get("opencode"), "account provider config");
 			final options = require(provider.options, "account provider options");
-			eq(Reflect.field(options, "apiKey"), "st_test_token", "account config resolves token env template");
+			eq(ProviderOptionAccess.string(options, "apiKey", null), "st_test_token", "account config resolves token env template");
+			await(accountServiceRemoteConfig(root, env));
+			await(accountServiceNoActiveFallback(root));
+			await(accountServiceFailureFallback(root));
 			SmokeFetchStub.restore(originalFetch);
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
@@ -117,7 +127,7 @@ class ConfigSmoke {
 		}
 	}
 
-	static function accountRemoteConfig():RemoteConfigObject {
+	static function accountRemoteConfig():genes.ts.UnknownRecord {
 		final options = new DynamicAccess<OpenConfigValue>();
 		options.set("apiKey", Unknown.fromBoundary("{env:OPENCODE_CONSOLE_TOKEN}"));
 		final opencode = new DynamicAccess<OpenConfigValue>();
@@ -127,7 +137,102 @@ class ConfigSmoke {
 		final config = new DynamicAccess<OpenConfigValue>();
 		config.set("provider", Unknown.fromBoundary(provider));
 		config.set("model", Unknown.fromBoundary("account/model"));
-		return config;
+		return require(UnknownNarrow.record(Unknown.fromBoundary(config)), "account remote config record");
+	}
+
+	@:async
+	static function accountServiceRemoteConfig(root:String, env:ConfigEnv):Promise<Void> {
+		final project = directory(root, "account-service-project");
+		write(project, "opencode.json", '{"model":"project/model"}');
+		var seenAuth:Null<String> = null;
+		var seenOrg:Null<String> = null;
+		var refreshCalls = 0;
+		final fixture = accountService(root, "account-service", request -> {
+			if (request.url == "https://control.example.com/auth/device/token") {
+				refreshCalls++;
+				return accountResponse(200, {
+					access_token: "st_test_token",
+					refresh_token: "rt_new",
+					expires_in: 600,
+				});
+			}
+			if (request.url == "https://control.example.com/api/config") {
+				seenAuth = header(request, "authorization");
+				seenOrg = header(request, "x-org-id");
+				return accountResponse(200, {
+					config: {
+						provider: {
+							opencode: {
+								options: {
+									apiKey: "{env:OPENCODE_CONSOLE_TOKEN}"
+								}
+							}
+						},
+						model: "account-service/model",
+					}
+				});
+			}
+			return accountResponse(404, {});
+		});
+		fixture.repo.persistAccount({
+			id: AccountID.make("account-1"),
+			email: "user@example.com",
+			url: "https://control.example.com",
+			accessToken: AccessToken.make("at_old"),
+			refreshToken: RefreshToken.make("rt_old"),
+			expiry: Date.now().getTime() - 1000,
+			orgID: OrgID.make("org-1"),
+		});
+		final config = @:await ConfigLoader.loadProjectWithAccountService(project, fixture.service,
+			{defaultUsername: "fixture-user", worktree: project, env: env});
+		eq(refreshCalls, 1, "account service config refresh count");
+		eq(seenAuth, "Bearer st_test_token", "account service config auth header");
+		eq(seenOrg, "org-1", "account service config org header");
+		eq(config.model, "account-service/model", "account service config overrides project");
+		final providers = require(config.provider, "account service provider map");
+		final provider = require(providers.get("opencode"), "account service provider config");
+		final options = require(provider.options, "account service provider options");
+		eq(ProviderOptionAccess.string(options, "apiKey", null), "st_test_token", "account service config resolves token env template");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function accountServiceNoActiveFallback(root:String):Promise<Void> {
+		final project = directory(root, "account-service-no-active");
+		write(project, "opencode.json", '{"model":"project/model"}');
+		final calls:Array<AccountHttpRequest> = [];
+		final fixture = accountService(root, "account-service-no-active", request -> {
+			calls.push(request);
+			return accountResponse(500, {});
+		});
+		final config = @:await ConfigLoader.loadProjectWithAccountService(project, fixture.service, {defaultUsername: "fixture-user", worktree: project});
+		eq(config.model, "project/model", "account service no active fallback model");
+		eq(calls.length, 0, "account service no active request count");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function accountServiceFailureFallback(root:String):Promise<Void> {
+		final project = directory(root, "account-service-failure");
+		write(project, "opencode.json", '{"model":"project/model"}');
+		final calls:Array<AccountHttpRequest> = [];
+		final fixture = accountService(root, "account-service-failure", request -> {
+			calls.push(request);
+			return accountResponse(500, {error: "server_error"});
+		});
+		fixture.repo.persistAccount({
+			id: AccountID.make("account-failure"),
+			email: "failure@example.com",
+			url: "https://control.example.com",
+			accessToken: AccessToken.make("at_old"),
+			refreshToken: RefreshToken.make("rt_old"),
+			expiry: Date.now().getTime() - 1000,
+			orgID: OrgID.make("org-1"),
+		});
+		final config = @:await ConfigLoader.loadProjectWithAccountService(project, fixture.service, {defaultUsername: "fixture-user", worktree: project});
+		eq(config.model, "project/model", "account service failure fallback model");
+		eq(calls.length, 1, "account service failure request count");
+		fixture.repo.close();
 	}
 
 	static function missingConfig(root:String):Void {
@@ -977,6 +1082,31 @@ Global command template');
 				},
 			},
 		};
+	}
+
+	static function accountService(root:String, name:String, handler:AccountHttpRequest->Promise<AccountHttpResponse>):{
+		final repo:AccountRepo;
+		final service:AccountService;
+	} {
+		final repo = new AccountRepo(NodePath.join(root, name + ".db"));
+		return {
+			repo: repo,
+			service: new AccountService(repo, handler),
+		};
+	}
+
+	static function accountResponse<T>(status:Int, body:T):Promise<AccountHttpResponse> {
+		return Promise.resolve({
+			status: status,
+			body: Unknown.fromBoundary(body),
+		});
+	}
+
+	static function header(request:AccountHttpRequest, name:String):Null<String> {
+		for (header in request.headers)
+			if (header.name == name)
+				return header.value;
+		return null;
 	}
 
 	static function directory(root:String, name:String):String {

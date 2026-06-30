@@ -83,6 +83,10 @@ class AccountService {
 		this.http = http;
 	}
 
+	public function active():Null<AccountInfo> {
+		return repo.active();
+	}
+
 	@:async
 	public function login(server:String):Promise<AccountLogin> {
 		final normalized = normalizeServerUrl(server);
