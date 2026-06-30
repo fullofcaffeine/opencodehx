@@ -1,5 +1,7 @@
 package opencodehx.provider;
 
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderInterleavedConfig;
 import opencodehx.provider.ProviderTypes.ProviderMessage;
@@ -387,7 +389,7 @@ class ProviderTransform {
 			out.content = filtered;
 			if (reasoningText != "") {
 				final providerOptions = cloneOptions(msg.providerOptions);
-				final openaiCompatible = cloneOptionRecord(providerOptions.get("openaiCompatible"));
+				final openaiCompatible = cloneOptionRecord(optionValue(providerOptions, "openaiCompatible"));
 				openaiCompatible.set(field, reasoningText);
 				providerOptions.set("openaiCompatible", openaiCompatible);
 				out.providerOptions = providerOptions;
@@ -612,8 +614,8 @@ class ProviderTransform {
 	static function mergeProviderOptions(existing:Null<ProviderOptions>, incoming:ProviderOptions):ProviderOptions {
 		final result = cloneOptions(existing);
 		for (key in incoming.keys()) {
-			final next = incoming.get(key);
-			final current = result.exists(key) ? result.get(key) : null;
+			final next = optionValue(incoming, key);
+			final current = optionValue(result, key);
 			if (isRecord(current) && isRecord(next))
 				result.set(key, mergeRecord(current, cloneOptionRecord(next)));
 			else
@@ -631,15 +633,16 @@ class ProviderTransform {
 		return result;
 	}
 
-	static function cloneOptionRecord(value:Dynamic):ProviderOptions {
+	static function cloneOptionRecord(value:Unknown):ProviderOptions {
 		// ProviderOptions values are SDK-owned records. This helper converts a
-		// runtime-checked plain record into a typed DynamicAccess map so cache and
-		// interleaved-reasoning merges do not leak arbitrary reflection elsewhere.
+		// runtime-checked record into a typed option map so cache and
+		// interleaved-reasoning merges do not leak unknown field reads elsewhere.
 		final result = optionMap();
-		if (!isRecord(value))
+		final record = UnknownNarrow.record(value);
+		if (record == null)
 			return result;
-		for (field in Reflect.fields(value))
-			result.set(field, Reflect.field(value, field));
+		for (field in record.keys())
+			result.set(field, record.get(field));
 		return result;
 	}
 
@@ -930,11 +933,7 @@ class ProviderTransform {
 	static function gatewayProviderOptions(model:ProviderModel, options:ProviderOptions):ProviderOptions {
 		final slug = gatewaySlug(model.api.id);
 		final result = optionMap();
-		// The Gateway option itself is SDK-owned passthrough data: upstream may
-		// provide routing records, booleans, or future provider values here. Keep
-		// it Dynamic only inside this boundary, then preserve or merge it after
-		// runtime shape checks.
-		final gateway:Dynamic = options.exists("gateway") ? options.get("gateway") : null;
+		final gateway = optionValue(options, "gateway");
 		final rest = optionMap();
 		for (key in options.keys()) {
 			if (key != "gateway")
@@ -1181,25 +1180,23 @@ class ProviderTransform {
 		return true;
 	}
 
-	static function isRecord(value:Dynamic):Bool {
-		// Provider transform options are an SDK passthrough boundary. The only
-		// dynamic inspection here distinguishes plain option records from
-		// primitive/array values before nesting them under AI SDK provider keys.
-		if (value == null)
-			return false;
-		if (Std.isOfType(value, Array) || Std.isOfType(value, String) || Std.isOfType(value, Bool) || Std.isOfType(value, Float) || Std.isOfType(value, Int))
-			return false;
-		return Reflect.isObject(value);
+	static inline function optionValue(options:ProviderOptions, key:String):Unknown {
+		return Unknown.fromBoundary(options.get(key));
 	}
 
-	static function mergeRecord(current:Dynamic, next:ProviderOptions):ProviderOptions {
-		// `current` comes from the open ProviderOptions SDK boundary. Reflection is
-		// guarded by isRecord(), and the merged value is immediately returned as an
-		// SDK passthrough record rather than exposed to core application code.
+	static function isRecord(value:Unknown):Bool {
+		return UnknownNarrow.record(value) != null;
+	}
+
+	static function mergeRecord(current:Unknown, next:ProviderOptions):ProviderOptions {
+		// `current` comes from the open ProviderOptions SDK boundary. It is
+		// narrowed to an unknown-record view before copying and immediately
+		// returned as SDK passthrough data rather than core application state.
 		final result = optionMap();
-		if (isRecord(current)) {
-			for (field in Reflect.fields(current))
-				result.set(field, Reflect.field(current, field));
+		final currentRecord = UnknownNarrow.record(current);
+		if (currentRecord != null) {
+			for (field in currentRecord.keys())
+				result.set(field, currentRecord.get(field));
 		}
 		for (field in next.keys())
 			result.set(field, next.get(field));

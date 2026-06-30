@@ -225,6 +225,8 @@ Config, auth, and env inputs are still dynamic JSON/process boundaries. The regi
 
 `ProviderOptionAccess` owns the registry's provider-option weak reads. Provider options intentionally remain open because SDKs/plugins own arbitrary keys; loaders must ask `ProviderOptionAccess` for typed strings, booleans, numbers, URLs, headers, and option sub-records rather than reading option fields directly. The helper wraps raw values as `genes.ts.Unknown`, narrows records with `UnknownNarrow.record`, and copies only validated leaves into typed maps, so provider loaders no longer use reflection for option reads.
 
+`ProviderTransform` uses the same Unknown-backed pattern for nested provider-option clones and merges. Gateway routing records, cache metadata, and interleaved-reasoning option bundles stay open SDK passthrough data, but the transform only copies keys after `UnknownNarrow.record` proves a record-like value.
+
 When callers do not inject an env map, `ProviderRegistry` reads `process.env` through `host.node.NodeProcess.env()`. That keeps the Node host boundary in the host layer instead of embedding raw `js.Syntax.code` in provider registry logic.
 
 `CopilotChatSseDecoder`, `CopilotResponsesResponseDecoder`, and `CopilotResponsesStream` still have contained decoder boundaries: `Json.parse` and `Reflect.field` are private to the decoder/stream mapper, every consumed field is shape-checked, and callers receive only typed chat chunks, typed Responses DTOs, or AI SDK stream parts. Generated `any` is expected only in those private decoder surfaces until they also move to reusable Unknown-backed decoder helpers.
