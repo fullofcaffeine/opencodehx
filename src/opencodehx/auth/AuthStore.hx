@@ -7,6 +7,7 @@ import opencodehx.config.ConfigLoader.WellKnownAuth;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.GlobalPaths;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
 
 typedef AuthMetadata = DynamicAccess<String>;
 
@@ -59,6 +60,20 @@ class AuthStore {
 			}
 		}
 		return result;
+	}
+
+	public static function set(key:String, info:AuthEntry):Void {
+		final env = NodeProcess.env();
+		final normalized = trimRightSlashes(key);
+		final data = load(env);
+		if (normalized != key)
+			data.remove(key);
+		data.remove(normalized + "/");
+		data.set(normalized, info);
+		final file = NodePath.join(GlobalPaths.data(env), "auth.json");
+		Fs.mkdirSync(NodePath.dirname(file), {recursive: true});
+		Fs.writeFileSync(file, Json.stringify(data));
+		Fs.chmodSync(file, 384);
 	}
 
 	private static function parse(text:String):Null<AuthMap> {

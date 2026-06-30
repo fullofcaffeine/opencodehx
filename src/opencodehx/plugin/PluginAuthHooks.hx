@@ -8,9 +8,19 @@ enum abstract PluginAuthMethodType(String) to String {
 	final Api = "api";
 }
 
+enum abstract PluginAuthAuthorizationMethod(String) to String {
+	final Auto = "auto";
+	final Code = "code";
+}
+
 enum abstract PluginAuthPromptWhenOp(String) to String {
 	final Eq = "eq";
 	final NotEq = "neq";
+}
+
+typedef PluginAuthInput = {
+	final key:String;
+	final value:String;
 }
 
 typedef PluginAuthPromptWhen = {
@@ -44,10 +54,40 @@ enum PluginAuthPrompt {
 	Select(prompt:PluginAuthSelectPrompt);
 }
 
+typedef PluginAuthApiResult = {
+	final key:String;
+}
+
+typedef PluginAuthOAuthResult = {
+	final access:String;
+	final refresh:String;
+	final expires:Float;
+	@:optional final accountId:Undefinable<String>;
+	@:optional final enterpriseUrl:Undefinable<String>;
+}
+
+enum PluginAuthCallbackResult {
+	Api(result:PluginAuthApiResult);
+	OAuth(result:PluginAuthOAuthResult);
+	Failed;
+}
+
+typedef PluginAuthCallback = Null<String>->PluginAuthCallbackResult;
+
+typedef PluginAuthAuthorization = {
+	final url:String;
+	final method:PluginAuthAuthorizationMethod;
+	final instructions:String;
+	final callback:PluginAuthCallback;
+}
+
+typedef PluginAuthAuthorize = Null<Array<PluginAuthInput>>->PluginAuthAuthorization;
+
 typedef PluginAuthMethod = {
 	final type:PluginAuthMethodType;
 	final label:String;
 	@:optional final prompts:Undefinable<Array<PluginAuthPrompt>>;
+	@:optional final authorize:Undefinable<PluginAuthAuthorize>;
 }
 
 typedef PluginAuthHook = {
@@ -82,12 +122,14 @@ class PluginAuthHooks {
 				result.push({
 					type: method.type,
 					label: method.label,
+					authorize: copyOptionalAuthorize(method.authorize.orNull()),
 				});
 			else
 				result.push({
 					type: method.type,
 					label: method.label,
 					prompts: prompts,
+					authorize: copyOptionalAuthorize(method.authorize.orNull()),
 				});
 		}
 		return result;
@@ -137,6 +179,10 @@ class PluginAuthHooks {
 	}
 
 	static function copyOptionalString(value:Null<String>):Undefinable<String> {
+		return value == null ? Undefinable.absent() : value;
+	}
+
+	static function copyOptionalAuthorize(value:Null<PluginAuthAuthorize>):Undefinable<PluginAuthAuthorize> {
 		return value == null ? Undefinable.absent() : value;
 	}
 }

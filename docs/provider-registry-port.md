@@ -1,6 +1,6 @@
 # Provider Registry Port
 
-**Beads:** `opencodehx-024`, `opencodehx-025`, `opencodehx-nrh`, `opencodehx-hup`, `opencodehx-7aan`, `opencodehx-acxa`, `opencodehx-24ys`
+**Beads:** `opencodehx-024`, `opencodehx-025`, `opencodehx-nrh`, `opencodehx-hup`, `opencodehx-7aan`, `opencodehx-acxa`, `opencodehx-24ys`, `opencodehx-g8sn`
 **Upstream oracle:** `../opencode/packages/opencode/src/provider/provider.ts`, `schema.ts`, `models.ts`, `auth/index.ts`, `config/provider.ts`, `env/index.ts`, plus `../opencode/packages/opencode/test/provider/provider.test.ts` and `amazon-bedrock.test.ts`.
 
 ## Slice
@@ -40,6 +40,7 @@ This slice adds the first Haxe-owned provider registry:
 - `opencodehx.server.ServerProviderProtocol` encodes the first server provider-list JSON shapes for `GET /config/providers`, `GET /provider`, and `GET /provider/auth`, keeping provider `models`, `default`, and auth-method string-keyed records out of route logic while preserving upstream's provider/model ID map contract.
 - `OpenCodeServer` now exposes the first `/provider` route: it loads `ProviderModelsDev`, filters by local enabled/disabled provider config, overlays connected `ProviderRegistry` providers, and returns upstream-shaped `all`, `default`, and `connected` fields.
 - `OpenCodeServer` now exposes the first `/provider/auth` route. The current route returns typed, injected plugin-auth method hooks as upstream-shaped provider method arrays; live plugin loading plus OAuth authorize/callback persistence remains deferred.
+- `ProviderAuthRuntime` covers the first no-network provider OAuth route seam: injected typed auth hooks authorize with narrowed input records, keep pending callback state, validate missing method/pending/code cases, and persist successful API/OAuth auth entries through `AuthStore.set`.
 
 ## Evidence
 
@@ -64,6 +65,7 @@ This slice adds the first Haxe-owned provider registry:
 - `ServerSmoke` covers `GET /config/providers` for a configured provider, including provider list output, model-map JSON encoding, and default model IDs.
 - `ServerSmoke` covers `GET /provider` against a local no-network models.dev file, including catalog provider output, connected-provider overlay, connected IDs, and default model IDs.
 - `ServerSmoke` covers `GET /provider/auth` for the empty default and an injected plugin-auth provider, including API/OAuth methods, prompt omission for methods without prompts, text/select prompts, option hints, and prompt `when` conditions.
+- `ServerSmoke` covers `POST /provider/:providerID/oauth/authorize` and `/callback` with invalid input, missing pending state, missing code, successful authorization output, callback success, and upstream-shaped `auth.json` persistence.
 
 `AiSdkProviderSmoke` is the executable fixture for the first AI SDK runtime path. It covers:
 
@@ -250,7 +252,7 @@ This is not the full provider runtime:
 
 - More bundled and non-bundled provider loading beyond the current OpenAI-compatible/OpenAI-family/Google-family/Anthropic/Bedrock/Mistral/Groq/Cohere/Perplexity/OpenRouter/DeepInfra/Cerebras/Gateway/TogetherAI/Vercel/Alibaba/Venice/GitLab/Cloudflare AI Gateway evidence, dynamic provider installation/loading, deeper provider-specific request options beyond the current typed factory settings, live Bedrock credential-chain/signing evidence, Cloudflare user-agent parity once the SDK exposes a typed seam for it, and real external plugin runtime/loading hooks remain `opencodehx-nrh`.
 - Deeper Copilot Responses parity remains provider-runtime scope: provider-executed tool argument schemas, richer annotations/logprobs, image/code/file-search payload details, and live session-loop consumption need broader upstream fixtures before they should be treated as complete.
-- GitLab live workflow model discovery, `gitlab-ai-provider` model-class routing, OAuth browser/login flows, `/provider/:providerID/oauth/*` authorize/callback routes, and auth persistence remain deferred to their owning provider/auth/plugin slices.
+- GitLab live workflow model discovery, `gitlab-ai-provider` model-class routing, OAuth browser/login flows, and live plugin-loaded auth hooks remain deferred to their owning provider/auth/plugin slices.
 
 ## genes-ts Notes
 

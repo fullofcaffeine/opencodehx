@@ -35,6 +35,9 @@ import opencodehx.project.InstanceRuntime.InstanceContext;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthHook;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthAuthorizationMethod;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthCallbackResult;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthInput;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthMethodType;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthPrompt;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthPromptWhenOp;
@@ -201,7 +204,10 @@ class ServerSmoke {
 			"server provider auth empty");
 		eq(emptyAuth.keys().length, 0, "server provider auth empty");
 		final authRoot = NodePath.join(root, "provider-auth");
+		final authData = NodePath.join(authRoot, "data");
 		Fs.mkdirSync(authRoot, {recursive: true});
+		final originalXdgData = NodeProcess.envValue("XDG_DATA_HOME");
+		NodeProcess.setEnv("XDG_DATA_HOME", authData);
 		final authServer = new OpenCodeServer({
 			directory: authRoot,
 			dbPath: NodePath.join(authRoot, "opencodehx-auth.db"),
@@ -228,7 +234,55 @@ class ServerSmoke {
 		eq(requiredString(selectOption, "hint", "server provider auth select hint"), "fast", "server provider auth select hint");
 		final when = requiredRecord(selectPrompt.get("when"), "server provider auth select when");
 		eq(requiredString(when, "op", "server provider auth select when op"), "neq", "server provider auth select when op");
+		final missingPending = @:await authServer.app.request("/provider/missing/oauth/callback", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({method: 1, code: "ok"}),
+		});
+		eq(missingPending.status, 400, "server provider oauth missing pending status");
+		final invalidInput = @:await authServer.app.request("/provider/plugin-provider/oauth/authorize", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({method: 1, inputs: {apiKey: 12}}),
+		});
+		eq(invalidInput.status, 400, "server provider oauth invalid input status");
+		final invalidMethod = @:await authServer.app.request("/provider/plugin-provider/oauth/authorize", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({method: 9}),
+		});
+		eq(invalidMethod.status, 400, "server provider oauth invalid method status");
+		final authorizeBody = @:await jsonResponse(@:await authServer.app.request("/provider/plugin-provider/oauth/authorize", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({method: 1, inputs: {region: "us", apiKey: "secret"}}),
+		}));
+		final authorization = requiredRecord(Unknown.fromBoundary(authorizeBody), "server provider oauth authorize");
+		eq(requiredString(authorization, "url", "server provider oauth authorize url"), "https://auth.example/start?apiKey=secret&region=us",
+			"server provider oauth authorize url");
+		eq(requiredString(authorization, "method", "server provider oauth authorize method"), "code", "server provider oauth authorize method");
+		eq(requiredString(authorization, "instructions", "server provider oauth authorize instructions"), "Enter code",
+			"server provider oauth authorize instructions");
+		final missingCode = @:await authServer.app.request("/provider/plugin-provider/oauth/callback", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({method: 1}),
+		});
+		eq(missingCode.status, 400, "server provider oauth missing code status");
+		final callbackBody = @:await jsonResponse(@:await authServer.app.request("/provider/plugin-provider/oauth/callback", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({method: 1, code: "good-code"}),
+		}));
+		eq(callbackBody, true, "server provider oauth callback");
+		final authPath = NodePath.join(NodePath.join(authData, "opencode"), "auth.json");
+		final authText = Fs.readFileSync(authPath, "utf8");
+		final authFile = requiredRecord(Unknown.fromBoundary(Json.parse(authText)), "server provider oauth auth file");
+		final stored = requiredRecord(authFile.get("plugin-provider"), "server provider oauth stored auth");
+		eq(requiredString(stored, "type", "server provider oauth stored type"), "api", "server provider oauth stored type");
+		eq(requiredString(stored, "key", "server provider oauth stored key"), "stored-key", "server provider oauth stored key");
 		authServer.close();
+		restoreEnv("XDG_DATA_HOME", originalXdgData);
 	}
 
 	@:async
@@ -1512,6 +1566,16 @@ class ServerSmoke {
 					{
 						type: PluginAuthMethodType.OAuth,
 						label: "Plugin OAuth",
+						authorize: inputs -> {
+							return {
+								url: "https://auth.example/start?" + inputQuery(inputs),
+								method: PluginAuthAuthorizationMethod.Code,
+								instructions: "Enter code",
+								callback: code -> code == "good-code" ? PluginAuthCallbackResult.Api({
+									key: "stored-key"
+								}) : PluginAuthCallbackResult.Failed,
+							};
+						},
 						prompts: [
 							PluginAuthPrompt.Text({
 								key: "apiKey",
@@ -1544,6 +1608,12 @@ class ServerSmoke {
 				],
 			}
 		];
+	}
+
+	static function inputQuery(inputs:Null<Array<PluginAuthInput>>):String {
+		if (inputs == null)
+			return "";
+		return [for (input in inputs) input.key + "=" + input.value].join("&");
 	}
 
 	static function providerArrayHasID(items:genes.ts.UnknownArray, providerID:String):Bool {

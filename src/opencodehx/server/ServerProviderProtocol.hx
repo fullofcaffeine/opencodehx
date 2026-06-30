@@ -3,6 +3,7 @@ package opencodehx.server;
 import genes.ts.JsonCodec;
 import genes.ts.JsonObject;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.Json as HaxeJson;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthHook;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthMethod;
@@ -11,10 +12,14 @@ import opencodehx.plugin.PluginAuthHooks.PluginAuthPrompt;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthPromptWhen;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthPromptWhenOp;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthSelectOption;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthInput;
+import opencodehx.plugin.PluginAuthHooks.PluginAuthAuthorizationMethod;
+import opencodehx.provider.ProviderAuthRuntime.ProviderAuthRuntimeAuthorization;
 import opencodehx.provider.ProviderRegistry;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.provider.ProviderTypes.ProviderOptions;
+import opencodehx.server.ServerProtocol.DecodeResult;
 
 typedef ProviderRouteModelMap = JsonObject;
 typedef ProviderRouteDefaultModels = JsonObject;
@@ -57,6 +62,22 @@ typedef ProviderAuthRouteSelectOption = JsonObject;
 typedef ProviderAuthRoutePrompt = JsonObject;
 typedef ProviderAuthRouteMethod = JsonObject;
 
+typedef ProviderAuthAuthorizeRouteRequest = {
+	final method:Int;
+	final inputs:Null<Array<PluginAuthInput>>;
+}
+
+typedef ProviderAuthCallbackRouteRequest = {
+	final method:Int;
+	final code:Null<String>;
+}
+
+typedef ProviderAuthAuthorizationRouteResponse = {
+	final url:String;
+	final method:PluginAuthAuthorizationMethod;
+	final instructions:String;
+}
+
 /**
 	Encodes provider registry records into upstream-shaped server JSON.
 
@@ -90,6 +111,42 @@ function encodeProviderAuthMethods(hooks:Array<PluginAuthHook>):ProviderAuthRout
 			value: [for (method in hook.methods) encodeAuthMethod(method)],
 		});
 	return objectFromEntries(entries);
+}
+
+function encodeProviderAuthAuthorization(authorization:ProviderAuthRuntimeAuthorization):ProviderAuthAuthorizationRouteResponse {
+	return {
+		url: authorization.url,
+		method: authorization.method,
+		instructions: authorization.instructions,
+	};
+}
+
+function decodeProviderAuthAuthorize(raw:Unknown):DecodeResult<ProviderAuthAuthorizeRouteRequest> {
+	return switch decodeMethod(raw) {
+		case Rejected(message):
+			Rejected(message);
+		case Decoded(method):
+			switch decodeInputs(raw) {
+				case Rejected(message):
+					Rejected(message);
+				case Decoded(inputs):
+					Decoded({method: method, inputs: inputs});
+			}
+	}
+}
+
+function decodeProviderAuthCallback(raw:Unknown):DecodeResult<ProviderAuthCallbackRouteRequest> {
+	return switch decodeMethod(raw) {
+		case Rejected(message):
+			Rejected(message);
+		case Decoded(method):
+			switch decodeOptionalString(raw, "code") {
+				case Rejected(message):
+					Rejected(message);
+				case Decoded(code):
+					Decoded({method: method, code: code});
+			}
+	}
 }
 
 function encodeProvider(provider:ProviderInfo):ProviderRouteProvider {
@@ -183,6 +240,52 @@ function encodeAuthOption(option:PluginAuthSelectOption):ProviderAuthRouteSelect
 	if (hint != null)
 		parts.push(jsonField("hint", hint));
 	return objectFromParts(parts);
+}
+
+function decodeMethod(raw:Unknown):DecodeResult<Int> {
+	final record = UnknownNarrow.record(raw);
+	if (record == null)
+		return Rejected("body: expected object");
+	if (!record.hasOwn("method"))
+		return Rejected("method: expected integer");
+	final method = UnknownNarrow.int32(record.get("method"));
+	return method == null || method < 0 ? Rejected("method: expected non-negative integer") : Decoded(method);
+}
+
+function decodeInputs(raw:Unknown):DecodeResult<Null<Array<PluginAuthInput>>> {
+	final record = UnknownNarrow.record(raw);
+	if (record == null)
+		return Rejected("body: expected object");
+	if (!record.hasOwn("inputs") || UnknownNarrow.isNull(record.get("inputs")) || UnknownNarrow.isUndefined(record.get("inputs")))
+		return Decoded(null);
+	final inputRecord = UnknownNarrow.record(record.get("inputs"));
+	if (inputRecord == null)
+		return Rejected("inputs: expected object");
+	final out:Array<PluginAuthInput> = [];
+	for (key in inputRecord.keys()) {
+		final value = UnknownNarrow.string(inputRecord.get(key));
+		if (value == null)
+			return Rejected('inputs.${key}: expected string');
+		out.push({key: key, value: value});
+	}
+	out.sort((left, right) -> compareString(left.key, right.key));
+	return Decoded(out);
+}
+
+function decodeOptionalString(raw:Unknown, field:String):DecodeResult<Null<String>> {
+	final record = UnknownNarrow.record(raw);
+	if (record == null)
+		return Rejected("body: expected object");
+	if (!record.hasOwn(field) || UnknownNarrow.isNull(record.get(field)) || UnknownNarrow.isUndefined(record.get(field)))
+		return Decoded(null);
+	final value = UnknownNarrow.string(record.get(field));
+	return value == null ? Rejected('${field}: expected string') : Decoded(value);
+}
+
+function compareString(left:String, right:String):Int {
+	if (left == right)
+		return 0;
+	return left < right ? -1 : 1;
 }
 
 function objectFromEntries<T>(entries:Array<JsonEntry<T>>):JsonObject {

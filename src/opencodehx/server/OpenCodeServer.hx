@@ -31,9 +31,12 @@ import opencodehx.pty.PtyTypes.PtySocket;
 import opencodehx.pty.PtyTypes.PtySocketMessage;
 import opencodehx.plugin.PluginAuthHooks.PluginAuthHook;
 import opencodehx.provider.AiSdkProvider;
+import opencodehx.provider.ProviderAuthRuntime;
+import opencodehx.provider.ProviderAuthRuntime.ProviderAuthRuntimeResult;
 import opencodehx.provider.ProviderModelsDev;
 import opencodehx.provider.ProviderRegistry;
 import opencodehx.provider.ProviderTypes.ModelsDevCatalog;
+import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderInfo;
 import opencodehx.permission.PermissionAsyncRuntime;
 import opencodehx.permission.PermissionAsyncRuntime.PermissionAsyncService;
@@ -50,6 +53,9 @@ import opencodehx.session.SessionLive.liveResolve;
 import opencodehx.session.SessionLive.liveRunPlan;
 import opencodehx.session.SessionProcessor;
 import opencodehx.server.ServerProjectProtocol.decodeProjectUpdate;
+import opencodehx.server.ServerProviderProtocol.decodeProviderAuthAuthorize;
+import opencodehx.server.ServerProviderProtocol.decodeProviderAuthCallback;
+import opencodehx.server.ServerProviderProtocol.encodeProviderAuthAuthorization;
 import opencodehx.server.ServerProviderProtocol.encodeConfigProviders;
 import opencodehx.server.ServerProviderProtocol.encodeProviderAuthMethods;
 import opencodehx.server.ServerProviderProtocol.encodeProviderList;
@@ -98,6 +104,7 @@ class OpenCodeServer {
 	final liveAiSdk:Null<ServerLiveAiSdkOptions>;
 	final liveConfig:Null<ServerLiveConfigOptions>;
 	final providerAuthHooks:Array<PluginAuthHook>;
+	final providerAuth:ProviderAuthRuntime;
 	final liveAborts = new Map<String, AbortControllerWithReason>();
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
@@ -114,6 +121,7 @@ class OpenCodeServer {
 		liveAiSdk = options.liveAiSdk;
 		liveConfig = options.liveConfig;
 		providerAuthHooks = options.providerAuthHooks == null ? [] : options.providerAuthHooks.copy();
+		providerAuth = new ProviderAuthRuntime(providerAuthHooks, (providerID, entry) -> AuthStore.set(providerID.toString(), entry));
 		app = new Hono();
 		ws = NodeWs.createNodeWebSocket({app: app});
 		routes();
@@ -136,6 +144,8 @@ class OpenCodeServer {
 		app.get("/config/providers", c -> getConfigProviders(c));
 		app.get("/provider", c -> getProviders(c));
 		app.get("/provider/auth", c -> getProviderAuth(c));
+		app.post("/provider/:providerID/oauth/authorize", c -> authorizeProviderOAuth(c));
+		app.post("/provider/:providerID/oauth/callback", c -> callbackProviderOAuth(c));
 		app.get("/event", c -> eventStream(c));
 		app.get("/permission", c -> listPermissions(c));
 		app.get("/question", c -> listQuestions(c));
@@ -457,7 +467,47 @@ class OpenCodeServer {
 	}
 
 	function getProviderAuth(c:HonoContext):Response {
-		return json(c, encodeProviderAuthMethods(providerAuthHooks));
+		return json(c, encodeProviderAuthMethods(providerAuth.methods()));
+	}
+
+	@:async
+	function authorizeProviderOAuth(c:HonoContext):Promise<Response> {
+		final providerID = ProviderID.make(param(c, "providerID"));
+		final decoded = decodeProviderAuthAuthorize(@:await readJson(c));
+		final request = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		return switch providerAuth.authorize(providerID, request.method, request.inputs) {
+			case Accepted(value):
+				json(c, encodeProviderAuthAuthorization(value));
+			case NoContent:
+				json(c, null);
+			case Rejected(message, status):
+				json(c, ServerProtocol.error(message), status);
+		}
+	}
+
+	@:async
+	function callbackProviderOAuth(c:HonoContext):Promise<Response> {
+		final providerID = ProviderID.make(param(c, "providerID"));
+		final decoded = decodeProviderAuthCallback(@:await readJson(c));
+		final request = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		return switch providerAuth.callback(providerID, request.method, request.code) {
+			case Accepted(value):
+				json(c, value);
+			case NoContent:
+				json(c, null);
+			case Rejected(message, status):
+				json(c, ServerProtocol.error(message), status);
+		}
 	}
 
 	function listProjects(c:HonoContext):Response {
