@@ -112,7 +112,8 @@ class MessageSmoke {
 		assertAssistantParent(decoded.info, "msg_user", 8);
 		assertToolPart(decoded.parts[1], "call-1", 1);
 		final encoded = MessageCodec.encodeWithParts(decoded);
-		eq(Reflect.field(Reflect.field(cast encoded.parts[1], "state"), "status"), "completed", "encoded tool status");
+		final encodedDecoded = MessageCodec.decodeWithParts(encoded, "assistant-tool-encoded");
+		assertToolPart(encodedDecoded.parts[1], "call-1", 1);
 	}
 
 	static function outputFormatDefault():Void {

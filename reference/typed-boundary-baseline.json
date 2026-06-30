@@ -19,11 +19,11 @@
   "totals": {
     "Dynamic": 521,
     "DynamicAccess": 540,
-    "cast": 138,
+    "cast": 137,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 97,
+    "Reflect.field": 95,
     "Reflect.hasField": 21,
     "Reflect.setField": 41,
     "Any": 0
@@ -450,9 +450,7 @@
       "DynamicAccess": 2
     },
     "src/opencodehx/smoke/MessageSmoke.hx": {
-      "Dynamic": 4,
-      "cast": 1,
-      "Reflect.field": 2
+      "Dynamic": 4
     },
     "src/opencodehx/smoke/PatchSmoke.hx": {
       "Dynamic": 2
