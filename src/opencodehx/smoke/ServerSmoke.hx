@@ -1793,10 +1793,11 @@ class ServerSmoke {
 	}
 
 	static function websocketCursor(payload:String):Int {
-		final parsed:Dynamic = Json.parse(payload.substr(1));
-		// The control frame shape is produced by PtyService as `{cursor:Int}`.
-		// Keep Dynamic local to this smoke assertion boundary.
-		return Std.int(Reflect.field(parsed, "cursor"));
+		final parsed = requiredRecord(Unknown.fromBoundary(Json.parse(payload.substr(1))), "pty websocket cursor");
+		final cursor = UnknownNarrow.number(parsed.get("cursor"));
+		if (cursor == null)
+			throw "pty websocket cursor: expected numeric cursor";
+		return Std.int(cursor);
 	}
 
 	static function methodInit(method:String):SmokeFetchInit {
