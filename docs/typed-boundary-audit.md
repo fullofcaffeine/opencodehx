@@ -38,6 +38,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ProviderSmoke` parses fake-provider transcript JSON through `genes.ts.UnknownRecord`/`UnknownArray` helpers and decodes the assistant message through `JsonCodec` plus `MessageCodec.parseWithParts`, avoiding smoke-local `Dynamic`, `Reflect.field`, and casts for stable transcript assertions.
 - `ProviderSmoke` reads env/config and Bedrock provider option assertions through `ProviderOptionAccess` instead of raw reflection over the open provider SDK passthrough map.
 - `ProviderSmoke` reads Cloudflare metadata and GitLab instance/header/feature-flag option assertions through `ProviderOptionAccess` maps instead of raw reflection over provider passthrough options.
+- `ProviderSmoke` reads custom provider/model, variant, and Vertex proxy option assertions through `ProviderOptionAccess` plus `UnknownRecord` field checks; only the local fixture `config(...)` builder still uses reflection there.
 
 ## Remaining Hotspots
 

@@ -336,8 +336,8 @@ class ProviderSmoke {
 		}), {ANTHROPIC_API_KEY: "test-api-key", OPENAI_API_KEY: "openai-key"});
 		eq(custom.getProvider(ProviderID.make("custom-provider")).name, "Custom Provider", "custom provider name");
 		eq(custom.getProvider(ProviderID.make("anonymous-provider")).name, "anonymous-provider", "provider name defaults to id");
-		eq(Reflect.field(custom.getProvider(ProviderID.make("custom-provider")).options, "baseURL"), "https://custom.override.com/v1",
-			"provider baseURL option");
+		eq(requiredOptionString(custom.getProvider(ProviderID.make("custom-provider")).options, "baseURL", "custom provider baseURL"),
+			"https://custom.override.com/v1", "provider baseURL option");
 		eq(custom.getProvider(ProviderID.make("brand-new-provider")).name, "Brand New", "brand-new provider name");
 		eq(custom.getModel(ProviderID.make("custom-provider"), ModelID.make("custom-model")).name, "Custom Model", "custom model name");
 		final customModel = custom.getModel(ProviderID.make("custom-provider"), ModelID.make("custom-model"));
@@ -371,8 +371,9 @@ class ProviderSmoke {
 		eq(newModel.capabilities.input.image, true, "brand-new model image input");
 		eq(newModel.capabilities.output.text, true, "brand-new model text output");
 		eq(custom.getModel(ProviderIDs.known("anthropic"), ModelID.make("my-alias")).name, "My Custom Alias", "alias model name");
-		eq(Reflect.field(custom.getModel(ProviderIDs.known("anthropic"), ModelID.make("claude-sonnet-4-20250514")).options, "customOption"), "custom-value",
-			"model option merge");
+		eq(requiredOptionString(custom.getModel(ProviderIDs.known("anthropic"), ModelID.make("claude-sonnet-4-20250514")).options, "customOption",
+			"custom model option"),
+			"custom-value", "model option merge");
 
 		final parsed = ProviderRegistry.parseModel("openrouter/anthropic/claude-3-opus");
 		eq(parsed.providerID.toString(), "openrouter", "parse provider");
@@ -930,8 +931,9 @@ class ProviderSmoke {
 		eq(customReasoning.variants.exists("medium"), true, "custom reasoning medium variant kept");
 		eq(customReasoning.variants.exists("custom"), true, "custom reasoning custom variant kept");
 		eq(customReasoning.variants.exists("high"), false, "custom reasoning disabled variant removed");
-		eq(Reflect.field(customReasoning.variants.get("custom"), "budgetTokens"), 5000, "custom reasoning variant option kept");
-		eq(Reflect.hasField(customReasoning.variants.get("low"), "disabled"), false, "custom reasoning enabled variant stripped");
+		eq(requiredOptionNumber(customReasoning.variants.get("custom"), "budgetTokens", "custom reasoning variant budget"), 5000.0,
+			"custom reasoning variant option kept");
+		eq(optionHasKnownField(customReasoning.variants.get("low"), "disabled"), false, "custom reasoning enabled variant stripped");
 
 		final disabledHigh = variantRegistry({
 			high: {disabled: true},
@@ -947,7 +949,8 @@ class ProviderSmoke {
 				},
 			},
 		});
-		eq(Reflect.field(Reflect.field(customHigh.variants.get("high"), "thinking"), "budgetTokens"), 20000, "variant config customizes nested option");
+		final highThinking = requiredOptionRecord(customHigh.variants.get("high"), "thinking", "custom high thinking");
+		eq(UnknownNarrow.number(highThinking.get("budgetTokens")), 20000.0, "variant config customizes nested option");
 
 		final stripped = variantRegistry({
 			max: {
@@ -956,8 +959,8 @@ class ProviderSmoke {
 			},
 		});
 		eq(stripped.variants.exists("max"), true, "enabled configured variant remains");
-		eq(Reflect.hasField(stripped.variants.get("max"), "disabled"), false, "variant disabled key stripped");
-		eq(Reflect.field(stripped.variants.get("max"), "customField"), "test", "variant custom field kept");
+		eq(optionHasKnownField(stripped.variants.get("max"), "disabled"), false, "variant disabled key stripped");
+		eq(requiredOptionString(stripped.variants.get("max"), "customField", "max custom field"), "test", "variant custom field kept");
 
 		final allDisabled = variantRegistry({
 			high: {disabled: true},
@@ -968,8 +971,8 @@ class ProviderSmoke {
 		final merged = variantRegistry({
 			high: {extraOption: "custom-value"},
 		});
-		eq(Reflect.hasField(merged.variants.get("high"), "thinking"), true, "variant generated option retained");
-		eq(Reflect.field(merged.variants.get("high"), "extraOption"), "custom-value", "variant config option merged");
+		eq(optionHasKnownField(merged.variants.get("high"), "thinking"), true, "variant generated option retained");
+		eq(requiredOptionString(merged.variants.get("high"), "extraOption", "high extra option"), "custom-value", "variant config option merged");
 	}
 
 	static function registryVertexProviders():Void {
@@ -1016,7 +1019,7 @@ class ProviderSmoke {
 			},
 		}), {GOOGLE_APPLICATION_CREDENTIALS: "/tmp/google-credentials.json"});
 		final proxyProvider = vertex.getProvider(ProviderID.make("google-vertex-proxy"));
-		eq(Reflect.field(proxyProvider.options, "baseURL"), "https://my-proxy.com/v1", "vertex proxy baseURL option preserved");
+		eq(requiredOptionString(proxyProvider.options, "baseURL", "vertex proxy baseURL"), "https://my-proxy.com/v1", "vertex proxy baseURL option preserved");
 		final gemini = vertex.getModel(ProviderID.make("google-vertex-proxy"), ModelID.make("gemini-pro"));
 		eq(gemini.api.npm, "@ai-sdk/google-vertex", "vertex proxy model inherits provider npm");
 		eq(gemini.api.url, "https://my-proxy.com/v1", "vertex proxy model api override");
@@ -1314,6 +1317,32 @@ class ProviderSmoke {
 		if (value == null)
 			throw '${label}: expected string field ${field}';
 		return value;
+	}
+
+	static function requiredOptionString(options:ProviderOptions, field:String, label:String):String {
+		final value = ProviderOptionAccess.string(options, field, null);
+		if (value == null)
+			throw '${label}: expected string field ${field}';
+		return value;
+	}
+
+	static function requiredOptionNumber(options:ProviderOptions, field:String, label:String):Float {
+		final value = ProviderOptionAccess.numberValue(options, field, null);
+		if (value == null)
+			throw '${label}: expected number field ${field}';
+		return value;
+	}
+
+	static function requiredOptionRecord(options:ProviderOptions, field:String, label:String):UnknownRecord {
+		final value = UnknownNarrow.record(Unknown.fromBoundary(options.get(field)));
+		if (value == null)
+			throw '${label}: expected record field ${field}';
+		return value;
+	}
+
+	static function optionHasKnownField(options:ProviderOptions, field:String):Bool {
+		final record = UnknownNarrow.record(Unknown.fromBoundary(options));
+		return record != null && record.hasOwn(field);
 	}
 
 	static function config(data:Dynamic):ConfigInfo {
