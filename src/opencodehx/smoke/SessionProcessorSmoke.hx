@@ -37,6 +37,8 @@ import opencodehx.session.MessageTypes.ToolState;
 import opencodehx.session.MessageTypes.ToolStateMetadata;
 import opencodehx.session.PartID;
 import opencodehx.session.SessionID;
+import opencodehx.session.SessionExport;
+import opencodehx.session.SessionExport.SessionExportData;
 import opencodehx.session.SessionLlm;
 import opencodehx.session.SessionProcessor;
 import opencodehx.session.SessionRetry.SessionProviderError;
@@ -1216,8 +1218,10 @@ description: Review workflow.
 
 			final abortResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_abort",
+				projectID: "proj_ai_sdk_abort",
 				prompt: "Abort through the SDK runtime.",
 				directory: root,
+				store: store,
 				provider: fixture.info,
 				model: fixture.model,
 				language: AiSdkMockModel.abortable(),
@@ -1227,7 +1231,7 @@ description: Review workflow.
 			eq(hasSessionEvent(abortResult.events, "abort", AiSdkProvider.ABORT_REASON), true, "ai sdk abort event");
 			switch abortResult.messages[1].info {
 				case AssistantInfo(assistant):
-					eq(Reflect.field(assistant.error, "name"), "AbortedError", "ai sdk abort assistant error");
+					assertMessageJsonField(assistant.error, "name", "MessageAbortedError", "ai sdk abort assistant error");
 				case _:
 					throw "session processor async: expected abort assistant info";
 			}
@@ -1237,6 +1241,37 @@ description: Review workflow.
 				case _:
 					throw "session processor async: expected abort text";
 			}
+			final abortExport = SessionExport.exportData(store, SessionID.make("ses_ai_sdk_abort"));
+			assertExportAssistantErrorName(abortExport, "MessageAbortedError", "ai sdk abort export error");
+
+			final continuationAbortRuntime = AiSdkMockModel.inspectableToolThenText("This continuation should be aborted.", "read",
+				"{\"filePath\":\"src/input.txt\"}");
+			final continuationAbort = @:await SessionProcessor.runAiSdk({
+				sessionID: "ses_ai_sdk_abort_continuation",
+				projectID: "proj_ai_sdk_abort",
+				prompt: "Abort after the read tool result.",
+				directory: root,
+				store: store,
+				provider: fixture.info,
+				model: fixture.model,
+				language: continuationAbortRuntime.language,
+				abortContinuationImmediately: true,
+			});
+			eq(continuationAbort.aborted == true, true, "ai sdk continuation abort result flag");
+			eq(hasSessionEvent(continuationAbort.events, "abort", AiSdkProvider.ABORT_REASON), true, "ai sdk continuation abort event");
+			eq(continuationAbortRuntime.mock.doStreamCalls.length, 2, "ai sdk continuation abort call count");
+			assertToolOutcome(continuationAbort.tool);
+			switch continuationAbort.messages[1].info {
+				case AssistantInfo(assistant):
+					assertMessageJsonField(assistant.error, "name", "MessageAbortedError", "ai sdk continuation abort assistant error");
+				case _:
+					throw "session processor async: expected continuation abort assistant info";
+			}
+			final continuationAbortParts = continuationAbort.messages[1].parts;
+			assertAssistantParts(continuationAbortParts, "ai sdk continuation abort", "tool_1", "Request aborted.");
+			final continuationAbortExport = SessionExport.exportData(store, SessionID.make("ses_ai_sdk_abort_continuation"));
+			assertExportAssistantErrorName(continuationAbortExport, "MessageAbortedError", "ai sdk continuation abort export error");
+
 			final runtime = AiSdkMockModel.inspectableToolThenText("The file says: ai sdk tool fixture.", "read", "{\"filePath\":\"src/input.txt\"}");
 			final toolResult = @:await SessionProcessor.runAiSdk({
 				sessionID: "ses_ai_sdk_tool",
@@ -1507,7 +1542,7 @@ description: Review workflow.
 		eq(result.events[1].type, "abort", "abort event");
 		switch result.messages[1].info {
 			case AssistantInfo(assistant):
-				eq(Reflect.field(assistant.error, "name"), "AbortedError", "assistant abort error");
+				assertMessageJsonField(assistant.error, "name", "MessageAbortedError", "assistant abort error");
 			case _:
 				throw "session processor: expected aborted assistant";
 		}
@@ -1517,6 +1552,22 @@ description: Review workflow.
 			case _:
 				throw "session processor: expected abort text";
 		}
+	}
+
+	static function assertMessageJsonField(value:Null<MessageJson>, field:String, expected:String, label:String):Void {
+		if (value == null)
+			throw label + ": expected message JSON";
+		final record = UnknownNarrow.record(Unknown.fromBoundary(value));
+		if (record == null)
+			throw label + ": expected object";
+		eq(UnknownNarrow.string(record.get(field)), expected, label);
+	}
+
+	static function assertExportAssistantErrorName(exported:SessionExportData, expected:String, label:String):Void {
+		if (exported.messages.length < 2)
+			throw label + ": expected assistant export";
+		final error = exported.messages[1].info.error.orNull();
+		assertMessageJsonField(error, "name", expected, label);
 	}
 
 	static function assertAssistant(info:Info):Void {

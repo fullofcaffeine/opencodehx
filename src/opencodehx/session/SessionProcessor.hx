@@ -148,6 +148,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final continueAfterToolResult:Bool;
 	@:optional final maxToolContinuations:Int;
 	@:optional final abortStreamImmediately:Bool;
+	@:optional final abortContinuationImmediately:Bool;
 	@:optional final files:Array<SessionFileInput>;
 	@:optional final history:Array<WithParts>;
 	@:optional final system:Array<String>;
@@ -361,6 +362,7 @@ class SessionProcessor {
 			input.permission, events, retry, providerError, wasAborted, tokens, input.turnID, input.turnTime, instructionClaims, loadedInstructions,
 			toolFilter);
 		toolOutcome = assistantMessage.tool;
+		var assistantRecord = assistantMessage.message;
 		var continuationLimit = DEFAULT_TOOL_CONTINUATIONS;
 		final configuredContinuationLimit = input.maxToolContinuations;
 		if (configuredContinuationLimit != null)
@@ -388,7 +390,7 @@ class SessionProcessor {
 				prompt: prompt,
 				messages: continuationMessages,
 				tools: tools,
-				abortImmediately: input.abortStreamImmediately,
+				abortImmediately: input.abortContinuationImmediately,
 				maxOutputTokens: streamOptions.maxOutputTokens,
 				temperature: streamOptions.temperature,
 				topP: streamOptions.topP,
@@ -407,18 +409,22 @@ class SessionProcessor {
 			final continuedText = collectText(continuationEvents);
 			final nextToolCall = firstModelToolCall(continuation.events);
 			if (nextToolCall != null) {
-				toolOutcome = appendAssistantTool(assistantMessage.message, sessionIDText, input.directory, agent, nextToolCall, registry, input.permission,
-					events, input.turnID, input.turnTime, instructionClaims, loadedInstructions, toolFilter);
+				toolOutcome = appendAssistantTool(assistantRecord, sessionIDText, input.directory, agent, nextToolCall, registry, input.permission, events,
+					input.turnID, input.turnTime, instructionClaims, loadedInstructions, toolFilter);
 			} else {
 				if (continuedText != "")
-					replaceAssistantText(assistantMessage.message, continuedText);
+					replaceAssistantText(assistantRecord, continuedText);
 				break;
 			}
 		}
-		instructionClaims.clear(userID(assistantMessage.message.info).toString());
+		if (wasAborted) {
+			assistantRecord = abortedAssistantRecord(assistantRecord, events);
+			replaceAssistantText(assistantRecord, "Request aborted.");
+		}
+		instructionClaims.clear(userID(assistantRecord.info).toString());
 
 		if (input.store != null) {
-			persist(input.store, projectID, sessionIDText, input.directory, input.parentSessionID, userMessage, assistantMessage.message);
+			persist(input.store, projectID, sessionIDText, input.directory, input.parentSessionID, userMessage, assistantRecord);
 		}
 
 		return {
@@ -434,7 +440,7 @@ class SessionProcessor {
 				tools: registry.ids(toolFilter),
 			},
 			events: events,
-			messages: [userMessage, assistantMessage.message],
+			messages: [userMessage, assistantRecord],
 			retry: retry,
 			compaction: null,
 			aborted: wasAborted ? true : null,
@@ -899,7 +905,7 @@ class SessionProcessor {
 			mode: "primary",
 			agent: agent,
 			path: {cwd: directory, root: directory},
-			error: aborted ? MessageJson.checked({name: "AbortedError", message: "User aborted the request"}) : null,
+			error: aborted ? MessageJson.checked({name: "MessageAbortedError", message: "User aborted the request"}) : null,
 			cost: 0,
 			tokens: tokens,
 			finish: assistantFinish(events),
@@ -1324,6 +1330,36 @@ class SessionProcessor {
 					return;
 				case _:
 			}
+		}
+	}
+
+	static function abortedAssistantRecord(message:WithParts, events:Array<SessionEvent>):WithParts {
+		return switch message.info {
+			case AssistantInfo(assistant):
+				{
+					info: AssistantInfo({
+						id: assistant.id,
+						sessionID: assistant.sessionID,
+						role: assistant.role,
+						time: assistant.time,
+						error: MessageJson.checked({name: "MessageAbortedError", message: "User aborted the request"}),
+						parentID: assistant.parentID,
+						modelID: assistant.modelID,
+						providerID: assistant.providerID,
+						mode: assistant.mode,
+						agent: assistant.agent,
+						path: assistant.path,
+						summary: assistant.summary,
+						cost: assistant.cost,
+						tokens: assistant.tokens,
+						structured: assistant.structured,
+						variant: assistant.variant,
+						finish: assistantFinish(events),
+					}),
+					parts: message.parts,
+				};
+			case _:
+				message;
 		}
 	}
 
