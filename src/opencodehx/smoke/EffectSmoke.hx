@@ -34,6 +34,11 @@ typedef SmokeStateValue = {
 	final n:Int;
 }
 
+typedef SmokeEnvEntry = {
+	final key:String;
+	final value:String;
+}
+
 class EffectSmoke {
 	public static function run():Void {
 		observabilityResource();
@@ -51,10 +56,13 @@ class EffectSmoke {
 
 	static function observabilityResource():Void {
 		final decoded = ObservabilityResource.resource({
-			env: env({
-				OTEL_RESOURCE_ATTRIBUTES: "service.namespace=anomalyco,team=platform%2Cobservability,label=hello%3Dworld,key%2Fname=value%20here",
-				OPENCODE_CLIENT: "cli",
-			}),
+			env: env([
+				{
+					key: "OTEL_RESOURCE_ATTRIBUTES",
+					value: "service.namespace=anomalyco,team=platform%2Cobservability,label=hello%3Dworld,key%2Fname=value%20here"
+				},
+				{key: "OPENCODE_CLIENT", value: "cli"},
+			]),
 			processRole: "main",
 			runID: "run-test",
 			instanceID: "instance-test",
@@ -67,7 +75,10 @@ class EffectSmoke {
 		eq(decoded.attributes.get("key/name"), "value here", "observability slash and space decode");
 
 		final invalid = ObservabilityResource.resource({
-			env: env({OTEL_RESOURCE_ATTRIBUTES: "service.namespace=anomalyco,broken", OPENCODE_CLIENT: "desktop"}),
+			env: env([
+				{key: "OTEL_RESOURCE_ATTRIBUTES", value: "service.namespace=anomalyco,broken"},
+				{key: "OPENCODE_CLIENT", value: "desktop"},
+			]),
 			processRole: "main",
 			runID: "run-invalid",
 			instanceID: "instance-invalid",
@@ -76,10 +87,10 @@ class EffectSmoke {
 		eq(invalid.attributes.exists("opencode.client"), true, "observability invalid keeps builtin attributes");
 
 		final collision = ObservabilityResource.resource({
-			env: env({
-				OTEL_RESOURCE_ATTRIBUTES: "opencode.client=web,service.instance.id=override,service.namespace=anomalyco",
-				OPENCODE_CLIENT: "cli",
-			}),
+			env: env([
+				{key: "OTEL_RESOURCE_ATTRIBUTES", value: "opencode.client=web,service.instance.id=override,service.namespace=anomalyco"},
+				{key: "OPENCODE_CLIENT", value: "cli"},
+			]),
 			processRole: "main",
 			runID: "run-collision",
 			instanceID: "instance-collision",
@@ -251,11 +262,10 @@ class EffectSmoke {
 		eq(@:await restart.ensureRunning(() -> Promise.resolve("after-cancel")), "after-cancel", "runner starts after cancel");
 	}
 
-	static function env(values:Dynamic<String>):DynamicAccess<String> {
+	static function env(values:Array<SmokeEnvEntry>):DynamicAccess<String> {
 		final out = new DynamicAccess<String>();
-		for (field in Reflect.fields(values)) {
-			out.set(field, Std.string(Reflect.field(values, field)));
-		}
+		for (entry in values)
+			out.set(entry.key, entry.value);
 		return out;
 	}
 
@@ -331,7 +341,7 @@ class EffectSmoke {
 
 		final envOut = @:await ProcessRuntime.run(node('process.stdout.write((process.env.VAR1 ?? "") + "-" + (process.env.VAR2 ?? "") + "-" + (process.env.VAR3 ?? ""))'),
 			{
-			env: env({VAR1: "one", VAR2: "two", VAR3: "three"})
+			env: env([{key: "VAR1", value: "one"}, {key: "VAR2", value: "two"}, {key: "VAR3", value: "three"}])
 		});
 		eq(envOut.stdout, "one-two-three", "cross-spawn passes env");
 
@@ -362,7 +372,7 @@ class EffectSmoke {
 		eq(missing, true, "cross-spawn missing command fails");
 
 		if (NodeProcess.platform() == "win32") {
-			final shellOut = @:await ProcessRuntime.run(["set", "OPENCODE_TEST_SHELL"], {shell: true, env: env({OPENCODE_TEST_SHELL: "ok"})});
+			final shellOut = @:await ProcessRuntime.run(["set", "OPENCODE_TEST_SHELL"], {shell: true, env: env([{key: "OPENCODE_TEST_SHELL", value: "ok"}])});
 			eq(shellOut.stdout.indexOf("OPENCODE_TEST_SHELL=ok") != -1, true, "cross-spawn windows shell");
 
 			final dir = NodePath.join(root, "with space");

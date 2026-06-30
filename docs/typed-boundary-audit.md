@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1457 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1454 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -59,6 +59,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `PtySmoke` decodes fake-socket PTY cursor control frames through `UnknownRecord` helpers instead of smoke-local `Dynamic` plus `Reflect.field`.
 - `MessageSmoke` verifies encoded tool-state roundtrips through the typed message codec instead of reflecting into encoded JSON.
 - `UtilSmoke` reads process failure objects and diagnostics golden JSON through `UnknownRecord` helpers instead of assertion-local `Dynamic` and reflection.
+- `EffectSmoke` builds fixture environment maps from typed key/value entries instead of a `Dynamic` object plus `Reflect.fields`.
 - `ConfigWriter` recurses through writable JSON/JSONC config trees with `UnknownRecord.keys/get` instead of `Reflect.fields`, `Reflect.field`, and casts.
 - `ConfigInfo.mergeObject` merges open config maps through `UnknownRecord.keys/get` instead of recursive `Reflect.fields`/`Reflect.field`/`Reflect.setField`.
 - `PermissionRules.fromConfig` iterates typed permission map keys instead of reflecting over the config object.
