@@ -32,6 +32,7 @@ import opencodehx.config.ConfigPlugin.PluginOptionValue;
 import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeLocal;
 import opencodehx.config.ConfigPlugin.PluginScope.PluginScopeGlobal;
 import opencodehx.config.ConfigTui;
+import opencodehx.config.ConfigVariable;
 import opencodehx.config.ConfigWriter;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
@@ -275,6 +276,14 @@ class ConfigSmoke {
 		eq(config.username, "env-user", "env substitution");
 		eq(config.model, "content/model", "config content override");
 		eq(config.instructions.join(","), "AGENTS.md", "content instructions");
+		eq(ConfigVariable.substitute("user={env:USER_NAME};empty={env:EMPTY_ENV};missing={env:MISSING_ENV}",
+			{
+				dir: dir,
+				env: {
+					USER_NAME: "env-user",
+					EMPTY_ENV: null
+				}
+			}), "user=env-user;empty=;missing=", "env substitution narrows provided env map");
 	}
 
 	static function legacyTuiKeys(root:String):Void {

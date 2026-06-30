@@ -1,5 +1,6 @@
 package opencodehx.config;
 
+import opencodehx.config.ConfigLoader.ConfigEnv;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
@@ -7,7 +8,7 @@ import opencodehx.host.node.NodeProcess;
 
 typedef VariableContext = {
 	final dir:String;
-	@:optional final env:Dynamic;
+	@:optional final env:ConfigEnv;
 }
 
 class ConfigVariable {
@@ -40,9 +41,9 @@ class ConfigVariable {
 	}
 
 	static function envValue(ctx:VariableContext, key:String):String {
-		if (ctx.env != null && Reflect.hasField(ctx.env, key)) {
-			final value = Reflect.field(ctx.env, key);
-			return value == null ? "" : Std.string(value);
+		if (ctx.env != null) {
+			final value = ctx.env.value(key);
+			return value == null ? "" : value;
 		}
 		final value = NodeProcess.envValue(key);
 		return value == null ? "" : value;

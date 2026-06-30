@@ -5,6 +5,7 @@ import haxe.DynamicAccess;
 import haxe.Json;
 import genes.js.Async.await;
 import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import js.lib.Promise;
 import opencodehx.config.ConfigError.ConfigException;
 import opencodehx.config.ConfigInfo.AutoUpdate;
@@ -36,7 +37,31 @@ typedef LoadOptions = {
 }
 
 @:ts.type("{[key: string]: string | null | undefined}")
-abstract ConfigEnv(Dynamic) from Dynamic to Dynamic {}
+abstract ConfigEnv(Dynamic) from Dynamic to Dynamic {
+	public inline function value(key:String):Null<String> {
+		final record = UnknownNarrow.record(Unknown.fromBoundary(this));
+		if (record == null || !record.hasOwn(key))
+			return null;
+		final raw = record.get(key);
+		if (UnknownNarrow.isNull(raw) || UnknownNarrow.isUndefined(raw))
+			return null;
+		final text = UnknownNarrow.string(raw);
+		if (text != null)
+			return text;
+		final bool = UnknownNarrow.bool(raw);
+		if (bool != null)
+			return Std.string(bool);
+		final number = UnknownNarrow.number(raw);
+		return number == null ? null : Std.string(number);
+	}
+
+	public inline function setValue(key:String, value:String):Void {
+		// ConfigEnv is the contained mutable process/config env object boundary.
+		// Reads narrow through UnknownNarrow; writes are limited to string tokens
+		// injected by remote config auth flows.
+		Reflect.setField(this, key, value);
+	}
+}
 
 typedef WellKnownAuth = {
 	final url:String;
@@ -781,10 +806,8 @@ class ConfigLoader {
 	}
 
 	static function envValue(options:LoadOptions, key:String):Null<String> {
-		if (options.env != null && Reflect.hasField(options.env, key)) {
-			final value = Reflect.field(options.env, key);
-			return value == null ? null : Std.string(value);
-		}
+		if (options.env != null)
+			return options.env.value(key);
 		return NodeProcess.envValue(key);
 	}
 
@@ -800,7 +823,7 @@ class ConfigLoader {
 	}
 
 	static function setEnvValue(env:ConfigEnv, key:String, value:String):Void {
-		Reflect.setField(env, key, value);
+		env.setValue(key, value);
 	}
 
 	static function withEnv(options:LoadOptions, env:ConfigEnv):LoadOptions {
