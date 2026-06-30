@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1575 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1571 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -51,6 +51,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `ServerSmoke` reads legacy high-volume message page IDs through `UnknownArray`/`UnknownRecord` helpers instead of a `Dynamic` helper with nested reflection.
 - `ServerSmoke` reads session pagination/search/global-list response records through `UnknownRecord`/`UnknownArray` helpers instead of raw `Dynamic`, casts, and reflection.
 - `ServerSmoke` reads archive session create/patch/default/included response records through `UnknownRecord`/`UnknownArray` helpers instead of raw `Dynamic`, casts, and reflection.
+- `ServerSmoke` reads alternate-directory session creation plus directory/root filter lists through `UnknownRecord`/`UnknownArray` helpers instead of raw `Dynamic`, casts, and reflection.
 
 ## Remaining Hotspots
 

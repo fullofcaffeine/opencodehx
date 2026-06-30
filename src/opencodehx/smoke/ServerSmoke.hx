@@ -866,12 +866,12 @@ class ServerSmoke {
 			},
 			body: Json.stringify({prompt: "Alternate", title: "alternate-directory-session"}),
 		});
-		final alternate = @:await jsonResponse(alternateResponse);
-		final alternateID = Std.string(Reflect.field(alternate, "id"));
-		eq(Reflect.field(alternate, "directory"), alternateDirectory, "create session routing directory");
+		final alternate = requiredRecord(Unknown.fromBoundary(@:await jsonResponse(alternateResponse)), "alternate directory session");
+		final alternateID = requiredString(alternate, "id", "alternate directory session id");
+		eq(requiredString(alternate, "directory", "create session routing directory"), alternateDirectory, "create session routing directory");
 		final directoryFilteredResponse = @:await server.app.request('/session?directory=${StringTools.urlEncode(root)}');
-		final directoryFiltered:Dynamic = @:await jsonResponse(directoryFilteredResponse);
-		final directoryIDs = responseIDs(directoryFiltered);
+		final directoryFiltered = requiredArray(Unknown.fromBoundary(@:await jsonResponse(directoryFilteredResponse)), "session directory filter");
+		final directoryIDs = responseIDsFromArray(directoryFiltered);
 		eq(directoryIDs.indexOf(sessionID) != -1, true, "session directory filter keeps root session");
 		eq(directoryIDs.indexOf(alternateID), -1, "session directory filter excludes alternate directory");
 
@@ -910,8 +910,8 @@ class ServerSmoke {
 		final missingChildren:Response = @:await server.app.request("/session/ses_missing/children");
 		eq(missingChildren.status, 404, "missing session children status");
 		final rootsResponse = @:await server.app.request("/session?roots=true");
-		final roots:Dynamic = @:await jsonResponse(rootsResponse);
-		final rootIDs = responseIDs(roots);
+		final roots = requiredArray(Unknown.fromBoundary(@:await jsonResponse(rootsResponse)), "session roots filter");
+		final rootIDs = responseIDsFromArray(roots);
 		eq(rootIDs.indexOf(sessionID) != -1, true, "root filter keeps root session");
 		eq(rootIDs.indexOf(childID), -1, "root filter excludes child session");
 		eq(rootIDs.indexOf(secondChildID), -1, "root filter excludes second child session");
