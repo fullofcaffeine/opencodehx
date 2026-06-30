@@ -221,7 +221,7 @@ function directEvidence(path) {
     ],
     ["storage/json-migration.test.ts", ["partial", "src/opencodehx/storage/JsonStorageMigrationRuntime.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "project/session/message/part migration, parent orphan skipping, unreadable-file error collection, and typed todo/permission/session-share side-table summaries are covered; persisted side tables, full Drizzle migration compatibility, and storage service integration remain deferred", "StorageSmoke.jsonMigration"]],
     ["storage/db.test.ts", ["ported", "src/opencodehx/storage/StorageDatabasePath.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "none", "StorageSmoke databasePath"]],
-    ["config/config.test.ts", ["partial", "src/opencodehx/smoke/ConfigSmoke.hx; docs/config-port.md", "real account repo/service integration, runtime plugin loading/path resolution, and live package-manager dependency install side effects remain deferred; deterministic dependency bootstrap gitignore/install success/failure is covered", "ConfigSmoke"]],
+    ["config/config.test.ts", ["partial", "src/opencodehx/smoke/ConfigSmoke.hx; src/opencodehx/smoke/ServerSmoke.hx; docs/config-port.md", "real account repo/service integration, runtime plugin loading/path resolution, and live package-manager dependency install side effects remain deferred; deterministic dependency bootstrap gitignore/install success/failure is covered", "ConfigSmoke plus ServerSmoke GET /config route fixture"]],
     [
       "config/tui.test.ts",
       [

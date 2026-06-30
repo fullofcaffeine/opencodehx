@@ -151,6 +151,18 @@ class ServerSmoke {
 	}
 
 	@:async
+	static function configRoute(server:OpenCodeServer, root:String):Promise<Void> {
+		Fs.writeFileSync(NodePath.join(root, "opencode.json"),
+			'{"' + "$" + 'schema":"${ConfigInfo.DEFAULT_SCHEMA}","model":"server/model","default_agent":"reviewer","enabled_providers":["server-provider"]}');
+		final body = @:await jsonResponse(@:await server.app.request("/config"));
+		final config = requiredRecord(Unknown.fromBoundary(body), "server config route");
+		eq(requiredString(config, "model", "server config model"), "server/model", "server config model");
+		eq(requiredString(config, "default_agent", "server config default agent"), "reviewer", "server config default agent");
+		final providers = requiredArray(config.get("enabled_providers"), "server config enabled providers");
+		eq(UnknownNarrow.string(providers.get(0)), "server-provider", "server config enabled provider");
+	}
+
+	@:async
 	static function liveAiSdkSessionRoute(root:String):Promise<Void> {
 		final liveRoot = NodePath.join(root, "live-ai-sdk-server");
 		Fs.mkdirSync(liveRoot, {recursive: true});
@@ -274,6 +286,7 @@ class ServerSmoke {
 			remoteSync:SyncRouteRuntime):Promise<Void> {
 		final health = await(jsonResponse(await(server.app.request("/health"))));
 		eq(Reflect.field(health, "service"), "opencodehx", "health service");
+		await(configRoute(server, root));
 		await(workspaceRemoteHttp());
 		await(projectGitInitRoutes(server, root));
 

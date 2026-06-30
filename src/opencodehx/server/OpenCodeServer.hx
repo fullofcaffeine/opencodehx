@@ -4,6 +4,7 @@ import genes.js.Async.await;
 import genes.ts.Unknown;
 import js.html.Response;
 import js.lib.Promise;
+import opencodehx.config.ConfigWriter;
 import opencodehx.externs.hono.Hono;
 import opencodehx.externs.hono.Hono.HonoContext;
 import opencodehx.externs.hono.NodeWs;
@@ -33,6 +34,7 @@ import opencodehx.session.MessageError.MessageException;
 import opencodehx.session.MessageID;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionLive.SessionLivePlan;
+import opencodehx.session.SessionLive.liveLocalConfig;
 import opencodehx.session.SessionLive.liveResolve;
 import opencodehx.session.SessionLive.liveRunPlan;
 import opencodehx.session.SessionProcessor;
@@ -111,6 +113,7 @@ class OpenCodeServer {
 
 	function routes():Void {
 		app.get("/health", c -> json(c, {ok: true, service: "opencodehx"}));
+		app.get("/config", c -> getConfig(c));
 		app.get("/event", c -> eventStream(c));
 		app.get("/permission", c -> listPermissions(c));
 		app.get("/question", c -> listQuestions(c));
@@ -399,6 +402,10 @@ class OpenCodeServer {
 		final dir = routingDirectory(c);
 		final project = ProjectRuntime.fromDirectory(dir, store).project;
 		return json(c, projectResponse(project));
+	}
+
+	function getConfig(c:HonoContext):Response {
+		return json(c, ConfigWriter.toWritableJson(liveLocalConfig(routingDirectory(c))));
 	}
 
 	function listProjects(c:HonoContext):Response {

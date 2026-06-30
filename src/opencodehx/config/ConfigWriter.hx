@@ -24,6 +24,16 @@ typedef WritableConfigJson = Unknown;
 typedef WritableConfigObject = DynamicAccess<WritableConfigJson>;
 
 class ConfigWriter {
+	/**
+		Encodes the typed `ConfigInfo` model back to the upstream config JSON
+		field names used by config files and server responses. The returned value
+		is still an open JSON tree because several nested config sections are
+		documented boundary debt, but all conversion into that tree stays here.
+	**/
+	public static function toWritableJson(info:ConfigInfo):WritableConfigJson {
+		return writableDynamic(info);
+	}
+
 	public static function loadGlobal(globalDir:String, ?options:LoadOptions):ConfigInfo {
 		final result = new ConfigInfo();
 		for (file in ["config.json", "opencode.json", "opencode.jsonc"]) {
