@@ -1886,24 +1886,26 @@ class ServerSmoke {
 		final events:Array<opencodehx.project.InstanceRuntime.InstanceEvent> = [];
 		final unsubscribe = InstanceRuntime.subscribe(event -> events.push(event));
 		try {
-			final init = await(jsonResponse(await(server.app.request("/project/git/init", {
+			final initBody = await(jsonResponse(await(server.app.request("/project/git/init", {
 				method: "POST",
 				headers: {"x-opencode-directory": StringTools.urlEncode(plain)},
 			}))));
-			eq(Reflect.field(init, "id"), "global", "project init id");
-			eq(Reflect.field(init, "vcs"), "git", "project init vcs");
-			eq(Reflect.field(init, "worktree"), plainReal, "project init worktree");
+			final init = requiredRecord(Unknown.fromBoundary(initBody), "project init");
+			eq(requiredString(init, "id", "project init id"), "global", "project init id");
+			eq(requiredString(init, "vcs", "project init vcs"), "git", "project init vcs");
+			eq(requiredString(init, "worktree", "project init worktree"), plainReal, "project init worktree");
 			eq(Fs.existsSync(NodePath.join(plain, ".git")), true, "project init created git dir");
 			eq(Fs.existsSync(NodePath.join(NodePath.join(plain, ".git"), "opencode")), false, "project init does not create opencode git cache");
 			eq(events.length, 1, "project init reload disposes previous instance");
 			eq(events[0].directory, plainReal, "project init disposed directory");
 			eq(Std.string(events[0].type), "server.instance.disposed", "project init disposed event type");
 
-			final current = await(jsonResponse(await(server.app.request("/project/current", {
+			final currentBody = await(jsonResponse(await(server.app.request("/project/current", {
 				headers: {"x-opencode-directory": StringTools.urlEncode(plain)},
 			}))));
-			eq(Reflect.field(current, "vcs"), "git", "project current vcs");
-			eq(Reflect.field(current, "worktree"), plainReal, "project current worktree");
+			final current = requiredRecord(Unknown.fromBoundary(currentBody), "project current");
+			eq(requiredString(current, "vcs", "project current vcs"), "git", "project current vcs");
+			eq(requiredString(current, "worktree", "project current worktree"), plainReal, "project current worktree");
 			final committed = NodePath.join(root, "project-list-committed");
 			initCommittedRepo(committed, "# committed project");
 			final committedReal = Fs.realpathSync(committed);
@@ -1962,11 +1964,12 @@ class ServerSmoke {
 			eq(instanceServiceIDs(reloaded).indexOf("snapshot") != -1, true, "project init attaches snapshot service");
 			eq(SnapshotRuntime.track(reloaded) != "", true, "project init snapshot track");
 
-			final alreadyGit = await(jsonResponse(await(server.app.request("/project/git/init", {
+			final alreadyGitBody = await(jsonResponse(await(server.app.request("/project/git/init", {
 				method: "POST",
 				headers: {"x-opencode-directory": StringTools.urlEncode(plain)},
 			}))));
-			eq(Reflect.field(alreadyGit, "vcs"), "git", "project init already git vcs");
+			final alreadyGit = requiredRecord(Unknown.fromBoundary(alreadyGitBody), "project init already git");
+			eq(requiredString(alreadyGit, "vcs", "project init already git vcs"), "git", "project init already git vcs");
 			eq(events.length, 1, "project init already git does not reload");
 			unsubscribe();
 			InstanceRuntime.reset();
