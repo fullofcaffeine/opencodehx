@@ -23,6 +23,8 @@ import opencodehx.pty.PtyTypes.PtyID;
 import opencodehx.pty.PtyTypes.PtySocket;
 import opencodehx.pty.PtyTypes.PtySocketMessage;
 import opencodehx.provider.AiSdkProvider;
+import opencodehx.permission.PermissionAsyncRuntime;
+import opencodehx.permission.PermissionAsyncRuntime.PermissionAsyncService;
 import opencodehx.question.QuestionRuntime;
 import opencodehx.question.QuestionRuntime.QuestionID;
 import opencodehx.question.QuestionRuntime.QuestionService;
@@ -109,6 +111,7 @@ class OpenCodeServer {
 	function routes():Void {
 		app.get("/health", c -> json(c, {ok: true, service: "opencodehx"}));
 		app.get("/event", c -> eventStream(c));
+		app.get("/permission", c -> listPermissions(c));
 		app.get("/question", c -> listQuestions(c));
 		app.get("/session", c -> listSessions(c));
 		app.get("/session/status", c -> sessionStatuses(c));
@@ -119,6 +122,7 @@ class OpenCodeServer {
 		app.patch("/session/:sessionID", c -> updateSession(c));
 		app.get("/session/:sessionID/message", c -> sessionMessages(c));
 		app.post("/session/:sessionID/abort", c -> abortSession(c));
+		app.post("/permission/:requestID/reply", c -> replyPermission(c));
 		app.post("/question/:requestID/reply", c -> replyQuestion(c));
 		app.post("/question/:requestID/reject", c -> rejectQuestion(c));
 		app.post("/sync/start", c -> json(c, syncRuntime.start()));
@@ -278,6 +282,33 @@ class OpenCodeServer {
 	}
 
 	@:async
+	function listPermissions(c:HonoContext):Promise<Response> {
+		final service = permissionService(c);
+		if (service == null)
+			return json(c, ServerProtocol.error("Instance not available"), 404);
+		return json(c, @:await service.list());
+	}
+
+	@:async
+	function replyPermission(c:HonoContext):Promise<Response> {
+		final service = permissionService(c);
+		if (service == null)
+			return json(c, ServerProtocol.error("Instance not available"), 404);
+		final decoded = ServerPermissionProtocol.decodeReply(@:await readJson(c));
+		final request = switch decoded {
+			case Rejected(message):
+				return json(c, ServerProtocol.error(message), 400);
+			case Decoded(value):
+				value;
+		};
+		@:await service.reply({
+			requestID: param(c, "requestID"),
+			reply: request.reply,
+		});
+		return json(c, true);
+	}
+
+	@:async
 	function listQuestions(c:HonoContext):Promise<Response> {
 		final service = questionService(c);
 		if (service == null)
@@ -367,6 +398,12 @@ class OpenCodeServer {
 		final dir = routingDirectory(c);
 		final context = InstanceRuntime.fromDirectory(dir);
 		return context == null ? null : QuestionRuntime.forContext(context);
+	}
+
+	function permissionService(c:HonoContext):Null<PermissionAsyncService> {
+		final dir = routingDirectory(c);
+		final context = InstanceRuntime.fromDirectory(dir);
+		return context == null ? null : PermissionAsyncRuntime.forContext(context);
 	}
 
 	function initGitProject(c:HonoContext):Response {

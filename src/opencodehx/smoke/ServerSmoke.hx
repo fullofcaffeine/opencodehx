@@ -36,6 +36,9 @@ import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
+import opencodehx.permission.PermissionAsyncRuntime;
+import opencodehx.permission.PermissionAsyncRuntime.PermissionCorrectedError;
+import opencodehx.permission.PermissionAsyncRuntime.PermissionRejectedError;
 import opencodehx.question.QuestionRuntime;
 import opencodehx.question.QuestionRuntime.QuestionAnswer;
 import opencodehx.question.QuestionRuntime.QuestionInfo;
@@ -61,6 +64,7 @@ import opencodehx.sync.WorkspaceSyncRemoteHttp.WorkspaceSyncFetchInit;
 import opencodehx.sync.WorkspaceSyncRemoteHttp.WorkspaceSyncHttpError;
 import opencodehx.sync.WorkspaceSyncRuntime;
 import opencodehx.sync.WorkspaceSyncSse;
+import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
 
 typedef PtyWebSocketResult = {
 	final text:String;
@@ -526,6 +530,7 @@ class ServerSmoke {
 		eq(Reflect.field(created, "title"), "Server fixture", "created title");
 		final statusAfterCreate = UnknownNarrow.record(Unknown.fromBoundary(await(jsonResponse(await(server.app.request("/session/status"))))));
 		eq(statusAfterCreate != null && statusAfterCreate.keys().length == 0, true, "session status idle after completed create");
+		await(permissionRoutes(server, root));
 		await(questionRoutes(server, root));
 
 		final invalidCreate = await(server.app.request("/session", {
@@ -732,6 +737,144 @@ class ServerSmoke {
 	}
 
 	@:async
+	static function permissionRoutes(server:OpenCodeServer, root:String):Promise<Void> {
+		final rootContext = InstanceRuntime.fromDirectory(root);
+		if (rootContext == null)
+			throw "permission route root context";
+		final rootService = PermissionAsyncRuntime.forContext(rootContext);
+		final rootPromise = rootService.ask({
+			sessionID: "ses_permission_root",
+			permission: "write",
+			patterns: ["server-permission.txt"],
+			metadata: ToolPermissionMetadata.empty(),
+			always: ["server-permission.txt"],
+			ruleset: [],
+			tool: {
+				messageID: "msg_permission_root",
+				callID: "call_permission_root"
+			},
+		});
+		final listRaw = Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/permission")));
+		final list = requiredArray(listRaw, "permission route list");
+		eq(list.length, 1, "permission route list count");
+		final first = requiredRecord(list.get(0), "permission route first");
+		final requestID = requiredString(first, "id", "permission route request id");
+		eq(requiredString(first, "sessionID", "permission route session"), "ses_permission_root", "permission route session id");
+		eq(requiredString(first, "permission", "permission route permission"), "write", "permission route permission kind");
+		final patterns = requiredArray(first.get("patterns"), "permission route patterns");
+		eq(UnknownNarrow.string(patterns.get(0)), "server-permission.txt", "permission route pattern");
+		final tool = requiredRecord(first.get("tool"), "permission route tool");
+		eq(requiredString(tool, "callID", "permission route tool call"), "call_permission_root", "permission route tool call id");
+
+		final invalidReply = @:await server.app.request('/permission/${requestID}/reply', {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({reply: 1}),
+		});
+		eq(invalidReply.status, 400, "permission route invalid reply");
+		final unknownRequest = @:await jsonResponse(@:await server.app.request("/permission/per_unknown/reply", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({reply: "once"}),
+		}));
+		eq(unknownRequest, true, "permission route unknown request no-op");
+		final reply = @:await jsonResponse(@:await server.app.request('/permission/${requestID}/reply', {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({reply: "once"}),
+		}));
+		eq(reply, true, "permission route once response");
+		eq(@:await rootPromise, true, "permission route once resolves promise");
+		final emptyList = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/permission"))), "permission route empty list");
+		eq(emptyList.length, 0, "permission route once clears list");
+
+		final unknownReplyPromise = rootService.ask({
+			sessionID: "ses_permission_unknown_reply",
+			permission: "bash",
+			patterns: ["danger"],
+			metadata: ToolPermissionMetadata.empty(),
+			always: ["danger"],
+			ruleset: [],
+		});
+		final unknownReplyList = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/permission"))),
+			"permission route unknown reply list");
+		final unknownReplyID = requiredString(requiredRecord(unknownReplyList.get(0), "permission route unknown reply first"), "id",
+			"permission route unknown reply id");
+		final unknownReply = @:await jsonResponse(@:await server.app.request('/permission/${unknownReplyID}/reply', {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({reply: "later"}),
+		}));
+		eq(unknownReply, true, "permission route unknown reply response");
+		eq(@:await permissionRejection(unknownReplyPromise), "rejected", "permission route unknown reply rejects pending session");
+
+		final alwaysOne = rootService.ask({
+			id: "per_always_1",
+			sessionID: "ses_permission_always",
+			permission: "write",
+			patterns: ["always.txt"],
+			metadata: ToolPermissionMetadata.empty(),
+			always: ["always.txt"],
+			ruleset: [],
+		});
+		final alwaysTwo = rootService.ask({
+			id: "per_always_2",
+			sessionID: "ses_permission_always",
+			permission: "write",
+			patterns: ["always.txt"],
+			metadata: ToolPermissionMetadata.empty(),
+			always: ["always.txt"],
+			ruleset: [],
+		});
+		final alwaysReply = @:await jsonResponse(@:await server.app.request("/permission/per_always_1/reply", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({reply: "always"}),
+		}));
+		eq(alwaysReply, true, "permission route always response");
+		eq(@:await alwaysOne, true, "permission route always first resolves");
+		eq(@:await alwaysTwo, true, "permission route always matching resolves");
+		eq(@:await rootService.ask({
+			sessionID: "ses_permission_always",
+			permission: "write",
+			patterns: ["always.txt"],
+			metadata: ToolPermissionMetadata.empty(),
+			always: ["always.txt"],
+			ruleset: [],
+		}), true, "permission route always persists approval");
+
+		final alternate = NodePath.join(root, "permission-route-alt");
+		Fs.mkdirSync(alternate, {recursive: true});
+		final alternateContext = InstanceRuntime.fromDirectory(alternate);
+		if (alternateContext == null)
+			throw "permission route alternate context";
+		final alternateService = PermissionAsyncRuntime.forContext(alternateContext);
+		final rejected = alternateService.ask({
+			sessionID: "ses_permission_alt",
+			permission: "edit",
+			patterns: ["alt.txt"],
+			metadata: ToolPermissionMetadata.empty(),
+			always: ["alt.txt"],
+			ruleset: [],
+		});
+		final rootAfterAlt = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/permission"))),
+			"permission route root isolated");
+		eq(rootAfterAlt.length, 0, "permission route root isolation");
+		final alternateList = requiredArray(Unknown.fromBoundary(@:await jsonResponse(@:await server.app.request("/permission", {
+			headers: {"x-opencode-directory": StringTools.urlEncode(alternate)},
+		}))), "permission route alternate list");
+		eq(alternateList.length, 1, "permission route alternate count");
+		final alternateID = requiredString(requiredRecord(alternateList.get(0), "permission route alternate first"), "id", "permission route alternate id");
+		final reject = @:await jsonResponse(@:await server.app.request('/permission/${alternateID}/reply', {
+			method: "POST",
+			headers: {"content-type": "application/json", "x-opencode-directory": StringTools.urlEncode(alternate)},
+			body: Json.stringify({reply: "reject", message: "Use a safer file."}),
+		}));
+		eq(reject, true, "permission route reject response");
+		eq(@:await permissionRejection(rejected), "corrected", "permission route reject promise");
+	}
+
+	@:async
 	static function questionRoutes(server:OpenCodeServer, root:String):Promise<Void> {
 		final rootContext = InstanceRuntime.fromDirectory(root);
 		if (rootContext == null)
@@ -824,6 +967,14 @@ class ServerSmoke {
 	static function questionRejection(promise:Promise<Array<QuestionAnswer>>):Promise<String> {
 		return promise.then(_ -> "resolved").catchError(error -> {
 			return Std.isOfType(error, QuestionRejectedError) ? "rejected" : "other";
+		});
+	}
+
+	static function permissionRejection(promise:Promise<Bool>):Promise<String> {
+		return promise.then(_ -> "resolved").catchError(error -> {
+			if (Std.isOfType(error, PermissionCorrectedError))
+				return "corrected";
+			return Std.isOfType(error, PermissionRejectedError) ? "rejected" : "other";
 		});
 	}
 

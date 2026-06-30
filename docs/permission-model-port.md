@@ -15,6 +15,7 @@ This slice adds the first Haxe-owned permission model:
 - `BashArity.prefix` for deriving the command-prefix tokens used by bash permission matching, including upstream arity-1/2/3 and longest-match cases.
 - `PermissionRuntime`, a synchronous ask/reply adapter for the current tool execution model. It supports prompt replies of `once`, `always`, and `reject`, and records upstream-shaped permission ask payloads.
 - `PermissionAsyncRuntime`, a focused pending-permission service keyed by `InstanceRuntime` directory. It covers upstream-shaped pending requests, typed scoped/global bus publication for `permission.asked` and `permission.replied`, `once`/`always`/`reject` replies, same-session rejection, matching same-session `always` resolution, service-local approval persistence, directory isolation, and pending rejection on instance dispose/reload.
+- Server permission routes over the async service: `GET /permission` lists pending requests for the routed instance directory, and `POST /permission/:requestID/reply` accepts upstream-shaped reply payloads.
 - Tool integration through the existing `ToolContext.ask` hook.
 
 ## Evidence
@@ -26,6 +27,11 @@ This slice adds the first Haxe-owned permission model:
 - Synchronous tool boundary behavior: ask/always/reject decisions and read/bash tool integration.
 - Async pending lifecycle behavior: pending payload/listing, `permission.asked`/`permission.replied` scoped and global bus events, `once`, `reject`, corrected reject messages, same-session reject cancellation, `always` approvals, matching same-session resolution, directory isolation, instance dispose/reload rejection, deny-before-pending short-circuiting, and all-allow immediate resolution.
 
+`ServerSmoke` covers:
+
+- `GET /permission` pending-list payloads with request ID, session ID, permission kind, patterns, and tool references.
+- `POST /permission/:requestID/reply` route decoding for invalid bodies, unknown request no-op behavior, `once`, `always`, unknown reply rejection, corrected `reject`, matching same-session `always` resolution, and routed-directory isolation through `x-opencode-directory`.
+
 Gates used for this slice:
 
 ```bash
@@ -35,7 +41,7 @@ npm run smoke
 
 ## Boundary
 
-This does not yet persist approved permissions to the session database or integrate the async service into the live session/tool graph. The synchronous runtime remains the active `ToolContext.ask` adapter because the current tool registry is synchronous. When the live session/tool graph is promoted to an async/effectful boundary, it should keep these pure rule semantics and `PermissionAsyncRuntime` lifecycle behavior as the oracle for the pending service.
+This does not yet persist approved permissions to the session database or integrate the async service into the live session/tool graph. The synchronous runtime remains the active `ToolContext.ask` adapter because the current tool registry is synchronous. When the live session/tool graph is promoted to an async/effectful boundary, it should keep these pure rule semantics, `PermissionAsyncRuntime` lifecycle behavior, and the server route contract as the oracle for the pending service.
 
 ## genes-ts Note
 
