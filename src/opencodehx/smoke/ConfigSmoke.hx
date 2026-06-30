@@ -23,6 +23,7 @@ import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigLoader.ConfigEnv;
 import opencodehx.config.ConfigLoader;
+import opencodehx.config.ConfigLsp;
 import opencodehx.config.ConfigManaged;
 import opencodehx.config.ConfigMarkdown;
 import opencodehx.config.ConfigMarkdown.MarkdownDocument;
@@ -412,28 +413,29 @@ class ConfigSmoke {
 
 		final builtinDir = directory(root, "lsp-builtin");
 		write(builtinDir, "opencode.json", '{"lsp":{"typescript":{"command":["typescript-language-server","--stdio"]}}}');
-		final builtin = ConfigLoader.loadProject(builtinDir, {defaultUsername: "fixture-user"}).lsp;
-		eq(Reflect.hasField(Reflect.field(builtin, "typescript"), "extensions"), false, "builtin lsp can omit extensions");
+		final builtin = Unknown.fromBoundary(ConfigLoader.loadProject(builtinDir, {defaultUsername: "fixture-user"}).lsp);
+		eq(ConfigLsp.hasServerField(builtin, "typescript", "extensions"), false, "builtin lsp can omit extensions");
 
 		final customDir = directory(root, "lsp-custom");
 		write(customDir, "opencode.json", '{"lsp":{"my-lsp":{"command":["my-lsp-bin"],"extensions":[".ml"]}}}');
-		final custom = ConfigLoader.loadProject(customDir, {defaultUsername: "fixture-user"}).lsp;
-		eq((cast Reflect.field(Reflect.field(custom, "my-lsp"), "extensions") : Array<Dynamic>)[0], ".ml", "custom lsp extensions");
+		final custom = Unknown.fromBoundary(ConfigLoader.loadProject(customDir, {defaultUsername: "fixture-user"}).lsp);
+		eq(require(ConfigLsp.extensions(custom, "my-lsp"), "custom lsp extensions")[0], ".ml", "custom lsp extensions");
 
 		final disabledCustomDir = directory(root, "lsp-disabled-custom");
 		write(disabledCustomDir, "opencode.json", '{"lsp":{"my-lsp":{"disabled":true}}}');
-		eq(Reflect.field(Reflect.field(ConfigLoader.loadProject(disabledCustomDir, {defaultUsername: "fixture-user"}).lsp, "my-lsp"), "disabled"), true,
+		eq(ConfigLsp.disabled(Unknown.fromBoundary(ConfigLoader.loadProject(disabledCustomDir, {defaultUsername: "fixture-user"}).lsp), "my-lsp"), true,
 			"disabled custom lsp omits extensions");
 
 		final mixedDir = directory(root, "lsp-mixed");
 		write(mixedDir, "opencode.json",
 			'{"lsp":{"typescript":{"command":["typescript-language-server","--stdio"]},"my-lsp":{"command":["my-lsp-bin"],"extensions":[".ml"]}}}');
-		eq(Reflect.hasField(ConfigLoader.loadProject(mixedDir, {defaultUsername: "fixture-user"}).lsp, "typescript"), true, "mixed lsp builtin");
+		eq(ConfigLsp.hasServer(Unknown.fromBoundary(ConfigLoader.loadProject(mixedDir, {defaultUsername: "fixture-user"}).lsp), "typescript"), true,
+			"mixed lsp builtin");
 
 		final emptyExtensionsDir = directory(root, "lsp-empty-extensions");
 		write(emptyExtensionsDir, "opencode.json", '{"lsp":{"my-lsp":{"command":["my-lsp-bin"],"extensions":[]}}}');
-		eq((cast Reflect.field(Reflect.field(ConfigLoader.loadProject(emptyExtensionsDir, {defaultUsername: "fixture-user"}).lsp, "my-lsp"),
-			"extensions") : Array<Dynamic>).length,
+		eq(require(ConfigLsp.extensions(Unknown.fromBoundary(ConfigLoader.loadProject(emptyExtensionsDir, {defaultUsername: "fixture-user"}).lsp), "my-lsp"),
+			"empty lsp extensions").length,
 			0, "empty lsp extensions current behavior");
 
 		expectFailure(() -> {
