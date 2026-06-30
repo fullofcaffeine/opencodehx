@@ -1,9 +1,7 @@
 package opencodehx.lsp;
 
 import genes.ts.Unknown;
-import haxe.DynamicAccess;
 import opencodehx.externs.node.Url;
-import opencodehx.lsp.LspTypes.LspDiagnosticInfo;
 import opencodehx.lsp.LspTypes.LspEndpoint;
 import opencodehx.lsp.LspTypes.LspInitializeException;
 import opencodehx.lsp.LspTypes.LspServerHandle;
@@ -13,7 +11,7 @@ class LspClient {
 	public final serverID:String;
 	public final root:String;
 	public final endpoint:LspEndpoint;
-	public final diagnostics = new DynamicAccess<Array<LspDiagnosticInfo>>();
+	public final diagnostics = new LspDiagnostics();
 
 	final directory:String;
 	var closed = false;

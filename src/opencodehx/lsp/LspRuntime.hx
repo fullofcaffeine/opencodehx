@@ -1,9 +1,7 @@
 package opencodehx.lsp;
 
 import genes.ts.Unknown;
-import haxe.DynamicAccess;
 import opencodehx.host.node.NodePath;
-import opencodehx.lsp.LspTypes.LspDiagnosticInfo;
 import opencodehx.lsp.LspTypes.LspLocationInput;
 import opencodehx.lsp.LspTypes.LspRuntimeContext;
 import opencodehx.lsp.LspTypes.LspRuntimeOptions;
@@ -81,17 +79,10 @@ class LspRuntime {
 		ensureClients(file);
 	}
 
-	public function diagnostics():DynamicAccess<Array<LspDiagnosticInfo>> {
-		final out = new DynamicAccess<Array<LspDiagnosticInfo>>();
-		for (client in clients) {
-			for (key in client.diagnostics.keys()) {
-				final existing = out.get(key);
-				final next = existing == null ? [] : existing.copy();
-				for (item in client.diagnostics.get(key))
-					next.push(item);
-				out.set(key, next);
-			}
-		}
+	public function diagnostics():LspDiagnostics {
+		final out = new LspDiagnostics();
+		for (client in clients)
+			out.mergeFrom(client.diagnostics);
 		return out;
 	}
 

@@ -18,7 +18,7 @@
   ],
   "totals": {
     "Dynamic": 709,
-    "DynamicAccess": 556,
+    "DynamicAccess": 549,
     "cast": 201,
     "untyped": 5,
     "Syntax.code": 23,
@@ -246,12 +246,6 @@
     },
     "src/opencodehx/interop/JsIdentityKey.hx": {
       "Syntax.code": 2
-    },
-    "src/opencodehx/lsp/LspClient.hx": {
-      "DynamicAccess": 2
-    },
-    "src/opencodehx/lsp/LspRuntime.hx": {
-      "DynamicAccess": 3
     },
     "src/opencodehx/mcp/McpRuntime.hx": {
       "Dynamic": 2,
@@ -515,8 +509,7 @@
       "DynamicAccess": 2
     },
     "src/opencodehx/smoke/LspSmoke.hx": {
-      "Dynamic": 1,
-      "DynamicAccess": 2
+      "Dynamic": 1
     },
     "src/opencodehx/smoke/McpAcpSmoke.hx": {
       "DynamicAccess": 2,

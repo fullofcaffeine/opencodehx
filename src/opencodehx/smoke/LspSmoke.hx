@@ -1,13 +1,13 @@
 package opencodehx.smoke;
 
 import genes.ts.Unknown;
-import haxe.DynamicAccess;
 import haxe.Json;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
 import opencodehx.lsp.LspClient;
 import opencodehx.lsp.LspDiagnostic;
+import opencodehx.lsp.LspDiagnostics;
 import opencodehx.lsp.LspRuntime;
 import opencodehx.lsp.LspTypes.LspDiagnosticInfo;
 import opencodehx.lsp.LspTypes.LspEndpointResult;
@@ -59,6 +59,15 @@ class LspSmoke {
 		};
 		eq(LspDiagnostic.pretty(missingSeverity), "ERROR [1:1] Missing severity", "lsp diagnostic default severity");
 		eq(LspDiagnostic.report("src/test.ts", [diagnostic]).indexOf('<diagnostics file="src/test.ts">') == 0, true, "lsp diagnostic report wrapper");
+		final store = new LspDiagnostics();
+		store.set("file:///src/test.ts", [diagnostic]);
+		eq(store.hasAny(), true, "lsp diagnostics store has entries");
+		final copy = store.get("file:///src/test.ts");
+		copy.resize(0);
+		eq(store.get("file:///src/test.ts").length, 1, "lsp diagnostics store returns copies");
+		final merged = new LspDiagnostics();
+		merged.mergeFrom(store);
+		eq(merged.get("file:///src/test.ts")[0].message, "Type mismatch", "lsp diagnostics store merges entries");
 	}
 
 	static function lifecycle(root:String):Void {
@@ -67,7 +76,7 @@ class LspSmoke {
 		disabled.init();
 		disabled.init();
 		eq(disabled.status().length, 0, "lsp status empty initially");
-		eq(hasKeys(disabled.diagnostics()), false, "lsp diagnostics empty initially");
+		eq(disabled.diagnostics().hasAny(), false, "lsp diagnostics empty initially");
 		eq(disabled.hasClients(file), false, "lsp disabled has no clients");
 		eq(disabled.hasClients(NodePath.join(root, "../outside.ts")), false, "lsp outside file has no clients");
 		eq(disabled.workspaceSymbol("test").length, 0, "lsp workspace symbol empty with no clients");
@@ -188,12 +197,6 @@ class LspSmoke {
 			if (!pred(error.failure))
 				throw '${label}: unexpected failure ${error.message}';
 		}
-	}
-
-	static function hasKeys<T>(access:DynamicAccess<T>):Bool {
-		for (_ in access.keys())
-			return true;
-		return false;
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {
