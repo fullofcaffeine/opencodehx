@@ -42,6 +42,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `SessionProcessorSmoke` reads request-option nested records, optional stream tool-choice, and workflow tool metadata through `ProviderOptionAccess`, typed optional fields, and `UnknownRecord` helpers instead of smoke-local reflection.
 - `ConfigSmoke` reads plugin tuple/resolved option assertions through `ConfigPlugin.stringOption(...)`, keeping plugin passthrough narrowing in the config plugin boundary instead of raw smoke reflection.
 - `ConfigSmoke` reads LSP server presence, disabled flags, and extensions through `ConfigLsp` Unknown-based accessors instead of raw reflection over the still-open `ConfigInfo.lsp` boundary.
+- `ConfigSmoke` builds local-update permission patches with the typed `PermissionConfigValue` map and asserts through map reads instead of object-literal casts or reflection.
 
 ## Remaining Hotspots
 

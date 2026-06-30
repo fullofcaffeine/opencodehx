@@ -19,6 +19,7 @@ import opencodehx.config.ConfigError.ConfigFailure;
 import opencodehx.config.ConfigDependencyRuntime;
 import opencodehx.config.ConfigInfo;
 import opencodehx.config.ConfigInfo.OpenConfigValue;
+import opencodehx.config.ConfigInfo.PermissionConfigValue;
 import opencodehx.config.ConfigInfo.AutoUpdate;
 import opencodehx.config.ConfigInfo.ShareMode;
 import opencodehx.config.ConfigLoader.ConfigEnv;
@@ -851,13 +852,13 @@ disabled_providers = ["openai"]
 
 		final patch = new ConfigInfo();
 		patch.model = "new/model";
-		patch.permission = cast {
-			bash: "allow",
-		};
+		final permission = new DynamicAccess<PermissionConfigValue>();
+		permission.set("bash", "allow");
+		patch.permission = permission;
 
 		final next = ConfigWriter.updateLocal(dir, patch);
 		eq(next.model, "new/model", "local update return model");
-		eq(Reflect.field(next.permission, "bash"), "allow", "local update nested permission");
+		eq(require(next.permission, "local update permission").get("bash"), "allow", "local update nested permission");
 
 		final text = Fs.readFileSync(NodePath.join(dir, "config.json"), "utf8");
 		contains(text, '"model": "new/model"', "local update writes config.json");
