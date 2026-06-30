@@ -168,6 +168,36 @@ class ServerSmoke {
 		final messages = UnknownNarrow.array(Unknown.fromBoundary(await(jsonResponse(await(liveServer.app.request("/session/ses_server_1/message"))))));
 		eq(messages != null && messages.length == 2, true, "live server persisted message count");
 		liveServer.close();
+
+		final abortRoot = NodePath.join(root, "live-ai-sdk-server-abort");
+		Fs.mkdirSync(abortRoot, {recursive: true});
+		final abortServer = new OpenCodeServer({
+			directory: abortRoot,
+			dbPath: NodePath.join(abortRoot, "opencodehx-live-abort.db"),
+			liveAiSdk: {
+				provider: provider.info,
+				model: provider.model,
+				language: AiSdkMockModel.abortable(),
+				system: ["Server-owned live AI SDK fixture."],
+			},
+		});
+		final aborting = Promise.resolve(abortServer.app.request("/session", {
+			method: "POST",
+			headers: {"content-type": "application/json"},
+			body: Json.stringify({prompt: "Abort behind the server.", title: "Server live abort"}),
+		}));
+		await(waitForStatus(abortServer, "ses_server_1", "busy"));
+		final abortResponse = await(jsonResponse(await(abortServer.app.request("/session/ses_server_1/abort", {method: "POST"}))));
+		eq(abortResponse, true, "live server active abort route");
+		final aborted = requiredRecord(Unknown.fromBoundary(await(jsonResponse(await(aborting)))), "live server aborted create");
+		eq(UnknownNarrow.string(aborted.get("id")), "ses_server_1", "live server aborted session id");
+		eq(UnknownNarrow.string(aborted.get("title")), "Server live abort", "live server aborted session title");
+		final abortedIdle = UnknownNarrow.record(Unknown.fromBoundary(await(jsonResponse(await(abortServer.app.request("/session/status"))))));
+		eq(abortedIdle != null && abortedIdle.keys().length == 0, true, "live server status idle after abort");
+		final abortedMessages = Unknown.fromBoundary(await(jsonResponse(await(abortServer.app.request("/session/ses_server_1/message")))));
+		eq(assistantErrorName(abortedMessages, "live server aborted messages"), "MessageAbortedError", "live server abort persisted error");
+		eq(assistantText(abortedMessages, "live server aborted messages"), "Request aborted.", "live server abort persisted text");
+		abortServer.close();
 	}
 
 	@:async
@@ -966,6 +996,46 @@ class ServerSmoke {
 		if (record == null)
 			throw '${label}: expected object';
 		return record;
+	}
+
+	static function assistantErrorName(raw:Unknown, label:String):Null<String> {
+		final items = UnknownNarrow.array(raw);
+		if (items == null)
+			throw '${label}: expected message array';
+		for (index in 0...items.length) {
+			final item = UnknownNarrow.record(items.get(index));
+			if (item == null)
+				continue;
+			final info = UnknownNarrow.record(item.get("info"));
+			if (info == null || UnknownNarrow.string(info.get("role")) != "assistant")
+				continue;
+			final error = UnknownNarrow.record(info.get("error"));
+			return error == null ? null : UnknownNarrow.string(error.get("name"));
+		}
+		return null;
+	}
+
+	static function assistantText(raw:Unknown, label:String):Null<String> {
+		final items = UnknownNarrow.array(raw);
+		if (items == null)
+			throw '${label}: expected message array';
+		for (itemIndex in 0...items.length) {
+			final item = UnknownNarrow.record(items.get(itemIndex));
+			if (item == null)
+				continue;
+			final info = UnknownNarrow.record(item.get("info"));
+			if (info == null || UnknownNarrow.string(info.get("role")) != "assistant")
+				continue;
+			final parts = UnknownNarrow.array(item.get("parts"));
+			if (parts == null)
+				continue;
+			for (partIndex in 0...parts.length) {
+				final part = UnknownNarrow.record(parts.get(partIndex));
+				if (part != null && UnknownNarrow.string(part.get("type")) == "text")
+					return UnknownNarrow.string(part.get("text"));
+			}
+		}
+		return null;
 	}
 
 	static function sleep(ms:Int):Promise<Bool> {

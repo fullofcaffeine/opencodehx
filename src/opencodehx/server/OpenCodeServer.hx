@@ -10,6 +10,7 @@ import opencodehx.externs.hono.NodeWs;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketHandlerCallbacks;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketMessage;
 import opencodehx.externs.hono.NodeWs.NodeWebSocketRuntime;
+import opencodehx.externs.web.AbortControllerWithReason;
 import opencodehx.externs.web.WebStreams.WebArrayBuffer;
 import opencodehx.externs.web.WebStreams.WebBinary;
 import opencodehx.project.InstanceBootstrapRuntime;
@@ -21,6 +22,7 @@ import opencodehx.pty.PtyTypes.PtyConnectHandler;
 import opencodehx.pty.PtyTypes.PtyID;
 import opencodehx.pty.PtyTypes.PtySocket;
 import opencodehx.pty.PtyTypes.PtySocketMessage;
+import opencodehx.provider.AiSdkProvider;
 import opencodehx.session.MessageCodec;
 import opencodehx.session.MessageError.MessageException;
 import opencodehx.session.SessionID;
@@ -65,6 +67,7 @@ class OpenCodeServer {
 	final ptyService:PtyService;
 	final sessionStatus:ServerSessionStatusRuntime;
 	final liveAiSdk:Null<ServerLiveAiSdkOptions>;
+	final liveAborts = new Map<String, AbortControllerWithReason>();
 	final sessionOrder:Array<String> = [];
 	var createdCount = 0;
 
@@ -158,6 +161,8 @@ class OpenCodeServer {
 		final live = liveAiSdk;
 		if (live == null)
 			return json(c, ServerProtocol.error("Live AI SDK runtime is not configured"), 500);
+		final controller = new AbortControllerWithReason();
+		liveAborts.set(sessionID, controller);
 		sessionStatus.busy(sessionID);
 		try {
 			final result = @:await SessionProcessor.runAiSdk({
@@ -171,7 +176,9 @@ class OpenCodeServer {
 				language: live.language,
 				agent: live.agent,
 				system: live.system,
+				abortSignal: controller.signal,
 			});
+			liveAborts.remove(sessionID);
 			final info = store.getSession(SessionID.make(result.request.sessionID));
 			final updated = ServerProtocol.withCreateRequest(info, request, requestDirectory, 1002 + createdCount);
 			store.updateSession(updated);
@@ -179,16 +186,25 @@ class OpenCodeServer {
 			if (sessionOrder.indexOf(result.request.sessionID) == -1)
 				sessionOrder.push(result.request.sessionID);
 			eventBus.publish(ServerProtocol.sessionEvent(ServerEventTypes.known("session.created"), result.request.sessionID));
-			sessionStatus.idle(result.request.sessionID);
+			if (sessionStatus.isActive(result.request.sessionID))
+				sessionStatus.idle(result.request.sessionID);
 			return json(c, encoded);
 		} catch (error:haxe.Exception) {
-			sessionStatus.idle(sessionID);
+			liveAborts.remove(sessionID);
+			if (sessionStatus.isActive(sessionID))
+				sessionStatus.idle(sessionID);
 			return json(c, ServerProtocol.error(error.message), 500);
 		}
 	}
 
 	function abortSession(c:HonoContext):Response {
 		final sessionID = param(c, "sessionID");
+		final liveAbort = liveAborts.get(sessionID);
+		if (liveAbort != null) {
+			liveAbort.abort(AiSdkProvider.ABORT_REASON);
+			sessionStatus.abort(sessionID);
+			return json(c, true);
+		}
 		if (!hasSession(sessionID))
 			return json(c, ServerProtocol.error("Session not found"), 404);
 		sessionStatus.abort(sessionID);

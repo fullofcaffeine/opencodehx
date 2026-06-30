@@ -43,6 +43,10 @@ class ServerSessionStatusRuntime {
 		idle(sessionID);
 	}
 
+	public function isActive(sessionID:String):Bool {
+		return statuses.exists(sessionID);
+	}
+
 	public function activeJsonText():String {
 		final fields:Array<String> = [];
 		for (sessionID => status in statuses)

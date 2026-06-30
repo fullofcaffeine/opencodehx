@@ -6,6 +6,7 @@ import genes.ts.Undefinable;
 import haxe.DynamicAccess;
 import haxe.extern.EitherType;
 import js.Syntax;
+import js.html.AbortSignal;
 import js.lib.Promise;
 import js.lib.Error as JsError;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
@@ -57,6 +58,7 @@ typedef AiSdkStreamInput = {
 	@:optional final tools:DynamicAccess<AiTool>;
 	@:optional final messages:AiModelMessages;
 	@:optional final abortImmediately:Bool;
+	@:optional final abortSignal:AbortSignal;
 	@:optional final maxOutputTokens:Float;
 	@:optional final temperature:Undefinable<Float>;
 	@:optional final topP:Undefinable<Float>;
@@ -94,13 +96,14 @@ class AiSdkProvider {
 		final events:Array<AiSdkStreamEvent> = [];
 		final errors:Array<String> = [];
 		final controller = input.abortImmediately == true ? new AbortControllerWithReason() : null;
+		final abortSignal = controller == null ? input.abortSignal : controller.signal;
 		final prompt:EitherType<String, AiModelMessages> = input.messages == null ? input.prompt : input.messages;
 		final options:AiStreamTextOptions = {
 			model: streamModel(input.model, input.providerModel, input.transformOptions),
 			prompt: prompt,
 			tools: toolsOrAbsent(input.tools),
 			maxRetries: input.maxRetries == null ? 0 : input.maxRetries,
-			abortSignal: controller == null ? Undefinable.absent() : controller.signal,
+			abortSignal: abortSignal == null ? Undefinable.absent() : abortSignal,
 			maxOutputTokens: numberOrAbsent(input.maxOutputTokens),
 			temperature: undefinableNumberOrAbsent(input.temperature),
 			topP: undefinableNumberOrAbsent(input.topP),
@@ -128,7 +131,7 @@ class AiSdkProvider {
 			// boundary is limited to the AI SDK promise read and normalized
 			// immediately into a string error for app-facing code.
 			final message = messageFromCaught(error);
-			if (input.abortImmediately != true) {
+			if (!isAbortRequested(input, abortSignal)) {
 				errors.push(message);
 				events.push(StreamError(message));
 			}
@@ -140,7 +143,7 @@ class AiSdkProvider {
 			totalUsage: totalUsage,
 			events: events,
 			errors: errors,
-			aborted: input.abortImmediately == true,
+			aborted: isAbortRequested(input, abortSignal) || hasAbortEvent(events),
 		};
 	}
 
@@ -258,6 +261,21 @@ class AiSdkProvider {
 
 	static function optionalUnknown(value:Null<Unknown>):Unknown {
 		return value == null ? Unknown.fromBoundary({}) : value;
+	}
+
+	static function isAbortRequested(input:AiSdkStreamInput, signal:Null<AbortSignal>):Bool {
+		return input.abortImmediately == true || (signal != null && signal.aborted);
+	}
+
+	static function hasAbortEvent(events:Array<AiSdkStreamEvent>):Bool {
+		for (event in events) {
+			switch event {
+				case StreamAbort(_):
+					return true;
+				case _:
+			}
+		}
+		return false;
 	}
 
 	static function pathInputSchema():AiJsonSchemaObject {

@@ -6,6 +6,7 @@ import genes.ts.JsonCodec;
 import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
 import haxe.Json;
+import js.html.AbortSignal;
 import js.html.URL;
 import js.lib.Promise;
 import opencodehx.BuildInfo;
@@ -162,6 +163,7 @@ typedef SessionAiSdkProcessorInput = {
 	@:optional final maxToolContinuations:Int;
 	@:optional final abortStreamImmediately:Bool;
 	@:optional final abortContinuationImmediately:Bool;
+	@:optional final abortSignal:AbortSignal;
 	@:optional final files:Array<SessionFileInput>;
 	@:optional final history:Array<WithParts>;
 	@:optional final system:Array<String>;
@@ -339,6 +341,7 @@ class SessionProcessor {
 				messages: requestMessages,
 				tools: tools,
 				abortImmediately: input.abortStreamImmediately,
+				abortSignal: input.abortSignal,
 				maxOutputTokens: streamOptions.maxOutputTokens,
 				temperature: streamOptions.temperature,
 				topP: streamOptions.topP,
@@ -395,6 +398,7 @@ class SessionProcessor {
 				messages: continuationMessages,
 				tools: tools,
 				abortImmediately: input.abortContinuationImmediately,
+				abortSignal: input.abortSignal,
 				maxOutputTokens: streamOptions.maxOutputTokens,
 				temperature: streamOptions.temperature,
 				topP: streamOptions.topP,
