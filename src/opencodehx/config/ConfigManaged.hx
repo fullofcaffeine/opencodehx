@@ -1,5 +1,8 @@
 package opencodehx.config;
 
+import genes.ts.Unknown;
+import genes.ts.JsonCodec;
+import genes.ts.UnknownNarrow;
 import haxe.Json;
 
 typedef ManagedConfigSource = {
@@ -18,13 +21,25 @@ class ConfigManaged {
 	];
 
 	public static function parseManagedPlist(json:String):String {
-		// Managed plist conversion arrives as untyped JSON; strip only known MDM
-		// metadata here, then let ConfigLoader validate the remaining config.
-		final raw:Dynamic = Json.parse(json);
-		for (key in PLIST_META) {
-			if (Reflect.hasField(raw, key))
-				Reflect.deleteField(raw, key);
+		final parsed = switch JsonCodec.parse(json) {
+			case Ok(value): value;
+			case Error(error): throw error.message;
 		}
-		return Json.stringify(raw);
+		final record = UnknownNarrow.record(Unknown.fromBoundary(parsed));
+		if (record == null)
+			return JsonCodec.stringify(parsed);
+		final fields:Array<String> = [];
+		for (key in record.keys()) {
+			if (!isMetadataKey(key)) {
+				final value = JsonCodec.narrow(record.get(key));
+				if (value != null)
+					fields.push(Json.stringify(key) + ":" + JsonCodec.stringify(value));
+			}
+		}
+		return "{" + fields.join(",") + "}";
+	}
+
+	static function isMetadataKey(key:String):Bool {
+		return PLIST_META.indexOf(key) != -1;
 	}
 }

@@ -928,6 +928,8 @@ disabled_providers = ["openai"]
 		final permission = require(config.permission, "managed permission");
 		eq(permission.get("*"), "ask", "managed wildcard permission");
 		eq(permission.get("grep"), "allow", "managed grep permission");
+		contains(managedText, '"model"', "managed config field preserved");
+		notContains(managedText, "PayloadDisplayName", "managed display metadata stripped");
 		notContains(managedText, "PayloadUUID", "managed metadata stripped");
 		notContains(managedText, "_manualProfile", "managed manual profile stripped");
 	}
