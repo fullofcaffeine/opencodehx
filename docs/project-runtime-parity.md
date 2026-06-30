@@ -120,7 +120,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - deterministic workspace stream application with connected/disconnected status transitions, and
   - bounded remote loop sequencing across SSE connect, history sync, stream application, disconnect, and planned reconnect delay recording, and
   - daemon-style workspace sync task ownership for start dedupe, owned abort signals, injected/real timer scheduling, reconnect scheduling, and stop cleanup, and
-  - workspace HTTP proxy URL rewriting, hop-by-hop/request-header cleanup, target header injection, response content-header cleanup, disconnected-workspace guard, and `x-opencode-sync` fence success/timeout behavior.
+  - workspace HTTP proxy URL rewriting, hop-by-hop/request-header cleanup, target header injection, response content-header cleanup, disconnected-workspace guard, and `x-opencode-sync` fence success/timeout behavior with `UnknownNarrow`-guarded string/int header decoding.
 
 ## Deferred
 

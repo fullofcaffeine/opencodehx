@@ -17,13 +17,13 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 649,
+    "Dynamic": 647,
     "DynamicAccess": 539,
     "cast": 167,
     "untyped": 5,
     "Syntax.code": 23,
     "@:ts.type": 82,
-    "Reflect.field": 374,
+    "Reflect.field": 372,
     "Reflect.hasField": 38,
     "Reflect.setField": 47,
     "Any": 0
@@ -396,10 +396,9 @@
       "DynamicAccess": 4
     },
     "src/opencodehx/server/WorkspaceProxy.hx": {
-      "Dynamic": 3,
+      "Dynamic": 1,
       "DynamicAccess": 4,
-      "cast": 2,
-      "Reflect.field": 2
+      "cast": 2
     },
     "src/opencodehx/session/MessageCodec.hx": {
       "Dynamic": 89,

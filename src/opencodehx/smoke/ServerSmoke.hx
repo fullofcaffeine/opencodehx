@@ -1333,6 +1333,13 @@ class ServerSmoke {
 			"https://workspace.test/base/session/abc/message?limit=1#tail", "workspace proxy url strips workspace query");
 		eq(WorkspaceProxy.websocketUrl("https://workspace.test/base"), "wss://workspace.test/base", "workspace proxy websocket https rewrite");
 		eq(WorkspaceProxy.websocketUrl("http://workspace.test/base"), "ws://workspace.test/base", "workspace proxy websocket http rewrite");
+		final mixedFenceHeaders = new js.html.Headers({"x-opencode-sync": '{"workspace_session_1":4,"skip":"no","float":4.5}'});
+		final mixedFence = WorkspaceProxy.parseFence(mixedFenceHeaders);
+		eq(mixedFence.length, 1, "workspace proxy fence keeps integer entries");
+		eq(mixedFence[0].aggregateID, "workspace_session_1", "workspace proxy fence aggregate id");
+		eq(mixedFence[0].seq, 4, "workspace proxy fence integer seq");
+		eq(WorkspaceProxy.parseFence(new js.html.Headers({"x-opencode-sync": "[1,2]"})).length, 0, "workspace proxy fence ignores arrays");
+		eq(WorkspaceProxy.parseFence(new js.html.Headers({"x-opencode-sync": "{bad"})).length, 0, "workspace proxy fence ignores malformed json");
 
 		final targetHeaders = new DynamicAccess<String>();
 		targetHeaders.set("authorization", "Bearer workspace-target");

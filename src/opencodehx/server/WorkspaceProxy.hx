@@ -1,6 +1,8 @@
 package opencodehx.server;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.Json;
 import js.html.Headers;
@@ -121,15 +123,14 @@ class WorkspaceProxy {
 		if (raw == null || raw == "")
 			return [];
 		try {
-			// `x-opencode-sync` is untrusted remote JSON. Keep the Dynamic value
-			// inside this decoder and copy only string/int pairs into typed state.
-			final parsed:Dynamic = Json.parse(raw);
+			final record = UnknownNarrow.record(Unknown.fromBoundary(Json.parse(raw)));
+			if (record == null)
+				return [];
 			final out:Array<SyncRouteKnownSeq> = [];
-			for (field in Reflect.fields(parsed)) {
-				final value = Reflect.field(parsed, field);
-				if (Std.isOfType(value, Int)) {
+			for (field in record.keys()) {
+				final value = UnknownNarrow.int32(record.get(field));
+				if (value != null)
 					out.push({aggregateID: field, seq: value});
-				}
 			}
 			return out;
 		} catch (_:Dynamic) {
