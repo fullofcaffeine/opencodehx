@@ -1,6 +1,6 @@
 # Account Repo And Service Parity
 
-**Beads:** `opencodehx-26bn`, `opencodehx-p4yr`
+**Beads:** `opencodehx-26bn`, `opencodehx-p4yr`, `opencodehx-hzhx`
 **Upstream oracle:** `../opencode/packages/opencode/src/account/{repo.ts,account.sql.ts,schema.ts,url.ts,account.ts}` and `../opencode/packages/opencode/test/account/{repo,service}.test.ts`.
 
 ## Slice
@@ -23,6 +23,9 @@ Covered behavior:
 - missing-row lookup
 - login URL normalization and transport error mapping
 - org fetching grouped by account
+- existing-token, missing-account, expired-token, and eager token refresh behavior
+- refreshed token persistence
+- concurrent config/token refresh coalescing
 - config fetch authorization and selected-org headers
 - device-poll success persistence with first org selection
 - device-poll pending, slow, denied, expired, and generic error states
@@ -31,4 +34,4 @@ Covered behavior:
 
 `AccountSmoke` runs through the default `npm run smoke` path. The sync fixtures exercise repository cases against isolated temp SQLite databases. The async fixtures exercise service cases through an injected HTTP client and produce the `account-async-smoke:ok` marker.
 
-This is not the full upstream account service. Eager token refresh, token refresh persistence, concurrent config/token refresh coalescing, full Effect service layering, and live CLI account side effects remain in `account/service.test.ts` and the account/provider follow-up backlog.
+This covers the credential-free behavior in upstream `account/service.test.ts` through the injected HTTP seam. Full Effect service layering, transient HTTP read retries, and live CLI login/logout/switch/open account side effects remain account/provider integration work.

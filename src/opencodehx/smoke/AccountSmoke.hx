@@ -16,6 +16,7 @@ import opencodehx.account.AccountService.AccountHttpResponse;
 import opencodehx.account.AccountService.AccountLogin;
 import opencodehx.account.AccountService.AccountPollResult;
 import opencodehx.account.AccountError.AccountTransportError;
+import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
@@ -50,6 +51,11 @@ class AccountSmoke {
 			await(loginNormalizes(root));
 			await(loginTransportError(root));
 			await(orgsByAccount(root));
+			await(existingToken(root));
+			await(missingToken(root));
+			await(tokenRefresh(root));
+			await(tokenEagerRefresh(root));
+			await(concurrentRefresh(root));
 			await(configHeaders(root));
 			await(pollSuccess(root));
 			await(pollStates(root));
@@ -229,8 +235,10 @@ class AccountSmoke {
 			case _:
 				response(404, {});
 		});
-		fixture.repo.persistAccount(account(AccountID.make("user-1"), "one@example.com", "https://one.example.com", "at_1", "rt_1", 1000, null));
-		fixture.repo.persistAccount(account(AccountID.make("user-2"), "two@example.com", "https://two.example.com", "at_2", "rt_2", 1000, null));
+		fixture.repo.persistAccount(account(AccountID.make("user-1"), "one@example.com", "https://one.example.com", "at_1", "rt_1",
+			Date.now().getTime() + 10 * 60 * 1000, null));
+		fixture.repo.persistAccount(account(AccountID.make("user-2"), "two@example.com", "https://two.example.com", "at_2", "rt_2",
+			Date.now().getTime() + 10 * 60 * 1000, null));
 		final rows = @:await fixture.orgsByAccount();
 		eq(rows.length, 2, "account org rows");
 		eq(rows[0].account.id.toString(), "user-1", "account org row first id");
@@ -251,11 +259,119 @@ class AccountSmoke {
 			return response(200, {config: {theme: "light", seats: 5}});
 		});
 		final id = AccountID.make("config-user");
-		fixture.repo.persistAccount(account(id, "config@example.com", "https://one.example.com", "at_1", "rt_1", 1000, null));
+		fixture.repo.persistAccount(account(id, "config@example.com", "https://one.example.com", "at_1", "rt_1", Date.now().getTime() + 10 * 60 * 1000, null));
 		final config = @:await fixture.config(id, OrgID.make("org-9"));
 		eq(config != null, true, "account config returned");
 		eq(seenAuth, "Bearer at_1", "account config auth header");
 		eq(seenOrg, "org-9", "account config org header");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function existingToken(root:String):Promise<Void> {
+		final calls:Array<AccountHttpRequest> = [];
+		final fixture = service(root, "token-existing", calls, _ -> response(500, {}));
+		final id = AccountID.make("token-existing-user");
+		fixture.repo.persistAccount(account(id, "existing@example.com", "https://one.example.com", "at_existing", "rt_existing",
+			Date.now().getTime() + 10 * 60 * 1000, null));
+		final token = @:await fixture.token(id);
+		eq(token == null ? null : token.toString(), "at_existing", "account token existing");
+		eq(calls.length, 0, "account token existing request count");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function missingToken(root:String):Promise<Void> {
+		final calls:Array<AccountHttpRequest> = [];
+		final fixture = service(root, "token-missing", calls, _ -> response(500, {}));
+		final token = @:await fixture.token(AccountID.make("missing-token-user"));
+		eq(token, null, "account token missing");
+		eq(calls.length, 0, "account token missing request count");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function tokenRefresh(root:String):Promise<Void> {
+		var refreshCalls = 0;
+		final fixture = service(root, "token-refresh", [], request -> {
+			if (request.url == "https://one.example.com/auth/device/token") {
+				refreshCalls++;
+				return response(200, {
+					access_token: "at_new",
+					refresh_token: "rt_new",
+					expires_in: 60,
+				});
+			}
+			return response(404, {});
+		});
+		final id = AccountID.make("token-refresh-user");
+		fixture.repo.persistAccount(account(id, "refresh@example.com", "https://one.example.com", "at_old", "rt_old", Date.now().getTime() - 1000, null));
+		final token = @:await fixture.token(id);
+		eq(token == null ? null : token.toString(), "at_new", "account token refreshed");
+		eq(refreshCalls, 1, "account token refresh request count");
+		final row = require(fixture.repo.getRow(id), "account token refreshed row");
+		eq(row.accessToken.toString(), "at_new", "account token refresh persisted access");
+		eq(row.refreshToken.toString(), "rt_new", "account token refresh persisted refresh");
+		eq(row.tokenExpiry != null && row.tokenExpiry > Date.now().getTime(), true, "account token refresh persisted expiry");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function tokenEagerRefresh(root:String):Promise<Void> {
+		var refreshCalls = 0;
+		final fixture = service(root, "token-eager", [], request -> {
+			if (request.url == "https://one.example.com/auth/device/token") {
+				refreshCalls++;
+				return response(200, {
+					access_token: "at_eager",
+					refresh_token: "rt_eager",
+					expires_in: 60,
+				});
+			}
+			return response(404, {});
+		});
+		final id = AccountID.make("token-eager-user");
+		fixture.repo.persistAccount(account(id, "eager@example.com", "https://one.example.com", "at_old", "rt_old", Date.now().getTime() + 60 * 1000, null));
+		final token = @:await fixture.token(id);
+		eq(token == null ? null : token.toString(), "at_eager", "account token eager refresh");
+		eq(refreshCalls, 1, "account token eager refresh request count");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function concurrentRefresh(root:String):Promise<Void> {
+		var refreshCalls = 0;
+		final fixture = service(root, "token-concurrent", [], request -> {
+			if (request.url == "https://one.example.com/auth/device/token") {
+				refreshCalls++;
+				if (refreshCalls == 1)
+					return delayedResponse(25, 200, {
+						access_token: "at_new",
+						refresh_token: "rt_new",
+						expires_in: 60,
+					});
+				return response(400, {
+					error: "invalid_grant",
+					error_description: "refresh token already used",
+				});
+			}
+			if (request.url == "https://one.example.com/api/config")
+				return response(200, {config: {theme: "light", seats: 5}});
+			return response(404, {});
+		});
+		final id = AccountID.make("token-concurrent-user");
+		fixture.repo.persistAccount(account(id, "concurrent@example.com", "https://one.example.com", "at_old", "rt_old", Date.now().getTime() - 1000,
+			OrgID.make("org-9")));
+		final configPromise = fixture.config(id, OrgID.make("org-9"));
+		final tokenPromise = fixture.token(id);
+		final config = @:await configPromise;
+		final token = @:await tokenPromise;
+		eq(config != null, true, "account concurrent config returned");
+		eq(token == null ? null : token.toString(), "at_new", "account concurrent token");
+		eq(refreshCalls, 1, "account concurrent refresh request count");
+		final row = require(fixture.repo.getRow(id), "account concurrent token row");
+		eq(row.accessToken.toString(), "at_new", "account concurrent persisted access");
+		eq(row.refreshToken.toString(), "rt_new", "account concurrent persisted refresh");
 		fixture.repo.close();
 	}
 
@@ -319,6 +435,7 @@ class AccountSmoke {
 		final login:String->Promise<AccountLogin>;
 		final orgsByAccount:Void->Promise<Array<opencodehx.account.AccountService.AccountOrgs>>;
 		final config:(AccountID, OrgID) -> Promise<Null<genes.ts.UnknownRecord>>;
+		final token:AccountID->Promise<Null<AccessToken>>;
 		final poll:AccountLogin->Promise<AccountPollResult>;
 	} {
 		final repo = new AccountRepo(NodePath.join(root, name + ".db"));
@@ -332,6 +449,7 @@ class AccountSmoke {
 			login: server -> svc.login(server),
 			orgsByAccount: () -> svc.orgsByAccount(),
 			config: (accountID, orgID) -> svc.config(accountID, orgID),
+			token: accountID -> svc.token(accountID),
 			poll: input -> svc.poll(input),
 		};
 	}
@@ -340,6 +458,15 @@ class AccountSmoke {
 		return Promise.resolve({
 			status: status,
 			body: Unknown.fromBoundary(body),
+		});
+	}
+
+	static function delayedResponse<T>(delayMs:Int, status:Int, body:T):Promise<AccountHttpResponse> {
+		return new Promise<AccountHttpResponse>((resolve, _) -> {
+			WebTimers.setTimeout(() -> resolve({
+				status: status,
+				body: Unknown.fromBoundary(body),
+			}), delayMs);
 		});
 	}
 

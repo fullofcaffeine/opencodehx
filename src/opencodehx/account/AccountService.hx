@@ -72,9 +72,11 @@ enum AccountPollResult {
 **/
 class AccountService {
 	static inline final CLIENT_ID = "opencode-cli";
+	static inline final EAGER_REFRESH_MS = 5 * 60 * 1000;
 
 	final repo:AccountRepo;
 	final http:AccountHttpClient;
+	final refreshes:Map<String, Promise<AccessToken>> = new Map();
 
 	public function new(repo:AccountRepo, http:AccountHttpClient) {
 		this.repo = repo;
@@ -119,10 +121,11 @@ class AccountService {
 		final row = repo.getRow(accountID);
 		if (row == null)
 			return [];
+		final access = @:await resolveToken(row);
 		final response = @:await execute({
 			method: "GET",
 			url: row.url + "/api/orgs",
-			headers: authHeaders(row.accessToken, null),
+			headers: authHeaders(access, null),
 		});
 		requireOk(response, "Account org fetch failed");
 		return decodeOrgs(response.body);
@@ -133,16 +136,25 @@ class AccountService {
 		final row = repo.getRow(accountID);
 		if (row == null)
 			return null;
+		final access = @:await resolveToken(row);
 		final response = @:await execute({
 			method: "GET",
 			url: row.url + "/api/config",
-			headers: authHeaders(row.accessToken, orgID),
+			headers: authHeaders(access, orgID),
 		});
 		if (response.status == 404)
 			return null;
 		requireOk(response, "Account config fetch failed");
 		final root = record(response.body, "account config response");
 		return UnknownNarrow.record(root.get("config"));
+	}
+
+	@:async
+	public function token(accountID:AccountID):Promise<Null<AccessToken>> {
+		final row = repo.getRow(accountID);
+		if (row == null)
+			return null;
+		return @:await resolveToken(row);
 	}
 
 	@:async
@@ -213,6 +225,50 @@ class AccountService {
 		return decodeOrgs(response.body);
 	}
 
+	@:async
+	function resolveToken(row:AccountRow):Promise<AccessToken> {
+		if (isTokenFresh(row.tokenExpiry))
+			return row.accessToken;
+
+		final key = row.id.toString();
+		final existing = refreshes.get(key);
+		if (existing != null)
+			return @:await existing;
+
+		final pending = refreshToken(row);
+		refreshes.set(key, pending);
+		try {
+			final token = @:await pending;
+			refreshes.remove(key);
+			return token;
+		} catch (error:Error) {
+			refreshes.remove(key);
+			throw error;
+		}
+	}
+
+	@:async
+	function refreshToken(row:AccountRow):Promise<AccessToken> {
+		final now = Date.now().getTime();
+		final response = @:await execute({
+			method: "POST",
+			url: row.url + "/auth/device/token",
+			headers: [{name: "accept", value: "application/json"}],
+		});
+		requireOk(response, "Account token refresh failed");
+		final body = record(response.body, "account token refresh response");
+		final access = AccessToken.make(requireString(body, "access_token", "account token refresh access token"));
+		final refresh = RefreshToken.make(requireString(body, "refresh_token", "account token refresh refresh token"));
+		final expires = requireNumber(body, "expires_in", "account token refresh expires");
+		repo.persistToken({
+			accountID: row.id,
+			accessToken: access,
+			refreshToken: refresh,
+			expiry: now + expires * 1000,
+		});
+		return access;
+	}
+
 	static function pollError(body:UnknownRecord):AccountPollResult {
 		final error = requireString(body, "error", "account poll error");
 		return switch error {
@@ -278,6 +334,10 @@ class AccountService {
 		if (value == null)
 			throw new AccountServiceError('${label}: missing ${field}');
 		return value;
+	}
+
+	static function isTokenFresh(expiry:Null<Float>):Bool {
+		return expiry != null && expiry > Date.now().getTime() + EAGER_REFRESH_MS;
 	}
 
 	public static function normalizeServerUrl(input:String):String {
