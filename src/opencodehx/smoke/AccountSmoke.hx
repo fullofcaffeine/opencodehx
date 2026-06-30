@@ -1,11 +1,21 @@
 package opencodehx.smoke;
 
+import genes.js.Async.await;
+import genes.ts.Unknown;
 import js.lib.Error;
+import js.lib.Promise;
 import opencodehx.account.AccountRepo;
 import opencodehx.account.AccountRepo.AccessToken;
 import opencodehx.account.AccountRepo.AccountID;
 import opencodehx.account.AccountRepo.OrgID;
 import opencodehx.account.AccountRepo.RefreshToken;
+import opencodehx.account.AccountService;
+import opencodehx.account.AccountService.AccountHttpClient;
+import opencodehx.account.AccountService.AccountHttpRequest;
+import opencodehx.account.AccountService.AccountHttpResponse;
+import opencodehx.account.AccountService.AccountLogin;
+import opencodehx.account.AccountService.AccountPollResult;
+import opencodehx.account.AccountError.AccountTransportError;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.NodePath;
@@ -26,6 +36,23 @@ class AccountSmoke {
 			withRepo(root, "upsert", persistAccountUpserts);
 			withRepo(root, "remove-active", removeClearsActive);
 			withRepo(root, "missing", getRowMissing);
+			Fs.rmSync(root, {recursive: true, force: true});
+		} catch (error:Error) {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		}
+	}
+
+	@:async
+	public static function runAsync():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-account-service-"));
+		try {
+			await(loginNormalizes(root));
+			await(loginTransportError(root));
+			await(orgsByAccount(root));
+			await(configHeaders(root));
+			await(pollSuccess(root));
+			await(pollStates(root));
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Error) {
 			Fs.rmSync(root, {recursive: true, force: true});
@@ -155,6 +182,125 @@ class AccountSmoke {
 		eq(repo.getRow(AccountID.make("nope")), null, "account missing row");
 	}
 
+	@:async
+	static function loginNormalizes(root:String):Promise<Void> {
+		final calls:Array<AccountHttpRequest> = [];
+		final service = service(root, "login", calls, request -> {
+			eq(request.method, "POST", "account login method");
+			eq(request.url, "https://one.example.com/auth/device/code", "account login url");
+			return response(200, {
+				device_code: "device-code",
+				user_code: "user-code",
+				verification_uri_complete: "/device?user_code=user-code",
+				expires_in: 600,
+				interval: 5,
+			});
+		});
+		final login = @:await service.login("https://one.example.com/");
+		eq(calls.length, 1, "account login request count");
+		eq(login.server, "https://one.example.com", "account login server");
+		eq(login.url, "https://one.example.com/device?user_code=user-code", "account login verification url");
+		eq(login.expiryMs, 600000, "account login expiry");
+		eq(login.intervalMs, 5000, "account login interval");
+		service.repo.close();
+	}
+
+	@:async
+	static function loginTransportError(root:String):Promise<Void> {
+		final service = service(root, "login-transport", [], _ -> Promise.reject(new Error("network down")));
+		try {
+			@:await service.login("https://one.example.com");
+			throw new Error("account login transport expected failure");
+		} catch (error:AccountTransportError) {
+			eq(error.method, "POST", "account login transport method");
+			eq(error.url, "https://one.example.com/auth/device/code", "account login transport url");
+		}
+		service.repo.close();
+	}
+
+	@:async
+	static function orgsByAccount(root:String):Promise<Void> {
+		final calls:Array<AccountHttpRequest> = [];
+		final fixture = service(root, "orgs", calls, request -> switch request.url {
+			case "https://one.example.com/api/orgs":
+				response(200, [{id: "org-1", name: "One"}]);
+			case "https://two.example.com/api/orgs":
+				response(200, [{id: "org-2", name: "Two A"}, {id: "org-3", name: "Two B"}]);
+			case _:
+				response(404, {});
+		});
+		fixture.repo.persistAccount(account(AccountID.make("user-1"), "one@example.com", "https://one.example.com", "at_1", "rt_1", 1000, null));
+		fixture.repo.persistAccount(account(AccountID.make("user-2"), "two@example.com", "https://two.example.com", "at_2", "rt_2", 1000, null));
+		final rows = @:await fixture.orgsByAccount();
+		eq(rows.length, 2, "account org rows");
+		eq(rows[0].account.id.toString(), "user-1", "account org row first id");
+		eq(rows[0].orgs[0].id.toString(), "org-1", "account org row first org");
+		eq(rows[1].orgs.map(org -> org.id.toString()).join(","), "org-2,org-3", "account org row second orgs");
+		eq(calls.map(call -> call.method + " " + call.url).join(","), "GET https://one.example.com/api/orgs,GET https://two.example.com/api/orgs",
+			"account org request order");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function configHeaders(root:String):Promise<Void> {
+		var seenAuth:Null<String> = null;
+		var seenOrg:Null<String> = null;
+		final fixture = service(root, "config", [], request -> {
+			seenAuth = header(request, "authorization");
+			seenOrg = header(request, "x-org-id");
+			return response(200, {config: {theme: "light", seats: 5}});
+		});
+		final id = AccountID.make("config-user");
+		fixture.repo.persistAccount(account(id, "config@example.com", "https://one.example.com", "at_1", "rt_1", 1000, null));
+		final config = @:await fixture.config(id, OrgID.make("org-9"));
+		eq(config != null, true, "account config returned");
+		eq(seenAuth, "Bearer at_1", "account config auth header");
+		eq(seenOrg, "org-9", "account config org header");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function pollSuccess(root:String):Promise<Void> {
+		final fixture = service(root, "poll-success", [], request -> switch request.url {
+			case "https://one.example.com/auth/device/token":
+				response(200, {
+					access_token: "at_1",
+					refresh_token: "rt_1",
+					token_type: "Bearer",
+					expires_in: 60
+				});
+			case "https://one.example.com/api/user":
+				response(200, {id: "user-1", email: "user@example.com"});
+			case "https://one.example.com/api/orgs":
+				response(200, [{id: "org-1", name: "One"}]);
+			case _:
+				response(404, {});
+		});
+		final result = @:await fixture.poll(login());
+		eq(pollTag(result), "success:user@example.com", "account poll success tag");
+		final active = require(fixture.repo.active(), "account poll active");
+		eq(active.id.toString(), "user-1", "account poll active id");
+		eq(active.activeOrgID == null ? null : active.activeOrgID.toString(), "org-1", "account poll active org");
+		fixture.repo.close();
+	}
+
+	@:async
+	static function pollStates(root:String):Promise<Void> {
+		final cases = [
+			{error: "authorization_pending", tag: "pending"},
+			{error: "slow_down", tag: "slow"},
+			{error: "access_denied", tag: "denied"},
+			{error: "expired_token", tag: "expired"},
+			{error: "server_error", tag: "error:server_error"},
+		];
+		for (item in cases) {
+			final fixture = service(root, "poll-" + item.error, [], _ -> response(400, {error: item.error, error_description: "fixture"}));
+			final result = @:await fixture.poll(login());
+			eq(pollTag(result), item.tag, "account poll " + item.error);
+			fixture.repo.close();
+		}
+	}
+
 	static function account(id:AccountID, email:String, url:String, access:String, refresh:String, expiry:Float,
 			orgID:Null<OrgID>):opencodehx.account.AccountRepo.PersistAccountInput {
 		return {
@@ -166,6 +312,64 @@ class AccountSmoke {
 			expiry: expiry,
 			orgID: orgID,
 		};
+	}
+
+	static function service(root:String, name:String, calls:Array<AccountHttpRequest>, handler:AccountHttpRequest->Promise<AccountHttpResponse>):{
+		final repo:AccountRepo;
+		final login:String->Promise<AccountLogin>;
+		final orgsByAccount:Void->Promise<Array<opencodehx.account.AccountService.AccountOrgs>>;
+		final config:(AccountID, OrgID) -> Promise<Null<genes.ts.UnknownRecord>>;
+		final poll:AccountLogin->Promise<AccountPollResult>;
+	} {
+		final repo = new AccountRepo(NodePath.join(root, name + ".db"));
+		final client:AccountHttpClient = request -> {
+			calls.push(request);
+			return handler(request);
+		};
+		final svc = new AccountService(repo, client);
+		return {
+			repo: repo,
+			login: server -> svc.login(server),
+			orgsByAccount: () -> svc.orgsByAccount(),
+			config: (accountID, orgID) -> svc.config(accountID, orgID),
+			poll: input -> svc.poll(input),
+		};
+	}
+
+	static function response<T>(status:Int, body:T):Promise<AccountHttpResponse> {
+		return Promise.resolve({
+			status: status,
+			body: Unknown.fromBoundary(body),
+		});
+	}
+
+	static function login():AccountLogin {
+		return {
+			code: "device-code",
+			user: "user-code",
+			url: "https://one.example.com/verify",
+			server: "https://one.example.com",
+			expiryMs: 600000,
+			intervalMs: 5000,
+		};
+	}
+
+	static function header(request:AccountHttpRequest, name:String):Null<String> {
+		for (header in request.headers)
+			if (header.name == name)
+				return header.value;
+		return null;
+	}
+
+	static function pollTag(result:AccountPollResult):String {
+		return switch result {
+			case PollSuccess(email): "success:" + email;
+			case PollPending: "pending";
+			case PollSlow: "slow";
+			case PollExpired: "expired";
+			case PollDenied: "denied";
+			case PollError(cause): "error:" + cause;
+		}
 	}
 
 	static function require<T>(value:Null<T>, label:String):T {

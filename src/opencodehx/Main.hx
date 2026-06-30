@@ -103,6 +103,10 @@ class Main {
 				log("auth-smoke:ok");
 				AccountSmoke.run();
 				log("account-smoke:ok");
+				return AccountSmoke.runAsync();
+			})
+			.then(_ -> {
+				log("account-async-smoke:ok");
 				FileSmoke.run();
 				log("file-smoke:ok");
 				return FileSmoke.runAsync();

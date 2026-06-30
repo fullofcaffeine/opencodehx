@@ -1,7 +1,7 @@
 test_path,kind,area,priority,port_status,opencodehx_evidence,skip_or_defer_reason,replacement_fixture,next_bead
 AGENTS.md,doc,root,P2,reference-only,upstream fixture/helper retained as oracle input,not an executable upstream test file,not needed until owning test slice is ported,opencodehx-000.11
 account/repo.test.ts,test,account,P2,direct,src/opencodehx/account/AccountRepo.hx; src/opencodehx/smoke/AccountSmoke.hx; docs/account-repo.md,"Effect service layering is not ported here, but upstream SQLite account row/state semantics are covered against an isolated temp database",AccountSmoke account repo fixtures,none
-account/service.test.ts,test,account,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.3
+account/service.test.ts,test,account,P2,partial,src/opencodehx/account/AccountService.hx; src/opencodehx/account/AccountRepo.hx; src/opencodehx/smoke/AccountSmoke.hx; docs/account-repo.md,"login normalization, transport errors, org grouping, config headers, poll success persistence, and poll status mapping are covered through an injected HTTP client; eager token refresh, refresh persistence, concurrent refresh coalescing, and full Effect service layering remain deferred",AccountSmoke async account service fixtures,opencodehx-000.3
 acp/agent-interface.test.ts,test,acp,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.6
 acp/event-subscription.test.ts,test,acp,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.6
 agent/agent.test.ts,test,agent,P2,deferred,none yet,owning runtime/product slice has not started,pending fixture in owning Bead,opencodehx-000.2
