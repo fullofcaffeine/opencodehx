@@ -309,7 +309,8 @@ class UtilSmoke {
 		});
 		if (error == null)
 			throw "timeout slow promise should reject";
-		eq(Std.string(Reflect.field(error, "message")), "Operation timed out after 50ms", "timeout rejection message");
+		eq(requiredString(requiredRecord(Unknown.fromBoundary(error), "timeout rejection"), "message", "timeout rejection message"),
+			"Operation timed out after 50ms", "timeout rejection message");
 	}
 
 	@:async
@@ -386,11 +387,12 @@ class UtilSmoke {
 		final nonzero = @:await ProcessRuntime.run(node("process.exit(7)"), {nothrow: true});
 		eq(nonzero.code, 7, "process nothrow code");
 
-		final failed:Dynamic = @:await ProcessRuntime.run(node('process.stderr.write("bad");process.exit(3)')).then(_ -> null).catchError(error -> error);
-		if (Reflect.field(failed, "name") != "ProcessRunFailedError")
+		final failedRaw = @:await ProcessRuntime.run(node('process.stderr.write("bad");process.exit(3)')).then(_ -> null).catchError(error -> error);
+		final failed = requiredRecord(Unknown.fromBoundary(failedRaw), "process failure");
+		if (requiredString(failed, "name", "process failure name") != "ProcessRunFailedError")
 			throw "process failure should reject with ProcessRunFailedError";
-		eq(Reflect.field(failed, "code"), 3, "process failed code");
-		eq(Reflect.field(failed, "stderr"), "bad", "process failed stderr");
+		eq(requiredInt(failed, "code", "process failed code"), 3, "process failed code");
+		eq(requiredString(failed, "stderr", "process failed stderr"), "bad", "process failed stderr");
 
 		final abort = new AbortControllerWithReason();
 		WebTimers.setTimeout(() -> abort.abort(), 25);
@@ -437,9 +439,9 @@ class UtilSmoke {
 			}
 
 			final missing = NodePath.join(root, "missing" + (NodeProcess.platform() == "win32" ? ".cmd" : ""));
-			final missingError:Dynamic = @:await ProcessRuntime.spawn([missing], {stdin: "pipe", stdout: "pipe", stderr: "pipe"})
-				.exited.catchError(error -> error);
-			eq(Reflect.field(missingError, "code"), "ENOENT", "process missing command error");
+			final missingErrorRaw = @:await ProcessRuntime.spawn([missing], {stdin: "pipe", stdout: "pipe", stderr: "pipe"}).exited.catchError(error -> error);
+			final missingError = requiredRecord(Unknown.fromBoundary(missingErrorRaw), "process missing command");
+			eq(requiredString(missingError, "code", "process missing command error"), "ENOENT", "process missing command error");
 
 			Fs.rmSync(root, {recursive: true, force: true});
 		} catch (error:Dynamic) {
@@ -533,32 +535,55 @@ class UtilSmoke {
 	}
 
 	static function errorTools():Void {
-		final golden:Dynamic = Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")));
-		final util:Dynamic = Reflect.field(golden, "util");
+		final golden = requiredRecord(Unknown.fromBoundary(Json.parse(Resources.text(ResourcePaths.known("errors/diagnostics.golden.json")))),
+			"diagnostics golden");
+		final util = requiredRecord(golden.get("util"), "diagnostics golden util");
 
 		final native = new JsError("boom");
 		final nativeUnknown = Unknown.fromBoundary(native);
 		final nativeData = ErrorTools.data(nativeUnknown);
-		eq(ErrorTools.message(nativeUnknown), Reflect.field(util, "nativeMessage"), "native error message");
-		eq(dataString(nativeData, "type"), Reflect.field(util, "nativeType"), "native error type");
-		eq(dataString(nativeData, "message"), Reflect.field(util, "nativeMessage"), "native error data message");
+		eq(ErrorTools.message(nativeUnknown), requiredString(util, "nativeMessage", "native error message"), "native error message");
+		eq(dataString(nativeData, "type"), requiredString(util, "nativeType", "native error type"), "native error type");
+		eq(dataString(nativeData, "message"), requiredString(util, "nativeMessage", "native error data message"), "native error data message");
 		eq(ErrorTools.format(nativeUnknown).indexOf("boom") != -1, true, "native error formatted");
 		eq(dataString(nativeData, "formatted").indexOf("boom") != -1, true, "native error data formatted");
 
 		final record = {message: "bad input", code: "E_BAD"};
 		final recordUnknown = Unknown.fromBoundary(record);
 		final recordData = ErrorTools.data(recordUnknown);
-		eq(ErrorTools.message(recordUnknown), Reflect.field(util, "recordMessage"), "record error message");
-		eq(dataString(recordData, "message"), Reflect.field(util, "recordMessage"), "record error data message");
-		eq(dataString(recordData, "code"), Reflect.field(util, "recordCode"), "record error code");
+		eq(ErrorTools.message(recordUnknown), requiredString(util, "recordMessage", "record error message"), "record error message");
+		eq(dataString(recordData, "message"), requiredString(util, "recordMessage", "record error data message"), "record error data message");
+		eq(dataString(recordData, "code"), requiredString(util, "recordCode", "record error code"), "record error code");
 
 		// Upstream util/error tests use a JavaScript object literal with a custom
 		// toString method. Keep this fixture at that JS boundary shape.
 		final opaque:Dynamic = Syntax.code("({ toString() { return \"ResolveMessage: Cannot resolve module\"; } })");
 		final opaqueUnknown = Unknown.fromBoundary(opaque);
-		eq(ErrorTools.message(opaqueUnknown), Reflect.field(util, "opaqueMessage"), "opaque error message");
-		eq(dataString(ErrorTools.data(opaqueUnknown), "message"), Reflect.field(util, "opaqueMessage"), "opaque error data message");
+		eq(ErrorTools.message(opaqueUnknown), requiredString(util, "opaqueMessage", "opaque error message"), "opaque error message");
+		eq(dataString(ErrorTools.data(opaqueUnknown), "message"), requiredString(util, "opaqueMessage", "opaque error data message"),
+			"opaque error data message");
 		eq(dataString(ErrorTools.data(opaqueUnknown), "formatted").indexOf("ResolveMessage") != -1, true, "opaque error data formatted");
+	}
+
+	static function requiredRecord(raw:Unknown, label:String):genes.ts.UnknownRecord {
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
+			throw '${label}: expected object';
+		return record;
+	}
+
+	static function requiredString(record:genes.ts.UnknownRecord, field:String, label:String):String {
+		final value = UnknownNarrow.string(record.get(field));
+		if (value == null)
+			throw '${label}: expected string';
+		return value;
+	}
+
+	static function requiredInt(record:genes.ts.UnknownRecord, field:String, label:String):Int {
+		final value = UnknownNarrow.int32(record.get(field));
+		if (value == null)
+			throw '${label}: expected int';
+		return value;
 	}
 
 	static function dataString(data:opencodehx.util.ErrorTools.ErrorData, field:String):String {
