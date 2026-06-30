@@ -1,6 +1,9 @@
 package opencodehx.format;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
+import genes.ts.UnknownNarrow;
+import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import js.lib.Promise;
 import opencodehx.externs.node.ChildProcess;
@@ -144,20 +147,24 @@ class FormatRuntime {
 	}
 
 	static function buildFormatters(config:Dynamic, builtins:Array<FormatterInfo>):DynamicAccess<FormatterInfo> {
-		// Formatter config arrives as merged JSON-owned config data from
-		// ConfigInfo. Keep the Dynamic value inside this decoder and copy only
-		// typed command/environment/extensions fields into FormatterInfo records.
 		final out = new DynamicAccess<FormatterInfo>();
-		if (config == null || config == false)
+		if (config == null)
+			return out;
+		final raw = Unknown.fromBoundary(config);
+		final enabled = UnknownNarrow.bool(raw);
+		if (enabled == false)
 			return out;
 		for (item in builtins) {
 			out.set(item.name, item);
 		}
-		if (config == true)
+		if (enabled == true)
 			return out;
-		for (name in Reflect.fields(config)) {
-			final entry = decodeEntry(Reflect.field(config, name));
-			final ruffDisabled = (name == "ruff" || name == "uv") && (disabled(config, "ruff") || disabled(config, "uv"));
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
+			return out;
+		for (name in record.keys()) {
+			final entry = decodeEntry(record.get(name));
+			final ruffDisabled = (name == "ruff" || name == "uv") && (disabled(record, "ruff") || disabled(record, "uv"));
 			if (ruffDisabled) {
 				out.remove("ruff");
 				out.remove("uv");
@@ -185,8 +192,9 @@ class FormatRuntime {
 		};
 	}
 
-	static function decodeEntry(raw:Dynamic):FormatterConfigEntry {
-		if (raw == null) {
+	static function decodeEntry(raw:Unknown):FormatterConfigEntry {
+		final record = UnknownNarrow.record(raw);
+		if (record == null) {
 			return {
 				disabled: false,
 				command: null,
@@ -195,39 +203,42 @@ class FormatRuntime {
 			};
 		}
 		return {
-			disabled: Reflect.field(raw, "disabled") == true,
-			command: stringArray(Reflect.field(raw, "command")),
-			environment: stringMap(Reflect.field(raw, "environment")),
-			extensions: stringArray(Reflect.field(raw, "extensions")),
+			disabled: UnknownNarrow.bool(record.get("disabled")) == true,
+			command: stringArray(record.get("command")),
+			environment: stringMap(record.get("environment")),
+			extensions: stringArray(record.get("extensions")),
 		};
 	}
 
-	static function stringArray(raw:Dynamic):Null<Array<String>> {
-		if (!Std.isOfType(raw, Array))
+	static function stringArray(raw:Unknown):Null<Array<String>> {
+		final items = UnknownNarrow.array(raw);
+		if (items == null)
 			return null;
 		final out:Array<String> = [];
-		for (item in cast(raw, Array<Dynamic>)) {
-			if (Std.isOfType(item, String))
+		for (index in 0...items.length) {
+			final item = UnknownNarrow.string(items.get(index));
+			if (item != null)
 				out.push(item);
 		}
 		return out;
 	}
 
-	static function stringMap(raw:Dynamic):Null<DynamicAccess<String>> {
-		if (raw == null)
+	static function stringMap(raw:Unknown):Null<DynamicAccess<String>> {
+		final record = UnknownNarrow.record(raw);
+		if (record == null)
 			return null;
 		final out = new DynamicAccess<String>();
-		for (field in Reflect.fields(raw)) {
-			final value = Reflect.field(raw, field);
-			if (Std.isOfType(value, String))
+		for (field in record.keys()) {
+			final value = UnknownNarrow.string(record.get(field));
+			if (value != null)
 				out.set(field, value);
 		}
 		return out;
 	}
 
-	static function disabled(config:Dynamic, name:String):Bool {
-		final raw = Reflect.field(config, name);
-		return raw != null && Reflect.field(raw, "disabled") == true;
+	static function disabled(config:UnknownRecord, name:String):Bool {
+		final entry = UnknownNarrow.record(config.get(name));
+		return entry != null && UnknownNarrow.bool(entry.get("disabled")) == true;
 	}
 
 	static function mergeEnv(extra:Null<DynamicAccess<String>>):DynamicAccess<String> {
