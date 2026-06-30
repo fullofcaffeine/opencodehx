@@ -407,7 +407,15 @@ function directEvidence(path) {
     ["pty/pty-shell.test.ts", ["direct", "src/opencodehx/pty/PtyService.hx; src/opencodehx/smoke/PtySmoke.hx; scripts/harness/windows-shell-smoke.mjs; docs/pty-runtime.md", "deterministic smoke covers PowerShell empty args and Git Bash login args; Windows CI smoke repeats the behavior against native shells when available", "PtySmoke ptyShellArgsParity plus windows:shell:smoke", "none"]],
     ["shell/shell.test.ts", ["direct", "src/opencodehx/host/node/NodeProcess.hx; src/opencodehx/smoke/PtySmoke.hx; scripts/harness/windows-shell-smoke.mjs; docs/bash-shell-seam.md", "deterministic smoke covers shell names, login/posix classification, blacklisted Windows shells, Git Bash normalization, /usr/bin/bash Git Bash resolution, and bare PowerShell resolution; Windows CI smoke covers native execution and kill-tree teardown", "PtySmoke shellSelectionParity plus windows:shell:smoke", "none"]],
     ["tool/external-directory.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/bash-shell-seam.md; docs/core-file-tools-port.md", "external workdir denial is covered for bash, and canonical external-directory request/denial shape is covered for read file, write file, edit file, apply_patch hunk/move file targets, glob directory, and grep file targets; broader bash argument path variants remain deferred to the bash row", "ToolSmoke bashExec/readExec/writeExec/editExec/applyPatchExec/globExec/grepExec external directory cases"]],
-    ["tool/registry.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "builtin registry and errors are covered; .opencode custom tool loading remains deferred", "ToolSmoke.registrySurface"]],
+    [
+      "tool/registry.test.ts",
+      [
+        "partial",
+        "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md",
+        "builtin registry, errors, and .opencode custom tool file discovery are covered; dynamic module import/export mapping and custom tool execution remain deferred",
+        "ToolSmoke.registrySurface and registryCustomTools",
+      ],
+    ],
     ["permission-task.test.ts", ["ported", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "none", "PermissionSmoke.taskPermissionRules"]],
     ["share/share-next.test.ts", ["partial", "src/opencodehx/share/ShareNextRuntime.hx; src/opencodehx/smoke/ShareSmoke.hx; docs/share-next-runtime.md", "ShareNext request routing covers legacy enterprise/default URLs, org-account API paths, typed auth/org headers, and missing-token failure; create/remove persistence, sync queue coalescing, event subscriptions, disabled-share flags, and HTTP response handling remain deferred", "ShareSmoke.requestRouting"]],
     [

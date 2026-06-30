@@ -45,6 +45,7 @@ class ToolSmoke {
 			final registry = new ToolRegistry();
 			toolDefinitionFresh();
 			registrySurface(registry);
+			registryCustomTools(root);
 			shellSelectionParity();
 			await(killTreeParity(root));
 			errorShapes(registry, context(root));
@@ -79,6 +80,34 @@ class ToolSmoke {
 		eq(registry.all().length, 8, "builtin count");
 		eq(registry.all({disabled: [ToolIDs.known("grep")]}).length, 7, "filtered count");
 		eq(registry.get(ToolIDs.known("glob")).schema.parameters[0].name, "pattern", "glob schema");
+	}
+
+	static function registryCustomTools(root:String):Void {
+		final singular = NodePath.join(root, "custom-singular");
+		write(singular, ".opencode/tool/hello.ts", "export default {description:'hello',args:{},execute(){return 'hello'}};\n");
+		final singularRegistry = ToolRegistry.withProjectCustomTools(singular);
+		eq(singularRegistry.ids().indexOf("hello") != -1, true, "singular custom tool id");
+		eq(singularRegistry.get("hello").schema.parameters.length, 0, "singular custom tool schema");
+
+		final plural = NodePath.join(root, "custom-plural");
+		write(plural, ".opencode/tools/hello.ts", "export default {description:'hello',args:{},execute(){return 'hello'}};\n");
+		final pluralRegistry = ToolRegistry.withProjectCustomTools(plural);
+		eq(pluralRegistry.ids().indexOf("hello") != -1, true, "plural custom tool id");
+
+		final dependency = NodePath.join(root, "custom-dependency");
+		write(dependency, ".opencode/package.json", "{\"dependencies\":{\"cowsay\":\"latest\"}}\n");
+		write(dependency, ".opencode/package-lock.json", "{\"packages\":{}}\n");
+		write(dependency, ".opencode/node_modules/cowsay/package.json", "{\"type\":\"module\"}\n");
+		write(dependency, ".opencode/node_modules/cowsay/index.js", "export function say(){return 'moo'};\n");
+		write(dependency, ".opencode/tools/cowsay.ts", "import {say} from 'cowsay';\nexport default {description:'cow',args:{},execute(){return say()}};\n");
+		final dependencyRegistry = ToolRegistry.withProjectCustomTools(dependency);
+		eq(dependencyRegistry.ids().indexOf("cowsay") != -1, true, "dependency custom tool id");
+		expectToolFailure(() -> dependencyRegistry.execute("cowsay", {}, context(dependency)), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "cowsay" && message.indexOf("dynamic loading") != -1;
+				case _: false;
+			}
+		}, "custom tool execution deferred");
 	}
 
 	static function toolDefinitionFresh():Void {
