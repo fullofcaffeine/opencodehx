@@ -17,7 +17,7 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 429,
+    "Dynamic": 427,
     "DynamicAccess": 540,
     "cast": 133,
     "untyped": 2,
@@ -427,7 +427,7 @@
       "DynamicAccess": 3
     },
     "src/opencodehx/smoke/FileSmoke.hx": {
-      "Dynamic": 6
+      "Dynamic": 4
     },
     "src/opencodehx/smoke/FixtureSmoke.hx": {
       "Dynamic": 1

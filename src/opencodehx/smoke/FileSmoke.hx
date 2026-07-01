@@ -23,7 +23,7 @@ import opencodehx.host.node.NodePath;
 class FileSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-file-"));
-		try {
+		withCleanup(() -> {
 			fixture(root);
 			appFileSystem(root);
 			readFiles(root);
@@ -36,11 +36,7 @@ class FileSmoke {
 			pathSafety(root);
 			ripgrepFiles(root);
 			ripgrepSearch(root);
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		}, () -> Fs.rmSync(root, {recursive: true, force: true}));
 	}
 
 	@:async
@@ -285,13 +281,9 @@ class FileSmoke {
 				final restrictedLink = NodePath.join(root, "restricted-link");
 				Fs.symlinkSync(restricted, restrictedLink);
 				Fs.chmodSync(restricted, 0);
-				try {
+				withCleanup(() -> {
 					expectFailure(() -> AppFileSystem.resolve(NodePath.join(restrictedLink, "child")), "appfs resolve permission denied symlink");
-				} catch (error:Dynamic) {
-					Fs.chmodSync(restricted, 0x1ed);
-					throw error;
-				}
-				Fs.chmodSync(restricted, 0x1ed);
+				}, () -> Fs.chmodSync(restricted, 0x1ed));
 			}
 
 			final file = NodePath.join(root, "not-a-directory");
@@ -425,15 +417,11 @@ class FileSmoke {
 		expectFailure(() -> FileSystem.list(root, "../outside"), "list escaped");
 
 		final plain = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-file-plain-"));
-		try {
+		withCleanup(() -> {
 			write(plain, "file.txt", "hi");
 			for (node in FileSystem.list(plain))
 				eq(node.ignored, false, "list without ignore marks false");
-			Fs.rmSync(plain, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			Fs.rmSync(plain, {recursive: true, force: true});
-			throw error;
-		}
+		}, () -> Fs.rmSync(plain, {recursive: true, force: true}));
 	}
 
 	static function fileSearch(root:String):Void {
@@ -565,13 +553,9 @@ class FileSmoke {
 		eq(explicit.items[0].path, NodePath.join(NodePath.join(root, "rg-search"), "match.ts"), "rg search explicit file path");
 		final originalConfig = NodeProcess.envValue("RIPGREP_CONFIG_PATH");
 		NodeProcess.setEnv("RIPGREP_CONFIG_PATH", NodePath.join(root, "missing-ripgreprc"));
-		try {
+		withCleanup(() -> {
 			eq(FileSystem.search(NodePath.join(root, "rg-search"), "needle").items.length, 2, "rg search ignores config path");
-		} catch (error:Dynamic) {
-			restoreEnv("RIPGREP_CONFIG_PATH", originalConfig);
-			throw error;
-		}
-		restoreEnv("RIPGREP_CONFIG_PATH", originalConfig);
+		}, () -> restoreEnv("RIPGREP_CONFIG_PATH", originalConfig));
 
 		final result = FileSystem.search(root, "needle", ["src/*.ts"], 5);
 		eq(result.partial, false, "search not partial");
@@ -667,6 +651,19 @@ class FileSmoke {
 			return;
 		}
 		throw '${label}: expected failure';
+	}
+
+	static function withCleanup(work:Void->Void, cleanup:Void->Void):Void {
+		try {
+			work();
+			// Dynamic is required at this smoke harness boundary because file,
+			// process, and assertion helpers can throw native JS values or Haxe
+			// exceptions. Keep cleanup/rethrow behavior centralized here.
+		} catch (error:Dynamic) {
+			cleanup();
+			throw error;
+		}
+		cleanup();
 	}
 
 	static function restoreEnv(key:String, value:Null<String>):Void {
