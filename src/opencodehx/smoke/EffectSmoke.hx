@@ -19,6 +19,8 @@ import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.ProjectRuntime;
+import opencodehx.smoke.SmokeCleanup.withCleanup;
+import opencodehx.smoke.SmokeCleanup.withFailureCleanup;
 import opencodehx.util.ProcessRuntime;
 
 typedef SmokeSharedService = {
@@ -128,7 +130,7 @@ class EffectSmoke {
 		ProjectRuntime.reset();
 		InstanceRuntime.reset();
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-instance-state-"));
-		try {
+		withCleanup(() -> withFailureCleanup(() -> {
 			final one = directory(root, "one");
 			final two = directory(root, "two");
 			final projectOne = ProjectRuntime.fromDirectory(one).project;
@@ -160,12 +162,8 @@ class EffectSmoke {
 			eq(disposed.indexOf(c.directory) != -1, true, "instance-state disposes isolated value on disposeAll");
 			eq(disposed.indexOf(d.directory) != -1, true, "instance-state disposes reloaded value on disposeAll");
 			state.dispose();
-		} catch (error:Dynamic) {
-			InstanceRuntime.reset();
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
-		Fs.rmSync(root, {recursive: true, force: true});
+		},
+			() -> InstanceRuntime.reset()), () -> Fs.rmSync(root, {recursive: true, force: true}));
 	}
 
 	static function appRuntimeLogger():Void {
