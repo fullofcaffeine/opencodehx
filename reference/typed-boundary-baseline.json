@@ -17,9 +17,9 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 468,
+    "Dynamic": 443,
     "DynamicAccess": 540,
-    "cast": 136,
+    "cast": 133,
     "untyped": 4,
     "Syntax.code": 23,
     "@:ts.type": 82,
@@ -300,10 +300,6 @@
     },
     "src/opencodehx/provider/copilot/CopilotChatMessages.hx": {
       "cast": 1
-    },
-    "src/opencodehx/provider/copilot/CopilotChatSseDecoder.hx": {
-      "Dynamic": 25,
-      "cast": 3
     },
     "src/opencodehx/provider/copilot/CopilotChatStream.hx": {
       "Dynamic": 2

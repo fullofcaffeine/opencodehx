@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1402 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1374 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -69,6 +69,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `McpAcpSmoke` asserts typed MCP transport option presence through optional fields instead of `Reflect.hasField`.
 - `ModuleResolver` and `ProcessRuntime` read package/error boundary strings through `UnknownRecord` helpers instead of utility-local reflection.
 - Copilot chat SSE and Responses decoders read private JSON object fields through `UnknownRecord` helpers instead of reflection while preserving typed decoder outputs.
+- `CopilotChatSseDecoder` now parses untrusted SSE JSON into `UnknownRecord`, decodes arrays through `UnknownArray`, and avoids local dynamic array casts while preserving typed stream chunk outputs.
 - `CopilotResponsesResponseDecoder` now threads parsed `/responses` HTTP bodies through `UnknownRecord`/`UnknownArray` narrowing and validates open JSON passthrough fields with `JsonCodec.narrow` before crossing into the AI SDK JSONValue bridge.
 - `CopilotResponsesStream` maps OpenAI Responses SSE chunks through `UnknownRecord`/`UnknownNarrow` field helpers instead of local `Dynamic` JSON access and `Reflect.field`.
 - `FileSmoke` asserts `AppFileSystem.readJson` payloads through `UnknownRecord` helpers instead of smoke-local `Dynamic` plus `Reflect.field`.
