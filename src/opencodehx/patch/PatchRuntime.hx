@@ -123,13 +123,7 @@ class PatchRuntime {
 	}
 
 	public static function deriveNewContentsFromChunks(filePath:String, chunks:Array<PatchChunk>):PatchFileUpdate {
-		final originalContent = try {
-			ToolBom.split(Fs.readFileSync(filePath, "utf8"));
-		} catch (error:Dynamic) {
-			// Node filesystem calls can throw arbitrary JS-native values; convert
-			// them immediately into the typed Haxe exception surface.
-			throw new haxe.Exception('Failed to read file ${filePath}: ${Std.string(error)}');
-		}
+		final originalContent = ToolBom.split(readTextOrPatchFailure(filePath));
 		final next = ToolBom.split(deriveNewContent(filePath, originalContent.text, chunks));
 		return {
 			unifiedDiff: TextDiff.unified(filePath, originalContent.text, next.text),
@@ -152,13 +146,7 @@ class PatchRuntime {
 					writeText(path, next.text, next.bom);
 					added.push(path);
 				case DeleteFile(path):
-					try {
-						Fs.rmSync(path, {force: false});
-					} catch (error:Dynamic) {
-						// Node delete failures can be raw JS values; normalize them
-						// at the patch runtime boundary.
-						throw new haxe.Exception('Failed to delete file ${path}: ${Std.string(error)}');
-					}
+					removeOrPatchFailure(path);
 					deleted.push(path);
 				case UpdateFile(path, movePath, chunks):
 					final fileUpdate = deriveNewContentsFromChunks(path, chunks);
@@ -186,7 +174,7 @@ class PatchRuntime {
 			try {
 				parsePatch(argv[0]);
 				return CorrectnessError("ImplicitInvocation");
-			} catch (_:Dynamic) {
+			} catch (_:haxe.Exception) {
 				// A failed parse here only means argv[0] is not an implicit patch;
 				// command detection continues without exposing the raw JS value.
 			}
@@ -216,16 +204,16 @@ class PatchRuntime {
 					});
 				case DeleteFile(path):
 					final resolved = NodePath.resolve(effectiveCwd, path);
-					try {
-						changes.push({
-							path: resolved,
-							change: DeleteChange(Fs.readFileSync(resolved, "utf8"))
-						});
-					} catch (_:Dynamic) {
+					final content = readTextOrNull(resolved);
+					if (content == null) {
 						// Node read failures are contained as verified-planning
 						// correctness errors instead of escaping as raw JS values.
 						return CorrectnessError('Failed to read file for deletion: ${resolved}');
 					}
+					changes.push({
+						path: resolved,
+						change: DeleteChange(content)
+					});
 				case UpdateFile(path, movePath, chunks):
 					final updatePath = NodePath.resolve(effectiveCwd, path);
 					try {
@@ -235,7 +223,7 @@ class PatchRuntime {
 							path: resolvedMove == null ? updatePath : resolvedMove,
 							change: UpdateChange(fileUpdate.unifiedDiff, resolvedMove, fileUpdate.content)
 						});
-					} catch (error:Dynamic) {
+					} catch (error:haxe.Exception) {
 						// Verification wraps parser/filesystem failures into the
 						// typed MaybeApplyPatchVerified result.
 						return CorrectnessError(Std.string(error));
@@ -254,7 +242,7 @@ class PatchRuntime {
 	private static function parseBody(patch:String):MaybeApplyPatch {
 		return try {
 			Body({patch: patch, hunks: parsePatch(patch).hunks});
-		} catch (error:Dynamic) {
+		} catch (error:haxe.Exception) {
 			// maybeParse keeps parse errors as data so command detection callers
 			// can distinguish patch syntax failures from non-patch commands.
 			PatchParseError(Std.string(error));
@@ -501,14 +489,39 @@ class PatchRuntime {
 	@:genesLowerPrivateHelper
 	private static function writeText(path:String, content:String, bom:Bool = false):Void {
 		final dir = NodePath.dirname(path);
-		try {
+		filesystemOrPatchFailure('Failed to write file ${path}', () -> {
 			if (dir != "." && dir != "/")
 				Fs.mkdirSync(dir, {recursive: true});
 			Fs.writeFileSync(path, ToolBom.join(content, bom), "utf8");
+		});
+	}
+
+	static function readTextOrPatchFailure(path:String):String {
+		return filesystemOrPatchFailure('Failed to read file ${path}', () -> Fs.readFileSync(path, "utf8"));
+	}
+
+	static function readTextOrNull(path:String):Null<String> {
+		try {
+			return Fs.readFileSync(path, "utf8");
 		} catch (error:Dynamic) {
-			// Host write failures are represented as patch failures immediately
-			// so callers never need to inspect untyped Node exceptions.
-			throw new haxe.Exception('Failed to write file ${path}: ${Std.string(error)}');
+			// Verification only needs presence/content, so raw Node read failures
+			// are contained as a missing file signal at this patch-planning edge.
+			return null;
+		}
+	}
+
+	static function removeOrPatchFailure(path:String):Void {
+		filesystemOrPatchFailure('Failed to delete file ${path}', () -> Fs.rmSync(path, {force: false}));
+	}
+
+	static function filesystemOrPatchFailure<T>(message:String, work:Void->T):T {
+		try {
+			return work();
+			// Node filesystem calls can throw arbitrary JS-native values. Keep the
+			// raw Dynamic catch at this host boundary and immediately normalize it
+			// into the typed patch exception surface.
+		} catch (error:Dynamic) {
+			throw new haxe.Exception('${message}: ${Std.string(error)}');
 		}
 	}
 }

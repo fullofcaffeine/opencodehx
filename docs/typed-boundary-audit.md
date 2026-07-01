@@ -10,7 +10,7 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1363 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1358 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
 
 ```bash
 npm run typed-boundary:update
@@ -77,6 +77,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `OpenCodeCompatClient.messages` constructs typed message-page records directly instead of mutating a dynamic result with reflection for optional pagination headers.
 - `AppFileSystem` reads Node filesystem error codes through `UnknownRecord` narrowing, types readable-stream chunks as Node string-or-buffer data, accepts checked `JsonValue` for JSON writes, and returns `Unknown` for JSON reads instead of broad `Dynamic`.
 - `Npm` centralizes Node filesystem, injected reify, and JSON.parse fallback handling behind one documented host-failure helper instead of repeated `Dynamic` catch blocks.
+- `PatchRuntime` centralizes read/delete/write filesystem failures behind typed patch helpers and narrows parser-only catches to `haxe.Exception` while preserving verification result behavior.
 
 ## Remaining Hotspots
 

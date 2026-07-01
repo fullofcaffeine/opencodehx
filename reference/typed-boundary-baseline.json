@@ -17,10 +17,10 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 433,
+    "Dynamic": 429,
     "DynamicAccess": 540,
     "cast": 133,
-    "untyped": 3,
+    "untyped": 2,
     "Syntax.code": 23,
     "@:ts.type": 82,
     "Reflect.field": 87,
@@ -223,8 +223,7 @@
       "Dynamic": 2
     },
     "src/opencodehx/patch/PatchRuntime.hx": {
-      "Dynamic": 7,
-      "untyped": 1
+      "Dynamic": 3
     },
     "src/opencodehx/permission/PermissionRules.hx": {
       "Dynamic": 2,
