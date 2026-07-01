@@ -8,23 +8,18 @@ import opencodehx.patch.PatchRuntime.MaybeApplyPatch;
 import opencodehx.patch.PatchRuntime.MaybeApplyPatchVerified;
 import opencodehx.patch.PatchRuntime.PatchFileChange;
 import opencodehx.patch.PatchRuntime.PatchHunk;
+import opencodehx.smoke.SmokeCleanup.withCleanup;
 
 class PatchSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-patch-"));
-		try {
+		withCleanup(() -> {
 			parsePatch();
 			maybeParseApplyPatch();
 			applyPatch(root);
 			verifiedPlanning(root);
 			errorHandling(root);
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			// Smoke cleanup must run for arbitrary Haxe/JS thrown values, then
-			// rethrow the original failure so the runner preserves the cause.
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		}, () -> Fs.rmSync(root, {recursive: true, force: true}));
 	}
 
 	static function parsePatch():Void {

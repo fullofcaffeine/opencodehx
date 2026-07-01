@@ -60,6 +60,8 @@ import opencodehx.sync.SyncEventStore.SyncEventSystem;
 import opencodehx.sync.SyncEventStore.SyncPersistence;
 import opencodehx.sync.SyncEventStore.SyncStoredEvent;
 import opencodehx.sync.SyncSqliteEventPersistence;
+import opencodehx.smoke.SmokeCleanup.withCleanup;
+import opencodehx.smoke.SmokeCleanup.withFailureCleanup;
 import opencodehx.worktree.WorktreeRuntime.WorktreeEvent;
 import opencodehx.worktree.WorktreeRuntime.WorktreeEventType;
 import opencodehx.worktree.WorktreeRuntime;
@@ -144,7 +146,7 @@ class SmokeFileWatchBackend implements FileWatchBackend {
 class ProjectRuntimeSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-project-"));
-		withFinally(() -> {
+		withCleanup(() -> {
 			noCommitGitProject(root);
 			committedProjectAndGit(root);
 			vcsDiffs(root);
@@ -163,23 +165,6 @@ class ProjectRuntimeSmoke {
 			syncEventSystem();
 			syncSqliteEvents(root);
 		}, () -> Fs.rmSync(root, {recursive: true, force: true}));
-	}
-
-	static function withFinally(work:Void->Void, cleanup:Void->Void):Void {
-		withCleanup(work, cleanup);
-		cleanup();
-	}
-
-	static function withCleanup(work:Void->Void, cleanup:Void->Void):Void {
-		try {
-			work();
-			// Dynamic is required at this JS runtime cleanup boundary because Haxe code,
-			// Node externs, SQLite, and Git helpers may throw strings, Haxe exceptions,
-			// or JS errors. Keep it centralized in the smoke cleanup helper.
-		} catch (error:Dynamic) {
-			cleanup();
-			throw error;
-		}
 	}
 
 	static function noCommitGitProject(root:String):Void {
@@ -391,7 +376,7 @@ class ProjectRuntimeSmoke {
 		ProjectRuntime.reset();
 		final dir = directory(root, "migrate-first-project");
 		final store = new SqliteSessionStore(NodePath.join(root, "migrate-first.db"));
-		withFinally(() -> {
+		withCleanup(() -> {
 			git(dir, ["init"]);
 			final pre = ProjectRuntime.fromDirectory(dir, store).project;
 			eq(pre.id.toString(), ProjectID.global().toString(), "migration pre-commit global project");
@@ -407,7 +392,7 @@ class ProjectRuntimeSmoke {
 		final existingDir = directory(root, "migrate-existing-project");
 		initCommittedRepo(existingDir);
 		final existingStore = new SqliteSessionStore(NodePath.join(root, "migrate-existing.db"));
-		withFinally(() -> {
+		withCleanup(() -> {
 			final project = ProjectRuntime.fromDirectory(existingDir, existingStore).project;
 			existingStore.upsertProject({id: ProjectID.global().toString(), worktree: "/"});
 			final matching = SessionID.make("ses_migrate_existing");
@@ -432,7 +417,7 @@ class ProjectRuntimeSmoke {
 		eq(info.name, "my-feature-branch", "worktree slug");
 		eq(info.branch, "opencode/my-feature-branch", "worktree branch");
 
-		withCleanup(() -> {
+		withFailureCleanup(() -> {
 			WorktreeRuntime.create(main, info);
 			final child = ProjectRuntime.fromDirectory(info.directory);
 			final expectedSandbox = realpath(info.directory);
@@ -477,7 +462,7 @@ class ProjectRuntimeSmoke {
 		};
 		var failedDirectory:Null<String> = null;
 		var failedBootstrapDirectory:Null<String> = null;
-		withCleanup(() -> {
+		withFailureCleanup(() -> {
 			WorktreeRuntime.createFromInfo(main, info, extraStartCommand, bootstrap);
 			unsubscribe();
 			eq(events.length > 0, true, "worktree ready event emitted");
@@ -571,7 +556,7 @@ class ProjectRuntimeSmoke {
 		final bin = directory(root, "git-shim-bin");
 		final shim = NodePath.join(bin, "git");
 		final originalPath = NodeProcess.envValue("PATH");
-		withCleanup(() -> {
+		withFailureCleanup(() -> {
 			WorktreeRuntime.create(main, info);
 			Fs.writeFileSync(shim, removeShimScript(realGit), "utf8");
 			Fs.chmodSync(shim, 0x1ed);
@@ -592,7 +577,7 @@ class ProjectRuntimeSmoke {
 		if (NodeProcess.platform() != "win32")
 			return;
 		final info = WorktreeRuntime.makeWorktreeInfo(main, "Remove Fsmonitor");
-		withCleanup(() -> {
+		withFailureCleanup(() -> {
 			WorktreeRuntime.create(main, info);
 			git(info.directory, ["config", "core.fsmonitor", "true"]);
 			Git.run(info.directory, ["fsmonitor--daemon", "stop"]);
@@ -767,7 +752,7 @@ class ProjectRuntimeSmoke {
 		final backend = new SmokeFileWatchBackend();
 		final watcher = new FileWatcherRuntime(dir, fileBus, backend);
 		final vcs = new VcsRuntime(dir, branchBus, fileBus);
-		withFinally(() -> {
+		withCleanup(() -> {
 			eq(watcher.init(false, true), true, "native watcher seam subscribed git dir");
 			final gitDir = NodePath.join(dir, ".git");
 			eq(backend.watched.indexOf(gitDir) != -1, true, "native watcher seam watches git dir");
@@ -790,7 +775,7 @@ class ProjectRuntimeSmoke {
 		final fileBus = new EventBus<FileUpdatedEvent>();
 		final backend = new SmokeFileWatchBackend();
 		final watcher = new FileWatcherRuntime(gitDir, fileBus, backend);
-		withFinally(() -> {
+		withCleanup(() -> {
 			eq(watcher.init(true, true), true, "file watcher service subscribed roots");
 			final watchedGit = NodePath.join(gitDir, ".git");
 			eq(backend.watched.indexOf(gitDir) != -1, true, "file watcher watches root");
@@ -820,7 +805,7 @@ class ProjectRuntimeSmoke {
 		final plainBus = new EventBus<FileUpdatedEvent>();
 		final plainBackend = new SmokeFileWatchBackend();
 		final plainWatcher = new FileWatcherRuntime(plainDir, plainBus, plainBackend);
-		withFinally(() -> {
+		withCleanup(() -> {
 			eq(plainWatcher.init(true, true), true, "file watcher non-git root subscribed");
 			eq(plainBackend.watched.indexOf(plainDir) != -1, true, "file watcher non-git watches root");
 			plainBackend.emit(plainDir, "plain.txt", Add);
@@ -1411,7 +1396,7 @@ class ProjectRuntimeSmoke {
 		initCommittedRepo(dir);
 		final bare = NodePath.join(root, "clone-source.git");
 		final clone = NodePath.join(root, "clone-copy");
-		withFinally(() -> {
+		withCleanup(() -> {
 			git(root, ["clone", "--bare", dir, bare]);
 			git(root, ["clone", bare, clone]);
 			final source = ProjectRuntime.fromDirectory(dir).project;
@@ -1426,7 +1411,7 @@ class ProjectRuntimeSmoke {
 		initCommittedRepo(dir);
 		final bare = NodePath.join(root, "bare-source.git");
 		final worktree = NodePath.join(root, "bare-worktree");
-		withFinally(() -> {
+		withCleanup(() -> {
 			git(root, ["clone", "--bare", dir, bare]);
 			git(bare, ["worktree", "add", worktree, "HEAD"]);
 			final project = ProjectRuntime.fromDirectory(worktree).project;

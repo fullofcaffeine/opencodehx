@@ -19,6 +19,7 @@ import opencodehx.file.FileSystem;
 import opencodehx.git.Git;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
+import opencodehx.smoke.SmokeCleanup.withCleanup;
 
 class FileSmoke {
 	public static function run():Void {
@@ -651,19 +652,6 @@ class FileSmoke {
 			return;
 		}
 		throw '${label}: expected failure';
-	}
-
-	static function withCleanup(work:Void->Void, cleanup:Void->Void):Void {
-		try {
-			work();
-			// Dynamic is required at this smoke harness boundary because file,
-			// process, and assertion helpers can throw native JS values or Haxe
-			// exceptions. Keep cleanup/rethrow behavior centralized here.
-		} catch (error:Dynamic) {
-			cleanup();
-			throw error;
-		}
-		cleanup();
 	}
 
 	static function restoreEnv(key:String, value:Null<String>):Void {

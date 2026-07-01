@@ -14,6 +14,7 @@ import opencodehx.session.MessageTypes.Part;
 import opencodehx.session.PartID;
 import opencodehx.session.SessionID;
 import opencodehx.session.SessionInfo.SessionInfo;
+import opencodehx.smoke.SmokeCleanup.withCleanup;
 import opencodehx.storage.JsonStorageMigrationRuntime;
 import opencodehx.storage.SqliteSessionStore;
 import opencodehx.storage.StorageDatabasePath;
@@ -25,7 +26,7 @@ class StorageSmoke {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-storage-"));
 		final dbPath = NodePath.join(root, "opencodehx.db");
 		final store = new SqliteSessionStore(dbPath);
-		try {
+		withCleanup(() -> {
 			databasePath(root);
 			jsonKeyValueStorage(root);
 			store.upsertProject({id: "proj_fixture", worktree: root, name: "Fixture"});
@@ -33,12 +34,10 @@ class StorageSmoke {
 			messagePageAndPartCrud(store);
 			jsonMigration(root);
 			store.close();
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
+		}, () -> {
 			store.close();
 			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		});
 	}
 
 	static function jsonKeyValueStorage(root:String):Void {

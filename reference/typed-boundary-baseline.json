@@ -17,7 +17,7 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 427,
+    "Dynamic": 420,
     "DynamicAccess": 540,
     "cast": 133,
     "untyped": 2,
@@ -427,7 +427,7 @@
       "DynamicAccess": 3
     },
     "src/opencodehx/smoke/FileSmoke.hx": {
-      "Dynamic": 4
+      "Dynamic": 2
     },
     "src/opencodehx/smoke/FixtureSmoke.hx": {
       "Dynamic": 1
@@ -436,9 +436,6 @@
       "Dynamic": 1,
       "DynamicAccess": 2
     },
-    "src/opencodehx/smoke/LspSmoke.hx": {
-      "Dynamic": 1
-    },
     "src/opencodehx/smoke/McpAcpSmoke.hx": {
       "DynamicAccess": 2
     },
@@ -446,16 +443,13 @@
       "Dynamic": 4
     },
     "src/opencodehx/smoke/PatchSmoke.hx": {
-      "Dynamic": 2
+      "Dynamic": 1
     },
     "src/opencodehx/smoke/PermissionSmoke.hx": {
       "Dynamic": 2
     },
     "src/opencodehx/smoke/PluginSmoke.hx": {
-      "Dynamic": 2
-    },
-    "src/opencodehx/smoke/ProjectRuntimeSmoke.hx": {
-      "Dynamic": 2
+      "Dynamic": 1
     },
     "src/opencodehx/smoke/ProviderSmoke.hx": {
       "Dynamic": 5,
@@ -493,6 +487,9 @@
       "DynamicAccess": 3,
       "cast": 1
     },
+    "src/opencodehx/smoke/SmokeCleanup.hx": {
+      "Dynamic": 1
+    },
     "src/opencodehx/smoke/SmokeFetchStub.hx": {
       "Dynamic": 2,
       "DynamicAccess": 4,
@@ -504,7 +501,6 @@
       "Dynamic": 1
     },
     "src/opencodehx/smoke/StorageSmoke.hx": {
-      "Dynamic": 1,
       "DynamicAccess": 2
     },
     "src/opencodehx/smoke/ToolSmoke.hx": {

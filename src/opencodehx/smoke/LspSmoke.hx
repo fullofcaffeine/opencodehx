@@ -20,24 +20,19 @@ import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolRegistry;
 import opencodehx.tool.ToolTypes.ToolContext;
 import opencodehx.tool.ToolTypes.ToolIDs;
+import opencodehx.smoke.SmokeCleanup.withCleanup;
 
 class LspSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-lsp-"));
-		try {
+		withCleanup(() -> {
 			write(root, "src/test.ts", "export const value = 1;\n");
 			diagnostics();
 			lifecycle(root);
 			clientInterop(root);
 			initializeFailures(root);
 			toolIntegration(root);
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			// Smoke cleanup must run for arbitrary Haxe/JS failures before the
-			// original cause is rethrown to the shared smoke runner.
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		}, () -> Fs.rmSync(root, {recursive: true, force: true}));
 	}
 
 	static function diagnostics():Void {

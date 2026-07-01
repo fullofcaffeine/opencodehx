@@ -35,11 +35,12 @@ import opencodehx.provider.ProviderTypes.ModelID;
 import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderIDs;
 import opencodehx.provider.ProviderTypes.ProviderModel;
+import opencodehx.smoke.SmokeCleanup.withCleanup;
 
 class PluginSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-plugin-"));
-		try {
+		withCleanup(() -> {
 			codexJwtClaims();
 			authOverride();
 			pluginAuthPicker();
@@ -48,13 +49,7 @@ class PluginSmoke {
 			parseSpecifiers();
 			metadata(root);
 			runtime(root);
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			// Smoke cleanup must catch arbitrary Haxe/JS failures and preserve
-			// the original exception for the shared runner.
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		}, () -> Fs.rmSync(root, {recursive: true, force: true}));
 	}
 
 	static function codexJwtClaims():Void {
