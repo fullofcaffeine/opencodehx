@@ -17,10 +17,10 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 435,
+    "Dynamic": 433,
     "DynamicAccess": 540,
     "cast": 133,
-    "untyped": 4,
+    "untyped": 3,
     "Syntax.code": 23,
     "@:ts.type": 82,
     "Reflect.field": 87,
@@ -175,9 +175,8 @@
       "@:ts.type": 2
     },
     "src/opencodehx/file/AppFileSystem.hx": {
-      "Dynamic": 8,
-      "cast": 3,
-      "untyped": 1
+      "Dynamic": 6,
+      "cast": 3
     },
     "src/opencodehx/file/FileSystem.hx": {
       "Dynamic": 1

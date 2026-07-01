@@ -99,8 +99,8 @@ class FileSmoke {
 		eq(AppFileSystem.readFileString(unicodeFile), "Hello 世界 🌍", "appfs readText utf8");
 
 		final jsonFile = NodePath.join(tmp, "data.json");
-		AppFileSystem.writeJson(jsonFile, {name: "test", count: 42});
-		final json = UnknownNarrow.record(Unknown.fromBoundary(AppFileSystem.readJson(jsonFile)));
+		AppFileSystem.writeJson(jsonFile, genes.ts.Json.value({name: "test", count: 42}));
+		final json = UnknownNarrow.record(AppFileSystem.readJson(jsonFile));
 		if (json == null)
 			throw "appfs readJson expected object";
 		eq(UnknownNarrow.string(json.get("name")), "test", "appfs json name");
@@ -138,7 +138,7 @@ class FileSmoke {
 		if (NodeProcess.platform() != "win32")
 			eq(Fs.statSync(protectedBinary).mode & 0x1ff, 0x180, "appfs writeWithDirs binary mode");
 		final protectedJson = NodePath.join(tmp, "protected.json");
-		AppFileSystem.writeJson(protectedJson, {secret: "data"}, 0x180);
+		AppFileSystem.writeJson(protectedJson, genes.ts.Json.value({secret: "data"}), 0x180);
 		if (NodeProcess.platform() != "win32")
 			eq(Fs.statSync(protectedJson).mode & 0x1ff, 0x180, "appfs writeJson mode");
 

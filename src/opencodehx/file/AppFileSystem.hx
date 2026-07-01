@@ -2,6 +2,7 @@ package opencodehx.file;
 
 import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
+import genes.ts.JsonValue;
 import haxe.Json;
 import haxe.extern.EitherType;
 import js.lib.Promise;
@@ -105,13 +106,13 @@ class AppFileSystem {
 		return Fs.readFileBufferSync(path);
 	}
 
-	// JSON payloads are an untyped runtime boundary; callers own domain narrowing.
-	public static function writeJson(path:String, data:Dynamic, ?mode:Int):Void {
+	// JSON payloads are a runtime boundary; callers own domain narrowing after read.
+	public static function writeJson(path:String, data:JsonValue, ?mode:Int):Void {
 		writeFileString(path, Json.stringify(data, null, "  "), mode);
 	}
 
-	public static function readJson(path:String):Dynamic {
-		return Json.parse(readFileString(path));
+	public static function readJson(path:String):Unknown {
+		return Unknown.fromBoundary(Json.parse(readFileString(path)));
 	}
 
 	public static function findUp(target:String, start:String, ?stop:String):Array<String> {
