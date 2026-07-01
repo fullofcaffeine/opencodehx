@@ -17,7 +17,7 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 443,
+    "Dynamic": 435,
     "DynamicAccess": 540,
     "cast": 133,
     "untyped": 4,
@@ -221,7 +221,7 @@
       "DynamicAccess": 12
     },
     "src/opencodehx/npm/Npm.hx": {
-      "Dynamic": 10
+      "Dynamic": 2
     },
     "src/opencodehx/patch/PatchRuntime.hx": {
       "Dynamic": 7,

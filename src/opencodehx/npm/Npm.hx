@@ -150,7 +150,7 @@ class Npm {
 	public static function which(deps:NpmDeps, pkg:String):Null<String> {
 		final dir = cacheDirectory(deps, pkg);
 		final binDir = NodePath.join(NodePath.join(dir, "node_modules"), ".bin");
-		try {
+		return containHostFailure(() -> {
 			final existing = pickBinary(pkg, dir, binDir);
 			if (existing != null)
 				return NodePath.join(binDir, existing);
@@ -162,12 +162,7 @@ class Npm {
 			add(deps, pkg);
 			final resolved = pickBinary(pkg, dir, binDir);
 			return resolved == null ? null : NodePath.join(binDir, resolved);
-			// Dynamic is required here because Node filesystem calls and the injected
-			// reify boundary can throw native JS errors that Haxe cannot type more
-			// precisely. The public result contains the failure as a null lookup.
-		} catch (error:Dynamic) {
-			return null;
-		}
+		}, null);
 	}
 
 	static function entryPoint(deps:NpmDeps, name:String, dir:String):NpmEntryPoint {
@@ -192,14 +187,7 @@ class Npm {
 		final check = deps.canWrite;
 		if (check != null)
 			return check(dir);
-		try {
-			return Fs.existsSync(dir) && Fs.statSync(dir).isDirectory();
-			// Dynamic is required here because Node filesystem failures cross the JS
-			// boundary as native exceptions. We contain them as a conservative
-			// non-writable directory result, matching upstream's best-effort access check.
-		} catch (error:Dynamic) {
-			return false;
-		}
+		return containHostFailure(() -> Fs.existsSync(dir) && Fs.statSync(dir).isDirectory(), false);
 	}
 
 	static function pickBinary(pkg:String, dir:String, binDir:String):Null<String> {
@@ -228,13 +216,7 @@ class Npm {
 	}
 
 	static function readDirectoryNames(dir:String):Array<String> {
-		try {
-			return Fs.readdirNamesSync(dir);
-			// Dynamic is required here because missing cache/bin directories are normal
-			// Node filesystem failures. The Npm.which contract treats them as no files.
-		} catch (error:Dynamic) {
-			return [];
-		}
+		return containHostFailure(() -> Fs.readdirNamesSync(dir), []);
 	}
 
 	static function unscopedName(pkg:String):String {
@@ -247,23 +229,22 @@ class Npm {
 	static function readJson(path:String):Unknown {
 		if (!Fs.existsSync(path))
 			return emptyObject();
-		try {
-			return parseJson(Fs.readFileSync(path, "utf8"));
-			// Dynamic is required at this JSON/file boundary because malformed JSON and
-			// native filesystem failures are intentionally contained as an empty object.
-		} catch (error:Dynamic) {
-			return emptyObject();
-		}
+		return containHostFailure(() -> parseJson(Fs.readFileSync(path, "utf8")), emptyObject());
 	}
 
 	static function parseJson(text:String):Unknown {
+		return containHostFailure(() -> Unknown.fromBoundary(Json.parse(text)), emptyObject());
+	}
+
+	static function containHostFailure<T>(work:Void->T, fallback:T):T {
 		try {
-			return Unknown.fromBoundary(Json.parse(text));
-			// Dynamic is required at this JSON boundary because Json.parse returns
-			// untrusted runtime data. The value is immediately wrapped as Unknown and
-			// narrowed only through guarded helpers below.
+			return work();
+			// Dynamic is required at this JS host boundary because Node filesystem,
+			// injected reify, and JSON.parse failures can throw native values Haxe
+			// cannot type more precisely. NPM runtime callers intentionally receive
+			// conservative fallback values instead of raw host exceptions.
 		} catch (error:Dynamic) {
-			return emptyObject();
+			return fallback;
 		}
 	}
 
