@@ -17,7 +17,7 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 420,
+    "Dynamic": 416,
     "DynamicAccess": 540,
     "cast": 133,
     "untyped": 2,
@@ -427,13 +427,12 @@
       "DynamicAccess": 3
     },
     "src/opencodehx/smoke/FileSmoke.hx": {
-      "Dynamic": 2
+      "Dynamic": 1
     },
     "src/opencodehx/smoke/FixtureSmoke.hx": {
       "Dynamic": 1
     },
     "src/opencodehx/smoke/FormatterSmoke.hx": {
-      "Dynamic": 1,
       "DynamicAccess": 2
     },
     "src/opencodehx/smoke/McpAcpSmoke.hx": {
@@ -483,12 +482,11 @@
       "cast": 1
     },
     "src/opencodehx/smoke/SkillSmoke.hx": {
-      "Dynamic": 2,
       "DynamicAccess": 3,
       "cast": 1
     },
     "src/opencodehx/smoke/SmokeCleanup.hx": {
-      "Dynamic": 1
+      "Dynamic": 2
     },
     "src/opencodehx/smoke/SmokeFetchStub.hx": {
       "Dynamic": 2,
@@ -504,7 +502,7 @@
       "DynamicAccess": 2
     },
     "src/opencodehx/smoke/ToolSmoke.hx": {
-      "Dynamic": 5,
+      "Dynamic": 4,
       "cast": 2
     },
     "src/opencodehx/smoke/UtilSmoke.hx": {

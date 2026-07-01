@@ -15,46 +15,48 @@ import opencodehx.skill.SkillRemoteDiscovery.SkillFetchFunction;
 import opencodehx.skill.SkillRemoteDiscovery.SkillFetchResponse;
 import opencodehx.skill.SkillRegistry;
 import opencodehx.skill.SkillRegistry.SkillInfo;
+import opencodehx.smoke.SmokeCleanup.withCleanup;
+import opencodehx.smoke.SmokeCleanup.withCleanupAsync;
 
 class SkillSmoke {
 	public static function run():Void {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-skill-"));
-		try {
+		withCleanup(() -> {
 			localOpencodeSkills(root);
 			externalAndGlobalSkills(root);
 			configSkillPaths(root);
 			availableSkills(root);
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		}, () -> Fs.rmSync(root, {recursive: true, force: true}));
 	}
 
 	@:async
 	public static function runRemote():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-skill-remote-"));
-		try {
-			final fixture = directory(root, "fixture");
-			final cache = directory(root, "cache");
-			final baseUrl = "https://example.com/.well-known/skills/";
-			write(fixture, "index.json", Json.stringify({
-				skills: [
-					{name: "remote-alpha", files: ["SKILL.md", "references/guide.md"]},
-					{name: "remote-missing", files: ["README.md"]},
-					{name: "remote-safe", files: ["SKILL.md", "../escape.md"]},
-				]
-			}));
-			write(NodePath.join(fixture, "remote-alpha"), "SKILL.md", '---
+		await(withCleanupAsync(() -> runRemoteAll(root), () -> Fs.rmSync(root, {recursive: true, force: true})));
+	}
+
+	@:async
+	static function runRemoteAll(root:String):Promise<Void> {
+		final fixture = directory(root, "fixture");
+		final cache = directory(root, "cache");
+		final baseUrl = "https://example.com/.well-known/skills/";
+		write(fixture, "index.json", Json.stringify({
+			skills: [
+				{name: "remote-alpha", files: ["SKILL.md", "references/guide.md"]},
+				{name: "remote-missing", files: ["README.md"]},
+				{name: "remote-safe", files: ["SKILL.md", "../escape.md"]},
+			]
+		}));
+		write(NodePath.join(fixture, "remote-alpha"), "SKILL.md", '---
 name: remote-alpha
 description: Alpha remote skill.
 ---
 
 # Remote Alpha
 ');
-			write(join(fixture, "remote-alpha", "references"), "guide.md", "# Guide\n");
-			write(NodePath.join(fixture, "remote-missing"), "README.md", "# Missing Skill\n");
-			write(NodePath.join(fixture, "remote-safe"), "SKILL.md", '---
+		write(join(fixture, "remote-alpha", "references"), "guide.md", "# Guide\n");
+		write(NodePath.join(fixture, "remote-missing"), "README.md", "# Missing Skill\n");
+		write(NodePath.join(fixture, "remote-safe"), "SKILL.md", '---
 name: remote-safe
 description: Safe remote skill.
 ---
@@ -62,36 +64,31 @@ description: Safe remote skill.
 # Remote Safe
 ');
 
-			var downloadCount = 0;
-			final fetcher = skillFetcher(baseUrl, fixture, () -> downloadCount++);
-			final config = new ConfigInfo();
-			config.skills = {urls: [baseUrl.substr(0, baseUrl.length - 1)]};
+		var downloadCount = 0;
+		final fetcher = skillFetcher(baseUrl, fixture, () -> downloadCount++);
+		final config = new ConfigInfo();
+		config.skills = {urls: [baseUrl.substr(0, baseUrl.length - 1)]};
 
-			final discovery = @:await SkillRegistry.discoverWithRemote(root, cache, {
-				home: root,
-				worktree: root,
-				config: config,
-				fetcher: fetcher
-			});
-			eq(skillNames(discovery.skills), "remote-alpha,remote-safe", "remote skill discovery filters and sorts");
-			eq(Fs.existsSync(join(cache, "remote-alpha", "references", "guide.md")), true, "remote skill reference downloaded");
-			eq(Fs.existsSync(NodePath.join(cache, "escape.md")), false, "remote skill cache path stays contained");
-			final firstCount = downloadCount;
-			eq(firstCount > 0, true, "remote skill initial download count");
+		final discovery = @:await SkillRegistry.discoverWithRemote(root, cache, {
+			home: root,
+			worktree: root,
+			config: config,
+			fetcher: fetcher
+		});
+		eq(skillNames(discovery.skills), "remote-alpha,remote-safe", "remote skill discovery filters and sorts");
+		eq(Fs.existsSync(join(cache, "remote-alpha", "references", "guide.md")), true, "remote skill reference downloaded");
+		eq(Fs.existsSync(NodePath.join(cache, "escape.md")), false, "remote skill cache path stays contained");
+		final firstCount = downloadCount;
+		eq(firstCount > 0, true, "remote skill initial download count");
 
-			final second = @:await SkillRegistry.discoverWithRemote(root, cache, {
-				home: root,
-				worktree: root,
-				config: config,
-				fetcher: fetcher
-			});
-			eq(skillNames(second.skills), "remote-alpha,remote-safe", "remote skill cache second discovery");
-			eq(downloadCount, firstCount, "remote skill files reused from cache");
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		final second = @:await SkillRegistry.discoverWithRemote(root, cache, {
+			home: root,
+			worktree: root,
+			config: config,
+			fetcher: fetcher
+		});
+		eq(skillNames(second.skills), "remote-alpha,remote-safe", "remote skill cache second discovery");
+		eq(downloadCount, firstCount, "remote skill files reused from cache");
 	}
 
 	static function localOpencodeSkills(root:String):Void {

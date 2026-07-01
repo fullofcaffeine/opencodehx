@@ -19,6 +19,7 @@ import opencodehx.file.FileSystem;
 import opencodehx.git.Git;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
+import opencodehx.smoke.SmokeCleanup.withCleanupAsync;
 import opencodehx.smoke.SmokeCleanup.withCleanup;
 
 class FileSmoke {
@@ -43,13 +44,7 @@ class FileSmoke {
 	@:async
 	public static function runAsync():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-file-async-"));
-		try {
-			@:await appFileSystemAsync(root);
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		@:await withCleanupAsync(() -> appFileSystemAsync(root), () -> Fs.rmSync(root, {recursive: true, force: true}));
 	}
 
 	static function fixture(root:String):Void {

@@ -34,39 +34,37 @@ import opencodehx.tool.QuestionTool;
 import opencodehx.tool.WebFetchTool;
 import opencodehx.question.QuestionRuntime.QuestionRequest;
 import opencodehx.question.QuestionRuntime.QuestionService;
+import opencodehx.smoke.SmokeCleanup.withCleanupAsync;
 
 class ToolSmoke {
 	@:async
 	public static function run():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-tool-"));
-		try {
-			await(BashCommandScanner.preload());
-			fixture(root);
-			final registry = new ToolRegistry();
-			toolDefinitionFresh();
-			registrySurface(registry);
-			registryCustomTools(root);
-			shellSelectionParity();
-			await(killTreeParity(root));
-			errorShapes(registry, context(root));
-			permissionShapes(registry, root);
-			bashExec(registry, context(root));
-			readExec(registry, context(root));
-			globExec(registry, context(root));
-			grepExec(registry, context(root));
-			writeExec(registry, context(root));
-			editExec(registry, context(root));
-			applyPatchExec(registry, context(root));
-			await(webFetchExec(context(root)));
-			await(questionExec(context(root)));
-			await(skillExec(context(root)));
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			// Smoke cleanup must run for arbitrary Haxe/JS thrown values, then
-			// rethrow the original failure so the runner preserves the cause.
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		await(withCleanupAsync(() -> runAll(root), () -> Fs.rmSync(root, {recursive: true, force: true})));
+	}
+
+	@:async
+	static function runAll(root:String):Promise<Void> {
+		await(BashCommandScanner.preload());
+		fixture(root);
+		final registry = new ToolRegistry();
+		toolDefinitionFresh();
+		registrySurface(registry);
+		registryCustomTools(root);
+		shellSelectionParity();
+		await(killTreeParity(root));
+		errorShapes(registry, context(root));
+		permissionShapes(registry, root);
+		bashExec(registry, context(root));
+		readExec(registry, context(root));
+		globExec(registry, context(root));
+		grepExec(registry, context(root));
+		writeExec(registry, context(root));
+		editExec(registry, context(root));
+		applyPatchExec(registry, context(root));
+		await(webFetchExec(context(root)));
+		await(questionExec(context(root)));
+		await(skillExec(context(root)));
 	}
 
 	static function fixture(root:String):Void {

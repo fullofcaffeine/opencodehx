@@ -11,6 +11,7 @@ import opencodehx.format.FormatRuntime.FormatterCommand;
 import opencodehx.format.FormatRuntime.FormatterContext;
 import opencodehx.format.FormatRuntime.FormatterInfo;
 import opencodehx.host.node.NodePath;
+import opencodehx.smoke.SmokeCleanup.withCleanupAsync;
 
 typedef FormatterCommandCapture = {
 	final command:String;
@@ -23,14 +24,13 @@ class FormatterSmoke {
 	@:async
 	public static function run():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-format-"));
-		try {
-			await(statusConfig(root));
-			await(formatFile(root));
-			Fs.rmSync(root, {recursive: true, force: true});
-		} catch (error:Dynamic) {
-			Fs.rmSync(root, {recursive: true, force: true});
-			throw error;
-		}
+		await(withCleanupAsync(() -> runAll(root), () -> Fs.rmSync(root, {recursive: true, force: true})));
+	}
+
+	@:async
+	static function runAll(root:String):Promise<Void> {
+		await(statusConfig(root));
+		await(formatFile(root));
 	}
 
 	@:async
