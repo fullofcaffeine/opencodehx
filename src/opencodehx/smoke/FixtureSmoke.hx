@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import opencodehx.externs.node.ChildProcess;
 import opencodehx.externs.node.Fs;
+import opencodehx.smoke.SmokeCleanup.withFailureCleanup;
 
 using StringTools;
 
@@ -14,16 +15,15 @@ class FixtureSmoke {
 		final tmp = SmokeTmpDir.create({git: true});
 		final dir = tmp.path;
 		var disposed = false;
-		try {
+		withFailureCleanup(() -> {
 			eq(plainGitConfig(dir, "core.fsmonitor"), "false", "tmpdir fsmonitor disabled");
 			tmp.dispose();
 			disposed = true;
 			eq(Fs.existsSync(dir), false, "tmpdir dispose removes directory");
-		} catch (error:Dynamic) {
+		}, () -> {
 			if (!disposed)
 				tmp.dispose();
-			throw error;
-		}
+		});
 	}
 
 	static function plainGitConfig(cwd:String, key:String):String {

@@ -18,7 +18,7 @@
     "src/opencodehx"
   ],
   "totals": {
-    "Dynamic": 416,
+    "Dynamic": 414,
     "DynamicAccess": 540,
     "cast": 133,
     "untyped": 2,
@@ -431,9 +431,6 @@
     "src/opencodehx/smoke/FileSmoke.hx": {
       "Dynamic": 1
     },
-    "src/opencodehx/smoke/FixtureSmoke.hx": {
-      "Dynamic": 1
-    },
     "src/opencodehx/smoke/FormatterSmoke.hx": {
       "DynamicAccess": 2
     },
@@ -496,9 +493,6 @@
       "cast": 4,
       "Syntax.code": 2,
       "@:ts.type": 1
-    },
-    "src/opencodehx/smoke/SmokeTmpDir.hx": {
-      "Dynamic": 1
     },
     "src/opencodehx/smoke/StorageSmoke.hx": {
       "DynamicAccess": 2

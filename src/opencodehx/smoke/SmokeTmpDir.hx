@@ -5,6 +5,7 @@ import opencodehx.externs.node.Os;
 import opencodehx.git.Git;
 import opencodehx.git.Git.GitRunResult;
 import opencodehx.host.node.NodePath;
+import opencodehx.smoke.SmokeCleanup.withFailureCleanup;
 
 typedef SmokeTmpDirOptions = {
 	@:optional final git:Bool;
@@ -19,13 +20,10 @@ class SmokeTmpDir {
 
 	public static function create(?options:SmokeTmpDirOptions):SmokeTmpDir {
 		final tmp = new SmokeTmpDir(Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-tmpdir-")));
-		try {
+		withFailureCleanup(() -> {
 			if (options != null && options.git == true)
 				tmp.initGit();
-		} catch (error:Dynamic) {
-			tmp.dispose();
-			throw error;
-		}
+		}, () -> tmp.dispose());
 		return tmp;
 	}
 
