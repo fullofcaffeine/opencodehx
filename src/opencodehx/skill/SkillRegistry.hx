@@ -14,6 +14,7 @@ import opencodehx.permission.PermissionRules;
 import opencodehx.skill.SkillRemoteDiscovery.SkillFetchFunction;
 import js.lib.Promise;
 import genes.js.Async.await;
+import opencodehx.util.Compare.compareString;
 
 typedef SkillInfo = {
 	final name:String;
@@ -78,7 +79,7 @@ class SkillRegistry {
 			if (skill != null)
 				skills.push(skill);
 		}
-		skills.sort((a, b) -> Reflect.compare(a.name, b.name));
+		skills.sort((a, b) -> compareString(a.name, b.name));
 		return {
 			skills: skills,
 			dirs: unique(dirs),
@@ -117,7 +118,7 @@ class SkillRegistry {
 			if (namedSkill != null)
 				skills.push(namedSkill);
 		}
-		skills.sort((a, b) -> Reflect.compare(a.name, b.name));
+		skills.sort((a, b) -> compareString(a.name, b.name));
 		return {
 			skills: skills,
 			dirs: unique(dirs),
@@ -134,7 +135,7 @@ class SkillRegistry {
 
 	public static function available(discovery:SkillDiscovery, ?agent:AgentInfo):Array<SkillInfo> {
 		final sorted = discovery.skills.copy();
-		sorted.sort((a, b) -> Reflect.compare(a.name, b.name));
+		sorted.sort((a, b) -> compareString(a.name, b.name));
 		if (agent == null)
 			return sorted;
 
@@ -152,7 +153,7 @@ class SkillRegistry {
 		if (list.length == 0)
 			return "No skills are currently available.";
 		final sorted = list.copy();
-		sorted.sort((a, b) -> Reflect.compare(a.name, b.name));
+		sorted.sort((a, b) -> compareString(a.name, b.name));
 		if (verbose) {
 			final lines = ["<available_skills>"];
 			for (skill in sorted) {

@@ -21,6 +21,7 @@ import opencodehx.host.node.NodeProcess;
 import opencodehx.host.node.NodePath;
 import opencodehx.smoke.SmokeCleanup.withCleanupAsync;
 import opencodehx.smoke.SmokeCleanup.withCleanup;
+import opencodehx.util.Compare.compareString;
 
 class FileSmoke {
 	public static function run():Void {
@@ -514,7 +515,7 @@ class FileSmoke {
 		eq(hiddenFalse.indexOf(".opencode/thing.json") == -1, true, "rg files hidden false excludes hidden");
 		eq(FileSystem.files(NodePath.join(root, "rg"), ["packages/*"]).length, 0, "rg files glob no files");
 		final listed = FileSystem.files(NodePath.join(root, "rg"), ["*.txt"]);
-		listed.sort(Reflect.compare);
+		listed.sort(compareString);
 		eq(listed.join(","), "a.txt,b.txt,skip.txt,visible.txt", "rg files sorted filenames");
 		eq(FileSystem.files(NodePath.join(root, "rg"), ["*.ts"]).join(","), "keep.ts", "rg files glob filter");
 		expectFailure(() -> FileSystem.files(NodePath.join(root, "missing-rg")), "rg files missing cwd");

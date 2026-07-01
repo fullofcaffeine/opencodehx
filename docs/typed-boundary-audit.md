@@ -76,6 +76,7 @@ Update the baseline only when the remaining weak marker is an intentional bounda
 - `FileSmoke` centralizes repeated temp-directory, chmod, and environment cleanup catches behind one documented smoke helper.
 - `SmokeCleanup` provides module-level sync cleanup helpers so `FileSmoke`, `PluginSmoke`, `StorageSmoke`, `LspSmoke`, `PatchSmoke`, and `ProjectRuntimeSmoke` share one documented broad exception boundary instead of repeating fixture-local cleanup catches.
 - `SmokeCleanup` now also owns async smoke cleanup, so `FileSmoke.runAsync`, `FormatterSmoke`, `SkillSmoke.runRemote`, and `ToolSmoke` share one documented async exception boundary instead of repeated temp-directory cleanup catches.
+- `Reflect.compare` has been removed from OpenCodeHX source in favor of typed comparators, and the boundary scan now guards it with a zero-count budget.
 - Provider JSON Schema intent checks now use modeled `const`, `$ref`, and `additionalProperties` fields instead of `Reflect.hasField`; the `const` value remains an opaque documented JSON-literal boundary until inspected.
 - `OpenCodeCompatClient.messages` constructs typed message-page records directly instead of mutating a dynamic result with reflection for optional pagination headers.
 - `AppFileSystem` reads Node filesystem error codes through `UnknownRecord` narrowing, types readable-stream chunks as Node string-or-buffer data, accepts checked `JsonValue` for JSON writes, and returns `Unknown` for JSON reads instead of broad `Dynamic`.

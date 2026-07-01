@@ -3,6 +3,7 @@ package opencodehx.util;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import js.lib.Date as JsDate;
+import opencodehx.util.Compare.compareString;
 
 typedef LogInitOptions = {
 	final print:Bool;
@@ -50,7 +51,7 @@ class LogRuntime {
 			if (NodePath.basename(entry) == entry && timestampedLog.match(entry))
 				result.push(entry);
 		}
-		result.sort((a, b) -> Reflect.compare(a, b));
+		result.sort(compareString);
 		return result;
 	}
 

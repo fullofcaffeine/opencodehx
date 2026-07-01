@@ -34,6 +34,8 @@ import opencodehx.host.node.NodeProcess;
 import opencodehx.externs.ai.AiSdk.AiLanguageModel;
 import opencodehx.plugin.PluginConfigHooks;
 import opencodehx.plugin.PluginServerHooks;
+import opencodehx.util.Compare.compareInt;
+import opencodehx.util.Compare.compareString;
 
 using StringTools;
 
@@ -71,7 +73,7 @@ class ProviderRegistry {
 		final result:Array<ProviderInfo> = [];
 		for (id in providers.keys())
 			result.push(providers.get(id));
-		result.sort((a, b) -> Reflect.compare(a.id.toString(), b.id.toString()));
+		result.sort((a, b) -> compareString(a.id.toString(), b.id.toString()));
 		return result;
 	}
 
@@ -848,7 +850,7 @@ class ProviderRegistry {
 		final rightLatest = right.indexOf("latest") == -1 ? 1 : 0;
 		if (leftLatest != rightLatest)
 			return leftLatest - rightLatest;
-		return Reflect.compare(right, left);
+		return compareString(right, left);
 	}
 
 	static function priority(id:String):Int {
@@ -1073,7 +1075,7 @@ class ProviderRegistry {
 		final ranked:Array<{final id:String; final score:Int;}> = [];
 		for (id in candidates)
 			ranked.push({id: id, score: suggestionScore(query, id)});
-		ranked.sort((a, b) -> a.score == b.score ? Reflect.compare(a.id, b.id) : a.score - b.score);
+		ranked.sort((a, b) -> a.score == b.score ? compareString(a.id, b.id) : compareInt(a.score, b.score));
 
 		final result:Array<String> = [];
 		final limit = ranked.length < 3 ? ranked.length : 3;

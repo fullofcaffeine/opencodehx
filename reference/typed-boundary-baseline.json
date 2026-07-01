@@ -11,6 +11,7 @@
     "Reflect.field",
     "Reflect.hasField",
     "Reflect.setField",
+    "Reflect.compare",
     "Any"
   ],
   "sourceRoots": [
@@ -26,6 +27,7 @@
     "Reflect.field": 87,
     "Reflect.hasField": 21,
     "Reflect.setField": 41,
+    "Reflect.compare": 0,
     "Any": 0
   },
   "files": {

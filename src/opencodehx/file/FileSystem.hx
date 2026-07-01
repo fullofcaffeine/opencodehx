@@ -4,6 +4,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.file.Ripgrep.SearchResult;
 import opencodehx.git.Git;
 import opencodehx.host.node.NodePath;
+import opencodehx.util.Compare.compareString;
 
 typedef FileNode = {
 	final name:String;
@@ -228,7 +229,7 @@ class FileSystem {
 	static function compareNode(a:FileNode, b:FileNode):Int {
 		if (a.type != b.type)
 			return a.type == "directory" ? -1 : 1;
-		return Reflect.compare(a.name, b.name);
+		return compareString(a.name, b.name);
 	}
 
 	static function isImageByExtension(file:String):Bool {

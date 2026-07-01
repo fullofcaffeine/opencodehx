@@ -1,5 +1,7 @@
 package opencodehx.sync;
 
+import opencodehx.util.Compare.compareString;
+
 using StringTools;
 
 typedef SyncDefinition<T> = {
@@ -334,7 +336,7 @@ class SyncEventSystem<T> {
 				});
 			}
 		}
-		result.sort((left, right) -> Reflect.compare(left.name, right.name));
+		result.sort((left, right) -> compareString(left.name, right.name));
 		return result;
 	}
 

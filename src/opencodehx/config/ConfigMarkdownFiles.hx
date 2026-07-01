@@ -2,6 +2,7 @@ package opencodehx.config;
 
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
+import opencodehx.util.Compare.compareString;
 
 class ConfigMarkdownFiles {
 	public static function scan(dir:String, roots:Array<String>, recursive:Bool = true):Array<String> {
@@ -11,7 +12,7 @@ class ConfigMarkdownFiles {
 			if (Fs.existsSync(base))
 				walk(base, recursive, result);
 		}
-		result.sort(Reflect.compare);
+		result.sort(compareString);
 		return result;
 	}
 

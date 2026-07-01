@@ -13,6 +13,7 @@ import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
+import opencodehx.util.Compare.compareInt;
 
 typedef PatchChunk = {
 	final oldLines:Array<String>;
@@ -306,7 +307,7 @@ class ApplyPatchTool {
 			replacements.push({start: found, remove: oldPattern.length, insert: newPattern});
 			lineIndex = found + oldPattern.length;
 		}
-		replacements.sort((a, b) -> Reflect.compare(a.start, b.start));
+		replacements.sort((a, b) -> compareInt(a.start, b.start));
 		final next = original.copy();
 		var index = replacements.length - 1;
 		while (index >= 0) {

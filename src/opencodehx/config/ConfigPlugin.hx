@@ -6,6 +6,7 @@ import genes.ts.UnknownRecord;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodePath;
+import opencodehx.util.Compare.compareString;
 
 // Boundary debt: upstream plugin options are `Record<string, unknown>` passthrough
 // data consumed by plugin packages. Keep the map contained and narrow once plugin
@@ -46,7 +47,7 @@ class ConfigPlugin {
 					result.push({specifier: Url.pathToFileURL(absolute).href});
 			}
 		}
-		result.sort((a, b) -> Reflect.compare(a.specifier, b.specifier));
+		result.sort((a, b) -> compareString(a.specifier, b.specifier));
 		return result;
 	}
 

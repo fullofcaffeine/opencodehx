@@ -2,6 +2,7 @@ package opencodehx.mcp;
 
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
+import opencodehx.util.Compare.compareString;
 
 typedef McpServerConfig = {
 	final type:String;
@@ -193,7 +194,7 @@ class McpRuntime {
 		final keys:Array<String> = [];
 		for (key in map.keys())
 			keys.push(key);
-		keys.sort(Reflect.compare);
+		keys.sort(compareString);
 		return keys;
 	}
 

@@ -3,6 +3,7 @@ package opencodehx.util;
 import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
+import opencodehx.util.Compare.compareString;
 
 typedef GlobOptions = {
 	@:optional final cwd:String;
@@ -34,7 +35,7 @@ class GlobRuntime {
 			if (match(pattern, relative))
 				out.push(options != null && options.absolute == true ? entry.path : relative);
 		}
-		out.sort(Reflect.compare);
+		out.sort(compareString);
 		return out;
 	}
 

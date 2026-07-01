@@ -4,6 +4,7 @@ import genes.ts.Unknown;
 import haxe.DynamicAccess;
 import js.lib.Promise;
 import opencodehx.project.ProjectRuntime.ProjectID;
+import opencodehx.util.Compare.compareString;
 
 // Upstream plugin workspace adaptors receive an open environment record from
 // the host. Keep that string map named and contained at the adaptor boundary.
@@ -83,7 +84,7 @@ class WorkspaceAdaptors {
 				description: adaptor.description,
 			});
 		}
-		out.sort((a, b) -> Reflect.compare(a.type, b.type));
+		out.sort((a, b) -> compareString(a.type, b.type));
 		return out;
 	}
 

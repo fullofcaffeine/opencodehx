@@ -8,6 +8,7 @@ import haxe.Json;
 import opencodehx.externs.node.ChildProcess;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
+import opencodehx.util.Compare.compareString;
 
 typedef FilesInput = {
 	final cwd:String;
@@ -89,7 +90,7 @@ class Ripgrep {
 					dirs.push(current);
 			}
 		}
-		dirs.sort((a, b) -> Reflect.compare(a, b));
+		dirs.sort(compareString);
 		final max = limit == null ? dirs.length : limit;
 		final shown = dirs.slice(0, max);
 		if (dirs.length > shown.length)

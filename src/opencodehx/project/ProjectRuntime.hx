@@ -5,6 +5,8 @@ import opencodehx.git.Git;
 import opencodehx.host.Clock;
 import opencodehx.host.node.NodePath;
 import opencodehx.storage.SessionStore;
+import opencodehx.util.Compare.compareInt;
+import opencodehx.util.Compare.compareString;
 
 using StringTools;
 
@@ -294,7 +296,7 @@ class ProjectRuntime {
 				.stdout.split("\n")
 				.map(item -> item.trim())
 				.filter(item -> item != "");
-			roots.sort((a, b) -> Reflect.compare(a, b));
+			roots.sort(compareString);
 			if (roots.length > 0) {
 				id = ProjectID.make(roots[0]);
 				writeCachedProjectID(common, id);
@@ -421,7 +423,7 @@ class ProjectRuntime {
 	static function findFavicon(root:String):Null<String> {
 		final matches:Array<String> = [];
 		walkFavicons(root, matches);
-		matches.sort((a, b) -> Reflect.compare(a.length, b.length));
+		matches.sort((a, b) -> compareInt(a.length, b.length));
 		return matches.length == 0 ? null : matches[0];
 	}
 

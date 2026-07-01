@@ -26,6 +26,7 @@ import opencodehx.util.GlobRuntime;
 import opencodehx.util.Iife;
 import opencodehx.util.Lazy;
 import opencodehx.util.Lock;
+import opencodehx.util.Compare.compareString;
 import opencodehx.util.LogRuntime;
 import opencodehx.util.ModuleResolver;
 import opencodehx.util.ProcessRuntime;
@@ -280,7 +281,7 @@ class UtilSmoke {
 				throw "log init path should be set when print is false";
 
 			final next = Fs.readdirNamesSync(root);
-			next.sort((a, b) -> Reflect.compare(a, b));
+			next.sort(compareString);
 			eq(next.indexOf(logs[0]), -1, "log cleanup removes oldest timestamped log");
 			eq(next.indexOf(logs[logs.length - 1]) != -1, true, "log cleanup keeps newest timestamped log");
 			eq(next.indexOf("nested.log") != -1, true, "log cleanup ignores non-timestamped log");
@@ -460,25 +461,25 @@ class UtilSmoke {
 			write(NodePath.join(root, "nested/deep.txt"), "");
 
 			final txt = @:await GlobRuntime.scan("*.txt", {cwd: root});
-			txt.sort(Reflect.compare);
+			txt.sort(compareString);
 			eq(txt.join(","), "a.txt,b.txt", "glob scan txt");
 
 			final absolute = @:await GlobRuntime.scan("*.txt", {cwd: root, absolute: true});
-			absolute.sort(Reflect.compare);
+			absolute.sort(compareString);
 			eq(absolute.indexOf(NodePath.join(root, "a.txt")) != -1, true, "glob scan absolute");
 
 			Fs.mkdirSync(NodePath.join(root, "subdir"), {recursive: true});
 			final starFiles = @:await GlobRuntime.scan("*", {cwd: root});
-			starFiles.sort(Reflect.compare);
+			starFiles.sort(compareString);
 			eq(starFiles.indexOf("subdir"), -1, "glob excludes directories by default");
 			eq(starFiles.indexOf("a.txt") != -1, true, "glob includes files by default");
 
 			final starAll = @:await GlobRuntime.scan("*", {cwd: root, include: "all"});
-			starAll.sort(Reflect.compare);
+			starAll.sort(compareString);
 			eq(starAll.indexOf("subdir") != -1, true, "glob include all directory");
 
 			final nested = @:await GlobRuntime.scan("**/*.txt", {cwd: root});
-			nested.sort(Reflect.compare);
+			nested.sort(compareString);
 			eq(nested.indexOf(NodePath.join("nested", "deep.txt")) != -1, true, "glob nested txt");
 			eq((@:await GlobRuntime.scan("*.nonexistent", {cwd: root})).length, 0, "glob no matches");
 
@@ -493,10 +494,10 @@ class UtilSmoke {
 			}
 			if (symlinkCreated) {
 				final noFollow = @:await GlobRuntime.scan("**/*.txt", {cwd: symlinkRoot});
-				noFollow.sort(Reflect.compare);
+				noFollow.sort(compareString);
 				eq(noFollow.join(","), normalizePath(NodePath.join("realdir", "file.txt")), "glob skips symlink directories");
 				final follow = @:await GlobRuntime.scan("**/*.txt", {cwd: symlinkRoot, symlink: true});
-				follow.sort(Reflect.compare);
+				follow.sort(compareString);
 				eq(follow.join(","), [
 					normalizePath(NodePath.join("linkdir", "file.txt")),
 					normalizePath(NodePath.join("realdir", "file.txt"))
@@ -506,13 +507,13 @@ class UtilSmoke {
 			write(NodePath.join(root, ".hidden"), "");
 			write(NodePath.join(root, "visible"), "");
 			final dot = @:await GlobRuntime.scan("*", {cwd: root, dot: true});
-			dot.sort(Reflect.compare);
+			dot.sort(compareString);
 			eq(dot.indexOf(".hidden") != -1, true, "glob dot includes hidden");
 			final noDot = @:await GlobRuntime.scan("*", {cwd: root, dot: false});
 			eq(noDot.indexOf(".hidden"), -1, "glob dot false excludes hidden");
 
 			final syncTxt = GlobRuntime.scanSync("*.txt", {cwd: root});
-			syncTxt.sort(Reflect.compare);
+			syncTxt.sort(compareString);
 			eq(syncTxt.join(","), "a.txt,b.txt", "glob scanSync txt");
 			final syncAll = GlobRuntime.scanSync("*", {cwd: root, include: "all"});
 			eq(syncAll.indexOf("subdir") != -1, true, "glob scanSync include all");

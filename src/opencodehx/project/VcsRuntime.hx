@@ -10,6 +10,7 @@ import opencodehx.git.Git.GitItem;
 import opencodehx.git.Git.GitStat;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.util.Compare.compareString;
 
 using StringTools;
 
@@ -154,7 +155,7 @@ class VcsRuntime {
 				status: item.status,
 			});
 		}
-		out.sort((a, b) -> Reflect.compare(a.file, b.file));
+		out.sort((a, b) -> compareString(a.file, b.file));
 		return out;
 	}
 

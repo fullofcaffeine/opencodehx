@@ -15,6 +15,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.host.node.GlobalPaths;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.util.Compare.compareString;
 
 typedef TuiKeybinds = Map<String, String>;
 typedef TuiPluginEnabled = Map<String, Bool>;
@@ -181,7 +182,7 @@ class ConfigTui {
 		final keys:Array<String> = [];
 		for (key in map.keys())
 			keys.push(key);
-		keys.sort(Reflect.compare);
+		keys.sort(compareString);
 		for (key in keys)
 			fields.push(Json.stringify(key) + ":" + Json.stringify(map.get(key)));
 		return Unknown.fromBoundary(Json.parse("{" + fields.join(",") + "}"));
@@ -308,7 +309,7 @@ class ConfigTui {
 	static function strippedJson(record:UnknownRecord):String {
 		final fields:Array<String> = [];
 		final keys = record.keys();
-		keys.sort(Reflect.compare);
+		keys.sort(compareString);
 		for (key in keys) {
 			if (key == "theme" || key == "keybinds" || key == "tui")
 				continue;
@@ -322,7 +323,7 @@ class ConfigTui {
 		final keys:Array<String> = [];
 		for (key in map.keys())
 			keys.push(key);
-		keys.sort(Reflect.compare);
+		keys.sort(compareString);
 		for (key in keys)
 			fields.push(Json.stringify(key) + ": " + Json.stringify(map.get(key)));
 		return "{" + fields.join(", ") + "}";

@@ -1,6 +1,8 @@
 package opencodehx.util;
 
 import opencodehx.host.node.NodeProcess;
+import opencodehx.util.Compare.compareInt;
+import opencodehx.util.Compare.compareString;
 
 typedef WildcardRule<T> = {
 	final pattern:String;
@@ -79,8 +81,8 @@ class Wildcard {
 	static function sortRules<T>(rules:Array<WildcardRule<T>>):Array<WildcardRule<T>> {
 		final sorted = rules.copy();
 		sorted.sort((a, b) -> {
-			final length = Reflect.compare(a.pattern.length, b.pattern.length);
-			return length != 0 ? length : Reflect.compare(a.pattern, b.pattern);
+			final length = compareInt(a.pattern.length, b.pattern.length);
+			return length != 0 ? length : compareString(a.pattern, b.pattern);
 		});
 		return sorted;
 	}

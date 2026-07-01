@@ -7,6 +7,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.storage.StorageError.StorageException;
 import opencodehx.storage.StorageError.StorageFailure;
+import opencodehx.util.Compare.compareString;
 
 /**
  * File-backed JSON key/value storage matching the portable surface of
@@ -95,6 +96,6 @@ class StorageJsonRuntime {
 	}
 
 	static function compareKeys(a:Array<String>, b:Array<String>):Int {
-		return Reflect.compare(a.join("\n"), b.join("\n"));
+		return compareString(a.join("\n"), b.join("\n"));
 	}
 }

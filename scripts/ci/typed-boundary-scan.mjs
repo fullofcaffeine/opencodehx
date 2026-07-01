@@ -15,6 +15,7 @@ const patterns = [
   ["Reflect.field", /Reflect\.field/g],
   ["Reflect.hasField", /Reflect\.hasField/g],
   ["Reflect.setField", /Reflect\.setField/g],
+  ["Reflect.compare", /Reflect\.compare/g],
   ["Any", /\bAny\b/g],
 ]
 

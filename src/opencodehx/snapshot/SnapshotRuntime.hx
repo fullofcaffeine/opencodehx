@@ -6,6 +6,7 @@ import opencodehx.git.Git;
 import opencodehx.host.node.NodePath;
 import opencodehx.project.InstanceRuntime.InstanceContext;
 import opencodehx.project.InstanceRuntime.InstanceServiceID;
+import opencodehx.util.Compare.compareString;
 
 typedef SnapshotPatch = {
 	final hash:String;
@@ -133,7 +134,7 @@ class SnapshotRuntime {
 		if (result.code != 0)
 			return [];
 		final files = result.stdout.split(String.fromCharCode(0)).filter(item -> item != "");
-		files.sort(Reflect.compare);
+		files.sort(compareString);
 		return files;
 	}
 
@@ -155,7 +156,7 @@ class SnapshotRuntime {
 			seen.set(file, true);
 			out.push(file);
 		}
-		out.sort(Reflect.compare);
+		out.sort(compareString);
 		return out;
 	}
 
@@ -167,7 +168,7 @@ class SnapshotRuntime {
 		final files:Array<String> = [];
 		for (file in entries.keys())
 			files.push(file);
-		files.sort(Reflect.compare);
+		files.sort(compareString);
 		final body:Array<String> = [];
 		for (file in files) {
 			final entry = entries.get(file);

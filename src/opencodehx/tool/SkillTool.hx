@@ -16,6 +16,7 @@ import opencodehx.tool.ToolTypes.ToolInputDecode;
 import opencodehx.tool.ToolTypes.ToolPermissionMetadata;
 import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
+import opencodehx.util.Compare.compareString;
 
 typedef SkillToolInput = {
 	final name:String;
@@ -106,7 +107,7 @@ class SkillTool {
 		if (files.length >= limit)
 			return;
 		final entries = Fs.readdirNamesSync(dir);
-		entries.sort(Reflect.compare);
+		entries.sort(compareString);
 		for (entry in entries) {
 			if (files.length >= limit)
 				return;

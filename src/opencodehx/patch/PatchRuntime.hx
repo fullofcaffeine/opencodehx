@@ -4,6 +4,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.TextDiff;
 import opencodehx.tool.ToolBom;
+import opencodehx.util.Compare.compareInt;
 
 typedef PatchChunk = {
 	final oldLines:Array<String>;
@@ -381,7 +382,7 @@ class PatchRuntime {
 			replacements.push({start: found, remove: oldPattern.length, insert: newPattern});
 			lineIndex = found + oldPattern.length;
 		}
-		replacements.sort((a, b) -> Reflect.compare(a.start, b.start));
+		replacements.sort((a, b) -> compareInt(a.start, b.start));
 		final next = original.copy();
 		var index = replacements.length - 1;
 		while (index >= 0) {

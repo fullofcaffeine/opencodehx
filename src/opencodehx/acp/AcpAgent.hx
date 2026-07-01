@@ -1,5 +1,7 @@
 package opencodehx.acp;
 
+import opencodehx.util.Compare.compareString;
+
 enum abstract AcpEventType(String) from String to String {
 	var MessagePartDelta = "message.part.delta";
 	var MessagePartUpdated = "message.part.updated";
@@ -270,7 +272,7 @@ class AcpAgent {
 		final out:Array<String> = [];
 		for (sessionID in sessions.keys())
 			out.push(sessionID);
-		out.sort(Reflect.compare);
+		out.sort(compareString);
 		return out;
 	}
 }

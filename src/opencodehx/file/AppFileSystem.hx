@@ -15,6 +15,7 @@ import opencodehx.externs.web.WebStreams.WebReadableStream;
 import opencodehx.externs.web.WebStreams.WebReadableStreamReadResult;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.util.Compare.compareString;
 
 class AppFileSystem {
 	public static function isDir(path:String):Bool {
@@ -162,7 +163,7 @@ class AppFileSystem {
 			if (globMatch(pattern, relative))
 				out.push(absolute ? file : relative);
 		}
-		out.sort(Reflect.compare);
+		out.sort(compareString);
 		return out;
 	}
 

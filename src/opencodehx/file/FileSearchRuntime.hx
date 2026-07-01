@@ -2,6 +2,7 @@ package opencodehx.file;
 
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
+import opencodehx.util.Compare.compareString;
 
 enum abstract FileSearchType(String) from String to String {
 	var File = "file";
@@ -75,7 +76,7 @@ class FileSearchRuntime {
 	static function compareSearch(a:FileSearchEntry, b:FileSearchEntry, hiddenFirst:Bool):Int {
 		if (a.hidden != b.hidden)
 			return hiddenFirst ? (a.hidden ? -1 : 1) : (a.hidden ? 1 : -1);
-		return Reflect.compare(a.path, b.path);
+		return compareString(a.path, b.path);
 	}
 
 	static function hasHiddenSegment(path:String):Bool {
