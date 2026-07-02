@@ -423,7 +423,7 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/permission/PermissionAsyncRuntime.hx; src/opencodehx/smoke/PermissionSmoke.hx; src/opencodehx/smoke/ServerSmoke.hx; docs/permission-model-port.md",
-        "pure rule/config/merge/disabled semantics, sync ask/allow/deny/reject behavior, focused async pending lifecycle, typed scoped/global permission bus publication, and server /permission list/reply routes are covered; database persistence and live async session/tool graph integration remain deferred",
+        "pure rule/config/merge/disabled semantics, sync ask/allow/deny/reject behavior, focused async pending lifecycle including post-dispose ask rejection, typed scoped/global permission bus publication, and server /permission list/reply routes are covered; database persistence and live async session/tool graph integration remain deferred",
         "PermissionSmoke fromConfigAndEvaluate/mergeAndEvaluate/disabledTools/runtimeAskReply/toolIntegration/runAsync including permission bus publication; ServerSmoke permissionRoutes",
       ],
     ],

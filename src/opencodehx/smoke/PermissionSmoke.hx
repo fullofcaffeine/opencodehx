@@ -396,6 +396,9 @@ class PermissionSmoke {
 		eq((await(disposeService.list())).length, 1, "async permission dispose pending");
 		InstanceRuntime.dispose(disposed.directory);
 		eq(await(permissionOutcome(disposePromise)), "rejected", "async permission dispose rejects");
+		eq(await(permissionOutcome(disposeService.ask(askInput("per_disposed_after", "ses_dispose", "bash", ["pwd"], [], [])))), "rejected",
+			"async permission disposed ask rejects");
+		eq((await(disposeService.list())).length, 0, "async permission disposed ask leaves no pending");
 
 		final reloaded = bootTempContext("permission-async-reload");
 		final reloadService = PermissionAsyncRuntime.forContext(reloaded);
