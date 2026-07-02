@@ -27,6 +27,11 @@ private enum SnapshotEntryKind {
 	Symlink;
 }
 
+private typedef TextChurn = {
+	var additions:Int;
+	var deletions:Int;
+}
+
 /**
  * Focused snapshot runtime for OpenCode's Git-backed file-state behavior.
  *
@@ -121,11 +126,12 @@ class SnapshotRuntime {
 			final binary = isBinaryDiff(oldEntry, newEntry);
 			final oldText = oldEntry == null || oldEntry.binary ? "" : oldEntry.content;
 			final newText = newEntry == null || newEntry.binary ? "" : newEntry.content;
+			final churn = binary ? {additions: 0, deletions: 0} : textChurn(oldText, newText);
 			out.push({
 				file: file,
 				patch: binary ? "" : textPatch(file, oldText, newText),
-				additions: binary ? 0 : lineCount(newText),
-				deletions: binary ? 0 : lineCount(oldText),
+				additions: churn.additions,
+				deletions: churn.deletions,
 				status: oldEntry == null ? "added" : (newEntry == null ? "deleted" : "modified"),
 			});
 		}
@@ -254,10 +260,30 @@ class SnapshotRuntime {
 		Fs.mkdirSync(path);
 	}
 
-	static function lineCount(text:String):Int {
+	static function textChurn(oldText:String, newText:String):TextChurn {
+		final oldLines = diffLines(oldText);
+		final newLines = diffLines(newText);
+		var prefix = 0;
+		while (prefix < oldLines.length && prefix < newLines.length && oldLines[prefix] == newLines[prefix])
+			prefix++;
+
+		var oldSuffix = oldLines.length;
+		var newSuffix = newLines.length;
+		while (oldSuffix > prefix && newSuffix > prefix && oldLines[oldSuffix - 1] == newLines[newSuffix - 1]) {
+			oldSuffix--;
+			newSuffix--;
+		}
+
+		return {
+			additions: newSuffix - prefix,
+			deletions: oldSuffix - prefix,
+		};
+	}
+
+	static function diffLines(text:String):Array<String> {
 		if (text == "")
-			return 0;
-		return text.split("\n").length;
+			return [];
+		return text.split("\n");
 	}
 
 	static function textPatch(file:String, oldText:String, newText:String):String {

@@ -887,8 +887,14 @@ class SnapshotSmoke {
 		eq(diffs.length, 4, "snapshot diffFull status count");
 		eq(statusOf(diffs, "added.txt"), "added", "snapshot diffFull added status");
 		eq(statusOf(diffs, "delete.txt"), "deleted", "snapshot diffFull deleted status");
-		eq(statusOf(diffs, "grow.txt"), "modified", "snapshot diffFull grow modified status");
-		eq(statusOf(diffs, "trim.txt"), "modified", "snapshot diffFull trim modified status");
+		final grow = requireDiff(diffs, "grow.txt");
+		eq(grow.status, "modified", "snapshot diffFull grow modified status");
+		eq(grow.additions > 0, true, "snapshot diffFull grow additions");
+		eq(grow.deletions, 0, "snapshot diffFull grow deletions");
+		final trim = requireDiff(diffs, "trim.txt");
+		eq(trim.status, "modified", "snapshot diffFull trim modified status");
+		eq(trim.additions, 0, "snapshot diffFull trim additions");
+		eq(trim.deletions > 0, true, "snapshot diffFull trim deletions");
 		tmp.dispose();
 	}
 

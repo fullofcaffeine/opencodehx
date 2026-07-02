@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`, `opencodehx-mnse`, `opencodehx-1qmk`, `opencodehx-3cgk`, `opencodehx-0z0m`, `opencodehx-2uwe`, `opencodehx-fbe7`, `opencodehx-i11n`, `opencodehx-7s01`, `opencodehx-51y6`, `opencodehx-o8tp`, `opencodehx-ce6t`, `opencodehx-i4fy`, `opencodehx-a9tt`, `opencodehx-7fj3`, `opencodehx-b3tj`, `opencodehx-f5rq`, `opencodehx-5l53`, `opencodehx-ul8r`, `opencodehx-vbdl`, `opencodehx-e602`, `opencodehx-i8md`
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`, `opencodehx-mnse`, `opencodehx-1qmk`, `opencodehx-3cgk`, `opencodehx-0z0m`, `opencodehx-2uwe`, `opencodehx-fbe7`, `opencodehx-i11n`, `opencodehx-7s01`, `opencodehx-51y6`, `opencodehx-o8tp`, `opencodehx-ce6t`, `opencodehx-i4fy`, `opencodehx-a9tt`, `opencodehx-7fj3`, `opencodehx-b3tj`, `opencodehx-f5rq`, `opencodehx-5l53`, `opencodehx-ul8r`, `opencodehx-vbdl`, `opencodehx-e602`, `opencodehx-i8md`, `opencodehx-gelg`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -51,7 +51,7 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 - `diffFull` reports mixed added/deleted text-file entries in one result, including multiple added/deleted files and a large interleaved text/binary batch.
 - `diffFull` reports whitespace-only text edits as modified entries with positive additions.
 - `diffFull` preserves deterministic Git-style file order across a 140-file ordered batch.
-- `diffFull` reports upstream-shaped `added`, `deleted`, and `modified` statuses.
+- `diffFull` reports upstream-shaped `added`, `deleted`, and `modified` statuses, including grow-only and trim-only text churn counts.
 - Binary `diffFull` entries preserve upstream's empty patch and zero text-churn shape.
 - Binary revert removes newly added binary files and restores modified binary contents byte-for-byte.
 - File and nested directory symlink patch detection are covered on hosts that permit symlink creation.
