@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -18,6 +18,7 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 `SnapshotSmoke` covers representative upstream behavior:
 
 - Track, patch, diff, and revert across added, modified, and deleted files.
+- Repeated no-change tracking returns the same snapshot hash.
 - Empty directories do not create patch entries.
 - Invalid hashes return an empty patch without throwing.
 - Empty revert patch lists are no-ops.

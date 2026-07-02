@@ -20,6 +20,7 @@ class SnapshotSmoke {
 		binaryPatchAndRevert();
 		symlinkPatch();
 		diffFullStatuses();
+		repeatedTrackStableHash();
 		SnapshotRuntime.reset();
 	}
 
@@ -169,6 +170,17 @@ class SnapshotSmoke {
 		eq(statusOf(diffs, "delete.txt"), "deleted", "snapshot diffFull deleted status");
 		eq(statusOf(diffs, "grow.txt"), "modified", "snapshot diffFull grow modified status");
 		eq(statusOf(diffs, "trim.txt"), "modified", "snapshot diffFull trim modified status");
+		tmp.dispose();
+	}
+
+	static function repeatedTrackStableHash():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final first = SnapshotRuntime.trackDirectory(dir);
+		final second = SnapshotRuntime.trackDirectory(dir);
+		final third = SnapshotRuntime.trackDirectory(dir);
+		eq(second, first, "snapshot repeated track second hash");
+		eq(third, first, "snapshot repeated track third hash");
 		tmp.dispose();
 	}
 
