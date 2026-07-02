@@ -19,6 +19,7 @@ class SnapshotSmoke {
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
+		diffFullStatuses();
 		SnapshotRuntime.reset();
 	}
 
@@ -148,6 +149,29 @@ class SnapshotSmoke {
 		tmp.dispose();
 	}
 
+	static function diffFullStatuses():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		write(dir, "grow.txt", "one\n");
+		write(dir, "trim.txt", "line1\nline2\n");
+		write(dir, "delete.txt", "gone");
+		final before = SnapshotRuntime.trackDirectory(dir);
+
+		write(dir, "grow.txt", "one\ntwo\n");
+		write(dir, "trim.txt", "line1\n");
+		Fs.rmSync(NodePath.join(dir, "delete.txt"), {force: true});
+		write(dir, "added.txt", "new");
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, 4, "snapshot diffFull status count");
+		eq(statusOf(diffs, "added.txt"), "added", "snapshot diffFull added status");
+		eq(statusOf(diffs, "delete.txt"), "deleted", "snapshot diffFull deleted status");
+		eq(statusOf(diffs, "grow.txt"), "modified", "snapshot diffFull grow modified status");
+		eq(statusOf(diffs, "trim.txt"), "modified", "snapshot diffFull trim modified status");
+		tmp.dispose();
+	}
+
 	static function bootstrap():SmokeTmpDir {
 		final tmp = SmokeTmpDir.create({git: true});
 		final dir = tmp.path;
@@ -180,6 +204,14 @@ class SnapshotSmoke {
 				return true;
 		}
 		return false;
+	}
+
+	static function statusOf(diffs:Array<opencodehx.snapshot.SnapshotFileDiff>, file:String):String {
+		for (diff in diffs) {
+			if (diff.file == file)
+				return diff.status;
+		}
+		throw 'missing snapshot diff for ${file}';
 	}
 
 	static function abs(dir:String, file:String):String {

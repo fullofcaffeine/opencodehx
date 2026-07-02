@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -24,6 +24,7 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 - Added files larger than the upstream 2 MiB limit are skipped and keep the snapshot hash stable.
 - `.gitignore` and `git check-ignore --no-index` filtering exclude ignored files while keeping `.gitignore` itself and normal files.
 - `diffFull` reports changed tracked files and excludes ignored files.
+- `diffFull` reports upstream-shaped `added`, `deleted`, and `modified` statuses.
 - Binary `diffFull` entries preserve upstream's empty patch and zero text-churn shape.
 - Binary revert removes newly added binary files and restores modified binary contents byte-for-byte.
 - Symlink patch detection is covered on hosts that permit symlink creation.
