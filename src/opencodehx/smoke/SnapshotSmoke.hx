@@ -45,6 +45,7 @@ class SnapshotSmoke {
 		binaryPatchAndRevert();
 		symlinkPatch();
 		nestedSymlinkPatch();
+		symlinkRevertLifecycle();
 		circularSymlinkPatchDoesNotCrash();
 		diffFullNoChanges();
 		diffFullAddedTextPatch();
@@ -672,6 +673,57 @@ class SnapshotSmoke {
 			contains(patch, dir, "sub-link", "snapshot nested symlink directory link");
 		}
 		tmp.dispose();
+	}
+
+	static function symlinkRevertLifecycle():Void {
+		final restored = bootstrap();
+		final restoredDir = restored.path;
+		final restoredTarget = NodePath.join(restoredDir, "target.txt");
+		final restoredLink = NodePath.join(restoredDir, "link.txt");
+		write(restoredDir, "target.txt", "target content");
+		if (tryFileSymlink(restoredTarget, restoredLink)) {
+			final before = SnapshotRuntime.trackDirectory(restoredDir);
+			Fs.rmSync(restoredLink, {force: true});
+			write(restoredDir, "link.txt", "regular replacement");
+			final patch = SnapshotRuntime.patch(restoredDir, before);
+			contains(patch, restoredDir, "link.txt", "snapshot symlink replaced by file");
+			SnapshotRuntime.revert(restoredDir, [patch]);
+			eq(Fs.lstatSync(restoredLink).isSymbolicLink(), true, "snapshot revert restores symlink kind");
+			eq(Fs.readlinkSync(restoredLink), restoredTarget, "snapshot revert restores symlink target");
+		}
+		restored.dispose();
+
+		final added = bootstrap();
+		final addedDir = added.path;
+		final addedTarget = NodePath.join(addedDir, "target.txt");
+		final addedLink = NodePath.join(addedDir, "fresh-link.txt");
+		write(addedDir, "target.txt", "target content");
+		final beforeAdded = SnapshotRuntime.trackDirectory(addedDir);
+		if (tryFileSymlink(addedTarget, addedLink)) {
+			final patch = SnapshotRuntime.patch(addedDir, beforeAdded);
+			contains(patch, addedDir, "fresh-link.txt", "snapshot added symlink");
+			SnapshotRuntime.revert(addedDir, [patch]);
+			eq(Fs.existsSync(addedLink), false, "snapshot revert removes added symlink");
+		}
+		added.dispose();
+
+		final regular = bootstrap();
+		final regularDir = regular.path;
+		final regularFile = NodePath.join(regularDir, "regular.txt");
+		final regularTarget = NodePath.join(regularDir, "target.txt");
+		write(regularDir, "regular.txt", "regular content");
+		write(regularDir, "target.txt", "target content");
+		final beforeRegular = SnapshotRuntime.trackDirectory(regularDir);
+		Fs.rmSync(regularFile, {force: true});
+		if (tryFileSymlink(regularTarget, regularFile)) {
+			final patch = SnapshotRuntime.patch(regularDir, beforeRegular);
+			contains(patch, regularDir, "regular.txt", "snapshot regular file replaced by symlink");
+			SnapshotRuntime.revert(regularDir, [patch]);
+			eq(Fs.lstatSync(regularFile).isSymbolicLink(), false, "snapshot revert replaces symlink with file");
+			eq(Fs.readFileSync(regularFile, "utf8"), "regular content", "snapshot revert restores regular file content");
+			eq(Fs.readFileSync(regularTarget, "utf8"), "target content", "snapshot revert leaves symlink target unchanged");
+		}
+		regular.dispose();
 	}
 
 	static function circularSymlinkPatchDoesNotCrash():Void {

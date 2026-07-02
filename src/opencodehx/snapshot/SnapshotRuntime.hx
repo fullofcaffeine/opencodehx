@@ -4,6 +4,7 @@ using StringTools;
 
 import opencodehx.externs.node.Crypto;
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Fs.FsStats;
 import opencodehx.externs.node.Buffer;
 import opencodehx.git.Git;
 import opencodehx.host.node.NodePath;
@@ -242,12 +243,21 @@ class SnapshotRuntime {
 			Fs.symlinkSync(entry.content, path);
 			return;
 		}
-		if (Fs.existsSync(path) && Fs.statSync(path).isDirectory())
+		final existing = lstatOrNull(path);
+		if (existing != null && (existing.isSymbolicLink() || existing.isDirectory()))
 			Fs.rmSync(path, {force: true, recursive: true});
 		if (entry.binary)
 			Fs.writeFileSync(path, Buffer.from(entry.content, "base64"));
 		else
 			Fs.writeFileSync(path, entry.content);
+	}
+
+	static function lstatOrNull(path:String):Null<FsStats> {
+		try {
+			return Fs.lstatSync(path);
+		} catch (_:haxe.Exception) {
+			return null;
+		}
 	}
 
 	static function ensureDirectory(path:String):Void {
