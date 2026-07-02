@@ -1,6 +1,7 @@
 package opencodehx.smoke;
 
 import js.lib.Uint8Array;
+import opencodehx.externs.node.Buffer;
 import opencodehx.externs.node.Fs;
 import opencodehx.git.Git;
 import opencodehx.git.Git.GitRunResult;
@@ -16,6 +17,7 @@ class SnapshotSmoke {
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
 		binaryDiffFull();
+		binaryPatchAndRevert();
 		SnapshotRuntime.reset();
 	}
 
@@ -109,6 +111,30 @@ class SnapshotSmoke {
 		tmp.dispose();
 	}
 
+	static function binaryPatchAndRevert():Void {
+		final added = bootstrap();
+		final addedDir = added.path;
+		final beforeAdd = SnapshotRuntime.trackDirectory(addedDir);
+		writeBytes(addedDir, "image.png", [0x89, 0x50, 0x4e, 0x47]);
+		final addedPatch = SnapshotRuntime.patch(addedDir, beforeAdd);
+		contains(addedPatch, addedDir, "image.png", "snapshot binary added file");
+		SnapshotRuntime.revert(addedDir, [addedPatch]);
+		eq(Fs.existsSync(NodePath.join(addedDir, "image.png")), false, "snapshot revert added binary");
+		added.dispose();
+
+		final modified = bootstrap();
+		final modifiedDir = modified.path;
+		final original = [0x00, 0x01, 0x02, 0x03];
+		writeBytes(modifiedDir, "data.bin", original);
+		final beforeModify = SnapshotRuntime.trackDirectory(modifiedDir);
+		writeBytes(modifiedDir, "data.bin", [0x04, 0x05, 0x06, 0x07]);
+		final modifiedPatch = SnapshotRuntime.patch(modifiedDir, beforeModify);
+		contains(modifiedPatch, modifiedDir, "data.bin", "snapshot binary modified file");
+		SnapshotRuntime.revert(modifiedDir, [modifiedPatch]);
+		eq(readBase64(modifiedDir, "data.bin"), bytesBase64(original), "snapshot revert modified binary bytes");
+		modified.dispose();
+	}
+
 	static function bootstrap():SmokeTmpDir {
 		final tmp = SmokeTmpDir.create({git: true});
 		final dir = tmp.path;
@@ -161,6 +187,14 @@ class SnapshotSmoke {
 		final path = NodePath.join(root, relative);
 		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
 		Fs.writeFileSync(path, Uint8Array.from(bytes));
+	}
+
+	static function readBase64(root:String, relative:String):String {
+		return Fs.readFileBufferSync(NodePath.join(root, relative)).toString("base64");
+	}
+
+	static function bytesBase64(bytes:Array<Int>):String {
+		return Buffer.from(Uint8Array.from(bytes)).toString("base64");
 	}
 
 	static function repeat(text:String, count:Int):String {
