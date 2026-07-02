@@ -511,6 +511,11 @@ class ToolSmoke {
 		eq(file.output.indexOf("<type>file</type>") != -1, true, "read file type");
 		eq(file.output.indexOf("1: export const needle = 1;") != -1, true, "read line");
 
+		write(ctx.directory, "src/long-line.txt", repeat("x", 3000));
+		final longLine = registry.execute(ToolIDs.known("read"), {filePath: "src/long-line.txt"}, ctx);
+		eq(longLine.output.indexOf("(line truncated to 2000 chars)") != -1, true, "read long-line truncation suffix");
+		eq(longLine.output.length < 3000, true, "read long-line output shortened");
+
 		write(ctx.directory, "feature/AGENTS.md", "# Feature Instructions\nUse feature rules.");
 		write(ctx.directory, "feature/nested/file.ts", "export const feature = true;\n");
 		final instructed = registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/file.ts"}, ctx);

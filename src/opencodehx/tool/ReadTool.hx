@@ -31,6 +31,7 @@ typedef ReadToolInput = {
 class ReadTool {
 	static inline final DEFAULT_READ_LIMIT = 2000;
 	static inline final MAX_LINE_LENGTH = 2000;
+	static inline final MAX_LINE_SUFFIX = "... (line truncated to 2000 chars)";
 	static inline final MAX_BYTES = 50 * 1024;
 	static inline final SAMPLE_BYTES = 4096;
 
@@ -187,7 +188,7 @@ class ReadTool {
 			for (i in start...end) {
 				var line = lines[i];
 				if (line.length > MAX_LINE_LENGTH)
-					line = line.substr(0, MAX_LINE_LENGTH) + "...";
+					line = line.substr(0, MAX_LINE_LENGTH) + MAX_LINE_SUFFIX;
 				final row = '${i + 1}: ${line}';
 				bytes += row.length;
 				if (bytes > MAX_BYTES) {
