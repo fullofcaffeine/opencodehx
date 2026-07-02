@@ -126,6 +126,10 @@ class Main {
 				log("permission-smoke:ok");
 				StorageSmoke.run();
 				log("storage-smoke:ok");
+				return StorageSmoke.runAsync();
+			})
+			.then(_ -> {
+				log("storage-async-smoke:ok");
 				return ToolSmoke.run();
 			})
 			.then(_ -> {

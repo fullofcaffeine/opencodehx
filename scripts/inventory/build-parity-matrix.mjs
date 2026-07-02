@@ -218,8 +218,8 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/storage/StorageJsonRuntime.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md",
-        "generic JSON write/read/update/remove/list behavior and session/message CRUD are covered; real Effect service layering, concurrent update serialization, and full Drizzle/AppFileSystem integration remain deferred",
-        "StorageSmoke.jsonKeyValueStorage plus session/message CRUD",
+        "generic JSON write/read/update/remove/list behavior, per-key concurrent JSON update serialization, and session/message CRUD are covered; real Effect service layering and full Drizzle/AppFileSystem integration remain deferred",
+        "StorageSmoke.jsonKeyValueStorage/jsonConcurrentUpdates plus session/message CRUD",
       ],
     ],
     ["storage/json-migration.test.ts", ["partial", "src/opencodehx/storage/JsonStorageMigrationRuntime.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md", "project/session/message/part migration, parent orphan skipping, unreadable-file error collection, and typed todo/permission/session-share side-table summaries are covered; persisted side tables, full Drizzle migration compatibility, and storage service integration remain deferred", "StorageSmoke.jsonMigration"]],

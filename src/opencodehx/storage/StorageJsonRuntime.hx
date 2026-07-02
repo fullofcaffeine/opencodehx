@@ -3,6 +3,7 @@ package opencodehx.storage;
 import genes.ts.JsonCodec;
 import genes.ts.JsonCodec.JsonDecode;
 import genes.ts.JsonValue;
+import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.storage.StorageError.StorageException;
@@ -15,9 +16,11 @@ import opencodehx.util.Compare.compareString;
  */
 class StorageJsonRuntime {
 	final root:String;
+	final updateQueues:Map<String, Promise<Bool>>;
 
 	public function new(root:String) {
 		this.root = root;
+		updateQueues = new Map();
 		Fs.mkdirSync(root, {recursive: true});
 	}
 
@@ -36,6 +39,21 @@ class StorageJsonRuntime {
 
 	public function update(key:Array<String>, change:JsonValue->JsonValue):Void {
 		write(key, change(read(key)));
+	}
+
+	public function updateQueued(key:Array<String>, change:JsonValue->Promise<JsonValue>):Promise<Void> {
+		final queueKey = keyID(key);
+		final previous = updateQueues.get(queueKey);
+		final ready = previous == null ? Promise.resolve(true) : previous;
+		final operation:Promise<Void> = ready.then(_ -> {
+			final current = read(key);
+			return change(current).then(next -> {
+				write(key, next);
+				return null;
+			});
+		});
+		updateQueues.set(queueKey, operation.then(_ -> true).catchError(_ -> true));
+		return operation;
 	}
 
 	public function remove(key:Array<String>):Void {
@@ -97,5 +115,9 @@ class StorageJsonRuntime {
 
 	static function compareKeys(a:Array<String>, b:Array<String>):Int {
 		return compareString(a.join("\n"), b.join("\n"));
+	}
+
+	static function keyID(key:Array<String>):String {
+		return key.join("\n");
 	}
 }

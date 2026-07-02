@@ -3,6 +3,7 @@ package opencodehx.smoke;
 import haxe.DynamicAccess;
 import haxe.Json;
 import genes.ts.JsonCodec;
+import js.lib.Promise;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.host.node.GlobalPaths;
@@ -40,6 +41,17 @@ class StorageSmoke {
 		});
 	}
 
+	public static function runAsync():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-storage-async-"));
+		return jsonConcurrentUpdates(root).then(_ -> {
+			Fs.rmSync(root, {recursive: true, force: true});
+			return null;
+		}).catchError(error -> {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		});
+	}
+
 	static function jsonKeyValueStorage(root:String):Void {
 		final storage = new StorageJsonRuntime(NodePath.join(root, "json-kv"));
 		final roundtrip = ["roundtrip", "value"];
@@ -74,6 +86,20 @@ class StorageSmoke {
 		expectNotFound(() -> storage.read(a), "storage removed read");
 		storage.remove(["does", "not", "exist"]);
 		eq(storage.list(["does"]).length, 0, "storage missing prefix empty");
+	}
+
+	@:async
+	static function jsonConcurrentUpdates(root:String):Promise<Void> {
+		final storage = new StorageJsonRuntime(NodePath.join(root, "json-kv-concurrent"));
+		final key = ["counter", "shared"];
+		storage.write(key, genes.ts.Json.value({value: 0}));
+
+		final updates:Array<Promise<Void>> = [];
+		for (_ in 0...25) {
+			updates.push(storage.updateQueued(key, current -> Promise.resolve(genes.ts.Json.value({value: counterValue(current) + 1}))));
+		}
+		@:await Promise.all(updates);
+		eq(jsonString(storage.read(key)), '{"value":25}', "storage concurrent updates serialized");
 	}
 
 	static function databasePath(root:String):Void {
@@ -345,6 +371,17 @@ class StorageSmoke {
 
 	static function jsonString(value:genes.ts.JsonValue):String {
 		return JsonCodec.stringify(value);
+	}
+
+	static function counterValue(value:genes.ts.JsonValue):Int {
+		final text = jsonString(value);
+		final prefix = '{"value":';
+		if (!StringTools.startsWith(text, prefix) || !StringTools.endsWith(text, "}"))
+			throw 'storage counter fixture: expected value object, got ${text}';
+		final parsed = Std.parseInt(text.substr(prefix.length, text.length - prefix.length - 1));
+		if (parsed == null)
+			throw 'storage counter fixture: expected integer, got ${text}';
+		return parsed;
 	}
 
 	static function keys(values:Array<Array<String>>):String {
