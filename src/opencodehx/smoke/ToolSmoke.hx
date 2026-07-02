@@ -15,6 +15,7 @@ import opencodehx.externs.node.Url;
 import opencodehx.file.FileToolEvents;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
+import opencodehx.lsp.LspTypes.LspDiagnosticInfo;
 import opencodehx.session.SessionInstructionClaims;
 import opencodehx.tool.BashCommandScanner;
 import opencodehx.tool.BashCommandScanner.BashScan;
@@ -33,6 +34,7 @@ import opencodehx.tool.ToolTypes.ToolPermissionRequest;
 import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolTypes.ToolResultAttachment;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
+import opencodehx.tool.ToolTypes.ToolLspDiagnosticEntry;
 import opencodehx.tool.QuestionTool;
 import opencodehx.tool.Truncate;
 import opencodehx.tool.WebFetchTool;
@@ -915,6 +917,24 @@ class ToolSmoke {
 		eq(writeEdited.join("|"), [writeEventFile, writeEventFile].join("|"), "write publishes file.edited events");
 		eq(writeWatcher.join("|"), [writeEventFile + ":add", writeEventFile + ":change"].join("|"), "write publishes watcher add/change events");
 
+		final writeDiagnosticFile = NodePath.join(ctx.directory, "src/write-diagnostic.ts");
+		final otherDiagnosticFile = NodePath.join(ctx.directory, "src/write-other.ts");
+		final writeTouched:Array<String> = [];
+		final writeDiagnosticResult = registry.execute(ToolIDs.known("write"), {
+			filePath: "src/write-diagnostic.ts",
+			content: "const value: string = 1;\n"
+		}, contextWithLsp(ctx, [
+			{file: writeDiagnosticFile, issues: [diagnostic("Write mismatch", 0, 6)]},
+			{file: otherDiagnosticFile, issues: [diagnostic("Other mismatch", 2, 1)]},
+			], writeTouched));
+		eq(writeTouched.join("|"), writeDiagnosticFile + ":true", "write touches lsp target");
+		eq(writeDiagnosticResult.output.indexOf("LSP errors detected in this file, please fix:") != -1, true, "write lsp current output header");
+		eq(writeDiagnosticResult.output.indexOf('<diagnostics file="' + writeDiagnosticFile + '">') != -1, true, "write lsp current diagnostics block");
+		eq(writeDiagnosticResult.output.indexOf("ERROR [1:7] Write mismatch") != -1, true, "write lsp current diagnostic");
+		eq(writeDiagnosticResult.output.indexOf("LSP errors detected in other files:") != -1, true, "write lsp other output header");
+		eq(writeDiagnosticResult.output.indexOf('<diagnostics file="' + otherDiagnosticFile + '">') != -1, true, "write lsp other diagnostics block");
+		eq(Json.stringify(writeDiagnosticResult.metadata).indexOf('"Write mismatch"') != -1, true, "write lsp metadata");
+
 		final jsonContent = '{"key":"value","nested":{"array":[1,2,3]}}';
 		registry.execute(ToolIDs.known("write"), {filePath: "src/data.json", content: jsonContent}, ctx);
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/data.json"), "utf8"), jsonContent, "write json content");
@@ -1157,6 +1177,21 @@ class ToolSmoke {
 		}, editBusCtx);
 		eq(editEdited.join("|"), [editEventFile, editEventFile].join("|"), "edit publishes file.edited events");
 		eq(editWatcher.join("|"), [editEventFile + ":add", editEventFile + ":change"].join("|"), "edit publishes watcher add/change events");
+
+		final editDiagnosticFile = NodePath.join(ctx.directory, "src/edit-diagnostic.ts");
+		write(ctx.directory, "src/edit-diagnostic.ts", "const value: string = 1;\n");
+		final editTouched:Array<String> = [];
+		final editDiagnosticResult = registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/edit-diagnostic.ts",
+			oldString: "1",
+			newString: "2"
+		},
+			contextWithLsp(ctx, [{file: editDiagnosticFile, issues: [diagnostic("Edit mismatch", 0, 6)]}], editTouched));
+		eq(editTouched.join("|"), editDiagnosticFile + ":true", "edit touches lsp target");
+		eq(editDiagnosticResult.output.indexOf("LSP errors detected in this file, please fix:") != -1, true, "edit lsp output header");
+		eq(editDiagnosticResult.output.indexOf('<diagnostics file="' + editDiagnosticFile + '">') != -1, true, "edit lsp diagnostics block");
+		eq(editDiagnosticResult.output.indexOf("ERROR [1:7] Edit mismatch") != -1, true, "edit lsp diagnostic");
+		eq(Json.stringify(editDiagnosticResult.metadata).indexOf('"Edit mismatch"') != -1, true, "edit lsp metadata");
 
 		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-edit-outside-"));
 		final outsideFile = NodePath.join(outsideDir, "outside.txt");
@@ -1420,6 +1455,36 @@ class ToolSmoke {
 			patchDelete + ":unlink",
 		].join("|"), "patch publishes watcher add/change/unlink events");
 
+		final patchDiagnosticAdd = NodePath.join(ctx.directory, "src/patch-diagnostic-add.ts");
+		final patchDiagnosticUpdate = NodePath.join(ctx.directory, "src/patch-diagnostic-update.ts");
+		final patchDiagnosticDelete = NodePath.join(ctx.directory, "src/patch-diagnostic-delete.ts");
+		write(ctx.directory, "src/patch-diagnostic-update.ts", "old\n");
+		write(ctx.directory, "src/patch-diagnostic-delete.ts", "delete\n");
+		final patchTouched:Array<String> = [];
+		final patchDiagnosticResult = registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: [
+				"*** Begin Patch",
+				"*** Add File: src/patch-diagnostic-add.ts",
+				"+add",
+				"*** Update File: src/patch-diagnostic-update.ts",
+				"@@",
+				"-old",
+				"+new",
+				"*** Delete File: src/patch-diagnostic-delete.ts",
+				"*** End Patch",
+			].join("\n")
+		}, contextWithLsp(ctx, [
+			{file: patchDiagnosticAdd, issues: [diagnostic("Patch add mismatch", 0, 0)]},
+			{file: patchDiagnosticUpdate, issues: [diagnostic("Patch update mismatch", 0, 0)]},
+			], patchTouched));
+		eq(patchTouched.join("|"), [patchDiagnosticAdd + ":true", patchDiagnosticUpdate + ":true"].join("|"), "patch touches non-delete lsp targets");
+		eq(patchDiagnosticResult.output.indexOf("LSP errors detected in src/patch-diagnostic-add.ts, please fix:") != -1, true, "patch add lsp output header");
+		eq(patchDiagnosticResult.output.indexOf("LSP errors detected in src/patch-diagnostic-update.ts, please fix:") != -1, true,
+			"patch update lsp output header");
+		eq(patchDiagnosticResult.output.indexOf("Patch add mismatch") != -1, true, "patch add lsp diagnostic");
+		eq(patchDiagnosticResult.output.indexOf("Patch update mismatch") != -1, true, "patch update lsp diagnostic");
+		eq(Json.stringify(patchDiagnosticResult.metadata).indexOf('"Patch update mismatch"') != -1, true, "patch lsp metadata");
+
 		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-patch-outside-"));
 		final outsideAdd = NodePath.join(outsideDir, "added.txt");
 		final outsideRequests:Array<ToolPermissionRequest> = [];
@@ -1665,9 +1730,38 @@ Use this skill.
 		};
 	}
 
+	static function contextWithLsp(ctx:ToolContext, diagnostics:Array<ToolLspDiagnosticEntry>, touched:Array<String>):ToolContext {
+		return {
+			directory: ctx.directory,
+			worktree: ctx.worktree,
+			sessionID: ctx.sessionID,
+			messageID: ctx.messageID,
+			callID: ctx.callID,
+			agent: ctx.agent,
+			toolOutputDir: ctx.toolOutputDir,
+			instructionClaims: ctx.instructionClaims,
+			loadedInstructions: ctx.loadedInstructions,
+			formatFile: ctx.formatFile,
+			bus: ctx.bus,
+			lsp: {
+				touchFile: (file, waitForDiagnostics) -> touched.push(file + ":" + waitForDiagnostics),
+				diagnostics: () -> diagnostics,
+			},
+			ask: ctx.ask,
+		};
+	}
+
 	static function collectFileEvents(bus:BusRuntime, edited:Array<String>, watcher:Array<String>):Void {
 		bus.subscribe(FileToolEvents.Edited, event -> edited.push(event.properties.file));
 		bus.subscribe(FileToolEvents.WatcherUpdated, event -> watcher.push(event.properties.file + ":" + event.properties.event));
+	}
+
+	static function diagnostic(message:String, line:Int, character:Int):LspDiagnosticInfo {
+		return {
+			range: {start: {line: line, character: character}, end: {line: line, character: character + 1}},
+			message: message,
+			severity: 1,
+		};
 	}
 
 	static function contextWithInstructionClaims(root:String, messageID:String, claims:SessionInstructionClaims):ToolContext {

@@ -109,6 +109,8 @@ class EditTool {
 		}
 		ToolFileNotifications.edited(ctx, absolute);
 		ToolFileNotifications.watcherUpdated(ctx, absolute, existed ? Change : Add);
+		final diagnostics = ToolLspReports.collect(ctx, [absolute]);
+		final output = ToolLspReports.appendFile("Edit applied successfully.", absolute, diagnostics);
 		return {
 			title: relative,
 			metadata: ToolResultMetadata.checked({
@@ -119,9 +121,9 @@ class EditTool {
 					additions: TextDiff.countAdditions(oldContent, finalContent),
 					deletions: TextDiff.countDeletions(oldContent, finalContent),
 				},
-				diagnostics: {}
+				diagnostics: diagnostics
 			}),
-			output: "Edit applied successfully.",
+			output: output,
 		};
 	}
 

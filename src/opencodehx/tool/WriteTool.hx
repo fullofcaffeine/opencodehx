@@ -77,6 +77,8 @@ class WriteTool {
 		}
 		ToolFileNotifications.edited(ctx, absolute);
 		ToolFileNotifications.watcherUpdated(ctx, absolute, existed ? Change : Add);
+		final diagnostics = ToolLspReports.collect(ctx, [absolute]);
+		final output = ToolLspReports.appendWrite("Wrote file successfully.", absolute, diagnostics);
 		return {
 			title: relative,
 			metadata: ToolResultMetadata.checked({
@@ -89,9 +91,9 @@ class WriteTool {
 					additions: TextDiff.countAdditions(oldContent, newContent),
 					deletions: TextDiff.countDeletions(oldContent, newContent),
 				},
-				diagnostics: {}
+				diagnostics: diagnostics
 			}),
-			output: "Wrote file successfully.",
+			output: output,
 		};
 	}
 

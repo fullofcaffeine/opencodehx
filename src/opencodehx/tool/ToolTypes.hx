@@ -4,6 +4,7 @@ import genes.ts.Json;
 import genes.ts.JsonValue;
 import genes.ts.Unknown;
 import opencodehx.bus.BusRuntime;
+import opencodehx.lsp.LspTypes.LspDiagnosticInfo;
 import opencodehx.session.SessionInstructionClaims;
 #if macro
 import haxe.macro.Context;
@@ -23,7 +24,18 @@ typedef ToolContext = {
 	@:optional final loadedInstructions:Array<String>;
 	@:optional final formatFile:String->Bool;
 	@:optional final bus:BusRuntime;
+	@:optional final lsp:ToolLspContext;
 	@:optional final ask:(ToolPermissionRequest) -> ToolPermissionDecision;
+}
+
+typedef ToolLspDiagnosticEntry = {
+	final file:String;
+	final issues:Array<LspDiagnosticInfo>;
+}
+
+typedef ToolLspContext = {
+	function touchFile(file:String, waitForDiagnostics:Bool):Void;
+	function diagnostics():Array<ToolLspDiagnosticEntry>;
 }
 
 typedef ToolPermissionRequest = {

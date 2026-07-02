@@ -104,10 +104,11 @@ class ApplyPatchTool {
 		final summary:Array<String> = [];
 		for (change in changes)
 			summary.push(summaryLine(change));
-		final output = 'Success. Updated the following files:\n${summary.join("\n")}';
+		final diagnostics = ToolLspReports.collect(ctx, diagnosticTargets(changes));
+		final output = ToolLspReports.appendPatch('Success. Updated the following files:\n${summary.join("\n")}', diagnosticLabels(ctx, changes), diagnostics);
 		return {
 			title: output,
-			metadata: ToolResultMetadata.checked({diff: totalDiff, files: changes, diagnostics: {}}),
+			metadata: ToolResultMetadata.checked({diff: totalDiff, files: changes, diagnostics: diagnostics}),
 			output: output,
 		};
 	}
@@ -306,6 +307,26 @@ class ApplyPatchTool {
 				ToolFileNotifications.watcherUpdated(ctx, change.filePath, Unlink);
 			case _:
 		}
+	}
+
+	static function diagnosticTargets(changes:Array<PatchChange>):Array<String> {
+		final targets:Array<String> = [];
+		for (change in changes) {
+			if (change.type != "delete")
+				targets.push(change.movePath == null ? change.filePath : change.movePath);
+		}
+		return targets;
+	}
+
+	static function diagnosticLabels(ctx:ToolContext, changes:Array<PatchChange>):Array<{file:String, label:String}> {
+		final targets:Array<{file:String, label:String}> = [];
+		for (change in changes) {
+			if (change.type != "delete") {
+				final target = change.movePath == null ? change.filePath : change.movePath;
+				targets.push({file: target, label: ToolPaths.relative(ctx, target)});
+			}
+		}
+		return targets;
 	}
 
 	static function deriveNewContent(filePath:String, oldContent:String, chunks:Array<PatchChunk>):String {
