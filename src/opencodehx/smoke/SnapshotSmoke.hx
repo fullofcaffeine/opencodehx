@@ -23,6 +23,7 @@ class SnapshotSmoke {
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
+		diffFullNoChanges();
 		diffFullStatuses();
 		repeatedTrackStableHash();
 		SnapshotRuntime.reset();
@@ -236,6 +237,16 @@ class SnapshotSmoke {
 			final patch = SnapshotRuntime.patch(dir, before);
 			contains(patch, dir, "link.txt", "snapshot symlink patch file");
 		}
+		tmp.dispose();
+	}
+
+	static function diffFullNoChanges():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, 0, "snapshot diffFull no changes");
 		tmp.dispose();
 	}
 
