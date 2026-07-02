@@ -21,6 +21,7 @@ class SnapshotSmoke {
 		revertNonExistentFile();
 		underLimitAddedFilesAreTracked();
 		specialFilenamePatchDetection();
+		hiddenFilePatchDetection();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
 		binaryDiffFull();
@@ -188,6 +189,21 @@ class SnapshotSmoke {
 		contains(patch, dir, "file with spaces.txt", "snapshot special filename spaces");
 		contains(patch, dir, "file-with-dashes.txt", "snapshot special filename dashes");
 		contains(patch, dir, "file_with_underscores.txt", "snapshot special filename underscores");
+		tmp.dispose();
+	}
+
+	static function hiddenFilePatchDetection():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, ".hidden", "hidden content");
+		write(dir, ".gitignore", "*.log");
+		write(dir, ".config", "config content");
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		contains(patch, dir, ".hidden", "snapshot hidden file");
+		contains(patch, dir, ".gitignore", "snapshot hidden gitignore file");
+		contains(patch, dir, ".config", "snapshot hidden config file");
 		tmp.dispose();
 	}
 
