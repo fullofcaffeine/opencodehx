@@ -6,6 +6,7 @@ import opencodehx.externs.node.Fs;
 import opencodehx.git.Git;
 import opencodehx.git.Git.GitRunResult;
 import opencodehx.host.node.NodePath;
+import opencodehx.host.node.NodeProcess;
 import opencodehx.snapshot.SnapshotRuntime;
 import opencodehx.snapshot.SnapshotRuntime.SnapshotPatch;
 
@@ -28,6 +29,7 @@ class SnapshotSmoke {
 		gitignoreFiltering();
 		newlyIgnoredSnapshotFileFiltering();
 		gitInfoExcludeFiltering();
+		gitInfoExcludeKeepsGlobalExcludes();
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
@@ -306,6 +308,45 @@ class SnapshotSmoke {
 		tmp.dispose();
 	}
 
+	static function gitInfoExcludeKeepsGlobalExcludes():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final global = NodePath.join(dir, "global.ignore");
+		final config = NodePath.join(dir, "global.gitconfig");
+		write(dir, "global.ignore", "global.tmp\n");
+		write(dir, "global.gitconfig", "[core]\n\texcludesFile = " + global.split("\\").join("/") + "\n");
+
+		final previous = NodeProcess.envValue("GIT_CONFIG_GLOBAL");
+		NodeProcess.setEnv("GIT_CONFIG_GLOBAL", config);
+		try {
+			final before = SnapshotRuntime.trackDirectory(dir);
+			final exclude = NodePath.join(dir, ".git/info/exclude");
+			final text = Fs.readFileSync(exclude, "utf8");
+			Fs.writeFileSync(exclude, StringTools.rtrim(text) + "\ninfo.tmp\n");
+
+			write(dir, "global.tmp", "global content");
+			write(dir, "info.tmp", "info content");
+			write(dir, "normal.txt", "normal content");
+
+			final patch = SnapshotRuntime.patch(dir, before);
+			contains(patch, dir, "normal.txt", "snapshot global excludes normal file");
+			missing(patch, dir, "global.tmp", "snapshot global excludes global file");
+			missing(patch, dir, "info.tmp", "snapshot global excludes info file");
+
+			final after = SnapshotRuntime.trackDirectory(dir);
+			final diffs = SnapshotRuntime.diffFull(dir, before, after);
+			eq(hasDiff(diffs, "normal.txt"), true, "snapshot global excludes diffFull normal");
+			eq(hasDiff(diffs, "global.tmp"), false, "snapshot global excludes diffFull global");
+			eq(hasDiff(diffs, "info.tmp"), false, "snapshot global excludes diffFull info");
+			restoreEnv("GIT_CONFIG_GLOBAL", previous);
+		} catch (error:haxe.Exception) {
+			restoreEnv("GIT_CONFIG_GLOBAL", previous);
+			tmp.dispose();
+			throw error;
+		}
+		tmp.dispose();
+	}
+
 	static function binaryDiffFull():Void {
 		final tmp = bootstrap();
 		final dir = tmp.path;
@@ -521,6 +562,13 @@ class SnapshotSmoke {
 				chunk += chunk;
 		}
 		return out;
+	}
+
+	static function restoreEnv(key:String, value:Null<String>):Void {
+		if (value == null)
+			NodeProcess.unsetEnv(key);
+		else
+			NodeProcess.setEnv(key, value);
 	}
 
 	static function require(result:GitRunResult, label:String):Void {
