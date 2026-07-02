@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Bead:** `opencodehx-gruz`  
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -24,11 +24,12 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 - Added files larger than the upstream 2 MiB limit are skipped and keep the snapshot hash stable.
 - `.gitignore` and `git check-ignore --no-index` filtering exclude ignored files while keeping `.gitignore` itself and normal files.
 - `diffFull` reports changed tracked files and excludes ignored files.
+- Binary `diffFull` entries preserve upstream's empty patch and zero text-churn shape.
 
 ## Deliberate Boundaries
 
 This is not the full upstream snapshot service yet. Upstream stores snapshots in a separate Git index and uses Effect services, scoped locks, cleanup, persistent snapshot directories, full restore semantics, worktree isolation, concurrent operation behavior, and structured patch parsing.
 
-OpenCodeHX currently uses Git for candidate discovery and ignore semantics, then stores typed content snapshots in process memory. That is enough to prove the first user-visible file-state semantics without mutating a source repo index. Full persistent Git-dir parity, `restore`, rich `diffFull` patch metadata, worktree/concurrency cases, symlink/binary edge cases, and cleanup/prune behavior remain deferred.
+OpenCodeHX currently uses Git for candidate discovery and ignore semantics, then stores typed content snapshots in process memory. That is enough to prove the first user-visible file-state semantics without mutating a source repo index. Full persistent Git-dir parity, `restore`, rich text `diffFull` patch metadata, worktree/concurrency cases, symlink and binary restore edge cases, and cleanup/prune behavior remain deferred.
 
 The runtime intentionally does not add broad JSON, `Dynamic`, or raw TypeScript boundaries. If later snapshot work needs lower-level Git plumbing that `genes-ts` cannot express cleanly, reduce it into a generic compiler/runtime helper before weakening the product source.

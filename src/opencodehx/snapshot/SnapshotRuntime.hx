@@ -1,7 +1,10 @@
 package opencodehx.snapshot;
 
+using StringTools;
+
 import opencodehx.externs.node.Crypto;
 import opencodehx.externs.node.Fs;
+import opencodehx.externs.node.Buffer;
 import opencodehx.git.Git;
 import opencodehx.host.node.NodePath;
 import opencodehx.project.InstanceRuntime.InstanceContext;
@@ -15,6 +18,7 @@ typedef SnapshotPatch = {
 
 private typedef SnapshotEntry = {
 	final content:String;
+	final binary:Bool;
 }
 
 /**
@@ -71,7 +75,7 @@ class SnapshotRuntime {
 					if (Fs.existsSync(absolute))
 						Fs.rmSync(absolute, {force: true});
 				} else {
-					writeFile(absolute, entry.content);
+					writeFile(absolute, entry);
 				}
 			}
 		}
@@ -93,13 +97,14 @@ class SnapshotRuntime {
 		for (file in changedFiles(before, after)) {
 			final oldEntry = before.get(file);
 			final newEntry = after.get(file);
-			final oldText = oldEntry == null ? "" : oldEntry.content;
-			final newText = newEntry == null ? "" : newEntry.content;
+			final binary = isBinaryDiff(oldEntry, newEntry);
+			final oldText = oldEntry == null || oldEntry.binary ? "" : oldEntry.content;
+			final newText = newEntry == null || newEntry.binary ? "" : newEntry.content;
 			out.push({
 				file: file,
-				patch: "diff -- " + file,
-				additions: lineCount(newText),
-				deletions: lineCount(oldText),
+				patch: binary ? "" : "diff -- " + file,
+				additions: binary ? 0 : lineCount(newText),
+				deletions: binary ? 0 : lineCount(oldText),
 				status: oldEntry == null ? "added" : (newEntry == null ? "deleted" : "modified"),
 			});
 		}
@@ -122,8 +127,12 @@ class SnapshotRuntime {
 			final size = stat.size == null ? 0 : Std.int(stat.size);
 			if (size > LIMIT)
 				continue;
+			final buffer = Fs.readFileBufferSync(path);
+			final text = buffer.toString("utf8");
+			final binary = isBinaryPath(file) || text.indexOf(String.fromCharCode(0)) != -1;
 			entries.set(file, {
-				content: Fs.readFileSync(path, "utf8"),
+				content: binary ? buffer.toString("base64") : text,
+				binary: binary,
 			});
 		}
 		return entries;
@@ -147,7 +156,7 @@ class SnapshotRuntime {
 			seen.set(file, true);
 			final next = after.get(file);
 			final previous = before.get(file);
-			if (next == null || previous == null || next.content != previous.content)
+			if (entryChanged(previous, next))
 				out.push(file);
 		}
 		for (file in after.keys()) {
@@ -173,7 +182,7 @@ class SnapshotRuntime {
 		for (file in files) {
 			final entry = entries.get(file);
 			if (entry != null)
-				body.push(file + "\u0000" + entry.content + "\u0000");
+				body.push(file + "\u0000" + (entry.binary ? "binary" : "text") + "\u0000" + entry.content + "\u0000");
 		}
 		return Crypto.createHash("sha1").update(body.join("")).digest("hex");
 	}
@@ -182,15 +191,33 @@ class SnapshotRuntime {
 		return NodePath.relative(NodePath.resolve(directory, ""), NodePath.resolve(file, "")).split("\\").join("/");
 	}
 
-	static function writeFile(path:String, content:String):Void {
+	static function writeFile(path:String, entry:SnapshotEntry):Void {
 		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
-		Fs.writeFileSync(path, content);
+		if (entry.binary)
+			Fs.writeFileSync(path, Buffer.from(entry.content, "base64"));
+		else
+			Fs.writeFileSync(path, entry.content);
 	}
 
 	static function lineCount(text:String):Int {
 		if (text == "")
 			return 0;
 		return text.split("\n").length;
+	}
+
+	static function entryChanged(previous:Null<SnapshotEntry>, next:Null<SnapshotEntry>):Bool {
+		return next == null || previous == null || next.binary != previous.binary || next.content != previous.content;
+	}
+
+	static function isBinaryDiff(oldEntry:Null<SnapshotEntry>, newEntry:Null<SnapshotEntry>):Bool {
+		return (oldEntry != null && oldEntry.binary) || (newEntry != null && newEntry.binary);
+	}
+
+	static function isBinaryPath(file:String):Bool {
+		final normalized = file.toLowerCase();
+		return normalized.endsWith(".bin") || normalized.endsWith(".png") || normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")
+			|| normalized.endsWith(".gif") || normalized.endsWith(".webp") || normalized.endsWith(".pdf") || normalized.endsWith(".wasm")
+			|| normalized.endsWith(".zip") || normalized.endsWith(".gz");
 	}
 
 	static function hasSnapshotService(context:InstanceContext):Bool {

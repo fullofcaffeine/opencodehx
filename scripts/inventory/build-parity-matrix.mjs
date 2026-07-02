@@ -367,7 +367,7 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/snapshot/SnapshotRuntime.hx; src/opencodehx/smoke/SnapshotSmoke.hx; docs/snapshot-runtime.md",
-        "focused snapshot runtime covers deterministic track hashes, patch detection for added/modified/deleted files, revert restore/delete behavior, empty-directory no-op, invalid-hash empty patch, large added-file skip/stable hash, gitignore filtering, and simple diff/diffFull evidence; persistent separate Git-dir lifecycle, full restore semantics, rich diffFull patch metadata, worktree isolation, symlink/binary edge cases, cleanup/prune, and concurrency behavior remain deferred",
+        "focused snapshot runtime covers deterministic track hashes, patch detection for added/modified/deleted files, revert restore/delete behavior, empty-directory no-op, invalid-hash empty patch, large added-file skip/stable hash, gitignore filtering, simple diff/diffFull evidence, and binary diffFull empty-patch/zero-churn shape; persistent separate Git-dir lifecycle, full restore semantics, rich text diffFull patch metadata, worktree isolation, symlink and binary restore edge cases, cleanup/prune, and concurrency behavior remain deferred",
         "SnapshotSmoke",
         m11Owners.foundation,
       ],

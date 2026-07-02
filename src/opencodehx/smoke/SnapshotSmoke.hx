@@ -1,5 +1,6 @@
 package opencodehx.smoke;
 
+import js.lib.Uint8Array;
 import opencodehx.externs.node.Fs;
 import opencodehx.git.Git;
 import opencodehx.git.Git.GitRunResult;
@@ -14,6 +15,7 @@ class SnapshotSmoke {
 		emptyDirectoryAndInvalidHash();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
+		binaryDiffFull();
 		SnapshotRuntime.reset();
 	}
 
@@ -89,6 +91,24 @@ class SnapshotSmoke {
 		tmp.dispose();
 	}
 
+	static function binaryDiffFull():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		writeBytes(dir, "binary.bin", [0x00, 0x01, 0x02, 0x03]);
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, 1, "snapshot binary diffFull count");
+		final binaryDiff = diffs[0];
+		eq(binaryDiff.file, "binary.bin", "snapshot binary diffFull file");
+		eq(binaryDiff.patch, "", "snapshot binary diffFull empty patch");
+		eq(binaryDiff.additions, 0, "snapshot binary diffFull additions");
+		eq(binaryDiff.deletions, 0, "snapshot binary diffFull deletions");
+		eq(binaryDiff.status, "added", "snapshot binary diffFull status");
+		tmp.dispose();
+	}
+
 	static function bootstrap():SmokeTmpDir {
 		final tmp = SmokeTmpDir.create({git: true});
 		final dir = tmp.path;
@@ -135,6 +155,12 @@ class SnapshotSmoke {
 		final path = NodePath.join(root, relative);
 		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
 		Fs.writeFileSync(path, content);
+	}
+
+	static function writeBytes(root:String, relative:String, bytes:Array<Int>):Void {
+		final path = NodePath.join(root, relative);
+		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
+		Fs.writeFileSync(path, Uint8Array.from(bytes));
 	}
 
 	static function repeat(text:String, count:Int):String {
