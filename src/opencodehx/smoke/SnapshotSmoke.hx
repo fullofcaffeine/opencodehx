@@ -44,6 +44,7 @@ class SnapshotSmoke {
 		diffFullMultilineAddedTextPatch();
 		diffFullAddDeletePair();
 		diffFullMultipleAddDelete();
+		diffFullWhitespaceChanges();
 		diffFullOrderAcrossBatchBoundaries();
 		diffFullStatuses();
 		repeatedTrackStableHash();
@@ -636,6 +637,22 @@ class SnapshotSmoke {
 		final removedB = requireDiff(diffs, "b.txt");
 		eq(removedB.additions, 0, "snapshot diffFull multiple add-delete b additions");
 		eq(removedB.deletions, 1, "snapshot diffFull multiple add-delete b deletions");
+		tmp.dispose();
+	}
+
+	static function diffFullWhitespaceChanges():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		write(dir, "whitespace.txt", "line1\nline2");
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "whitespace.txt", "line1\n\nline2\n");
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, 1, "snapshot diffFull whitespace count");
+		final diff = requireDiff(diffs, "whitespace.txt");
+		eq(diff.additions > 0, true, "snapshot diffFull whitespace additions");
+		eq(diff.status, "modified", "snapshot diffFull whitespace status");
 		tmp.dispose();
 	}
 
