@@ -1,6 +1,6 @@
 # Storage Port
 
-**Beads:** `opencodehx-014`, `opencodehx-e6g6`
+**Beads:** `opencodehx-014`, `opencodehx-e6g6`, `opencodehx-0hmi`
 **Upstream oracle:** `../opencode/packages/opencode/src/storage/db.ts`, `db.node.ts`, `json-migration.ts`, `session/session.sql.ts`, `session/projectors.ts`, and `session/message-v2.ts`
 
 ## Slice
@@ -17,7 +17,7 @@ This slice adds a portable JSON file storage seam plus a Node-first SQLite seam 
 - `opencodehx.cli.Cli` wires the first non-interactive `export <sessionID> [--sanitize]` path through `StorageDatabasePath` and `SqliteSessionStore`, keeping JSON on stdout and progress/error diagnostics on stderr.
 - `opencodehx.storage.SessionStore.listSessions` and `opencodehx.cli.Cli` support first non-interactive `run --session <id>` and `run --continue` validation/recovery over stored sessions.
 - New and resumed CLI runs persist through the default `StorageDatabasePath` store, with `OPENCODE_DB` available as an override, making generated session IDs immediately exportable and resumed turns append-only.
-- `StorageSmoke` covers generic JSON storage write/read/update/remove/list behavior, missing-key errors, nested key paths, sorted listing, serialized concurrent JSON updates, create/read/update session, message/part upsert, pagination, part lookup/removal, and cascade delete. `ServerSmoke` covers `SessionStore.getMessage` through the individual message server routes.
+- `StorageSmoke` covers generic JSON storage write/read/update/remove/list behavior, missing-key errors, nested key paths, sorted listing, concurrent JSON reads, serialized concurrent JSON updates, create/read/update session, message/part upsert, pagination, part lookup/removal, and cascade delete. `ServerSmoke` covers `SessionStore.getMessage` through the individual message server routes.
 - `opencodehx.storage.JsonStorageMigrationRuntime` migrates the legacy JSON subset currently owned by `SessionStore`: project, session, message, and part files. It preserves upstream's path-derived ID precedence so stale `id`, `projectID`, `sessionID`, and `messageID` fields inside JSON bodies cannot override filenames or parent directories. It also decodes side-table migration summaries for legacy todo, permission, and session-share files so those upstream migration cases have typed evidence before the full tables are owned by storage.
 - `StorageSmoke.jsonMigration` covers project filename ID precedence, session directory/filename ID precedence, message filename ID precedence, part filename/message-path precedence, legacy parts without `sessionID`, orphan session/message/part skipping, idempotent reruns, missing storage directory empty stats, unreadable legacy file error collection with continued migration of valid files, valid todo counting with source-position preservation and invalid-entry skipping, permission file counting, session-share counting, and orphan side-table skipping.
 - `opencodehx.storage.StorageDatabasePath` mirrors upstream channel database path selection: `latest`, `beta`, `prod`, and disabled channel DB use `opencode.db`; other channels are sanitized into `opencode-<channel>.db`; `OPENCODE_DB` supports `:memory:`, absolute paths, and data-dir-relative paths.

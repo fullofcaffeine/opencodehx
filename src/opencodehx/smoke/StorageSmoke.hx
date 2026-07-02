@@ -43,7 +43,7 @@ class StorageSmoke {
 
 	public static function runAsync():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-storage-async-"));
-		return jsonConcurrentUpdates(root).then(_ -> {
+		return jsonConcurrentReads(root).then(_ -> jsonConcurrentUpdates(root)).then(_ -> {
 			Fs.rmSync(root, {recursive: true, force: true});
 			return null;
 		}).catchError(error -> {
@@ -86,6 +86,22 @@ class StorageSmoke {
 		expectNotFound(() -> storage.read(a), "storage removed read");
 		storage.remove(["does", "not", "exist"]);
 		eq(storage.list(["does"]).length, 0, "storage missing prefix empty");
+	}
+
+	@:async
+	static function jsonConcurrentReads(root:String):Promise<Void> {
+		final storage = new StorageJsonRuntime(NodePath.join(root, "json-kv-concurrent-read"));
+		final key = ["concurrent", "reads"];
+		storage.write(key, genes.ts.Json.value({ok: true}));
+
+		final reads:Array<Promise<String>> = [];
+		for (_ in 0...10)
+			reads.push(Promise.resolve(jsonString(storage.read(key))));
+
+		final results = @:await Promise.all(reads);
+		eq(results.length, 10, "storage concurrent reads count");
+		for (result in results)
+			eq(result, '{"ok":true}', "storage concurrent read value");
 	}
 
 	@:async
