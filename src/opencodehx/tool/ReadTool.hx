@@ -162,6 +162,8 @@ class ReadTool {
 				],
 			};
 		}
+		if (knownBinaryExtension(absolute))
+			throw new ToolException(ExecutionFailed(KnownToolID.Read, 'Cannot read binary file: ${absolute}'));
 
 		final content = Fs.readFileSync(absolute, "utf8");
 		if (looksBinary(content))
@@ -238,6 +240,16 @@ class ReadTool {
 			return 'File not found: ${absolute}';
 		suggestions.sort(compareStrings);
 		return 'File not found: ${absolute}. Did you mean ${suggestions.join(", ")}?';
+	}
+
+	static function knownBinaryExtension(path:String):Bool {
+		return switch NodePath.extname(path).toLowerCase() {
+			case ".zip" | ".tar" | ".gz" | ".exe" | ".dll" | ".so" | ".class" | ".jar" | ".war" | ".7z" | ".doc" | ".docx" | ".xls" | ".xlsx" | ".ppt" |
+				".pptx" | ".odt" | ".ods" | ".odp" | ".bin" | ".dat" | ".obj" | ".o" | ".a" | ".lib" | ".wasm" | ".pyc" | ".pyo":
+				true;
+			case _:
+				false;
+		}
 	}
 
 	static function looksBinary(content:String):Bool {

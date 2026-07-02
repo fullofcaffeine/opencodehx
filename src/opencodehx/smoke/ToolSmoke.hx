@@ -560,6 +560,14 @@ class ToolSmoke {
 		eq(imageAttachment.mime, "image/jpeg", "read sniffed image attachment mime");
 		eq(StringTools.startsWith(imageAttachment.url, "data:image/jpeg;base64,"), true, "read sniffed image data url");
 
+		write(ctx.directory, "feature/nested/module.wasm", "not really wasm");
+		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/module.wasm"}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "read" && message.indexOf("Cannot read binary file") != -1;
+				case _: false;
+			}
+		}, "read known binary extension failure");
+
 		final dir = registry.execute(ToolIDs.known("read"), {filePath: "src"}, ctx);
 		eq(dir.output.indexOf("<type>directory</type>") != -1, true, "read directory type");
 		eq(dir.output.indexOf("a.ts") != -1, true, "read directory entry");
