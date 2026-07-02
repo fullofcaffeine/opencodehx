@@ -168,6 +168,22 @@ class EffectSmoke {
 		});
 		@:await callbackSuccess;
 
+		final callbackFailure = new Promise<Bool>((resolve, reject) -> {
+			runtime.runCallback(_ -> Promise.reject(new Error("callback boom")), result -> {
+				switch (result) {
+					case Succeeded(_):
+						reject(new Error("callback should not succeed"));
+					case Failed(error):
+						eq(error.message, "callback boom", "run-service callback failure error");
+						resolve(true);
+					case Interrupted:
+						reject(new Error("callback should not interrupt"));
+				}
+			});
+		});
+		@:await callbackFailure;
+		eq(initialized, 1, "run-service callback failure reuses service");
+
 		final fork = runtime.runFork(svc -> delay('fork-${svc.get()}', 10));
 		eq(exitValue(@:await fork.exit), "success:fork-1", "run-service fork success");
 
