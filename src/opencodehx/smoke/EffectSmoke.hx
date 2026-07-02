@@ -273,6 +273,8 @@ class EffectSmoke {
 		});
 		eq(failureRejected, true, "runner propagates failure");
 		eq(stateName(failing.state), "Idle", "runner returns to idle after failure");
+		eq(failing.busy, false, "runner not busy after failure");
+		eq(@:await failing.ensureRunning(() -> Promise.resolve("after-failure")), "after-failure", "runner starts after failure");
 
 		var sharedCalls = 0;
 		final shared = new RunnerRuntime<String>();
@@ -301,6 +303,8 @@ class EffectSmoke {
 		eq(@:await rejected(sharedFailureA), true, "runner shared first caller receives failure");
 		eq(@:await rejected(sharedFailureB), true, "runner shared second caller receives failure");
 		eq(sharedFailureCalls, 1, "runner shared failure starts one run");
+		eq(stateName(sharedFailure.state), "Idle", "runner shared failure returns idle");
+		eq(sharedFailure.busy, false, "runner shared failure not busy");
 
 		final repeat = new RunnerRuntime<String>();
 		eq(@:await repeat.ensureRunning(() -> Promise.resolve("first")), "first", "runner first run");

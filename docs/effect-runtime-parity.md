@@ -1,6 +1,6 @@
 # Effect Runtime Parity
 
-**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`, `opencodehx-4kc`, `opencodehx-vqu0`, `opencodehx-bfo1`, `opencodehx-tg0q`, `opencodehx-1874`, `opencodehx-9l41`
+**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`, `opencodehx-4kc`, `opencodehx-vqu0`, `opencodehx-bfo1`, `opencodehx-tg0q`, `opencodehx-1874`, `opencodehx-9l41`, `opencodehx-nou6`
 
 ## Upstream Oracle
 
@@ -56,8 +56,10 @@
 
 - the first `ensureRunning` work runs and returns its result;
 - failures propagate and reset the runner to idle;
+- failed runs leave the runner not busy and reusable;
 - concurrent callers share the active run;
 - concurrent callers all receive the same active-run failure;
+- shared failures leave the runner idle and not busy;
 - replacement work passed while busy is ignored;
 - completed runners can run again;
 - idle cancellation is a no-op;
