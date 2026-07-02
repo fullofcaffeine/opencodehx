@@ -11,6 +11,7 @@ import opencodehx.config.ConfigPlugin.PluginOrigin;
 import opencodehx.config.ConfigPlugin.PluginScope;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
+import opencodehx.externs.node.Process;
 import opencodehx.externs.node.Url;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeBuffer;
@@ -37,6 +38,8 @@ import opencodehx.provider.ProviderTypes.ProviderID;
 import opencodehx.provider.ProviderTypes.ProviderIDs;
 import opencodehx.provider.ProviderTypes.ProviderModel;
 import opencodehx.smoke.SmokeCleanup.withCleanup;
+import opencodehx.util.ProcessRuntime;
+import opencodehx.util.ProcessRuntime.ProcessResult;
 
 class PluginSmoke {
 	public static function run():Void {
@@ -55,7 +58,7 @@ class PluginSmoke {
 
 	public static function runAsync():Promise<Void> {
 		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-plugin-async-"));
-		return runtimeAsync(root).then(_ -> {
+		return runtimeAsync(root).then(_ -> metadataConcurrent(root)).then(_ -> {
 			Fs.rmSync(root, {recursive: true, force: true});
 			return null;
 		}).catchError(error -> {
@@ -446,6 +449,51 @@ class PluginSmoke {
 		}, entry -> moduleFor(modules, entry.spec));
 		return runtime.triggerAsync("experimental.chat.system.transform", Unknown.fromBoundary({}), {system: []}).then(out -> {
 			eq(out.system.join(","), "sync,async,last", "plugin async trigger hook order");
+			return null;
+		});
+	}
+
+	static function metadataConcurrent(root:String):Promise<Void> {
+		final plugin = NodePath.join(root, "plugin-meta-worker-target.ts");
+		write(plugin, "export default async () => ({})\n");
+		final state = NodePath.join(root, "state/plugin-meta.json");
+		final worker = NodePath.join(root, "plugin-meta-worker.mjs");
+		final moduleUrl = Url.pathToFileURL(NodePath.resolve(Process.cwd(),
+			NodePath.join(NodePath.join(NodePath.join("dist", "opencodehx"), "plugin"), "PluginMeta.js")))
+			.href;
+		write(worker, [
+			'import { PluginMeta } from ${Json.stringify(moduleUrl)};',
+			'const input = JSON.parse(process.argv[2]);',
+			'const meta = new PluginMeta(input.file, () => Date.now());',
+			'meta.touch(input.spec, input.target, input.id);',
+			''
+		].join("\n"));
+
+		final spec = Url.pathToFileURL(plugin).href;
+		final jobs:Array<Promise<ProcessResult>> = [];
+		for (_ in 0...12) {
+			jobs.push(ProcessRuntime.run([
+				Process.argv[0],
+				worker,
+				Json.stringify({
+					file: state,
+					spec: spec,
+					target: spec,
+					id: "demo.file",
+				})
+			], {nothrow: true}));
+		}
+
+		return Promise.all(jobs).then(results -> {
+			for (result in results) {
+				eq(result.code, 0, "plugin meta worker exit");
+				eq(result.stderr, "", "plugin meta worker stderr");
+			}
+			final meta = new PluginMeta(state);
+			final saved = meta.list().get("demo.file");
+			if (saved == null)
+				throw "plugin meta concurrent saved entry";
+			eq(saved.load_count, 12, "plugin meta cross-process load count");
 			return null;
 		});
 	}

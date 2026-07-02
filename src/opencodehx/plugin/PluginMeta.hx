@@ -5,6 +5,7 @@ import genes.ts.UnknownNarrow;
 import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import haxe.Json;
+import js.lib.Error;
 import opencodehx.externs.node.Fs;
 import opencodehx.host.node.NodePath;
 import opencodehx.plugin.PluginShared;
@@ -31,6 +32,9 @@ typedef PluginMetaTouch = {
 }
 
 class PluginMeta {
+	static inline final LOCK_STALE_MS = 30000;
+	static inline final LOCK_TIMEOUT_MS = 5000;
+
 	final file:String;
 	final now:Void->Float;
 
@@ -40,6 +44,18 @@ class PluginMeta {
 	}
 
 	public function touch(spec:String, target:String, id:String):PluginMetaTouch {
+		final lock = acquireLock();
+		try {
+			final result = touchUnlocked(spec, target, id);
+			releaseLock(lock);
+			return result;
+		} catch (error:Error) {
+			releaseLock(lock);
+			throw error;
+		}
+	}
+
+	function touchUnlocked(spec:String, target:String, id:String):PluginMetaTouch {
 		final store = read();
 		final core = core(spec, target, id);
 		final previous = store.get(id);
@@ -120,6 +136,44 @@ class PluginMeta {
 	function write(store:DynamicAccess<PluginMetaEntry>):Void {
 		Fs.mkdirSync(NodePath.dirname(file), {recursive: true});
 		Fs.writeFileSync(file, Json.stringify(store, null, "  "), {encoding: "utf8"});
+	}
+
+	function acquireLock():String {
+		final lock = file + ".lock";
+		Fs.mkdirSync(NodePath.dirname(file), {recursive: true});
+		final deadline = runtimeNow() + LOCK_TIMEOUT_MS;
+		while (runtimeNow() < deadline) {
+			if (tryAcquire(lock))
+				return lock;
+			removeStaleLock(lock);
+		}
+		throw new Error('Timed out acquiring plugin metadata lock: ${lock}');
+	}
+
+	function tryAcquire(lock:String):Bool {
+		try {
+			Fs.writeFileSync(lock, Std.string(runtimeNow()), {encoding: "utf8", flag: "wx"});
+			return true;
+		} catch (_:Error) {
+			return false;
+		}
+	}
+
+	function removeStaleLock(lock:String):Void {
+		if (!Fs.existsSync(lock))
+			return;
+		try {
+			final age = runtimeNow() - Fs.statSync(lock).mtimeMs;
+			if (age > LOCK_STALE_MS)
+				Fs.unlinkSync(lock);
+		} catch (_:Error) {}
+	}
+
+	function releaseLock(lock:String):Void {
+		try {
+			if (Fs.existsSync(lock))
+				Fs.unlinkSync(lock);
+		} catch (_:Error) {}
 	}
 
 	static function decodeEntry(item:UnknownRecord):PluginMetaEntry {

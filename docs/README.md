@@ -29,7 +29,7 @@ Provider, config, and runtime foundations:
 Protocol, plugin, and UI foundations:
 
 - `server-hono-seam.md` covers the first Node/Hono server seam, session get/children routes, and SDK-compatible create/list/resume/event flow.
-- `mcp-acp-minimum.md`, `lsp-minimum.md`, and `plugin-runtime-minimum.md` cover the first MCP/ACP, LSP, and plugin runtime surfaces, including async plugin trigger awaiting.
+- `mcp-acp-minimum.md`, `lsp-minimum.md`, and `plugin-runtime-minimum.md` cover the first MCP/ACP, LSP, and plugin runtime surfaces, including plugin metadata serialization and async plugin trigger awaiting.
 - `tui-scaffold.md` covers the TUI scaffold/transcript replay path plus route/keybind macro diagnostics.
 
 Quality and planning references:
