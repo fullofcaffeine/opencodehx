@@ -73,7 +73,7 @@ class SnapshotRuntime {
 				final entry = snapshot == null ? null : snapshot.get(relative);
 				if (entry == null) {
 					if (Fs.existsSync(absolute))
-						Fs.rmSync(absolute, {force: true});
+						Fs.rmSync(absolute, {force: true, recursive: true});
 				} else {
 					writeFile(absolute, entry);
 				}
@@ -207,11 +207,23 @@ class SnapshotRuntime {
 	}
 
 	static function writeFile(path:String, entry:SnapshotEntry):Void {
-		Fs.mkdirSync(NodePath.dirname(path), {recursive: true});
+		ensureDirectory(NodePath.dirname(path));
+		if (Fs.existsSync(path) && Fs.statSync(path).isDirectory())
+			Fs.rmSync(path, {force: true, recursive: true});
 		if (entry.binary)
 			Fs.writeFileSync(path, Buffer.from(entry.content, "base64"));
 		else
 			Fs.writeFileSync(path, entry.content);
+	}
+
+	static function ensureDirectory(path:String):Void {
+		if (Fs.existsSync(path)) {
+			if (Fs.statSync(path).isDirectory())
+				return;
+			Fs.rmSync(path, {force: true});
+		}
+		ensureDirectory(NodePath.dirname(path));
+		Fs.mkdirSync(path);
 	}
 
 	static function lineCount(text:String):Int {

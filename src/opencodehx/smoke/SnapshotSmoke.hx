@@ -18,6 +18,7 @@ class SnapshotSmoke {
 		recreatedFileRevert();
 		nestedDirectoryRevert();
 		overlappingRevertOrder();
+		repeatedHashRevertOrder();
 		largeBatchRevert();
 		emptyDirectoryAndInvalidHash();
 		revertNonExistentFile();
@@ -147,6 +148,33 @@ class SnapshotSmoke {
 		contains(patch2, dir, "shared.txt", "snapshot overlapping second patch");
 		SnapshotRuntime.revert(dir, [patch1, patch2]);
 		eq(Fs.readFileSync(NodePath.join(dir, "shared.txt"), "utf8"), "v1", "snapshot overlapping revert uses first patch");
+		tmp.dispose();
+	}
+
+	static function repeatedHashRevertOrder():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		write(dir, "foo/bar", "v1");
+		write(dir, "a.txt", "v1");
+
+		final snap1 = SnapshotRuntime.trackDirectory(dir);
+		Fs.rmSync(NodePath.join(dir, "foo"), {force: true, recursive: true});
+		write(dir, "foo", "v2");
+		write(dir, "a.txt", "v2");
+
+		final snap2 = SnapshotRuntime.trackDirectory(dir);
+		Fs.rmSync(NodePath.join(dir, "foo"), {force: true, recursive: true});
+		write(dir, "a.txt", "v3");
+
+		SnapshotRuntime.revert(dir, [
+			{hash: snap1, files: [abs(dir, "a.txt")]},
+			{hash: snap2, files: [abs(dir, "foo")]},
+			{hash: snap1, files: [abs(dir, "foo/bar")]}
+		]);
+
+		eq(Fs.readFileSync(NodePath.join(dir, "a.txt"), "utf8"), "v1", "snapshot repeated-hash restores earlier text");
+		eq(Fs.statSync(NodePath.join(dir, "foo")).isDirectory(), true, "snapshot repeated-hash replaces file with directory");
+		eq(Fs.readFileSync(NodePath.join(dir, "foo/bar"), "utf8"), "v1", "snapshot repeated-hash restores nested file");
 		tmp.dispose();
 	}
 
