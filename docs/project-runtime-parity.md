@@ -72,7 +72,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - package `which` covers bin selection, scoped package bin names, stale cache lock removal, and absent-cache installation,
   - package `outdated` covers registry failure, exact-version comparison, and semver range satisfaction,
   - installation method detection follows upstream manager priority and installed-name checks,
-  - latest-version lookup covers GitHub releases, npm registry, bun/pnpm registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
+  - latest-version lookup covers unknown-method GitHub fallback, GitHub releases, npm registry, bun/pnpm registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
   - upgrade command planning covers curl, npm, pnpm, bun, Homebrew tap refresh/upgrade, Scoop, and Chocolatey elevated-shell failure messaging,
   - uninstall package-manager command planning covers npm, pnpm, bun, yarn, Homebrew, Chocolatey, Scoop, and the curl no-op package-manager case.
 - Opt-in live package-manager harness:

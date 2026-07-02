@@ -954,6 +954,7 @@ class ProjectRuntimeSmoke {
 	static function installationRuntime():Void {
 		final fixture = installationFixture();
 		fixture.responses.set("https://api.github.com/repos/anomalyco/opencode/releases/latest", '{"tag_name":"v4.0.0-beta.1"}');
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.UnknownMethod), "4.0.0-beta.1", "installation unknown latest falls back to github");
 		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Curl), "4.0.0-beta.1", "installation github latest strips v");
 
 		fixture.outputs.set("npm config get registry", processOk("https://registry.example/\n"));
