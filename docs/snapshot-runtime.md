@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`, `opencodehx-mnse`, `opencodehx-1qmk`, `opencodehx-3cgk`, `opencodehx-0z0m`, `opencodehx-2uwe`, `opencodehx-fbe7`, `opencodehx-i11n`, `opencodehx-7s01`, `opencodehx-51y6`, `opencodehx-o8tp`, `opencodehx-ce6t`, `opencodehx-i4fy`
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`, `opencodehx-mnse`, `opencodehx-1qmk`, `opencodehx-3cgk`, `opencodehx-0z0m`, `opencodehx-2uwe`, `opencodehx-fbe7`, `opencodehx-i11n`, `opencodehx-7s01`, `opencodehx-51y6`, `opencodehx-o8tp`, `opencodehx-ce6t`, `opencodehx-i4fy`, `opencodehx-a9tt`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -45,6 +45,7 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 - `diffFull` reports changed tracked files and excludes ignored files.
 - `diffFull` returns an empty list for unchanged snapshots.
 - `diffFull` reports added, modified, deleted, and multi-line added text-file patch content with upstream-shaped addition/deletion counts.
+- `diffFull` reports mixed added/deleted text-file entries in one result.
 - `diffFull` preserves deterministic Git-style file order across a 140-file ordered batch.
 - `diffFull` reports upstream-shaped `added`, `deleted`, and `modified` statuses.
 - Binary `diffFull` entries preserve upstream's empty patch and zero text-churn shape.

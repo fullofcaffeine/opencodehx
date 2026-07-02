@@ -42,6 +42,7 @@ class SnapshotSmoke {
 		diffFullModifiedTextPatch();
 		diffFullDeletedTextPatch();
 		diffFullMultilineAddedTextPatch();
+		diffFullAddDeletePair();
 		diffFullOrderAcrossBatchBoundaries();
 		diffFullStatuses();
 		repeatedTrackStableHash();
@@ -587,6 +588,29 @@ class SnapshotSmoke {
 		tmp.dispose();
 	}
 
+	static function diffFullAddDeletePair():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "added.txt", "added content");
+		Fs.rmSync(NodePath.join(dir, "a.txt"), {force: true});
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, 2, "snapshot diffFull add-delete count");
+		final added = requireDiff(diffs, "added.txt");
+		eq(added.patch.indexOf("+added content") != -1, true, "snapshot diffFull add-delete added patch");
+		eq(added.additions, 1, "snapshot diffFull add-delete added additions");
+		eq(added.deletions, 0, "snapshot diffFull add-delete added deletions");
+		eq(added.status, "added", "snapshot diffFull add-delete added status");
+		final removed = requireDiff(diffs, "a.txt");
+		eq(removed.patch.indexOf("-A") != -1, true, "snapshot diffFull add-delete removed patch");
+		eq(removed.additions, 0, "snapshot diffFull add-delete removed additions");
+		eq(removed.deletions, 1, "snapshot diffFull add-delete removed deletions");
+		eq(removed.status, "deleted", "snapshot diffFull add-delete removed status");
+		tmp.dispose();
+	}
+
 	static function diffFullOrderAcrossBatchBoundaries():Void {
 		final tmp = bootstrap();
 		final dir = tmp.path;
@@ -678,9 +702,13 @@ class SnapshotSmoke {
 	}
 
 	static function statusOf(diffs:Array<opencodehx.snapshot.SnapshotFileDiff>, file:String):String {
+		return requireDiff(diffs, file).status;
+	}
+
+	static function requireDiff(diffs:Array<opencodehx.snapshot.SnapshotFileDiff>, file:String):opencodehx.snapshot.SnapshotFileDiff {
 		for (diff in diffs) {
 			if (diff.file == file)
-				return diff.status;
+				return diff;
 		}
 		throw 'missing snapshot diff for ${file}';
 	}
