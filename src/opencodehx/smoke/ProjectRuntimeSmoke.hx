@@ -1107,18 +1107,22 @@ class ProjectRuntimeSmoke {
 		final upgradeFixture = installationFixture("/usr/local/bin/opencode");
 		eq(InstallationRuntime.upgrade(upgradeFixture.deps, InstallationMethod.Npm, "9.9.9").code, 0, "installation npm upgrade");
 		eq(commandKey(upgradeFixture.commands[0]), "npm install -g opencode-ai@9.9.9", "installation npm upgrade command");
+		eq(commandKey(upgradeFixture.commands[1]), "/usr/local/bin/opencode --version", "installation npm upgrade version probe");
 
 		final pnpmUpgrade = installationFixture("/usr/local/bin/opencode");
 		eq(InstallationRuntime.upgrade(pnpmUpgrade.deps, InstallationMethod.Pnpm, "9.9.9").code, 0, "installation pnpm upgrade");
 		eq(commandKey(pnpmUpgrade.commands[0]), "pnpm install -g opencode-ai@9.9.9", "installation pnpm upgrade command");
+		eq(commandKey(pnpmUpgrade.commands[1]), "/usr/local/bin/opencode --version", "installation pnpm upgrade version probe");
 
 		final bunUpgrade = installationFixture("/usr/local/bin/opencode");
 		eq(InstallationRuntime.upgrade(bunUpgrade.deps, InstallationMethod.Bun, "9.9.9").code, 0, "installation bun upgrade");
 		eq(commandKey(bunUpgrade.commands[0]), "bun install -g opencode-ai@9.9.9", "installation bun upgrade command");
+		eq(commandKey(bunUpgrade.commands[1]), "/usr/local/bin/opencode --version", "installation bun upgrade version probe");
 
 		final scoopUpgrade = installationFixture("/usr/local/bin/opencode");
 		eq(InstallationRuntime.upgrade(scoopUpgrade.deps, InstallationMethod.Scoop, "9.9.9").code, 0, "installation scoop upgrade");
 		eq(commandKey(scoopUpgrade.commands[0]), "scoop install opencode@9.9.9", "installation scoop upgrade command");
+		eq(commandKey(scoopUpgrade.commands[1]), "/usr/local/bin/opencode --version", "installation scoop upgrade version probe");
 
 		final curlUpgrade = installationFixture("/usr/local/bin/opencode");
 		curlUpgrade.responses.set("https://opencode.ai/install", "echo install");
