@@ -910,6 +910,13 @@ class ProjectRuntimeSmoke {
 		NpmRuntime.install(fixture.deps, cleanDir, {add: []});
 		eq(fixture.requests.length, beforeClean, "npm install clean lock skips reify");
 
+		final missingLockDir = directory(root, "npm-install-missing-lock");
+		Fs.mkdirSync(NodePath.join(missingLockDir, "node_modules"), {recursive: true});
+		write(missingLockDir, "package.json", '{"dependencies":{"typescript":"5.0.0"}}');
+		NpmRuntime.install(fixture.deps, missingLockDir, {add: []});
+		eq(fixture.requests[fixture.requests.length - 1].dir, missingLockDir, "npm install missing lock reify dir");
+		eq(fixture.requests[fixture.requests.length - 1].add.join(","), "", "npm install missing lock add spec");
+
 		final peerCleanDir = directory(root, "npm-install-peer-clean");
 		Fs.mkdirSync(NodePath.join(peerCleanDir, "node_modules"), {recursive: true});
 		write(peerCleanDir, "package.json", '{"peerDependencies":{"react":"18.0.0"}}');
