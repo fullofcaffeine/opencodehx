@@ -25,6 +25,7 @@ class BusSmoke {
 		multipleSubscribers();
 		streamDelivery();
 		streamUnsubscribe();
+		streamSubscribeAllUnsubscribe();
 		globalBusEmit();
 		instanceIsolation();
 		instanceDisposal();
@@ -129,6 +130,19 @@ class BusSmoke {
 		unsubscribe();
 		bus.publish(ping, {value: 2});
 		eq(received.join(","), "1", "bus stream unsubscribe stops delivery");
+	}
+
+	static function streamSubscribeAllUnsubscribe():Void {
+		final bus = new BusRuntime();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.stream.all.unsubscribe.ping");
+		final pong:BusEventDefinition<PongPayload> = BusRuntime.define("test.stream.all.unsubscribe.pong");
+		final received:Array<String> = [];
+		final unsubscribe = BusStreamRuntime.subscribeAll(bus).runForEach(event -> received.push(event.type));
+		bus.publish(ping, {value: 1});
+		unsubscribe();
+		unsubscribe();
+		bus.publish(pong, {message: "ignored"});
+		eq(received.join(","), "test.stream.all.unsubscribe.ping", "bus stream subscribeAll unsubscribe stops delivery");
 	}
 
 	static function globalBusEmit():Void {
