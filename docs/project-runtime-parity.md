@@ -74,7 +74,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - package `outdated` covers registry failure, exact-version comparison, and semver range satisfaction,
   - installation method detection follows upstream manager priority and installed-name checks,
   - latest-version lookup covers unknown-method GitHub fallback, GitHub releases, npm registry, bun/pnpm registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
-  - upgrade command planning covers curl install-script fetch/stdin/env/version-probe behavior, npm, pnpm, bun, Homebrew tap refresh/upgrade, Scoop, and Chocolatey elevated-shell failure messaging,
+  - upgrade command planning covers curl install-script fetch/stdin/env/version-probe behavior, npm/pnpm/Bun global install commands, Homebrew tap refresh/upgrade, Scoop install command, and Chocolatey elevated-shell failure messaging,
   - uninstall package-manager command planning covers npm, pnpm, bun, yarn, Homebrew, Chocolatey, Scoop, and the curl no-op package-manager case.
 - Opt-in live package-manager harness:
   - `npm run live:package-managers` is a guarded no-op unless `OPENCODEHX_LIVE_PACKAGE_MANAGERS=1` is set,
