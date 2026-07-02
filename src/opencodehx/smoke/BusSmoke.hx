@@ -29,6 +29,7 @@ class BusSmoke {
 		globalBusEmit();
 		instanceIsolation();
 		instanceDisposal();
+		disposedSubscriptionNoop();
 		snapshotCopiesHistory();
 		GlobalBusRuntime.clear();
 	}
@@ -215,6 +216,26 @@ class BusSmoke {
 		eq(BusRuntime.InstanceDisposed.type, "server.instance.disposed", "bus scoped disposal upstream type");
 		eq(disposedDirectory, "disposable", "bus scoped disposal directory payload");
 		eq(BusRuntime.disposeScope("disposable"), false, "bus scoped dispose missing");
+	}
+
+	static function disposedSubscriptionNoop():Void {
+		BusRuntime.disposeAllScopes();
+		final ping:BusEventDefinition<PingPayload> = BusRuntime.define("test.dispose.noop.ping");
+		final bus = BusRuntime.scope("disposed-noop");
+		bus.publish(ping, {value: 1});
+		eq(BusRuntime.disposeScope("disposed-noop"), true, "bus disposed noop dispose result");
+		final historyAfterDispose = bus.snapshot().length;
+		final typed:Array<Int> = [];
+		final wildcard:Array<String> = [];
+		final unsubscribeTyped = bus.subscribe(ping, event -> typed.push(event.properties.value));
+		final unsubscribeWildcard = bus.subscribeAll(event -> wildcard.push(event.type));
+		unsubscribeTyped();
+		unsubscribeWildcard();
+		bus.publish(ping, {value: 2});
+		eq(typed.length, 0, "bus disposed typed subscription is inert");
+		eq(wildcard.length, 0, "bus disposed wildcard subscription is inert");
+		eq(bus.snapshot().length, historyAfterDispose, "bus disposed publish does not grow history");
+		BusRuntime.disposeAllScopes();
 	}
 
 	static function snapshotCopiesHistory():Void {
