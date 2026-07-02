@@ -560,6 +560,12 @@ class ToolSmoke {
 		eq(imageAttachment.mime, "image/jpeg", "read sniffed image attachment mime");
 		eq(StringTools.startsWith(imageAttachment.url, "data:image/jpeg;base64,"), true, "read sniffed image data url");
 
+		write(ctx.directory, "feature/nested/schema.fbs", "namespace MyGame;\n\ntable Monster {\n  name:string;\n}\n\nroot_type Monster;");
+		final fbs = registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/schema.fbs"}, ctx);
+		eq(fbs.attachments == null, true, "read fbs has no attachments");
+		eq(fbs.output.indexOf("namespace MyGame") != -1, true, "read fbs namespace text");
+		eq(fbs.output.indexOf("table Monster") != -1, true, "read fbs table text");
+
 		write(ctx.directory, "feature/nested/module.wasm", "not really wasm");
 		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "feature/nested/module.wasm"}, ctx), function(failure) {
 			return switch failure {
@@ -607,6 +613,17 @@ class ToolSmoke {
 		eq(metadataText(byteCapped).indexOf('"truncated":true') != -1, true, "read byte-capped metadata");
 		eq(byteCapped.output.indexOf("Output capped at 50 KB") != -1, true, "read byte-capped footer");
 		eq(byteCapped.output.indexOf("Use offset=") != -1, true, "read byte-capped offset hint");
+
+		write(ctx.directory, "src/empty-read.txt", "");
+		final emptyRead = registry.execute(ToolIDs.known("read"), {filePath: "src/empty-read.txt"}, ctx);
+		eq(metadataText(emptyRead).indexOf('"truncated":false') != -1, true, "read empty file metadata");
+		eq(emptyRead.output.indexOf("End of file - total 0 lines") != -1, true, "read empty file footer");
+		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "src/empty-read.txt", offset: 2}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "read" && message.indexOf("Offset 2 is out of range for this file (0 lines)") != -1;
+				case _: false;
+			}
+		}, "read empty file offset failure");
 
 		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "src/a.ts", offset: 5, limit: 1}, ctx), function(failure) {
 			return switch failure {
