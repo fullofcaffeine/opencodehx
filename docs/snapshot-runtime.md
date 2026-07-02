@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -20,6 +20,7 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 
 - Track, patch, diff, and revert across added, modified, and deleted files.
 - Focused restore restores deleted/modified snapshot files and preserves new files.
+- Revert handles recreated files according to the snapshot: recreated deleted files are removed, while recreated existing files restore original content.
 - Repeated no-change tracking returns the same snapshot hash.
 - Empty directories do not create patch entries.
 - Invalid hashes return an empty patch without throwing.

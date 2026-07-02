@@ -14,6 +14,7 @@ class SnapshotSmoke {
 		SnapshotRuntime.reset();
 		patchAndRevert();
 		restoreSnapshot();
+		recreatedFileRevert();
 		emptyDirectoryAndInvalidHash();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
@@ -62,6 +63,36 @@ class SnapshotSmoke {
 		eq(Fs.readFileSync(NodePath.join(dir, "b.txt"), "utf8"), "B", "snapshot restore modified file");
 		eq(Fs.readFileSync(NodePath.join(dir, "new.txt"), "utf8"), "new content", "snapshot restore leaves new file");
 		tmp.dispose();
+	}
+
+	static function recreatedFileRevert():Void {
+		final deleted = bootstrap();
+		final deletedDir = deleted.path;
+		final first = SnapshotRuntime.trackDirectory(deletedDir);
+		Fs.rmSync(NodePath.join(deletedDir, "a.txt"), {force: true});
+		final deletedSnapshot = SnapshotRuntime.trackDirectory(deletedDir);
+		write(deletedDir, "a.txt", "recreated content");
+		final deletedPatch = SnapshotRuntime.patch(deletedDir, deletedSnapshot);
+		contains(deletedPatch, deletedDir, "a.txt", "snapshot recreated deleted-in-snapshot file");
+		SnapshotRuntime.revert(deletedDir, [deletedPatch]);
+		eq(Fs.existsSync(NodePath.join(deletedDir, "a.txt")), false, "snapshot revert removes recreated deleted-in-snapshot file");
+		eq(first != deletedSnapshot, true, "snapshot deleted-file hash changes");
+		deleted.dispose();
+
+		final restored = bootstrap();
+		final restoredDir = restored.path;
+		write(restoredDir, "existing.txt", "original content");
+		final snapshot = SnapshotRuntime.trackDirectory(restoredDir);
+		Fs.rmSync(NodePath.join(restoredDir, "existing.txt"), {force: true});
+		write(restoredDir, "existing.txt", "recreated");
+		write(restoredDir, "newfile.txt", "new");
+		final restoredPatch = SnapshotRuntime.patch(restoredDir, snapshot);
+		contains(restoredPatch, restoredDir, "existing.txt", "snapshot recreated existing file");
+		contains(restoredPatch, restoredDir, "newfile.txt", "snapshot recreated new file");
+		SnapshotRuntime.revert(restoredDir, [restoredPatch]);
+		eq(Fs.existsSync(NodePath.join(restoredDir, "newfile.txt")), false, "snapshot revert removes recreated new file");
+		eq(Fs.readFileSync(NodePath.join(restoredDir, "existing.txt"), "utf8"), "original content", "snapshot revert restores recreated existing file");
+		restored.dispose();
 	}
 
 	static function emptyDirectoryAndInvalidHash():Void {
