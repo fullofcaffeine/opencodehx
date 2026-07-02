@@ -69,7 +69,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - package-name parsing covers scoped/versioned specs, git specs, and scoped/unscoped `npm:` alias prefixes,
   - package cache paths are derived from sanitized package specs,
   - package `add` uses an existing cache when present, otherwise delegates to an Arborist-shaped reify seam, and fails empty reify results,
-  - package `install` skips non-writable directories, treats clean dependency/devDependency/peerDependency package-lock roots as current, reifies missing `node_modules`, and reifies missing or dirty package-lock roots,
+  - package `install` skips non-writable directories, treats clean dependency/devDependency/peerDependency package-lock roots as current, reifies missing `node_modules` with versioned and bare add specs, and reifies missing or dirty package-lock roots,
   - package `which` covers bin selection, scoped package bin names, string/object `package.json` bin declarations including first-key fallback, stale cache lock removal, and absent-cache installation,
   - package `outdated` covers registry failure, malformed registry JSON, missing latest metadata, exact-version comparison, comparator and wildcard satisfaction/escape, and caret/tilde/disjunction semver ranges,
   - installation method detection follows upstream manager priority and installed-name checks,

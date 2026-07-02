@@ -903,6 +903,11 @@ class ProjectRuntimeSmoke {
 		eq(fixture.requests[fixture.requests.length - 1].dir, installDir, "npm install missing node_modules reify dir");
 		eq(fixture.requests[fixture.requests.length - 1].add.join(","), "eslint@9.0.0", "npm install add spec");
 
+		final emptyVersionDir = directory(root, "npm-install-empty-version");
+		NpmRuntime.install(fixture.deps, emptyVersionDir, {add: [{name: "prettier", version: ""}]});
+		eq(fixture.requests[fixture.requests.length - 1].dir, emptyVersionDir, "npm install empty version reify dir");
+		eq(fixture.requests[fixture.requests.length - 1].add.join(","), "prettier", "npm install empty version add spec");
+
 		final cleanDir = directory(root, "npm-install-clean");
 		Fs.mkdirSync(NodePath.join(cleanDir, "node_modules"), {recursive: true});
 		write(cleanDir, "package.json", '{"dependencies":{"typescript":"5.0.0"},"devDependencies":{"eslint":"9.0.0"}}');
