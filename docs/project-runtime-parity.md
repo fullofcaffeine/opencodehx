@@ -71,7 +71,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - package `add` uses an existing cache when present and otherwise delegates to an Arborist-shaped reify seam,
   - package `install` skips non-writable directories, reifies missing `node_modules`, and reifies dirty package-lock roots,
   - package `which` covers bin selection, scoped package bin names, stale cache lock removal, and absent-cache installation,
-  - package `outdated` covers registry failure, exact-version comparison, and semver range satisfaction,
+  - package `outdated` covers registry failure, exact-version comparison, and caret/comparator/wildcard semver range satisfaction,
   - installation method detection follows upstream manager priority and installed-name checks,
   - latest-version lookup covers unknown-method GitHub fallback, GitHub releases, npm registry, bun/pnpm registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
   - upgrade command planning covers curl install-script fetch/stdin/env/version-probe behavior, npm/pnpm/Bun global install commands, Homebrew tap refresh/upgrade, Scoop install command, and Chocolatey elevated-shell failure messaging,
