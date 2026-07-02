@@ -417,7 +417,7 @@ function directEvidence(path) {
       ],
     ],
     ["permission-task.test.ts", ["ported", "src/opencodehx/smoke/PermissionSmoke.hx; docs/permission-model-port.md", "none", "PermissionSmoke.taskPermissionRules"]],
-    ["share/share-next.test.ts", ["partial", "src/opencodehx/share/ShareNextRuntime.hx; src/opencodehx/smoke/ShareSmoke.hx; docs/share-next-runtime.md", "ShareNext request routing covers legacy enterprise/default URLs, org-account API paths, typed auth/org headers, and missing-token failure; create/remove persistence, sync queue coalescing, event subscriptions, disabled-share flags, and HTTP response handling remain deferred", "ShareSmoke.requestRouting"]],
+    ["share/share-next.test.ts", ["partial", "src/opencodehx/share/ShareNextRuntime.hx; src/opencodehx/smoke/ShareSmoke.hx; docs/share-next-runtime.md", "ShareNext request routing covers legacy enterprise/default URLs, org-account API paths, typed auth/org headers, missing-token failure, create/remove persistence, request method/URL shape, missing-row removal, and non-OK create failure without persistence; sync queue coalescing, event subscriptions, disabled-share flags, real database persistence, and live HTTP layer integration remain deferred", "ShareSmoke.requestRouting/createRemovePersistence"]],
     [
       "permission/next.test.ts",
       [

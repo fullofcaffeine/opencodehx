@@ -1,7 +1,9 @@
 package opencodehx.smoke;
 
 import opencodehx.share.ShareNextRuntime;
+import opencodehx.share.ShareNextRuntime.ShareHttpRequest;
 import opencodehx.share.ShareNextRuntime.ShareRequestHeaderName;
+import opencodehx.share.ShareNextRuntime.ShareNextServiceRuntime;
 
 class ShareSmoke {
 	public static function run():Void {
@@ -45,6 +47,50 @@ class ShareSmoke {
 		} catch (error:String) {
 			eq(error, "No active account token available for sharing", "share missing token failure");
 		}
+
+		final calls:Array<ShareHttpRequest> = [];
+		final service = new ShareNextServiceRuntime(legacy, request -> {
+			calls.push(request);
+			return switch request.method {
+				case "POST":
+					{
+						status: 200,
+						share: {
+							id: "shr_abc",
+							url: "https://legacy-share.example.com/share/abc",
+							secret: "sec_123",
+						},
+					};
+				case "DELETE":
+					{status: 200};
+				case other:
+					throw 'unexpected share method ${other}';
+			};
+		});
+		final created = service.create("ses_1");
+		eq(created.id, "shr_abc", "share create id");
+		eq(created.url, "https://legacy-share.example.com/share/abc", "share create url");
+		eq(created.secret, "sec_123", "share create secret");
+		eq(service.get("ses_1").id, "shr_abc", "share create persists row");
+		eq(calls.length, 1, "share create request count");
+		eq(calls[0].method, "POST", "share create request method");
+		eq(calls[0].url, "https://legacy-share.example.com/api/share", "share create request url");
+
+		eq(service.remove("ses_1"), true, "share remove returns true");
+		eq(service.get("ses_1"), null, "share remove deletes row");
+		eq(calls.length, 2, "share remove request count");
+		eq(calls[1].method, "DELETE", "share remove request method");
+		eq(calls[1].url, "https://legacy-share.example.com/api/share/shr_abc", "share remove request url");
+		eq(service.remove("ses_1"), false, "share remove missing row is false");
+
+		final failed = new ShareNextServiceRuntime(defaultLegacy, _ -> ({status: 500}));
+		try {
+			failed.create("ses_failed");
+			throw "share failed create should reject";
+		} catch (error:String) {
+			eq(error, "Share create failed with status 500", "share create failure status");
+		}
+		eq(failed.get("ses_failed"), null, "share create failure does not persist");
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

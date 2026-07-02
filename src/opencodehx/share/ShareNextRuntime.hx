@@ -35,6 +35,33 @@ typedef ShareRequestOptions = {
 	@:optional final activeAccount:ShareActiveAccount;
 }
 
+typedef ShareRecord = {
+	final sessionID:String;
+	final id:String;
+	final url:String;
+	final secret:String;
+}
+
+typedef ShareHttpRequest = {
+	final method:String;
+	final url:String;
+	final headers:Array<ShareRequestHeader>;
+	final body:String;
+}
+
+typedef ShareHttpResponse = {
+	final status:Int;
+	@:optional final share:ShareCreateResponse;
+}
+
+typedef ShareCreateResponse = {
+	final id:String;
+	final url:String;
+	final secret:String;
+}
+
+typedef ShareHttpClient = ShareHttpRequest->ShareHttpResponse;
+
 /**
 	Small typed model of upstream ShareNext request routing.
 
@@ -92,5 +119,71 @@ class ShareNextRuntime {
 		while (out.length > 1 && StringTools.endsWith(out, "/"))
 			out = out.substr(0, out.length - 1);
 		return out;
+	}
+}
+
+/**
+	Injected-client model of ShareNext create/remove persistence.
+
+	This intentionally stays in-memory and synchronous. The full upstream service
+	uses Effect, HTTP layers, and SQL tables; this seam keeps the stable API,
+	request, response, and persistence behavior testable without those layers.
+**/
+class ShareNextServiceRuntime {
+	final requestInfo:ShareRequest;
+	final client:ShareHttpClient;
+	final records:Map<String, ShareRecord>;
+
+	public function new(requestInfo:ShareRequest, client:ShareHttpClient) {
+		this.requestInfo = requestInfo;
+		this.client = client;
+		records = new Map();
+	}
+
+	public function create(sessionID:String):ShareRecord {
+		final response = client({
+			method: "POST",
+			url: requestInfo.baseUrl + requestInfo.api.create,
+			headers: requestInfo.headers.copy(),
+			body: "{}",
+		});
+		if (!ok(response.status) || response.share == null)
+			throw 'Share create failed with status ${response.status}';
+
+		final created = response.share;
+		final record:ShareRecord = {
+			sessionID: sessionID,
+			id: created.id,
+			url: created.url,
+			secret: created.secret,
+		};
+		records.set(sessionID, record);
+		return record;
+	}
+
+	public function remove(sessionID:String):Bool {
+		final existing = records.get(sessionID);
+		if (existing == null)
+			return false;
+
+		final response = client({
+			method: "DELETE",
+			url: requestInfo.baseUrl + requestInfo.api.remove(existing.id),
+			headers: requestInfo.headers.copy(),
+			body: "",
+		});
+		if (!ok(response.status))
+			throw 'Share remove failed with status ${response.status}';
+
+		records.remove(sessionID);
+		return true;
+	}
+
+	public function get(sessionID:String):Null<ShareRecord> {
+		return records.get(sessionID);
+	}
+
+	static function ok(status:Int):Bool {
+		return status >= 200 && status < 300;
 	}
 }
