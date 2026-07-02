@@ -15,6 +15,7 @@ class SnapshotSmoke {
 		patchAndRevert();
 		restoreSnapshot();
 		recreatedFileRevert();
+		overlappingRevertOrder();
 		emptyDirectoryAndInvalidHash();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
@@ -93,6 +94,24 @@ class SnapshotSmoke {
 		eq(Fs.existsSync(NodePath.join(restoredDir, "newfile.txt")), false, "snapshot revert removes recreated new file");
 		eq(Fs.readFileSync(NodePath.join(restoredDir, "existing.txt"), "utf8"), "original content", "snapshot revert restores recreated existing file");
 		restored.dispose();
+	}
+
+	static function overlappingRevertOrder():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		write(dir, "shared.txt", "v1");
+		final snap1 = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "shared.txt", "v2");
+		final snap2 = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "shared.txt", "v3");
+
+		final patch1 = SnapshotRuntime.patch(dir, snap1);
+		final patch2 = SnapshotRuntime.patch(dir, snap2);
+		contains(patch1, dir, "shared.txt", "snapshot overlapping first patch");
+		contains(patch2, dir, "shared.txt", "snapshot overlapping second patch");
+		SnapshotRuntime.revert(dir, [patch1, patch2]);
+		eq(Fs.readFileSync(NodePath.join(dir, "shared.txt"), "utf8"), "v1", "snapshot overlapping revert uses first patch");
+		tmp.dispose();
 	}
 
 	static function emptyDirectoryAndInvalidHash():Void {
