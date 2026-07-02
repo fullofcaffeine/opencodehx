@@ -20,6 +20,7 @@ class SnapshotSmoke {
 		emptyDirectoryAndInvalidHash();
 		revertNonExistentFile();
 		underLimitAddedFilesAreTracked();
+		specialFilenamePatchDetection();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
 		binaryDiffFull();
@@ -172,6 +173,21 @@ class SnapshotSmoke {
 		write(dir, "large.txt", repeat("x", 1024 * 1024));
 		final patch = SnapshotRuntime.patch(dir, before);
 		contains(patch, dir, "large.txt", "snapshot under-limit added file");
+		tmp.dispose();
+	}
+
+	static function specialFilenamePatchDetection():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "file with spaces.txt", "SPACES");
+		write(dir, "file-with-dashes.txt", "DASHES");
+		write(dir, "file_with_underscores.txt", "UNDERSCORES");
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		contains(patch, dir, "file with spaces.txt", "snapshot special filename spaces");
+		contains(patch, dir, "file-with-dashes.txt", "snapshot special filename dashes");
+		contains(patch, dir, "file_with_underscores.txt", "snapshot special filename underscores");
 		tmp.dispose();
 	}
 
