@@ -15,6 +15,7 @@ class SnapshotSmoke {
 		patchAndRevert();
 		restoreSnapshot();
 		recreatedFileRevert();
+		nestedDirectoryRevert();
 		overlappingRevertOrder();
 		largeBatchRevert();
 		emptyDirectoryAndInvalidHash();
@@ -101,6 +102,18 @@ class SnapshotSmoke {
 		eq(Fs.existsSync(NodePath.join(restoredDir, "newfile.txt")), false, "snapshot revert removes recreated new file");
 		eq(Fs.readFileSync(NodePath.join(restoredDir, "existing.txt"), "utf8"), "original content", "snapshot revert restores recreated existing file");
 		restored.dispose();
+	}
+
+	static function nestedDirectoryRevert():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "level1/level2/level3/deep.txt", "DEEP");
+		final patch = SnapshotRuntime.patch(dir, before);
+		contains(patch, dir, "level1/level2/level3/deep.txt", "snapshot nested added file");
+		SnapshotRuntime.revert(dir, [patch]);
+		eq(Fs.existsSync(NodePath.join(dir, "level1/level2/level3/deep.txt")), false, "snapshot nested revert removes added file");
+		tmp.dispose();
 	}
 
 	static function overlappingRevertOrder():Void {
