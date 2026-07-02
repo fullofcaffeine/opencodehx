@@ -354,7 +354,7 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
-        "representative add/update/delete/move, BOM preservation, EOF, heredoc, Unicode, malformed, no-side-effect behavior, and external-directory hunk/move-target permission shape are covered; full upstream Effect/LSP/event matrix remains deferred",
+        "representative add/update/delete/move, insert-only hunks, BOM preservation, EOF, context disambiguation, heredoc with/without cat, whitespace/Unicode matching, malformed/delete-target failures, no-side-effect behavior, and external-directory hunk/move-target permission shape are covered; full upstream Effect/LSP/event matrix remains deferred",
         "ToolSmoke.applyPatchExec",
       ],
     ],

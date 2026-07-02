@@ -1149,6 +1149,65 @@ class ToolSmoke {
 		}, ctx);
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/heredoc.txt"), "utf8"), "wrapped\n", "patch heredoc");
 
+		registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: "<<EOF\n*** Begin Patch\n*** Add File: src/heredoc-no-cat.txt\n+no cat prefix\n*** End Patch\nEOF"
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/heredoc-no-cat.txt"), "utf8"), "no cat prefix\n", "patch heredoc no cat");
+
+		write(ctx.directory, "src/insert-only.txt", "alpha\nomega\n");
+		registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/insert-only.txt",
+				"@@",
+				" alpha",
+				"+beta",
+				" omega",
+				"*** End Patch",
+			].join("\n")
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/insert-only.txt"), "utf8"), "alpha\nbeta\nomega\n", "patch insert-only hunk");
+
+		write(ctx.directory, "src/context-disambig.txt", "fn a\nx=10\ny=2\nfn b\nx=10\ny=20\n");
+		registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/context-disambig.txt",
+				"@@ fn b",
+				"-x=10",
+				"+x=11",
+				"*** End Patch",
+			].join("\n")
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/context-disambig.txt"), "utf8"), "fn a\nx=10\ny=2\nfn b\nx=11\ny=20\n",
+			"patch context disambiguation");
+
+		write(ctx.directory, "src/trailing-ws.txt", "line1  \nline2\nline3   \n");
+		registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/trailing-ws.txt",
+				"@@",
+				"-line2",
+				"+changed",
+				"*** End Patch",
+			].join("\n")
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/trailing-ws.txt"), "utf8"), "line1  \nchanged\nline3   \n", "patch trailing whitespace match");
+
+		write(ctx.directory, "src/leading-ws.txt", "  line1\nline2\n  line3\n");
+		registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/leading-ws.txt",
+				"@@",
+				"-line2",
+				"+changed",
+				"*** End Patch",
+			].join("\n")
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/leading-ws.txt"), "utf8"), "  line1\nchanged\n  line3\n", "patch leading whitespace match");
+
 		write(ctx.directory, "src/unicode.txt", "He said \u201Chello\u201D\nsome\u2014dash\nend\n");
 		registry.execute(ToolIDs.known("apply_patch"), {
 			patchText: [
@@ -1253,6 +1312,25 @@ class ToolSmoke {
 					case _: false;
 				}
 			}, "patch malformed header");
+
+		expectToolFailure(() -> registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: "*** Begin Patch\n*** Delete File: src/missing-delete.txt\n*** End Patch"
+		}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "apply_patch" && message.indexOf("Failed to read file to delete") != -1;
+				case _: false;
+			}
+		}, "patch missing delete failure");
+
+		Fs.mkdirSync(NodePath.join(ctx.directory, "src/delete-dir"), {recursive: true});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: "*** Begin Patch\n*** Delete File: src/delete-dir\n*** End Patch"
+		}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "apply_patch" && message.indexOf("Failed to read file to delete") != -1;
+				case _: false;
+			}
+		}, "patch delete directory failure");
 
 		expectToolFailure(() -> registry.execute(ToolIDs.known("apply_patch"), {
 			patchText: "*** Begin Patch\n*** Add File: src/should-not-exist.txt\n+hello\n*** Update File: src/missing.txt\n@@\n-old\n+new\n*** End Patch"
