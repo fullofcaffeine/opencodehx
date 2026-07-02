@@ -30,6 +30,7 @@ class SnapshotSmoke {
 		newlyIgnoredSnapshotFileFiltering();
 		gitInfoExcludeFiltering();
 		gitInfoExcludeKeepsGlobalExcludes();
+		projectStateIsolation();
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
@@ -345,6 +346,28 @@ class SnapshotSmoke {
 			throw error;
 		}
 		tmp.dispose();
+	}
+
+	static function projectStateIsolation():Void {
+		final first = bootstrap();
+		final second = bootstrap();
+		final firstDir = first.path;
+		final secondDir = second.path;
+
+		final firstBefore = SnapshotRuntime.trackDirectory(firstDir);
+		write(firstDir, "project1.txt", "project1 content");
+		final firstPatch = SnapshotRuntime.patch(firstDir, firstBefore);
+		contains(firstPatch, firstDir, "project1.txt", "snapshot first project file");
+		missing(firstPatch, secondDir, "project2.txt", "snapshot first project excludes second project");
+
+		final secondBefore = SnapshotRuntime.trackDirectory(secondDir);
+		write(secondDir, "project2.txt", "project2 content");
+		final secondPatch = SnapshotRuntime.patch(secondDir, secondBefore);
+		contains(secondPatch, secondDir, "project2.txt", "snapshot second project file");
+		missing(secondPatch, firstDir, "project1.txt", "snapshot second project excludes first project");
+
+		first.dispose();
+		second.dispose();
 	}
 
 	static function binaryDiffFull():Void {
