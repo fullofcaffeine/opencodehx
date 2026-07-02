@@ -28,6 +28,7 @@ class SnapshotSmoke {
 		underLimitAddedFilesAreTracked();
 		specialFilenamePatchDetection();
 		unicodeFilenamePatchDetection();
+		unicodeFilenameModificationRestore();
 		unicodeSubdirectoryPatchDetection();
 		longFilenamePatchDetection();
 		hiddenFilePatchDetection();
@@ -332,6 +333,29 @@ class SnapshotSmoke {
 		SnapshotRuntime.revert(dir, [patch]);
 		for (file in files)
 			eq(Fs.existsSync(NodePath.join(dir, file)), false, "snapshot unicode filename revert " + file);
+		tmp.dispose();
+	}
+
+	static function unicodeFilenameModificationRestore():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		write(dir, "文件.txt", "original chinese");
+		write(dir, "файл.txt", "original cyrillic");
+		write(dir, "café.txt", "original accent");
+		final before = SnapshotRuntime.trackDirectory(dir);
+
+		write(dir, "文件.txt", "modified chinese");
+		write(dir, "файл.txt", "modified cyrillic");
+		Fs.rmSync(NodePath.join(dir, "café.txt"), {force: true});
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		contains(patch, dir, "文件.txt", "snapshot unicode modified chinese");
+		contains(patch, dir, "файл.txt", "snapshot unicode modified cyrillic");
+		contains(patch, dir, "café.txt", "snapshot unicode deleted accent");
+		SnapshotRuntime.revert(dir, [patch]);
+		eq(Fs.readFileSync(NodePath.join(dir, "文件.txt"), "utf8"), "original chinese", "snapshot unicode restore chinese content");
+		eq(Fs.readFileSync(NodePath.join(dir, "файл.txt"), "utf8"), "original cyrillic", "snapshot unicode restore cyrillic content");
+		eq(Fs.readFileSync(NodePath.join(dir, "café.txt"), "utf8"), "original accent", "snapshot unicode restore deleted accent");
 		tmp.dispose();
 	}
 
