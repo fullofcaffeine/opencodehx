@@ -226,6 +226,12 @@ class EffectSmoke {
 		eq(exitValue(@:await interrupted.exit), "interrupted", "run-service fork interrupt");
 		@:await delay("settled", 30);
 		eq(exitValue(@:await interrupted.exit), "interrupted", "run-service fork interrupt ignores late success");
+
+		final interruptedFailure = runtime.runFork(_ -> delayedFailure("late fork boom", 25));
+		interruptedFailure.interrupt();
+		eq(exitValue(@:await interruptedFailure.exit), "interrupted", "run-service fork interrupt before failure");
+		@:await delay("settled", 30);
+		eq(exitValue(@:await interruptedFailure.exit), "interrupted", "run-service fork interrupt ignores late failure");
 	}
 
 	static function instanceState():Void {
