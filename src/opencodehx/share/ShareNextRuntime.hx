@@ -1,5 +1,7 @@
 package opencodehx.share;
 
+import haxe.Json;
+
 typedef ShareApi = {
 	final create:String;
 	final sync:String->String;
@@ -61,6 +63,24 @@ typedef ShareCreateResponse = {
 }
 
 typedef ShareHttpClient = ShareHttpRequest->ShareHttpResponse;
+
+typedef ShareDiff = {
+	final file:String;
+	final patch:String;
+	final additions:Int;
+	final deletions:Int;
+	@:optional final status:String;
+}
+
+typedef ShareSyncEvent = {
+	final type:String;
+	final data:Array<ShareDiff>;
+}
+
+typedef ShareSyncPayload = {
+	final secret:String;
+	final data:Array<ShareSyncEvent>;
+}
 
 /**
 	Small typed model of upstream ShareNext request routing.
@@ -133,11 +153,13 @@ class ShareNextServiceRuntime {
 	final requestInfo:ShareRequest;
 	final client:ShareHttpClient;
 	final records:Map<String, ShareRecord>;
+	final pendingDiffs:Map<String, Array<ShareDiff>>;
 
 	public function new(requestInfo:ShareRequest, client:ShareHttpClient) {
 		this.requestInfo = requestInfo;
 		this.client = client;
 		records = new Map();
+		pendingDiffs = new Map();
 	}
 
 	public function create(sessionID:String):ShareRecord {
@@ -176,11 +198,57 @@ class ShareNextServiceRuntime {
 			throw 'Share remove failed with status ${response.status}';
 
 		records.remove(sessionID);
+		pendingDiffs.remove(sessionID);
 		return true;
 	}
 
 	public function get(sessionID:String):Null<ShareRecord> {
 		return records.get(sessionID);
+	}
+
+	public function queueDiff(sessionID:String, diff:Array<ShareDiff>):Void {
+		pendingDiffs.set(sessionID, cloneDiffs(diff));
+	}
+
+	public function flushSync(sessionID:String):Bool {
+		final existing = records.get(sessionID);
+		final diff = pendingDiffs.get(sessionID);
+		if (existing == null || diff == null)
+			return false;
+
+		final response = client({
+			method: "POST",
+			url: requestInfo.baseUrl + requestInfo.api.sync(existing.id),
+			headers: requestInfo.headers.copy(),
+			body: syncBody(existing.secret, diff),
+		});
+		if (!ok(response.status))
+			throw 'Share sync failed with status ${response.status}';
+
+		pendingDiffs.remove(sessionID);
+		return true;
+	}
+
+	static function syncBody(secret:String, diff:Array<ShareDiff>):String {
+		final event:ShareSyncEvent = {
+			type: "session_diff",
+			data: cloneDiffs(diff),
+		};
+		final payload:ShareSyncPayload = {
+			secret: secret,
+			data: [event],
+		};
+		return Json.stringify(payload);
+	}
+
+	static function cloneDiffs(diff:Array<ShareDiff>):Array<ShareDiff> {
+		return diff.map(item -> ({
+			file: item.file,
+			patch: item.patch,
+			additions: item.additions,
+			deletions: item.deletions,
+			status: item.status,
+		} : ShareDiff));
 	}
 
 	static function ok(status:Int):Bool {

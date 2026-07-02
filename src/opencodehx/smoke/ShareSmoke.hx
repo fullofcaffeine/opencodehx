@@ -1,6 +1,7 @@
 package opencodehx.smoke;
 
 import opencodehx.share.ShareNextRuntime;
+import opencodehx.share.ShareNextRuntime.ShareDiff;
 import opencodehx.share.ShareNextRuntime.ShareHttpRequest;
 import opencodehx.share.ShareNextRuntime.ShareRequestHeaderName;
 import opencodehx.share.ShareNextRuntime.ShareNextServiceRuntime;
@@ -53,14 +54,18 @@ class ShareSmoke {
 			calls.push(request);
 			return switch request.method {
 				case "POST":
-					{
-						status: 200,
-						share: {
-							id: "shr_abc",
-							url: "https://legacy-share.example.com/share/abc",
-							secret: "sec_123",
-						},
-					};
+					if (StringTools.endsWith(request.url, "/sync")) {
+						{status: 200};
+					} else {
+						{
+							status: 200,
+							share: {
+								id: "shr_abc",
+								url: "https://legacy-share.example.com/share/abc",
+								secret: "sec_123",
+							},
+						};
+					}
 				case "DELETE":
 					{status: 200};
 				case other:
@@ -76,11 +81,42 @@ class ShareSmoke {
 		eq(calls[0].method, "POST", "share create request method");
 		eq(calls[0].url, "https://legacy-share.example.com/api/share", "share create request url");
 
+		final firstDiff:Array<ShareDiff> = [
+			{
+				file: "a.ts",
+				patch: "old",
+				additions: 1,
+				deletions: 1,
+				status: "modified"
+			},
+		];
+		final latestDiff:Array<ShareDiff> = [
+			{
+				file: "b.ts",
+				patch: "new",
+				additions: 2,
+				deletions: 0,
+				status: "modified"
+			},
+		];
+		service.queueDiff("ses_1", firstDiff);
+		service.queueDiff("ses_1", latestDiff);
+		eq(service.flushSync("ses_1"), true, "share sync flushes queued diff");
+		eq(calls.length, 2, "share sync request count");
+		eq(calls[1].method, "POST", "share sync request method");
+		eq(calls[1].url, "https://legacy-share.example.com/api/share/shr_abc/sync", "share sync request url");
+		contains(calls[1].body, '"secret":"sec_123"', "share sync body secret");
+		contains(calls[1].body, '"type":"session_diff"', "share sync body event type");
+		contains(calls[1].body, '"file":"b.ts"', "share sync body latest diff");
+		eq(calls[1].body.indexOf('"file":"a.ts"'), -1, "share sync body drops stale diff");
+		eq(service.flushSync("ses_1"), false, "share sync without queued diff is false");
+		eq(calls.length, 2, "share sync without queued diff does not call");
+
 		eq(service.remove("ses_1"), true, "share remove returns true");
 		eq(service.get("ses_1"), null, "share remove deletes row");
-		eq(calls.length, 2, "share remove request count");
-		eq(calls[1].method, "DELETE", "share remove request method");
-		eq(calls[1].url, "https://legacy-share.example.com/api/share/shr_abc", "share remove request url");
+		eq(calls.length, 3, "share remove request count");
+		eq(calls[2].method, "DELETE", "share remove request method");
+		eq(calls[2].url, "https://legacy-share.example.com/api/share/shr_abc", "share remove request url");
 		eq(service.remove("ses_1"), false, "share remove missing row is false");
 
 		final failed = new ShareNextServiceRuntime(defaultLegacy, _ -> ({status: 500}));
@@ -96,5 +132,10 @@ class ShareSmoke {
 	static function eq<T>(actual:T, expected:T, label:String):Void {
 		if (actual != expected)
 			throw '${label}: expected ${expected}, got ${actual}';
+	}
+
+	static function contains(text:String, expected:String, label:String):Void {
+		if (text.indexOf(expected) == -1)
+			throw '${label}: expected ${expected} in ${text}';
 	}
 }

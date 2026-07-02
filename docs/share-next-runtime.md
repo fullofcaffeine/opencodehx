@@ -13,12 +13,13 @@ This slice starts the ShareNext port with deterministic request-routing and inje
 - Missing active-account tokens fail before any request can be constructed.
 - `ShareNextServiceRuntime.create(...)` posts to the selected create endpoint, persists the returned share by session ID, and exposes the persisted row.
 - `ShareNextServiceRuntime.remove(...)` deletes the persisted row after a successful delete endpoint response and returns `false` when no share is persisted for the session.
+- `ShareNextServiceRuntime.queueDiff(...)` keeps only the latest queued diff per shared session, and `flushSync(...)` posts one upstream-shaped `session_diff` payload with the persisted share secret.
 - Non-OK create responses fail and do not persist a share.
 
-`ShareSmoke` covers legacy enterprise URL, default legacy URL, active org account headers/endpoints, missing-token failure, create/remove persistence, request method/URL shape, missing-row removal, and non-OK create failure without persistence.
+`ShareSmoke` covers legacy enterprise URL, default legacy URL, active org account headers/endpoints, missing-token failure, create/remove persistence, request method/URL shape, latest-diff sync coalescing, missing-row removal, and non-OK create failure without persistence.
 
 ## Boundaries
 
-This is not the full upstream ShareNext service yet. Full sync data gathering, delayed queue coalescing, event subscriptions, disabled-share flags, real database persistence, and live HTTP layer integration remain deferred to later share/runtime slices.
+This is not the full upstream ShareNext service yet. Full sync data gathering, delayed timer scheduling, event subscriptions, disabled-share flags, real database persistence, and live HTTP layer integration remain deferred to later share/runtime slices.
 
 Headers are modeled as typed `{ name, value }` entries instead of a string-keyed map so Haxe callers use `ShareRequestHeaderName` and generated TypeScript stays free of broad maps or raw `any`.
