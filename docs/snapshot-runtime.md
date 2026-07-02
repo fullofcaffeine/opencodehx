@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`, `opencodehx-mnse`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -32,6 +32,7 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 - Added files under the upstream 2 MiB limit are tracked.
 - Added filenames with spaces, dashes, and underscores are detected.
 - Added hidden files are detected, including `.gitignore` and dot config files.
+- Chmod-only permission changes on existing tracked files do not create patch entries.
 - Added files larger than the upstream 2 MiB limit are skipped and keep the snapshot hash stable.
 - `.gitignore` and `git check-ignore --no-index` filtering exclude ignored files while keeping `.gitignore` itself and normal files.
 - `diffFull` reports changed tracked files and excludes ignored files.

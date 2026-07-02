@@ -23,6 +23,7 @@ class SnapshotSmoke {
 		underLimitAddedFilesAreTracked();
 		specialFilenamePatchDetection();
 		hiddenFilePatchDetection();
+		permissionChangesAreIgnored();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
 		binaryDiffFull();
@@ -217,6 +218,18 @@ class SnapshotSmoke {
 		contains(patch, dir, ".hidden", "snapshot hidden file");
 		contains(patch, dir, ".gitignore", "snapshot hidden gitignore file");
 		contains(patch, dir, ".config", "snapshot hidden config file");
+		tmp.dispose();
+	}
+
+	static function permissionChangesAreIgnored():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final file = NodePath.join(dir, "a.txt");
+		final before = SnapshotRuntime.trackDirectory(dir);
+		Fs.chmodSync(file, 0x180);
+		Fs.chmodSync(file, 0x1ed);
+		Fs.chmodSync(file, 0x1a4);
+		eq(SnapshotRuntime.patch(dir, before).files.length, 0, "snapshot chmod-only changes ignored");
 		tmp.dispose();
 	}
 
