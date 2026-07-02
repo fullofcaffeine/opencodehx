@@ -127,6 +127,44 @@ class ShareSmoke {
 			eq(error, "Share create failed with status 500", "share create failure status");
 		}
 		eq(failed.get("ses_failed"), null, "share create failure does not persist");
+
+		final retryCalls:Array<ShareHttpRequest> = [];
+		var syncAttempts = 0;
+		final retry = new ShareNextServiceRuntime(defaultLegacy, request -> {
+			retryCalls.push(request);
+			if (StringTools.endsWith(request.url, "/sync")) {
+				syncAttempts += 1;
+				return {status: syncAttempts == 1 ? 500 : 200};
+			}
+			return {
+				status: 200,
+				share: {
+					id: "shr_retry",
+					url: "https://opncd.ai/share/retry",
+					secret: "sec_retry",
+				},
+			};
+		});
+		retry.create("ses_retry");
+		retry.queueDiff("ses_retry", [
+			{
+				file: "retry.ts",
+				patch: "retry-patch",
+				additions: 3,
+				deletions: 1,
+				status: "modified",
+			}
+		]);
+		try {
+			retry.flushSync("ses_retry");
+			throw "share failed sync should reject";
+		} catch (error:String) {
+			eq(error, "Share sync failed with status 500", "share sync failure status");
+		}
+		eq(retry.flushSync("ses_retry"), true, "share sync retry succeeds");
+		eq(syncAttempts, 2, "share sync retry attempt count");
+		contains(retryCalls[2].body, '"file":"retry.ts"', "share sync retry keeps queued diff");
+		contains(retryCalls[2].body, '"secret":"sec_retry"', "share sync retry keeps secret");
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

@@ -1,6 +1,6 @@
 # ShareNext Runtime
 
-**Bead:** `opencodehx-37pd`  
+**Beads:** `opencodehx-37pd`, `opencodehx-subh`
 **Upstream oracle:** `../opencode/packages/opencode/src/share/share-next.ts` and `../opencode/packages/opencode/test/share/share-next.test.ts`
 
 ## Slice
@@ -15,8 +15,9 @@ This slice starts the ShareNext port with deterministic request-routing and inje
 - `ShareNextServiceRuntime.remove(...)` deletes the persisted row after a successful delete endpoint response and returns `false` when no share is persisted for the session.
 - `ShareNextServiceRuntime.queueDiff(...)` keeps only the latest queued diff per shared session, and `flushSync(...)` posts one upstream-shaped `session_diff` payload with the persisted share secret.
 - Non-OK create responses fail and do not persist a share.
+- Non-OK sync responses fail without clearing the queued diff, so a later retry can send the same pending payload.
 
-`ShareSmoke` covers legacy enterprise URL, default legacy URL, active org account headers/endpoints, missing-token failure, create/remove persistence, request method/URL shape, latest-diff sync coalescing, missing-row removal, and non-OK create failure without persistence.
+`ShareSmoke` covers legacy enterprise URL, default legacy URL, active org account headers/endpoints, missing-token failure, create/remove persistence, request method/URL shape, latest-diff sync coalescing, failed-sync retry retention, missing-row removal, and non-OK create failure without persistence.
 
 ## Boundaries
 
