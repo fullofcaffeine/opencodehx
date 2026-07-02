@@ -43,6 +43,7 @@ class SnapshotSmoke {
 		diffFullDeletedTextPatch();
 		diffFullMultilineAddedTextPatch();
 		diffFullAddDeletePair();
+		diffFullMultipleAddDelete();
 		diffFullOrderAcrossBatchBoundaries();
 		diffFullStatuses();
 		repeatedTrackStableHash();
@@ -608,6 +609,33 @@ class SnapshotSmoke {
 		eq(removed.additions, 0, "snapshot diffFull add-delete removed additions");
 		eq(removed.deletions, 1, "snapshot diffFull add-delete removed deletions");
 		eq(removed.status, "deleted", "snapshot diffFull add-delete removed status");
+		tmp.dispose();
+	}
+
+	static function diffFullMultipleAddDelete():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "multi1.txt", "line1\nline2\nline3");
+		write(dir, "multi2.txt", "single line");
+		Fs.rmSync(NodePath.join(dir, "a.txt"), {force: true});
+		Fs.rmSync(NodePath.join(dir, "b.txt"), {force: true});
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, 4, "snapshot diffFull multiple add-delete count");
+		final multi1 = requireDiff(diffs, "multi1.txt");
+		eq(multi1.additions, 3, "snapshot diffFull multiple add-delete multi1 additions");
+		eq(multi1.deletions, 0, "snapshot diffFull multiple add-delete multi1 deletions");
+		final multi2 = requireDiff(diffs, "multi2.txt");
+		eq(multi2.additions, 1, "snapshot diffFull multiple add-delete multi2 additions");
+		eq(multi2.deletions, 0, "snapshot diffFull multiple add-delete multi2 deletions");
+		final removedA = requireDiff(diffs, "a.txt");
+		eq(removedA.additions, 0, "snapshot diffFull multiple add-delete a additions");
+		eq(removedA.deletions, 1, "snapshot diffFull multiple add-delete a deletions");
+		final removedB = requireDiff(diffs, "b.txt");
+		eq(removedB.additions, 0, "snapshot diffFull multiple add-delete b additions");
+		eq(removedB.deletions, 1, "snapshot diffFull multiple add-delete b deletions");
 		tmp.dispose();
 	}
 
