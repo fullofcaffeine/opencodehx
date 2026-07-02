@@ -1,5 +1,7 @@
 # Bus Runtime Parity
 
+**Beads:** `opencodehx-86cc`
+
 OpenCodeHX currently covers the callback-facing and stream-shaped subsets of upstream OpenCode's bus behavior.
 
 `opencodehx.bus.BusRuntime` provides:
@@ -18,6 +20,8 @@ OpenCodeHX currently covers the callback-facing and stream-shaped subsets of ups
 - disposal that publishes upstream `server.instance.disposed` with the scoped directory payload to wildcard subscribers before clearing listeners
 
 `opencodehx.bus.BusStreamRuntime` is a small stream-shaped adapter over the same bus. It lets Haxe fixtures exercise the upstream Effect-native `Stream.runForEach(bus.subscribe(...))` contract without pulling the full Effect service graph into the first bus slice.
+
+The stream adapter now also proves that the unsubscribe returned by `runForEach` is idempotent and stops later deliveries.
 
 `opencodehx.smoke.BusSmoke` is the executable evidence for the callback cases from:
 
