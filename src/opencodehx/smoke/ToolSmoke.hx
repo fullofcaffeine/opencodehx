@@ -31,7 +31,9 @@ import opencodehx.tool.ToolTypes.ToolResult;
 import opencodehx.tool.ToolTypes.ToolResultAttachment;
 import opencodehx.tool.ToolTypes.ToolResultMetadata;
 import opencodehx.tool.QuestionTool;
+import opencodehx.tool.Truncate;
 import opencodehx.tool.WebFetchTool;
+import opencodehx.permission.PermissionTypes.PermissionRule;
 import opencodehx.question.QuestionRuntime.QuestionRequest;
 import opencodehx.question.QuestionRuntime.QuestionService;
 import opencodehx.smoke.SmokeCleanup.withCleanupAsync;
@@ -51,6 +53,7 @@ class ToolSmoke {
 		toolDefinitionFresh();
 		registrySurface(registry);
 		registryCustomTools(root);
+		truncateRuntime(root);
 		shellSelectionParity();
 		await(killTreeParity(root));
 		errorShapes(registry, context(root));
@@ -133,6 +136,66 @@ class ToolSmoke {
 		eq(factoryFirst == factorySecond, false, "factory-defined fresh tool objects");
 		eq(factoryFirst.id, "factory-1", "factory-defined first id");
 		eq(factorySecond.id, "factory-2", "factory-defined second id");
+	}
+
+	static function truncateRuntime(root:String):Void {
+		final dir = NodePath.join(root, "tool-output");
+		final truncate = new Truncate(dir);
+		eq(Truncate.MAX_LINES, 2000, "truncate default max lines");
+		eq(Truncate.MAX_BYTES, 50 * 1024, "truncate default max bytes");
+		eq(StringTools.endsWith(Truncate.DIR, NodePath.join("opencode", "tool-output")), true, "truncate default dir");
+		eq(Truncate.GLOB, NodePath.join(Truncate.DIR, "*"), "truncate glob path");
+
+		final unchanged = truncate.output("line1\nline2\nline3");
+		eq(unchanged.truncated, false, "truncate unchanged flag");
+		eq(unchanged.content, "line1\nline2\nline3", "truncate unchanged content");
+		eq(unchanged.outputPath == null, true, "truncate unchanged no output path");
+
+		final lines = numberedLines(100);
+		final byLines = truncate.output(lines, {maxLines: 10});
+		eq(byLines.truncated, true, "truncate line flag");
+		eq(byLines.content.indexOf("line0") != -1, true, "truncate head includes first line");
+		eq(byLines.content.indexOf("line9") != -1, true, "truncate head includes limit line");
+		eq(byLines.content.indexOf("line99") == -1, true, "truncate head omits tail line");
+		eq(byLines.content.indexOf("...90 lines truncated...") != -1, true, "truncate line message");
+		final byLinesPath = present(byLines.outputPath, "truncate line output path");
+		eq(NodePath.basename(byLinesPath).indexOf("tool_") == 0, true, "truncate line output file name");
+		eq(Fs.readFileSync(byLinesPath, "utf8"), lines, "truncate writes full line output");
+		eq(byLines.content.indexOf("Use Grep to search") != -1, true, "truncate grep hint");
+		eq(byLines.content.indexOf("Task tool") == -1, true, "truncate no task hint by default");
+
+		final byBytes = truncate.output(repeat("a", 1000), {maxBytes: 100});
+		eq(byBytes.truncated, true, "truncate byte flag");
+		eq(byBytes.content.indexOf("bytes truncated...") != -1, true, "truncate byte message");
+
+		final tail = truncate.output(numberedLines(10), {maxLines: 3, direction: "tail"});
+		eq(tail.content.indexOf("line7") != -1, true, "truncate tail includes line7");
+		eq(tail.content.indexOf("line9") != -1, true, "truncate tail includes line9");
+		eq(tail.content.indexOf("line0") == -1, true, "truncate tail omits line0");
+		eq(StringTools.startsWith(tail.content, "...7 lines truncated..."), true, "truncate tail prefix");
+
+		final taskRules:Array<PermissionRule> = [{permission: "task", pattern: "*", action: "allow"}];
+		final taskHint = truncate.output(lines, {maxLines: 10}, {permission: taskRules});
+		eq(taskHint.content.indexOf("Task tool") != -1, true, "truncate task hint");
+		eq(taskHint.content.indexOf("Do NOT read the full file yourself") != -1, true, "truncate task delegation hint");
+
+		final taskDenied:Array<PermissionRule> = [{permission: "task", pattern: "*", action: "deny"}];
+		final noTaskHint = truncate.output(lines, {maxLines: 10}, {permission: taskDenied});
+		eq(noTaskHint.content.indexOf("Task tool") == -1, true, "truncate denied task hint omitted");
+		eq(noTaskHint.content.indexOf("Use Grep to search") != -1, true, "truncate denied grep hint");
+
+		final now = 2000000000000.0;
+		Fs.mkdirSync(dir, {recursive: true});
+		final old = NodePath.join(dir, 'tool_${Math.floor(now - 10 * 24 * 60 * 60 * 1000)}_old.txt');
+		final recent = NodePath.join(dir, 'tool_${Math.floor(now - 3 * 24 * 60 * 60 * 1000)}_recent.txt');
+		final ignored = NodePath.join(dir, "note.txt");
+		Fs.writeFileSync(old, "old");
+		Fs.writeFileSync(recent, "recent");
+		Fs.writeFileSync(ignored, "ignored");
+		truncate.cleanup(now);
+		eq(Fs.existsSync(old), false, "truncate cleanup removes old tool file");
+		eq(Fs.existsSync(recent), true, "truncate cleanup keeps recent tool file");
+		eq(Fs.existsSync(ignored), true, "truncate cleanup ignores non-tool file");
 	}
 
 	static function simpleTool(id:String):ToolDef {
@@ -1195,6 +1258,23 @@ Use this skill.
 			throw '${label}: expected attachment';
 		eq(attachments.length, 1, '${label} attachment count');
 		return attachments[0];
+	}
+
+	static function numberedLines(count:Int):String {
+		return [for (i in 0...count) 'line${i}'].join("\n");
+	}
+
+	static function repeat(text:String, count:Int):String {
+		final out:Array<String> = [];
+		for (_ in 0...count)
+			out.push(text);
+		return out.join("");
+	}
+
+	static function present<T>(value:Null<T>, label:String):T {
+		if (value == null)
+			throw '${label}: expected present value';
+		return value;
 	}
 
 	static function jsonPath(path:String):String {
