@@ -32,6 +32,7 @@ class SnapshotSmoke {
 		hiddenFilePatchDetection();
 		permissionChangesAreIgnored();
 		largeAddedFilesAreSkipped();
+		preexistingGitignoreFiltering();
 		gitignoreFiltering();
 		newlyIgnoredSnapshotFileFiltering();
 		gitInfoExcludeFiltering();
@@ -372,6 +373,41 @@ class SnapshotSmoke {
 		eq(SnapshotRuntime.patch(dir, before).files.length, 0, "snapshot large added skipped");
 		eq(SnapshotRuntime.diff(dir, before), "", "snapshot large added diff skipped");
 		eq(SnapshotRuntime.trackDirectory(dir), before, "snapshot large added stable hash");
+		tmp.dispose();
+	}
+
+	static function preexistingGitignoreFiltering():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		write(dir, ".gitignore", "*.ignored\nbuild/\nnode_modules/\n");
+		write(dir, "tracked.txt", "tracked content");
+		write(dir, "ignored.ignored", "ignored content");
+		write(dir, "build/output.js", "build output");
+		write(dir, "normal.js", "normal js");
+		require(Git.run(dir, ["add", ".gitignore", "tracked.txt", "normal.js"]), "snapshot preexisting gitignore add");
+		require(Git.run(dir, [
+			"-c",
+			"user.email=opencodehx@example.invalid",
+			"-c",
+			"user.name=OpenCodeHX Smoke",
+			"commit",
+			"-m",
+			"ignore setup"
+		]), "snapshot preexisting gitignore commit");
+
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "tracked.txt", "modified tracked");
+		write(dir, "new.ignored", "new ignored");
+		write(dir, "new-tracked.txt", "new tracked");
+		write(dir, "build/new-build.js", "new build file");
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		contains(patch, dir, "tracked.txt", "snapshot preexisting gitignore tracked modified");
+		contains(patch, dir, "new-tracked.txt", "snapshot preexisting gitignore new tracked");
+		missing(patch, dir, "new.ignored", "snapshot preexisting gitignore new ignored");
+		missing(patch, dir, "ignored.ignored", "snapshot preexisting gitignore existing ignored");
+		missing(patch, dir, "build/output.js", "snapshot preexisting gitignore existing build");
+		missing(patch, dir, "build/new-build.js", "snapshot preexisting gitignore new build");
 		tmp.dispose();
 	}
 

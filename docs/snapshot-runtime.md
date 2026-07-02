@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`, `opencodehx-mnse`, `opencodehx-1qmk`, `opencodehx-3cgk`, `opencodehx-0z0m`, `opencodehx-2uwe`, `opencodehx-fbe7`, `opencodehx-i11n`, `opencodehx-7s01`, `opencodehx-51y6`, `opencodehx-o8tp`, `opencodehx-ce6t`, `opencodehx-i4fy`, `opencodehx-a9tt`, `opencodehx-7fj3`, `opencodehx-b3tj`, `opencodehx-f5rq`, `opencodehx-5l53`, `opencodehx-ul8r`, `opencodehx-vbdl`, `opencodehx-e602`, `opencodehx-i8md`, `opencodehx-gelg`
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`, `opencodehx-mnse`, `opencodehx-1qmk`, `opencodehx-3cgk`, `opencodehx-0z0m`, `opencodehx-2uwe`, `opencodehx-fbe7`, `opencodehx-i11n`, `opencodehx-7s01`, `opencodehx-51y6`, `opencodehx-o8tp`, `opencodehx-ce6t`, `opencodehx-i4fy`, `opencodehx-a9tt`, `opencodehx-7fj3`, `opencodehx-b3tj`, `opencodehx-f5rq`, `opencodehx-5l53`, `opencodehx-ul8r`, `opencodehx-vbdl`, `opencodehx-e602`, `opencodehx-i8md`, `opencodehx-gelg`, `opencodehx-56a4`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -37,7 +37,7 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 - Added hidden files are detected, including `.gitignore` and dot config files.
 - Chmod-only permission changes on existing tracked files do not create patch entries.
 - Added files larger than the upstream 2 MiB limit are skipped and keep the snapshot hash stable.
-- `.gitignore` and `git check-ignore --no-index` filtering exclude ignored files while keeping `.gitignore` itself and normal files.
+- Preexisting and newly added `.gitignore` rules exclude ignored files while keeping tracked and normal files.
 - Patch output filters files that were snapshotted before a later `.gitignore` rule excluded them.
 - `.git/info/exclude` rules filter ignored files from patch and `diffFull` output.
 - A local `GIT_CONFIG_GLOBAL` `core.excludesFile` continues to filter global excludes alongside `.git/info/exclude`.
