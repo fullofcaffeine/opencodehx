@@ -189,6 +189,47 @@ class ShareSmoke {
 		eq(disabled.flushSync("ses_disabled"), false, "share disabled flush is false");
 		eq(disabled.remove("ses_disabled"), false, "share disabled remove is false");
 		eq(disabledCalls, 0, "share disabled does not call http client");
+
+		final removeFailureCalls:Array<ShareHttpRequest> = [];
+		var removeAttempts = 0;
+		final removeFailure = new ShareNextServiceRuntime(defaultLegacy, request -> {
+			removeFailureCalls.push(request);
+			if (request.method == "DELETE") {
+				removeAttempts += 1;
+				return {status: removeAttempts == 1 ? 503 : 200};
+			}
+			if (StringTools.endsWith(request.url, "/sync"))
+				return {status: 200};
+			return {
+				status: 200,
+				share: {
+					id: "shr_remove_retry",
+					url: "https://opncd.ai/share/remove-retry",
+					secret: "sec_remove_retry",
+				},
+			};
+		});
+		removeFailure.create("ses_remove_retry");
+		removeFailure.queueDiff("ses_remove_retry", [
+			{
+				file: "remove-retry.ts",
+				patch: "remove-retry-patch",
+				additions: 4,
+				deletions: 2,
+				status: "modified",
+			}
+		]);
+		try {
+			removeFailure.remove("ses_remove_retry");
+			throw "share failed remove should reject";
+		} catch (error:String) {
+			eq(error, "Share remove failed with status 503", "share remove failure status");
+		}
+		eq(removeFailure.get("ses_remove_retry").id, "shr_remove_retry", "share remove failure keeps row");
+		eq(removeFailure.flushSync("ses_remove_retry"), true, "share remove failure keeps queued diff");
+		contains(removeFailureCalls[2].body, '"file":"remove-retry.ts"', "share remove failure queued diff body");
+		eq(removeFailure.remove("ses_remove_retry"), true, "share remove retry succeeds");
+		eq(removeFailure.get("ses_remove_retry"), null, "share remove retry clears row");
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

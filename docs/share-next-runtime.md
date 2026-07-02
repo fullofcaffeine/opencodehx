@@ -1,6 +1,6 @@
 # ShareNext Runtime
 
-**Beads:** `opencodehx-37pd`, `opencodehx-subh`, `opencodehx-000.11.32`
+**Beads:** `opencodehx-37pd`, `opencodehx-subh`, `opencodehx-000.11.32`, `opencodehx-000.11.33`
 **Upstream oracle:** `../opencode/packages/opencode/src/share/share-next.ts` and `../opencode/packages/opencode/test/share/share-next.test.ts`
 
 ## Slice
@@ -17,8 +17,9 @@ This slice starts the ShareNext port with deterministic request-routing and inje
 - Non-OK create responses fail and do not persist a share.
 - Non-OK sync responses fail without clearing the queued diff, so a later retry can send the same pending payload.
 - Disabled sharing returns an empty create result and makes create, queue, flush, and remove no-ops without calling the injected HTTP client or persisting a row.
+- Non-OK remove responses fail without clearing the persisted share or queued diff, so later sync/remove retries can still use the same state.
 
-`ShareSmoke` covers legacy enterprise URL, default legacy URL, active org account headers/endpoints, missing-token failure, create/remove persistence, request method/URL shape, latest-diff sync coalescing, failed-sync retry retention, disabled-share no-op behavior, missing-row removal, and non-OK create failure without persistence.
+`ShareSmoke` covers legacy enterprise URL, default legacy URL, active org account headers/endpoints, missing-token failure, create/remove persistence, request method/URL shape, latest-diff sync coalescing, failed-sync retry retention, disabled-share no-op behavior, failed-remove state retention, missing-row removal, and non-OK create failure without persistence.
 
 ## Boundaries
 
