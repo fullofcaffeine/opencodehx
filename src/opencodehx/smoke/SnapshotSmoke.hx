@@ -19,6 +19,7 @@ class SnapshotSmoke {
 		largeBatchRevert();
 		emptyDirectoryAndInvalidHash();
 		revertNonExistentFile();
+		underLimitAddedFilesAreTracked();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
 		binaryDiffFull();
@@ -161,6 +162,16 @@ class SnapshotSmoke {
 		final missingFile = abs(dir, "nonexistent.txt");
 		SnapshotRuntime.revert(dir, [{hash: before, files: [missingFile]}]);
 		eq(Fs.existsSync(missingFile), false, "snapshot revert ignores non-existent file");
+		tmp.dispose();
+	}
+
+	static function underLimitAddedFilesAreTracked():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "large.txt", repeat("x", 1024 * 1024));
+		final patch = SnapshotRuntime.patch(dir, before);
+		contains(patch, dir, "large.txt", "snapshot under-limit added file");
 		tmp.dispose();
 	}
 
