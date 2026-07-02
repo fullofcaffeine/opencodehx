@@ -18,6 +18,7 @@ class SnapshotSmoke {
 		overlappingRevertOrder();
 		largeBatchRevert();
 		emptyDirectoryAndInvalidHash();
+		revertNonExistentFile();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
 		binaryDiffFull();
@@ -150,6 +151,16 @@ class SnapshotSmoke {
 		eq(invalid.files.length, 0, "snapshot invalid hash no files");
 		SnapshotRuntime.revert(dir, []);
 		SnapshotRuntime.revert(dir, [{hash: "missing", files: []}]);
+		tmp.dispose();
+	}
+
+	static function revertNonExistentFile():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		final missingFile = abs(dir, "nonexistent.txt");
+		SnapshotRuntime.revert(dir, [{hash: before, files: [missingFile]}]);
+		eq(Fs.existsSync(missingFile), false, "snapshot revert ignores non-existent file");
 		tmp.dispose();
 	}
 
