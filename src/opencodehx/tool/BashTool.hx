@@ -25,8 +25,7 @@ typedef BashToolInput = {
 
 class BashTool {
 	static inline final DEFAULT_TIMEOUT = 120000;
-	static inline final MAX_OUTPUT_BYTES = 30000;
-	static inline final MAX_OUTPUT_LINES = 200;
+	static inline final MAX_METADATA_LENGTH = 30000;
 	static inline final MAX_BUFFER = 1024 * 1024;
 
 	public static function define():ToolDef {
@@ -114,7 +113,7 @@ class BashTool {
 			timeout: timeout,
 			maxBuffer: MAX_BUFFER
 		});
-		return formatResult(input.description, shellRun.stdout, shellRun.stderr, shellRun.status, shellRun.signal, shellRun.error, timeout);
+		return formatResult(ctx, input.description, shellRun.stdout, shellRun.stderr, shellRun.status, shellRun.signal, shellRun.error, timeout);
 	}
 
 	static function resolveWorkdir(ctx:ToolContext, value:Null<String>):String {
@@ -127,16 +126,19 @@ class BashTool {
 		return absolute;
 	}
 
-	static function formatResult(description:String, stdout:String, stderr:String, status:Null<Int>, signal:Null<String>, error:Null<Error>,
+	static function formatResult(ctx:ToolContext, description:String, stdout:String, stderr:String, status:Null<Int>, signal:Null<String>, error:Null<Error>,
 			timeout:Int):ToolResult {
 		final raw = joinOutput(stdout, stderr);
 		var output = raw == "" ? "(no output)" : raw;
 		var truncated = false;
-		final tailed = tail(output, MAX_OUTPUT_LINES, MAX_OUTPUT_BYTES);
+		final tailed = tail(output, Truncate.MAX_LINES, Truncate.MAX_BYTES);
 		output = tailed.text;
 		truncated = tailed.cut;
-		if (truncated)
-			output = "...output truncated...\n\n" + output;
+		var outputPath:Null<String> = null;
+		if (truncated) {
+			outputPath = new Truncate(ctx.toolOutputDir).write(raw);
+			output = '...output truncated...\n\nFull output saved to: ${outputPath}\n\n' + output;
+		}
 		final meta:Array<String> = [];
 		if (isTimeoutError(error)) {
 			meta.push('bash tool terminated command after exceeding timeout ${timeout} ms.');
@@ -146,6 +148,19 @@ class BashTool {
 		if (meta.length > 0)
 			output += "\n\n<bash_metadata>\n" + meta.join("\n") + "\n</bash_metadata>";
 		final exit:Null<Int> = status == null ? null : status;
+		if (outputPath == null) {
+			return {
+				title: description,
+				output: output,
+				metadata: ToolResultMetadata.checked({
+					output: preview(raw),
+					exit: exit,
+					description: description,
+					truncated: truncated,
+					signal: signal,
+				}),
+			};
+		}
 		return {
 			title: description,
 			output: output,
@@ -155,6 +170,7 @@ class BashTool {
 				description: description,
 				truncated: truncated,
 				signal: signal,
+				outputPath: outputPath,
 			}),
 		};
 	}
@@ -181,9 +197,9 @@ class BashTool {
 	}
 
 	static function preview(text:String):String {
-		if (text.length <= MAX_OUTPUT_BYTES)
+		if (text.length <= MAX_METADATA_LENGTH)
 			return text;
-		return "...\n\n" + text.substr(text.length - MAX_OUTPUT_BYTES);
+		return "...\n\n" + text.substr(text.length - MAX_METADATA_LENGTH);
 	}
 
 	static function tail(text:String, maxLines:Int, maxBytes:Int):{text:String, cut:Bool} {

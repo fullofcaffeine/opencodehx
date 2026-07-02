@@ -365,6 +365,7 @@ class ToolSmoke {
 		eq(hello.title, "Print hello", "bash title");
 		eq(hello.output, "hello", "bash output");
 		eq(metadataText(hello).indexOf('"exit":0') != -1, true, "bash exit");
+		eq(metadataText(hello).indexOf('"outputPath"') == -1, true, "bash untruncated omits output path");
 
 		final cwd = registry.execute(ToolIDs.known("bash"), {
 			command: "node -e \"process.stdout.write(process.cwd())\"",
@@ -380,12 +381,31 @@ class ToolSmoke {
 		}, ctx);
 		eq(env.output, "env-ok", "bash env");
 
-		final truncated = registry.execute(ToolIDs.known("bash"), {
-			command: "node -e \"process.stdout.write('x'.repeat(31000))\"",
-			description: "Large output"
+		final truncatedBytes = registry.execute(ToolIDs.known("bash"), {
+			command: 'node -e "process.stdout.write(\'x\'.repeat(${Truncate.MAX_BYTES + 1000}))"',
+			description: "Large byte output"
 		}, ctx);
-		eq(metadataText(truncated).indexOf('"truncated":true') != -1, true, "bash truncated metadata");
-		eq(truncated.output.indexOf("...output truncated...") == 0, true, "bash truncation output");
+		eq(metadataText(truncatedBytes).indexOf('"truncated":true') != -1, true, "bash byte truncated metadata");
+		eq(truncatedBytes.output.indexOf("...output truncated...") == 0, true, "bash byte truncation output");
+		eq(truncatedBytes.output.indexOf("Full output saved to:") != -1, true, "bash byte truncation saved hint");
+		final byteOutputPath = savedOutputPath(truncatedBytes.output, "bash byte output path");
+		eq(metadataText(truncatedBytes).indexOf('"outputPath":"' + jsonPath(byteOutputPath) + '"') != -1, true, "bash byte metadata output path");
+		eq(Fs.readFileSync(byteOutputPath, "utf8").length, Truncate.MAX_BYTES + 1000, "bash byte saved full output");
+
+		final lineCount = Truncate.MAX_LINES + 100;
+		final truncatedLines = registry.execute(ToolIDs.known("bash"), {
+			command: 'node -e "console.log(Array.from({length:${lineCount}},(_,i)=>i+1).join(String.fromCharCode(10)))"',
+			description: "Large line output"
+		}, ctx);
+		eq(metadataText(truncatedLines).indexOf('"truncated":true') != -1, true, "bash line truncated metadata");
+		final lineOutputPath = savedOutputPath(truncatedLines.output, "bash line output path");
+		eq(metadataText(truncatedLines).indexOf('"outputPath":"' + jsonPath(lineOutputPath) + '"') != -1, true, "bash line metadata output path");
+		final savedLines = Fs.readFileSync(lineOutputPath, "utf8").split("\n");
+		if (savedLines.length > 0 && savedLines[savedLines.length - 1] == "")
+			savedLines.pop();
+		eq(savedLines.length, lineCount, "bash line saved full output line count");
+		eq(savedLines[0], "1", "bash line saved first line");
+		eq(savedLines[savedLines.length - 1], Std.string(lineCount), "bash line saved last line");
 
 		final timeout = registry.execute(ToolIDs.known("bash"), {
 			command: "node -e \"setTimeout(()=>{}, 200)\"",
@@ -1224,6 +1244,7 @@ Use this skill.
 			messageID: "msg_tool",
 			callID: "call_tool",
 			agent: "build",
+			toolOutputDir: NodePath.join(root, "tool-output"),
 			ask: ask,
 		};
 	}
@@ -1236,6 +1257,7 @@ Use this skill.
 			messageID: messageID,
 			callID: "call_tool",
 			agent: "build",
+			toolOutputDir: NodePath.join(root, "tool-output"),
 			instructionClaims: claims,
 		};
 	}
@@ -1283,6 +1305,18 @@ Use this skill.
 
 	static function metadataText(result:ToolResult):String {
 		return Json.stringify(result.metadata);
+	}
+
+	static function savedOutputPath(output:String, label:String):String {
+		final marker = "Full output saved to: ";
+		final start = output.indexOf(marker);
+		if (start == -1)
+			throw '${label}: expected saved output marker';
+		final pathStart = start + marker.length;
+		final lineEnd = output.indexOf("\n", pathStart);
+		if (lineEnd == -1)
+			return output.substr(pathStart);
+		return output.substr(pathStart, lineEnd - pathStart);
 	}
 
 	static function expectToolFailure(run:() -> Void, matches:ToolFailure->Bool, label:String):Void {

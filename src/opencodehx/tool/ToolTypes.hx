@@ -17,6 +17,7 @@ typedef ToolContext = {
 	@:optional final messageID:String;
 	@:optional final agent:String;
 	@:optional final callID:String;
+	@:optional final toolOutputDir:String;
 	@:optional final instructionClaims:SessionInstructionClaims;
 	@:optional final loadedInstructions:Array<String>;
 	@:optional final ask:(ToolPermissionRequest) -> ToolPermissionDecision;
