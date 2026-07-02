@@ -10,6 +10,7 @@ import opencodehx.effect.RunnerRuntime;
 import opencodehx.effect.RunnerRuntime.RunnerCancelledError;
 import opencodehx.effect.RunnerRuntime.RunnerState;
 import opencodehx.effect.RunServiceRuntime;
+import opencodehx.effect.RunServiceRuntime.RunServiceExit;
 import opencodehx.effect.RuntimeMemo;
 import opencodehx.externs.web.WebStreams.WebTimers;
 import opencodehx.externs.node.Fs;
@@ -148,6 +149,32 @@ class EffectSmoke {
 		eq(first, 1, "run-service async first value");
 		eq(second, "async-1", "run-service async reuses service");
 		eq(initialized, 1, "run-service async initializes service once");
+
+		eq(exitValue(@:await runtime.runPromiseExit(svc -> Promise.resolve(svc.get()))), "success:1", "run-service promise exit success");
+		eq(exitValue(@:await runtime.runPromiseExit(_ -> Promise.reject(new Error("exit boom")))), "failed:exit boom", "run-service promise exit failure");
+
+		final callbackSuccess = new Promise<Bool>((resolve, reject) -> {
+			runtime.runCallback(svc -> Promise.resolve(svc.get()), result -> {
+				switch (result) {
+					case Succeeded(value):
+						eq(value, 1, "run-service callback success value");
+						resolve(true);
+					case Failed(error):
+						reject(error);
+					case Interrupted:
+						reject(new Error("callback should not interrupt"));
+				}
+			});
+		});
+		@:await callbackSuccess;
+
+		final fork = runtime.runFork(svc -> delay('fork-${svc.get()}', 10));
+		eq(exitValue(@:await fork.exit), "success:fork-1", "run-service fork success");
+
+		final interrupted = runtime.runFork(_ -> delay("late", 25));
+		interrupted.interrupt();
+		eq(exitValue(@:await interrupted.exit), "interrupted", "run-service fork interrupt");
+		@:await delay("settled", 30);
 	}
 
 	static function instanceState():Void {
@@ -342,6 +369,14 @@ class EffectSmoke {
 		return switch state {
 			case Idle: "Idle";
 			case Running: "Running";
+		}
+	}
+
+	static function exitValue<T>(result:RunServiceExit<T>):String {
+		return switch (result) {
+			case Succeeded(value): 'success:${value}';
+			case Failed(error): 'failed:${error.message}';
+			case Interrupted: "interrupted";
 		}
 	}
 
