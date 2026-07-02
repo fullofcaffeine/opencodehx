@@ -994,6 +994,10 @@ class ProjectRuntimeSmoke {
 		final freshBin = NpmRuntime.which(fixture.deps, "fresh-bin");
 		eq(freshBin, NodePath.join(NodePath.join(NodePath.join(freshBinDir, "node_modules"), ".bin"), "fresh-bin"), "npm which installs absent cache");
 
+		final failedWhich = npmFixture(NodePath.join(root, "npm-which-empty-reify"), true);
+		eq(NpmRuntime.which(failedWhich.deps, "missing-after-failed-add"), null, "npm which contains add failure");
+		eq(failedWhich.requests[0].add.join(","), "missing-after-failed-add", "npm which attempted failed add");
+
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"3.0.0"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.9.0"), true, "npm outdated exact older");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "3.0.0"), false, "npm outdated exact current");
