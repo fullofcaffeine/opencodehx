@@ -66,6 +66,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - a service-start refusal cleans up already-started services and does not cache the failed context.
 - NPM/install-adjacent behavior:
   - package spec sanitizing matches the upstream Windows-safe path rule while staying a no-op on POSIX.
+  - package-name parsing covers scoped/versioned specs, git specs, and `npm:` alias prefixes,
   - package cache paths are derived from sanitized package specs,
   - package `add` uses an existing cache when present and otherwise delegates to an Arborist-shaped reify seam,
   - package `install` skips non-writable directories, reifies missing `node_modules`, and reifies dirty package-lock roots,
