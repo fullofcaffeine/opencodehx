@@ -165,6 +165,30 @@ class ShareSmoke {
 		eq(syncAttempts, 2, "share sync retry attempt count");
 		contains(retryCalls[2].body, '"file":"retry.ts"', "share sync retry keeps queued diff");
 		contains(retryCalls[2].body, '"secret":"sec_retry"', "share sync retry keeps secret");
+
+		var disabledCalls = 0;
+		final disabled = new ShareNextServiceRuntime(defaultLegacy, _ -> {
+			disabledCalls += 1;
+			return {status: 200};
+		}, {disabled: true});
+		final disabledShare = disabled.create("ses_disabled");
+		eq(disabledShare.sessionID, "ses_disabled", "share disabled create keeps session id");
+		eq(disabledShare.id, "", "share disabled create empty id");
+		eq(disabledShare.url, "", "share disabled create empty url");
+		eq(disabledShare.secret, "", "share disabled create empty secret");
+		eq(disabled.get("ses_disabled"), null, "share disabled create does not persist");
+		disabled.queueDiff("ses_disabled", [
+			{
+				file: "disabled.ts",
+				patch: "disabled-patch",
+				additions: 1,
+				deletions: 0,
+				status: "modified",
+			}
+		]);
+		eq(disabled.flushSync("ses_disabled"), false, "share disabled flush is false");
+		eq(disabled.remove("ses_disabled"), false, "share disabled remove is false");
+		eq(disabledCalls, 0, "share disabled does not call http client");
 	}
 
 	static function eq<T>(actual:T, expected:T, label:String):Void {

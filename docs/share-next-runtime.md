@@ -1,6 +1,6 @@
 # ShareNext Runtime
 
-**Beads:** `opencodehx-37pd`, `opencodehx-subh`
+**Beads:** `opencodehx-37pd`, `opencodehx-subh`, `opencodehx-000.11.32`
 **Upstream oracle:** `../opencode/packages/opencode/src/share/share-next.ts` and `../opencode/packages/opencode/test/share/share-next.test.ts`
 
 ## Slice
@@ -16,11 +16,12 @@ This slice starts the ShareNext port with deterministic request-routing and inje
 - `ShareNextServiceRuntime.queueDiff(...)` keeps only the latest queued diff per shared session, and `flushSync(...)` posts one upstream-shaped `session_diff` payload with the persisted share secret.
 - Non-OK create responses fail and do not persist a share.
 - Non-OK sync responses fail without clearing the queued diff, so a later retry can send the same pending payload.
+- Disabled sharing returns an empty create result and makes create, queue, flush, and remove no-ops without calling the injected HTTP client or persisting a row.
 
-`ShareSmoke` covers legacy enterprise URL, default legacy URL, active org account headers/endpoints, missing-token failure, create/remove persistence, request method/URL shape, latest-diff sync coalescing, failed-sync retry retention, missing-row removal, and non-OK create failure without persistence.
+`ShareSmoke` covers legacy enterprise URL, default legacy URL, active org account headers/endpoints, missing-token failure, create/remove persistence, request method/URL shape, latest-diff sync coalescing, failed-sync retry retention, disabled-share no-op behavior, missing-row removal, and non-OK create failure without persistence.
 
 ## Boundaries
 
-This is not the full upstream ShareNext service yet. Full sync data gathering, delayed timer scheduling, event subscriptions, disabled-share flags, real database persistence, and live HTTP layer integration remain deferred to later share/runtime slices.
+This is not the full upstream ShareNext service yet. Full sync data gathering, delayed timer scheduling, event subscriptions, real environment-variable flag wiring, real database persistence, and live HTTP layer integration remain deferred to later share/runtime slices.
 
 Headers are modeled as typed `{ name, value }` entries instead of a string-keyed map so Haxe callers use `ShareRequestHeaderName` and generated TypeScript stays free of broad maps or raw `any`.

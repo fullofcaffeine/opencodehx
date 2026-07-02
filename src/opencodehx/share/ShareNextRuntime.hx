@@ -64,6 +64,10 @@ typedef ShareCreateResponse = {
 
 typedef ShareHttpClient = ShareHttpRequest->ShareHttpResponse;
 
+typedef ShareNextServiceOptions = {
+	@:optional final disabled:Bool;
+}
+
 typedef ShareDiff = {
 	final file:String;
 	final patch:String;
@@ -152,17 +156,27 @@ class ShareNextRuntime {
 class ShareNextServiceRuntime {
 	final requestInfo:ShareRequest;
 	final client:ShareHttpClient;
+	final disabled:Bool;
 	final records:Map<String, ShareRecord>;
 	final pendingDiffs:Map<String, Array<ShareDiff>>;
 
-	public function new(requestInfo:ShareRequest, client:ShareHttpClient) {
+	public function new(requestInfo:ShareRequest, client:ShareHttpClient, ?options:ShareNextServiceOptions) {
 		this.requestInfo = requestInfo;
 		this.client = client;
+		disabled = options != null && options.disabled == true;
 		records = new Map();
 		pendingDiffs = new Map();
 	}
 
 	public function create(sessionID:String):ShareRecord {
+		if (disabled)
+			return {
+				sessionID: sessionID,
+				id: "",
+				url: "",
+				secret: "",
+			};
+
 		final response = client({
 			method: "POST",
 			url: requestInfo.baseUrl + requestInfo.api.create,
@@ -184,6 +198,9 @@ class ShareNextServiceRuntime {
 	}
 
 	public function remove(sessionID:String):Bool {
+		if (disabled)
+			return false;
+
 		final existing = records.get(sessionID);
 		if (existing == null)
 			return false;
@@ -207,10 +224,16 @@ class ShareNextServiceRuntime {
 	}
 
 	public function queueDiff(sessionID:String, diff:Array<ShareDiff>):Void {
+		if (disabled)
+			return;
+
 		pendingDiffs.set(sessionID, cloneDiffs(diff));
 	}
 
 	public function flushSync(sessionID:String):Bool {
+		if (disabled)
+			return false;
+
 		final existing = records.get(sessionID);
 		final diff = pendingDiffs.get(sessionID);
 		if (existing == null || diff == null)
