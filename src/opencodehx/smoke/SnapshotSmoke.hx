@@ -27,6 +27,7 @@ class SnapshotSmoke {
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
 		newlyIgnoredSnapshotFileFiltering();
+		gitInfoExcludeFiltering();
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
@@ -281,6 +282,27 @@ class SnapshotSmoke {
 		missing(patch, dir, "later-ignored.txt", "snapshot newly ignored tracked file");
 		contains(patch, dir, ".gitignore", "snapshot newly ignored gitignore file");
 		contains(patch, dir, "still-tracked.txt", "snapshot newly ignored still-tracked file");
+		tmp.dispose();
+	}
+
+	static function gitInfoExcludeFiltering():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		final exclude = NodePath.join(dir, ".git/info/exclude");
+		final text = Fs.readFileSync(exclude, "utf8");
+		Fs.writeFileSync(exclude, StringTools.rtrim(text) + "\nignored.txt\n");
+		write(dir, "ignored.txt", "ignored content");
+		write(dir, "normal.txt", "normal content");
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		contains(patch, dir, "normal.txt", "snapshot info exclude normal file");
+		missing(patch, dir, "ignored.txt", "snapshot info exclude ignored file");
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(hasDiff(diffs, "normal.txt"), true, "snapshot info exclude diffFull normal");
+		eq(hasDiff(diffs, "ignored.txt"), false, "snapshot info exclude diffFull ignored");
 		tmp.dispose();
 	}
 
