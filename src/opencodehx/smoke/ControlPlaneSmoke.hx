@@ -35,6 +35,7 @@ class ControlPlaneSmoke {
 		await(pluginWorkspaceRegistration());
 		await(workspaceRestoreRemote());
 		await(workspaceRestoreLocal());
+		await(workspaceRestoreEmptyLocal());
 		WorkspaceAdaptors.reset();
 	}
 
@@ -170,6 +171,31 @@ class ControlPlaneSmoke {
 		eq(events[13].seq, 13, "workspace restore local appended seq");
 		eq(workspaceIDFromUpdate(events[13]), workspaceID, "workspace restore local session update workspace");
 		eq(progressSteps(progress), "0,1,2", "workspace restore local progress steps");
+	}
+
+	@:async
+	static function workspaceRestoreEmptyLocal():Promise<Void> {
+		final sessionID = "restore-session-empty";
+		final workspaceID = "workspace-empty";
+		final progress:Array<WorkspaceRestoreProgress> = [];
+		final runtime = new SyncRouteRuntime([WorkspaceRestoreRuntime.SESSION_UPDATED_TYPE]);
+		final result = await(WorkspaceRestoreRuntime.sessionRestore({
+			workspaceID: workspaceID,
+			sessionID: sessionID,
+			directory: "/tmp/restore-empty",
+			events: [],
+			target: RestoreLocal(runtime),
+			emit: event -> progress.push(event),
+		}));
+		final events = runtime.events(sessionID);
+
+		eq(result.total, 1, "workspace restore empty total");
+		eq(events.length, 1, "workspace restore empty replay count");
+		eq(events[0].seq, 0, "workspace restore empty appended seq");
+		eq(events[0].type, WorkspaceRestoreRuntime.SESSION_UPDATED_TYPE, "workspace restore empty update type");
+		eq(workspaceIDFromUpdate(events[0]), workspaceID, "workspace restore empty workspace");
+		eq(progressSteps(progress), "0,1", "workspace restore empty progress steps");
+		eq(progressTotals(progress), "1,1", "workspace restore empty progress totals");
 	}
 
 	static function info(projectID:ProjectID, type:String):WorkspaceInfo {

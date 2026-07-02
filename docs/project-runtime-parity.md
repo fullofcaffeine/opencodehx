@@ -1,6 +1,6 @@
 # Project Runtime Parity
 
-**Beads:** `opencodehx-who`, expanded by `opencodehx-hic`, `opencodehx-99y`, `opencodehx-obx`, `opencodehx-grp`, and `opencodehx-4pth`
+**Beads:** `opencodehx-who`, expanded by `opencodehx-hic`, `opencodehx-99y`, `opencodehx-obx`, `opencodehx-grp`, `opencodehx-4pth`, and `opencodehx-rvkw`
 
 This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, worktree, instance bootstrap, npm, installation-adjacent, and sync tests. The executable fixture is `src/opencodehx/smoke/ProjectRuntimeSmoke.hx`, which runs as part of `npm run smoke`.
 
@@ -131,7 +131,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
 - Concrete share/snapshot service internals, live plugin imports/installs, and real LSP process service boot inside the instance graph; the current graph records upstream order and lifecycle hooks without claiming those unported service bodies.
 - Native Windows fsmonitor daemon behavior remains host-conditional: the smoke branch runs only on Windows and exits early when the installed Git does not support a running fsmonitor daemon.
 - Full workspace control-plane routing/service integration beyond the covered sync/proxy/restore seams.
-- Workspace restore database/AppRuntime integration, persisted session workspace updates, and real `Workspace.create` lifecycle remain deferred; `WorkspaceRestoreRuntime` starts from already-collected typed sync events and a resolved target.
+- Workspace restore database/AppRuntime integration, persisted session workspace updates, and real `Workspace.create` lifecycle remain deferred; `WorkspaceRestoreRuntime` starts from already-collected typed sync events and a resolved target, including the zero-input case that still appends a session workspace update.
 
 ## Boundary Notes
 
