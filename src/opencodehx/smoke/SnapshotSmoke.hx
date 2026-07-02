@@ -15,6 +15,7 @@ class SnapshotSmoke {
 		SnapshotRuntime.reset();
 		patchAndRevert();
 		restoreSnapshot();
+		restorePathBlockers();
 		recreatedFileRevert();
 		nestedDirectoryRevert();
 		subdirectoryRevertKeepsEmptyParent();
@@ -98,6 +99,29 @@ class SnapshotSmoke {
 		eq(Fs.readFileSync(NodePath.join(dir, "a.txt"), "utf8"), "A", "snapshot restore deleted file");
 		eq(Fs.readFileSync(NodePath.join(dir, "b.txt"), "utf8"), "B", "snapshot restore modified file");
 		eq(Fs.readFileSync(NodePath.join(dir, "new.txt"), "utf8"), "new content", "snapshot restore leaves new file");
+		tmp.dispose();
+	}
+
+	static function restorePathBlockers():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		write(dir, "file.txt", "file content");
+		write(dir, "parent/child.txt", "child content");
+		final before = SnapshotRuntime.trackDirectory(dir);
+
+		Fs.rmSync(NodePath.join(dir, "file.txt"), {force: true});
+		Fs.mkdirSync(NodePath.join(dir, "file.txt"), {recursive: true});
+		write(dir, "file.txt/blocker.txt", "directory blocker");
+		Fs.rmSync(NodePath.join(dir, "parent"), {force: true, recursive: true});
+		write(dir, "parent", "file blocker");
+		write(dir, "new.txt", "new content");
+
+		SnapshotRuntime.restore(dir, before);
+		eq(Fs.lstatSync(NodePath.join(dir, "file.txt")).isFile(), true, "snapshot restore replaces directory with file");
+		eq(Fs.readFileSync(NodePath.join(dir, "file.txt"), "utf8"), "file content", "snapshot restore file blocker content");
+		eq(Fs.lstatSync(NodePath.join(dir, "parent")).isDirectory(), true, "snapshot restore replaces file with directory");
+		eq(Fs.readFileSync(NodePath.join(dir, "parent/child.txt"), "utf8"), "child content", "snapshot restore nested child content");
+		eq(Fs.readFileSync(NodePath.join(dir, "new.txt"), "utf8"), "new content", "snapshot restore preserves unrelated new file");
 		tmp.dispose();
 	}
 

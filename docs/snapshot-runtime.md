@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`, `opencodehx-mnse`, `opencodehx-1qmk`, `opencodehx-3cgk`, `opencodehx-0z0m`, `opencodehx-2uwe`, `opencodehx-fbe7`, `opencodehx-i11n`, `opencodehx-7s01`, `opencodehx-51y6`, `opencodehx-o8tp`, `opencodehx-ce6t`, `opencodehx-i4fy`, `opencodehx-a9tt`, `opencodehx-7fj3`, `opencodehx-b3tj`, `opencodehx-f5rq`, `opencodehx-5l53`, `opencodehx-ul8r`, `opencodehx-vbdl`, `opencodehx-e602`, `opencodehx-i8md`, `opencodehx-gelg`, `opencodehx-56a4`, `opencodehx-hpsx`
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`, `opencodehx-zrcz`, `opencodehx-otuy`, `opencodehx-ro54`, `opencodehx-z1yc`, `opencodehx-103u`, `opencodehx-iuru`, `opencodehx-h2vc`, `opencodehx-4e5p`, `opencodehx-dp26`, `opencodehx-wsjv`, `opencodehx-mwf5`, `opencodehx-4zx6`, `opencodehx-c7xj`, `opencodehx-mnse`, `opencodehx-1qmk`, `opencodehx-3cgk`, `opencodehx-0z0m`, `opencodehx-2uwe`, `opencodehx-fbe7`, `opencodehx-i11n`, `opencodehx-7s01`, `opencodehx-51y6`, `opencodehx-o8tp`, `opencodehx-ce6t`, `opencodehx-i4fy`, `opencodehx-a9tt`, `opencodehx-7fj3`, `opencodehx-b3tj`, `opencodehx-f5rq`, `opencodehx-5l53`, `opencodehx-ul8r`, `opencodehx-vbdl`, `opencodehx-e602`, `opencodehx-i8md`, `opencodehx-gelg`, `opencodehx-56a4`, `opencodehx-hpsx`, `opencodehx-9drl`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -19,7 +19,7 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 `SnapshotSmoke` covers representative upstream behavior:
 
 - Track, patch, diff, and revert across added, modified, and deleted files.
-- Focused restore restores deleted/modified snapshot files and preserves new files.
+- Focused restore restores deleted/modified snapshot files, replaces file/directory path blockers, and preserves new files.
 - Revert handles recreated files according to the snapshot: recreated deleted files are removed, while recreated existing files restore original content.
 - Revert removes newly added files in nested directories.
 - Revert removes added files while preserving now-empty parent directories.
@@ -62,6 +62,6 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 
 This is not the full upstream snapshot service yet. Upstream stores snapshots in a separate Git index and uses Effect services, scoped locks, cleanup, persistent snapshot directories, full restore semantics, worktree isolation, concurrent operation behavior, and structured patch parsing.
 
-OpenCodeHX currently uses Git for candidate discovery and ignore semantics, then stores typed content snapshots in process memory. That is enough to prove the first user-visible file-state semantics without mutating a source repo index. Full persistent Git-dir parity, richer restore edge cases, richer text `diffFull` patch metadata, concurrency cases, broader symlink edge cases, and cleanup/prune behavior remain deferred.
+OpenCodeHX currently uses Git for candidate discovery and ignore semantics, then stores typed content snapshots in process memory. That is enough to prove the first user-visible file-state semantics without mutating a source repo index. Full persistent Git-dir parity, restore cleanup/removal semantics, richer text `diffFull` patch metadata, concurrency cases, broader symlink edge cases, and cleanup/prune behavior remain deferred.
 
 The runtime intentionally does not add broad JSON, `Dynamic`, or raw TypeScript boundaries. If later snapshot work needs lower-level Git plumbing that `genes-ts` cannot express cleanly, reduce it into a generic compiler/runtime helper before weakening the product source.
