@@ -1083,6 +1083,26 @@ class ProjectRuntimeSmoke {
 		eq(InstallationRuntime.method(methodFixture.deps), InstallationMethod.Npm, "installation method prefers exec path");
 		eq(InstallationRuntime.method(installationFixture("/Users/me/.opencode/bin/opencode").deps), InstallationMethod.Curl,
 			"installation method curl opencode path");
+		final yarnMethod = installationFixture("/usr/local/bin/opencode");
+		yarnMethod.outputs.set("yarn global list", processOk("opencode-ai@0.1.0\n"));
+		eq(InstallationRuntime.method(yarnMethod.deps), InstallationMethod.Yarn, "installation method yarn global list");
+		final pnpmMethod = installationFixture("/usr/local/bin/opencode");
+		pnpmMethod.outputs.set("pnpm list -g --depth=0", processOk("opencode-ai@0.1.0\n"));
+		eq(InstallationRuntime.method(pnpmMethod.deps), InstallationMethod.Pnpm, "installation method pnpm global list");
+		final bunMethod = installationFixture("/usr/local/bin/opencode");
+		bunMethod.outputs.set("bun pm ls -g", processOk("opencode-ai@0.1.0\n"));
+		eq(InstallationRuntime.method(bunMethod.deps), InstallationMethod.Bun, "installation method bun global list");
+		final brewMethod = installationFixture("/usr/local/bin/opencode");
+		brewMethod.outputs.set("brew list --formula opencode", processOk("opencode\n"));
+		eq(InstallationRuntime.method(brewMethod.deps), InstallationMethod.Brew, "installation method brew formula list");
+		final scoopMethod = installationFixture("/usr/local/bin/opencode");
+		scoopMethod.outputs.set("scoop list opencode", processOk("opencode 0.1.0\n"));
+		eq(InstallationRuntime.method(scoopMethod.deps), InstallationMethod.Scoop, "installation method scoop list");
+		final chocoMethod = installationFixture("/usr/local/bin/opencode");
+		chocoMethod.outputs.set("choco list --limit-output opencode", processOk("opencode|0.1.0\n"));
+		eq(InstallationRuntime.method(chocoMethod.deps), InstallationMethod.Choco, "installation method choco list");
+		eq(InstallationRuntime.method(installationFixture("/usr/local/bin/opencode").deps), InstallationMethod.UnknownMethod,
+			"installation method unknown when package managers miss");
 
 		final upgradeFixture = installationFixture("/usr/local/bin/opencode");
 		eq(InstallationRuntime.upgrade(upgradeFixture.deps, InstallationMethod.Npm, "9.9.9").code, 0, "installation npm upgrade");

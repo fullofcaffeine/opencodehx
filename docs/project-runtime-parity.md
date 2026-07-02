@@ -72,7 +72,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - package `install` skips non-writable directories, treats clean dependency/devDependency/peerDependency package-lock roots as current, reifies missing `node_modules` with versioned and bare add specs, and reifies missing, malformed, or dirty package-lock roots,
   - package `which` covers bin selection, scoped package bin names, string/object `package.json` bin declarations including single-key object selection and first-key fallback, no-metadata bin file fallback, stale cache lock removal, absent-cache installation, and add failure containment,
   - package `outdated` covers registry failure, malformed registry JSON, missing latest metadata, exact-version comparison, comparator and wildcard satisfaction/escape, and caret/tilde/disjunction semver ranges,
-  - installation method detection follows upstream manager priority and installed-name checks,
+  - installation method detection follows upstream manager priority and installed-name checks for npm, yarn, pnpm, Bun, Homebrew, Scoop, Chocolatey, curl-path installs, and unknown fallbacks,
   - latest-version lookup covers unknown-method GitHub fallback, GitHub releases, npm registry, bun/pnpm registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
   - upgrade command planning covers curl install-script fetch/stdin/env/version-probe behavior, npm/pnpm/Bun global install commands, Homebrew tap refresh/upgrade, Scoop install command, Chocolatey elevated-shell failure messaging, and unknown-method no-command failure,
   - uninstall package-manager command planning covers npm, pnpm, bun, yarn, Homebrew, Chocolatey, Scoop, and the curl no-op package-manager case.
