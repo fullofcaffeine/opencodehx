@@ -988,6 +988,8 @@ class ProjectRuntimeSmoke {
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^2.8.0"), false, "npm outdated range satisfied");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", ">=2.8.0 <3.0.0"), false, "npm outdated comparator range satisfied");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.x"), false, "npm outdated wildcard range satisfied");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"3.0.0"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", ">=2.8.0 <3.0.0"), true, "npm outdated comparator range escaped");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.9.1"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "~2.9.0"), false, "npm outdated tilde range satisfied");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.10.0"}}'});
