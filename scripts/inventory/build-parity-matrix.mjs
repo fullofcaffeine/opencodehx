@@ -339,13 +339,13 @@ function directEvidence(path) {
     ["tool/glob.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core glob cases plus typed permission request/denial and external-directory search-root shape are covered; full Effect context parity remains deferred", "ToolSmoke.globExec"]],
     ["tool/grep.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/tool-registry-port.md", "core grep cases, exact-file search, no-match output, typed permission request/denial, and external-directory file-target shape are covered; full Effect context remains deferred", "ToolSmoke.grepExec"]],
     ["tool/read.test.ts", ["partial", "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "representative read file/directory/error behavior, file offset errors, empty-file offsets, .fbs schema text output, byte-cap and line-count truncation footers, upstream-shaped missing-file suggestions, long-line truncation suffixes, known binary extension rejection, directory pagination, symlinked-directory suffixes, image/PDF media attachments with content sniffing, absolute read permission patterns, external-directory read prompts, nearby instruction reminder metadata, and per-message instruction claim dedupe/clear are covered; fuller upstream output matrix remains deferred", "ToolSmoke.readExec plus PermissionSmoke.toolIntegration"]],
-    ["tool/write.test.ts", ["partial", "src/opencodehx/tool/WriteTool.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "write creation, overwrite metadata, JSON/binary-safe/empty/multiline/CRLF content preservation, relative title output, diff/filediff metadata, BOM preservation including formatter-strip restore, and external-directory write permission shape are covered; LSP diagnostics, full async Format service integration, and bus/file-watcher integration remain deferred", "ToolSmoke.writeExec"]],
+    ["tool/write.test.ts", ["partial", "src/opencodehx/tool/WriteTool.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md", "write creation, overwrite metadata, JSON/binary-safe/empty/multiline/CRLF content preservation, relative title output, diff/filediff metadata, BOM preservation including formatter-strip restore, file.edited plus file.watcher add/change publication, and external-directory write permission shape are covered; LSP diagnostics and full async Format service integration remain deferred", "ToolSmoke.writeExec"]],
     [
       "tool/edit.test.ts",
       [
         "partial",
         "src/opencodehx/tool/EditTool.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
-        "representative exact/multiline/replace-all/multiple-match behavior, identical-input and directory-path failures, filediff stats, tolerant fallback behavior, CRLF/BOM preservation including formatter-strip restore, and external-directory edit permission shape are covered; full upstream async Format service, LSP, and event matrix remains deferred",
+        "representative exact/multiline/replace-all/multiple-match behavior, identical-input and directory-path failures, filediff stats, tolerant fallback behavior, CRLF/BOM preservation including formatter-strip restore, file.edited plus file.watcher add/change publication, and external-directory edit permission shape are covered; full upstream async Format service and LSP matrix remain deferred",
         "ToolSmoke.editExec",
       ],
     ],
@@ -354,7 +354,7 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/tool/ApplyPatchTool.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
-        "representative add/update/delete/move, insert-only hunks, BOM preservation including formatter-strip restore, EOF, context disambiguation, heredoc with/without cat, whitespace/Unicode matching, malformed/delete-target failures, no-side-effect behavior, and external-directory hunk/move-target permission shape are covered; full upstream async Format service, Effect/LSP/event matrix remains deferred",
+        "representative add/update/delete/move, insert-only hunks, BOM preservation including formatter-strip restore, file.edited plus file.watcher add/change/unlink publication, EOF, context disambiguation, heredoc with/without cat, whitespace/Unicode matching, malformed/delete-target failures, no-side-effect behavior, and external-directory hunk/move-target permission shape are covered; full upstream async Format service, Effect/LSP matrix remains deferred",
         "ToolSmoke.applyPatchExec",
       ],
     ],

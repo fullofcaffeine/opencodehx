@@ -1,6 +1,7 @@
 package opencodehx.tool;
 
 import opencodehx.externs.node.Fs;
+import opencodehx.file.FileToolEvents.FileWatcherUpdateKind;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolExternalDirectory.ExternalDirectoryKind;
@@ -97,6 +98,8 @@ class ApplyPatchTool {
 
 		for (change in changes)
 			applyChange(ctx, change);
+		for (change in changes)
+			publishChange(ctx, change);
 
 		final summary:Array<String> = [];
 		for (change in changes)
@@ -280,6 +283,28 @@ class ApplyPatchTool {
 			final formatFile = ctx.formatFile;
 			if (formatFile != null && formatFile(target))
 				ToolBom.syncFile(() -> Fs.readFileSync(target, "utf8"), content -> Fs.writeFileSync(target, content, "utf8"), change.bom);
+		}
+	}
+
+	static function publishChange(ctx:ToolContext, change:PatchChange):Void {
+		switch change.type {
+			case "add":
+				ToolFileNotifications.edited(ctx, change.filePath);
+				ToolFileNotifications.watcherUpdated(ctx, change.filePath, Add);
+			case "update":
+				ToolFileNotifications.edited(ctx, change.filePath);
+				ToolFileNotifications.watcherUpdated(ctx, change.filePath, Change);
+			case "move":
+				switch change.movePath {
+					case null:
+					case target:
+						ToolFileNotifications.edited(ctx, target);
+						ToolFileNotifications.watcherUpdated(ctx, change.filePath, Unlink);
+						ToolFileNotifications.watcherUpdated(ctx, target, Add);
+				}
+			case "delete":
+				ToolFileNotifications.watcherUpdated(ctx, change.filePath, Unlink);
+			case _:
 		}
 	}
 

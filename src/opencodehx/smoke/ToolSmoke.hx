@@ -3,6 +3,7 @@ package opencodehx.smoke;
 import genes.js.Async.await;
 import haxe.Json;
 import js.lib.Promise;
+import opencodehx.bus.BusRuntime;
 import opencodehx.externs.node.Buffer;
 import opencodehx.externs.node.Buffer.NodeBufferData;
 import opencodehx.externs.node.ChildProcess;
@@ -10,8 +11,9 @@ import opencodehx.externs.node.ChildProcess.ChildProcessHandle;
 import opencodehx.externs.node.Fs;
 import opencodehx.externs.node.Os;
 import opencodehx.externs.web.WebStreams.WebTimers;
-import opencodehx.host.node.NodePath;
 import opencodehx.externs.node.Url;
+import opencodehx.file.FileToolEvents;
+import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.session.SessionInstructionClaims;
 import opencodehx.tool.BashCommandScanner;
@@ -902,6 +904,17 @@ class ToolSmoke {
 		eq(formattedBomContent.charCodeAt(0), 0xfeff, "write restores BOM after formatter");
 		eq(formattedBomContent.substr(1), "using Formatted;\n", "write keeps formatted content after BOM restore");
 
+		final writeBus = new BusRuntime();
+		final writeEdited:Array<String> = [];
+		final writeWatcher:Array<String> = [];
+		collectFileEvents(writeBus, writeEdited, writeWatcher);
+		final writeBusCtx = contextWithBus(ctx, writeBus);
+		final writeEventFile = NodePath.join(ctx.directory, "src/write-event.txt");
+		registry.execute(ToolIDs.known("write"), {filePath: "src/write-event.txt", content: "first\n"}, writeBusCtx);
+		registry.execute(ToolIDs.known("write"), {filePath: "src/write-event.txt", content: "second\n"}, writeBusCtx);
+		eq(writeEdited.join("|"), [writeEventFile, writeEventFile].join("|"), "write publishes file.edited events");
+		eq(writeWatcher.join("|"), [writeEventFile + ":add", writeEventFile + ":change"].join("|"), "write publishes watcher add/change events");
+
 		final jsonContent = '{"key":"value","nested":{"array":[1,2,3]}}';
 		registry.execute(ToolIDs.known("write"), {filePath: "src/data.json", content: jsonContent}, ctx);
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/data.json"), "utf8"), jsonContent, "write json content");
@@ -1130,6 +1143,21 @@ class ToolSmoke {
 		eq(createdBomContent.charCodeAt(0), 0xfeff, "edit preserves incoming BOM on create");
 		eq(createdBomContent.substr(1), "using Created;\n", "edit strips incoming BOM from logical content");
 
+		final editBus = new BusRuntime();
+		final editEdited:Array<String> = [];
+		final editWatcher:Array<String> = [];
+		collectFileEvents(editBus, editEdited, editWatcher);
+		final editBusCtx = contextWithBus(ctx, editBus);
+		final editEventFile = NodePath.join(ctx.directory, "src/edit-event.txt");
+		registry.execute(ToolIDs.known("edit"), {filePath: "src/edit-event.txt", oldString: "", newString: "first\n"}, editBusCtx);
+		registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/edit-event.txt",
+			oldString: "first",
+			newString: "second"
+		}, editBusCtx);
+		eq(editEdited.join("|"), [editEventFile, editEventFile].join("|"), "edit publishes file.edited events");
+		eq(editWatcher.join("|"), [editEventFile + ":add", editEventFile + ":change"].join("|"), "edit publishes watcher add/change events");
+
 		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-edit-outside-"));
 		final outsideFile = NodePath.join(outsideDir, "outside.txt");
 		Fs.writeFileSync(outsideFile, "alpha\n", "utf8");
@@ -1351,6 +1379,46 @@ class ToolSmoke {
 		eq(formattedPath, formattedBom, "patch formatter receives target path");
 		eq(formattedBomContent.charCodeAt(0), 0xfeff, "patch restores BOM after formatter");
 		eq(formattedBomContent.substr(1), "using Formatted;\nclass Test {}\n", "patch keeps formatted content after BOM restore");
+
+		final patchBus = new BusRuntime();
+		final patchEdited:Array<String> = [];
+		final patchWatcher:Array<String> = [];
+		collectFileEvents(patchBus, patchEdited, patchWatcher);
+		final patchBusCtx = contextWithBus(ctx, patchBus);
+		write(ctx.directory, "src/patch-event-update.txt", "old\n");
+		write(ctx.directory, "src/patch-event-move.txt", "move\n");
+		write(ctx.directory, "src/patch-event-delete.txt", "delete\n");
+		final patchAdd = NodePath.join(ctx.directory, "src/patch-event-add.txt");
+		final patchUpdate = NodePath.join(ctx.directory, "src/patch-event-update.txt");
+		final patchMoveFrom = NodePath.join(ctx.directory, "src/patch-event-move.txt");
+		final patchMoveTo = NodePath.join(ctx.directory, "src/patch-event-moved.txt");
+		final patchDelete = NodePath.join(ctx.directory, "src/patch-event-delete.txt");
+		registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: [
+				"*** Begin Patch",
+				"*** Add File: src/patch-event-add.txt",
+				"+add",
+				"*** Update File: src/patch-event-update.txt",
+				"@@",
+				"-old",
+				"+new",
+				"*** Update File: src/patch-event-move.txt",
+				"*** Move to: src/patch-event-moved.txt",
+				"@@",
+				"-move",
+				"+moved",
+				"*** Delete File: src/patch-event-delete.txt",
+				"*** End Patch",
+			].join("\n")
+		}, patchBusCtx);
+		eq(patchEdited.join("|"), [patchAdd, patchUpdate, patchMoveTo].join("|"), "patch publishes edited add/update/move target events");
+		eq(patchWatcher.join("|"), [
+			patchAdd + ":add",
+			patchUpdate + ":change",
+			patchMoveFrom + ":unlink",
+			patchMoveTo + ":add",
+			patchDelete + ":unlink",
+		].join("|"), "patch publishes watcher add/change/unlink events");
 
 		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-patch-outside-"));
 		final outsideAdd = NodePath.join(outsideDir, "added.txt");
@@ -1578,6 +1646,28 @@ Use this skill.
 			toolOutputDir: NodePath.join(root, "tool-output"),
 			ask: ask,
 		};
+	}
+
+	static function contextWithBus(ctx:ToolContext, bus:BusRuntime):ToolContext {
+		return {
+			directory: ctx.directory,
+			worktree: ctx.worktree,
+			sessionID: ctx.sessionID,
+			messageID: ctx.messageID,
+			callID: ctx.callID,
+			agent: ctx.agent,
+			toolOutputDir: ctx.toolOutputDir,
+			instructionClaims: ctx.instructionClaims,
+			loadedInstructions: ctx.loadedInstructions,
+			formatFile: ctx.formatFile,
+			bus: bus,
+			ask: ctx.ask,
+		};
+	}
+
+	static function collectFileEvents(bus:BusRuntime, edited:Array<String>, watcher:Array<String>):Void {
+		bus.subscribe(FileToolEvents.Edited, event -> edited.push(event.properties.file));
+		bus.subscribe(FileToolEvents.WatcherUpdated, event -> watcher.push(event.properties.file + ":" + event.properties.event));
 	}
 
 	static function contextWithInstructionClaims(root:String, messageID:String, claims:SessionInstructionClaims):ToolContext {

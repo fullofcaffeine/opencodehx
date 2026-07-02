@@ -1,6 +1,7 @@
 package opencodehx.tool;
 
 import opencodehx.externs.node.Fs;
+import opencodehx.file.FileToolEvents.FileWatcherUpdateKind;
 import opencodehx.host.node.NodePath;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolExternalDirectory.ExternalDirectoryKind;
@@ -74,6 +75,8 @@ class WriteTool {
 		if (formatFile != null && formatFile(absolute)) {
 			ToolBom.syncFile(() -> Fs.readFileSync(absolute, "utf8"), text -> Fs.writeFileSync(absolute, text, "utf8"), desiredBom);
 		}
+		ToolFileNotifications.edited(ctx, absolute);
+		ToolFileNotifications.watcherUpdated(ctx, absolute, existed ? Change : Add);
 		return {
 			title: relative,
 			metadata: ToolResultMetadata.checked({
