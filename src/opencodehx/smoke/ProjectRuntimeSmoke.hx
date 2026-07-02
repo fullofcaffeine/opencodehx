@@ -988,6 +988,12 @@ class ProjectRuntimeSmoke {
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^2.8.0"), false, "npm outdated range satisfied");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", ">=2.8.0 <3.0.0"), false, "npm outdated comparator range satisfied");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.x"), false, "npm outdated wildcard range satisfied");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: "{}"});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated missing dist-tags");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated missing latest tag");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":""}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated empty latest tag");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: false, body: ""});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated registry failure");
 	}
