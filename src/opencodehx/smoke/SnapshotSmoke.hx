@@ -39,6 +39,7 @@ class SnapshotSmoke {
 		binaryPatchAndRevert();
 		symlinkPatch();
 		nestedSymlinkPatch();
+		circularSymlinkPatchDoesNotCrash();
 		diffFullNoChanges();
 		diffFullAddedTextPatch();
 		diffFullModifiedTextPatch();
@@ -547,6 +548,18 @@ class SnapshotSmoke {
 			final patch = SnapshotRuntime.patch(dir, before);
 			contains(patch, dir, "sub/dir/link.txt", "snapshot nested symlink file link");
 			contains(patch, dir, "sub-link", "snapshot nested symlink directory link");
+		}
+		tmp.dispose();
+	}
+
+	static function circularSymlinkPatchDoesNotCrash():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		final circular = NodePath.join(dir, "circular");
+		if (tryDirectorySymlink(circular, circular)) {
+			final patch = SnapshotRuntime.patch(dir, before);
+			eq(patch.files.length >= 0, true, "snapshot circular symlink patch no crash");
 		}
 		tmp.dispose();
 	}
