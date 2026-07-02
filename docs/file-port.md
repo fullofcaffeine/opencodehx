@@ -18,7 +18,7 @@ This slice adds the first Node-first file primitives needed by tool work:
 
 ## Deferred Parity
 
-This does not port the full OpenCode `File.Service`, cache/state machine, exact fuzzysort ranking, full watcher integration, protected file rules, exact `diff` package patch formatting, ripgrep download/bootstrap, ripgrep worker-mode split, or Effect streaming. Native Windows fsmonitor daemon assertions are conditional because non-Windows Git builds do not expose the same daemon lifecycle. `file/path-traversal.test.ts` also includes `Instance.containsPath` worktree/monorepo cases; those remain owned by the project runtime seam rather than the file primitive. The first tool slices should use these primitives directly, then promote repeated needs into a richer service facade.
+This does not port the full OpenCode `File.Service`, cache/state machine, exact fuzzysort ranking, full watcher integration, protected file rules, exact `diff` package patch formatting, ripgrep download/bootstrap, ripgrep worker-mode split, or Effect streaming. Native Windows fsmonitor daemon assertions are conditional because non-Windows Git builds do not expose the same daemon lifecycle. `file/path-traversal.test.ts` also includes `Instance.containsPath` worktree/monorepo cases; those are covered by the project runtime seam rather than the file primitive. The first tool slices should use these primitives directly, then promote repeated needs into a richer service facade.
 
 ## Runtime Seam
 

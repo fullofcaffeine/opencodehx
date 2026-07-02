@@ -309,11 +309,11 @@ function directEvidence(path) {
     [
       "file/path-traversal.test.ts",
       [
-        "partial",
-        "src/opencodehx/file/FileSystem.hx; src/opencodehx/smoke/FileSmoke.hx; docs/file-port.md",
-        "File read/list path traversal and Filesystem.contains cases are covered; upstream Instance.containsPath monorepo/worktree semantics remain project-runtime evidence",
-        "FileSmoke.pathSafety",
-        m11Owners.foundation,
+        "direct",
+        "src/opencodehx/file/FileSystem.hx; src/opencodehx/project/InstanceRuntime.hx; src/opencodehx/smoke/FileSmoke.hx; src/opencodehx/smoke/ProjectRuntimeSmoke.hx; docs/file-port.md; docs/project-runtime-parity.md",
+        "File read/list path traversal, Filesystem.contains, and InstanceRuntime.containsPath worktree/monorepo/non-git containment cases are covered",
+        "FileSmoke.pathSafety plus ProjectRuntimeSmoke.instanceContainsPath",
+        "none",
       ],
     ],
     [

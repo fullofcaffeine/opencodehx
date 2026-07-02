@@ -57,6 +57,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - removal tolerates a nonzero `git worktree remove` result after Git has already detached the worktree, then still removes the directory, branch, and sandbox entry, and
   - Windows fsmonitor cleanup is represented by a native conditional smoke branch that configures fsmonitor, verifies daemon support when available, then removes the worktree through the same runtime path.
 - Instance bootstrap:
+  - `InstanceRuntime.containsPath` allows paths inside the instance directory or git worktree, including monorepo sibling packages, while rejecting outside paths, `..` escapes, and non-git `worktree="/"` all-access behavior,
   - `InstanceRuntime` records an ordered service graph on each cached context,
   - `InstanceBootstrapRuntime.upstreamOrder` preserves upstream's config, plugin, LSP, share, format, file, file-watcher, VCS, and snapshot initialization order,
   - the typed command hook subscribes to `command.executed` and marks the project initialized only for the default `init` command,

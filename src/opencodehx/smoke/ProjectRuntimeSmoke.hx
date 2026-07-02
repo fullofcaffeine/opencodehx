@@ -152,6 +152,7 @@ class ProjectRuntimeSmoke {
 			vcsDiffs(root);
 			fileStatusParity(root);
 			projectEdges(root);
+			instanceContainsPath(root);
 			projectGlobalMigration(root);
 			worktreeProject(root);
 			worktreeEdges(root);
@@ -264,6 +265,44 @@ class ProjectRuntimeSmoke {
 
 		cloneProjectIDs(root);
 		bareProjectCache(root);
+	}
+
+	static function instanceContainsPath(root:String):Void {
+		ProjectRuntime.reset();
+		InstanceRuntime.reset();
+		final dir = directory(root, "instance-contains");
+		initCommittedRepo(dir);
+		final rootContext = InstanceRuntime.fromDirectory(dir);
+		if (rootContext == null)
+			throw "instance contains root context expected";
+		eq(InstanceRuntime.containsPath(rootContext, NodePath.join(dir, "foo.txt")), true, "instance contains repo file");
+		eq(InstanceRuntime.containsPath(rootContext, NodePath.join(NodePath.join(dir, "src"), "file.ts")), true, "instance contains repo nested file");
+		eq(InstanceRuntime.containsPath(rootContext, NodePath.join(root, "outside-root.txt")), false, "instance rejects outside repo");
+		eq(InstanceRuntime.containsPath(rootContext, NodePath.join(NodePath.join(dir, ".."), "escape.txt")), false, "instance rejects parent escape");
+
+		final subdir = NodePath.join(NodePath.join(dir, "packages"), "lib");
+		final sibling = NodePath.join(NodePath.join(dir, "packages"), "other");
+		Fs.mkdirSync(subdir, {recursive: true});
+		Fs.mkdirSync(sibling, {recursive: true});
+		final subContext = InstanceRuntime.fromDirectory(subdir);
+		if (subContext == null)
+			throw "instance contains subdir context expected";
+		eq(InstanceRuntime.containsPath(subContext, NodePath.join(NodePath.join(dir, ".opencode"), "state")), true,
+			"instance contains worktree opencode state");
+		eq(InstanceRuntime.containsPath(subContext, NodePath.join(sibling, "file.ts")), true, "instance contains sibling package");
+		eq(InstanceRuntime.containsPath(subContext, dir), true, "instance contains worktree root");
+
+		ProjectRuntime.reset();
+		InstanceRuntime.reset();
+		final plain = directory(root, "instance-contains-non-git");
+		final plainContext = InstanceRuntime.fromDirectory(plain);
+		if (plainContext == null)
+			throw "instance contains non-git context expected";
+		eq(InstanceRuntime.containsPath(plainContext, NodePath.join(plain, "file.txt")), true, "instance non-git contains own file");
+		eq(InstanceRuntime.containsPath(plainContext, NodePath.join(root, "outside-non-git.txt")), false, "instance non-git rejects sibling");
+		eq(InstanceRuntime.containsPath(plainContext, "/etc/passwd"), false, "instance non-git rejects absolute outside");
+
+		InstanceRuntime.reset();
 	}
 
 	static function vcsDiffs(root:String):Void {

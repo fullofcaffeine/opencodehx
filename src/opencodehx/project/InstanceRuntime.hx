@@ -3,8 +3,10 @@ package opencodehx.project;
 import opencodehx.host.node.NodePath;
 import opencodehx.host.node.NodeProcess;
 import opencodehx.externs.node.Fs;
+import opencodehx.file.FileSystem;
 import opencodehx.project.ProjectRuntime;
 import opencodehx.project.ProjectRuntime.ProjectInfo;
+import opencodehx.project.ProjectRuntime.ProjectVcs;
 
 /**
  * Minimal typed instance cache for directories that have completed bootstrap.
@@ -173,6 +175,15 @@ class InstanceRuntime {
 		}
 	}
 
+	public static function containsPath(context:InstanceContext, target:String):Bool {
+		final absolute = canonical(target);
+		if (FileSystem.contains(context.directory, absolute))
+			return true;
+		if (context.project.vcs == ProjectVcs.GitVcs && FileSystem.contains(context.project.worktree, absolute))
+			return true;
+		return false;
+	}
+
 	static function publish(event:InstanceEvent):Void {
 		history.push(event);
 		for (listener in listeners.copy()) {
@@ -208,7 +219,19 @@ class InstanceRuntime {
 
 	static function canonical(path:String):String {
 		final resolved = NodePath.normalize(NodePath.resolve(path, ""));
-		final normalized = Fs.existsSync(resolved) ? NodePath.normalize(Fs.realpathSync(resolved)) : resolved;
+		final normalized = Fs.existsSync(resolved) ? NodePath.normalize(Fs.realpathSync(resolved)) : canonicalMissing(resolved);
 		return NodeProcess.platform() == "win32" ? normalized.toLowerCase() : normalized;
+	}
+
+	static function canonicalMissing(path:String):String {
+		var suffix = NodePath.basename(path);
+		var parent = NodePath.dirname(path);
+		while (parent != NodePath.dirname(parent)) {
+			if (Fs.existsSync(parent))
+				return NodePath.join(NodePath.normalize(Fs.realpathSync(parent)), suffix);
+			suffix = NodePath.join(NodePath.basename(parent), suffix);
+			parent = NodePath.dirname(parent);
+		}
+		return path;
 	}
 }
