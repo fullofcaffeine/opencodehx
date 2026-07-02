@@ -24,6 +24,9 @@ class SnapshotSmoke {
 		revertNonExistentFile();
 		underLimitAddedFilesAreTracked();
 		specialFilenamePatchDetection();
+		unicodeFilenamePatchDetection();
+		unicodeSubdirectoryPatchDetection();
+		longFilenamePatchDetection();
 		hiddenFilePatchDetection();
 		permissionChangesAreIgnored();
 		largeAddedFilesAreSkipped();
@@ -248,6 +251,53 @@ class SnapshotSmoke {
 		contains(patch, dir, "file with spaces.txt", "snapshot special filename spaces");
 		contains(patch, dir, "file-with-dashes.txt", "snapshot special filename dashes");
 		contains(patch, dir, "file_with_underscores.txt", "snapshot special filename underscores");
+		tmp.dispose();
+	}
+
+	static function unicodeFilenamePatchDetection():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		final files = ["文件.txt", "🚀rocket.txt", "café.txt", "файл.txt"];
+		for (file in files)
+			write(dir, file, "unicode content");
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		eq(patch.files.length, files.length, "snapshot unicode filename count");
+		for (file in files)
+			contains(patch, dir, file, "snapshot unicode filename " + file);
+
+		SnapshotRuntime.revert(dir, [patch]);
+		for (file in files)
+			eq(Fs.existsSync(NodePath.join(dir, file)), false, "snapshot unicode filename revert " + file);
+		tmp.dispose();
+	}
+
+	static function unicodeSubdirectoryPatchDetection():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		final file = "目录/подкаталог/文件.txt";
+		write(dir, file, "deep unicode content");
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		contains(patch, dir, file, "snapshot unicode nested filename");
+		SnapshotRuntime.revert(dir, [patch]);
+		eq(Fs.existsSync(NodePath.join(dir, file)), false, "snapshot unicode nested revert");
+		tmp.dispose();
+	}
+
+	static function longFilenamePatchDetection():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		final file = repeat("a", 200) + ".txt";
+		write(dir, file, "long filename content");
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		contains(patch, dir, file, "snapshot long filename");
+		SnapshotRuntime.revert(dir, [patch]);
+		eq(Fs.existsSync(NodePath.join(dir, file)), false, "snapshot long filename revert");
 		tmp.dispose();
 	}
 
