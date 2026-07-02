@@ -225,6 +225,10 @@ class Main {
 				log("lsp-smoke:ok");
 				PluginSmoke.run();
 				log("plugin-smoke:ok");
+				return PluginSmoke.runAsync();
+			})
+			.then(_ -> {
+				log("plugin-async-smoke:ok");
 				return ControlPlaneSmoke.run();
 			})
 			.then(_ -> {

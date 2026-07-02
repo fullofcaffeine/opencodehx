@@ -1,5 +1,6 @@
 package opencodehx.plugin;
 
+import js.lib.Promise;
 import opencodehx.config.ConfigInfo;
 import opencodehx.plugin.PluginRuntime.PluginSystemOutput;
 import genes.ts.Unknown;
@@ -16,8 +17,10 @@ import genes.ts.Unknown;
 typedef PluginConfigHook = ConfigInfo->Void;
 
 typedef PluginSystemTransformHook = (Unknown, PluginSystemOutput) -> Void;
+typedef PluginSystemTransformAsyncHook = (Unknown, PluginSystemOutput) -> Promise<Void>;
 
 typedef PluginServerHooks = {
 	@:optional final config:PluginConfigHook;
 	@:optional final systemTransform:PluginSystemTransformHook;
+	@:optional final systemTransformAsync:PluginSystemTransformAsyncHook;
 }

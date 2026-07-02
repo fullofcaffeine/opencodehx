@@ -2,6 +2,7 @@ package opencodehx.plugin;
 
 import genes.ts.Unknown;
 import haxe.DynamicAccess;
+import js.lib.Promise;
 import opencodehx.config.ConfigPlugin.PluginOrigin;
 import opencodehx.config.ConfigPlugin.PluginSpec;
 import opencodehx.plugin.PluginServerHooks;
@@ -74,6 +75,29 @@ class PluginRuntime {
 				transform(input, output);
 		}
 		return output;
+	}
+
+	public function triggerAsync(name:String, input:Unknown, output:PluginSystemOutput):Promise<PluginSystemOutput> {
+		init();
+		if (name != "experimental.chat.system.transform")
+			return Promise.resolve(output);
+		return triggerAsyncAt(0, input, output);
+	}
+
+	function triggerAsyncAt(index:Int, input:Unknown, output:PluginSystemOutput):Promise<PluginSystemOutput> {
+		if (index >= hooks.length)
+			return Promise.resolve(output);
+
+		final hook = hooks[index];
+		final transform = hook.systemTransform;
+		if (transform != null)
+			transform(input, output);
+
+		final asyncTransform = hook.systemTransformAsync;
+		final next = () -> triggerAsyncAt(index + 1, input, output);
+		if (asyncTransform == null)
+			return next();
+		return asyncTransform(input, output).then(_ -> next());
 	}
 
 	function loadModule(entry:PluginEntry, spec:PluginSpec, mod:PluginModule):Void {

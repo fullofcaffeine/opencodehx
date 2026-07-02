@@ -2,6 +2,7 @@ package opencodehx.smoke;
 
 import genes.ts.Unknown;
 import haxe.Json;
+import js.lib.Promise;
 import opencodehx.cli.PluginAuthPicker.PluginProviderChoice;
 import opencodehx.cli.PluginAuthPicker.PluginProviderHook;
 import opencodehx.cli.PluginAuthPicker.resolvePluginProviders;
@@ -50,6 +51,17 @@ class PluginSmoke {
 			metadata(root);
 			runtime(root);
 		}, () -> Fs.rmSync(root, {recursive: true, force: true}));
+	}
+
+	public static function runAsync():Promise<Void> {
+		final root = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-plugin-async-"));
+		return runtimeAsync(root).then(_ -> {
+			Fs.rmSync(root, {recursive: true, force: true});
+			return null;
+		}).catchError(error -> {
+			Fs.rmSync(root, {recursive: true, force: true});
+			throw error;
+		});
 	}
 
 	static function codexJwtClaims():Void {
@@ -418,6 +430,26 @@ class PluginSmoke {
 		eq(out.system.join(","), "file-default,pkg-one,dedupe", "plugin trigger hook order");
 	}
 
+	static function runtimeAsync(root:String):Promise<Void> {
+		final file = NodePath.join(root, "plugin-async.ts");
+		write(file, "export default async () => ({})\n");
+		final fileSpec = Url.pathToFileURL(file).href;
+		final origins = [origin(fileSpec), origin("async-plugin"), origin("last-plugin")];
+		final modules:Array<SmokePluginModule> = [
+			{spec: fileSpec, module: {defaultV1: v1("sync.file", "sync"), legacy: []}},
+			{spec: "async-plugin", module: {legacy: [legacyAsync("async-plugin", "async")]}},
+			{spec: "last-plugin", module: {legacy: [legacy("last-plugin", "last")]}},
+		];
+		final runtime = new PluginRuntime(origins, spec -> {
+			final raw = ConfigPlugin.specifier(spec);
+			return PluginShared.createPluginEntry(raw, raw);
+		}, entry -> moduleFor(modules, entry.spec));
+		return runtime.triggerAsync("experimental.chat.system.transform", Unknown.fromBoundary({}), {system: []}).then(out -> {
+			eq(out.system.join(","), "sync,async,last", "plugin async trigger hook order");
+			return null;
+		});
+	}
+
 	static function parsed(spec:String, pkg:String, version:String):Void {
 		final out = PluginShared.parsePluginSpecifier(spec);
 		eq(out.pkg, pkg, 'plugin parse pkg ${spec}');
@@ -436,9 +468,22 @@ class PluginSmoke {
 		return {identity: identity, server: _ -> hook(label)};
 	}
 
+	static function legacyAsync(identity:String, label:String):PluginLegacyExport {
+		return {identity: identity, server: _ -> asyncHook(label)};
+	}
+
 	static function hook(label:String):PluginServerHooks {
 		return {
 			systemTransform: (_input, output) -> output.system.push(label),
+		};
+	}
+
+	static function asyncHook(label:String):PluginServerHooks {
+		return {
+			systemTransformAsync: (_input, output) -> Promise.resolve(true).then(_ -> {
+				output.system.push(label);
+				return null;
+			}),
 		};
 	}
 
