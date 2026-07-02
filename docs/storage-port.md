@@ -1,6 +1,6 @@
 # Storage Port
 
-**Beads:** `opencodehx-014`, `opencodehx-e6g6`, `opencodehx-0hmi`
+**Beads:** `opencodehx-014`, `opencodehx-e6g6`, `opencodehx-0hmi`, `opencodehx-c6qv`
 **Upstream oracle:** `../opencode/packages/opencode/src/storage/db.ts`, `db.node.ts`, `json-migration.ts`, `session/session.sql.ts`, `session/projectors.ts`, and `session/message-v2.ts`
 
 ## Slice
@@ -19,7 +19,7 @@ This slice adds a portable JSON file storage seam plus a Node-first SQLite seam 
 - New and resumed CLI runs persist through the default `StorageDatabasePath` store, with `OPENCODE_DB` available as an override, making generated session IDs immediately exportable and resumed turns append-only.
 - `StorageSmoke` covers generic JSON storage write/read/update/remove/list behavior, missing-key errors, nested key paths, sorted listing, concurrent JSON reads, serialized concurrent JSON updates, create/read/update session, message/part upsert, pagination, part lookup/removal, and cascade delete. `ServerSmoke` covers `SessionStore.getMessage` through the individual message server routes.
 - `opencodehx.storage.JsonStorageMigrationRuntime` migrates the legacy JSON subset currently owned by `SessionStore`: project, session, message, and part files. It preserves upstream's path-derived ID precedence so stale `id`, `projectID`, `sessionID`, and `messageID` fields inside JSON bodies cannot override filenames or parent directories. It also decodes side-table migration summaries for legacy todo, permission, and session-share files so those upstream migration cases have typed evidence before the full tables are owned by storage.
-- `StorageSmoke.jsonMigration` covers project filename ID precedence, session directory/filename ID precedence, message filename ID precedence, part filename/message-path precedence, legacy parts without `sessionID`, orphan session/message/part skipping, idempotent reruns, missing storage directory empty stats, unreadable legacy file error collection with continued migration of valid files, valid todo counting with source-position preservation and invalid-entry skipping, permission file counting, session-share counting, and orphan side-table skipping.
+- `StorageSmoke.jsonMigration` covers project filename ID precedence, session directory/filename ID precedence, message filename ID precedence, part filename/message-path precedence, legacy parts without `sessionID`, orphan session/message/part skipping, idempotent reruns, missing storage directory empty stats, unreadable legacy file error collection with continued migration of valid files, all-malformed legacy input producing no migrated rows, valid todo counting with source-position preservation and invalid-entry skipping, permission file counting, session-share counting, and orphan side-table skipping.
 - `opencodehx.storage.StorageDatabasePath` mirrors upstream channel database path selection: `latest`, `beta`, `prod`, and disabled channel DB use `opencode.db`; other channels are sanitized into `opencode-<channel>.db`; `OPENCODE_DB` supports `:memory:`, absolute paths, and data-dir-relative paths.
 - `SessionPersistenceSmoke` covers store-backed raw and sanitized session export payloads through typed field reads and `genes.ts.Unknown` narrowing for tool input boundaries; `CliSmoke` covers the generated command path against a seeded temp SQLite database.
 

@@ -309,6 +309,17 @@ class StorageSmoke {
 		});
 		eq(JsonStorageMigrationRuntime.run(orphanDir, store).sessions, 0, "json migration skips orphan session");
 		eq(JsonStorageMigrationRuntime.run(NodePath.join(root, "missing-storage"), store).projects, 0, "json migration missing dir");
+
+		final malformedDir = NodePath.join(root, "legacy-malformed-only");
+		setupLegacyStorage(malformedDir);
+		writeText(join3(malformedDir, "project", "proj_malformed.json"), "{");
+		final failed = JsonStorageMigrationRuntime.run(malformedDir, store);
+		eq(failed.projects, 0, "json migration malformed-only project count");
+		eq(failed.sessions, 0, "json migration malformed-only session count");
+		eq(failed.messages, 0, "json migration malformed-only message count");
+		eq(failed.errors.length, 1, "json migration malformed-only error count");
+		expectContains(failed.errors[0], "failed to read", "json migration malformed-only error label");
+		expectContains(failed.errors[0], "proj_malformed.json", "json migration malformed-only error path");
 		store.close();
 	}
 
