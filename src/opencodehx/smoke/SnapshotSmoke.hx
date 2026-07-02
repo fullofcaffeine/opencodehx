@@ -32,6 +32,7 @@ class SnapshotSmoke {
 		gitInfoExcludeKeepsGlobalExcludes();
 		projectStateIsolation();
 		secondaryWorktreePatchDetection();
+		secondaryWorktreeRevertIsolation();
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
@@ -382,6 +383,31 @@ class SnapshotSmoke {
 			write(worktree, "worktree.txt", "worktree content");
 			final patch = SnapshotRuntime.patch(worktree, before);
 			contains(patch, worktree, "worktree.txt", "snapshot secondary worktree patch file");
+			cleanupWorktree(dir, worktree);
+		} catch (error:haxe.Exception) {
+			cleanupWorktree(dir, worktree);
+			tmp.dispose();
+			throw error;
+		}
+		tmp.dispose();
+	}
+
+	static function secondaryWorktreeRevertIsolation():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final worktree = dir + "-worktree";
+		require(Git.run(dir, ["worktree", "add", worktree, "HEAD"]), "snapshot revert worktree add");
+		try {
+			eq(SnapshotRuntime.trackDirectory(dir) != "", true, "snapshot revert primary worktree track");
+			write(dir, "worktree.txt", "primary content");
+
+			final before = SnapshotRuntime.trackDirectory(worktree);
+			write(worktree, "worktree.txt", "worktree content");
+			final patch = SnapshotRuntime.patch(worktree, before);
+			SnapshotRuntime.revert(worktree, [patch]);
+
+			eq(Fs.existsSync(NodePath.join(worktree, "worktree.txt")), false, "snapshot worktree revert removes invoking file");
+			eq(Fs.readFileSync(NodePath.join(dir, "worktree.txt"), "utf8"), "primary content", "snapshot worktree revert preserves primary file");
 			cleanupWorktree(dir, worktree);
 		} catch (error:haxe.Exception) {
 			cleanupWorktree(dir, worktree);
