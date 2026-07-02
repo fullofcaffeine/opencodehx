@@ -939,6 +939,16 @@ class ProjectRuntimeSmoke {
 		writeFile(NodePath.join(multiPkg, "package.json"), '{"bin":{"multi":"./cli.js","fallback":"./fallback.js"}}');
 		eq(NpmRuntime.which(fixture.deps, "@scope/multi"), NodePath.join(multiBin, "multi"), "npm which prefers unscoped bin");
 
+		final stringBinDir = NpmRuntime.cacheDirectory(fixture.deps, "@scope/string-bin");
+		final stringBin = NodePath.join(NodePath.join(stringBinDir, "node_modules"), ".bin");
+		final stringPkg = NodePath.join(NodePath.join(stringBinDir, "node_modules"), NodePath.join("@scope", "string-bin"));
+		Fs.mkdirSync(stringBin, {recursive: true});
+		Fs.mkdirSync(stringPkg, {recursive: true});
+		writeFile(NodePath.join(stringBin, "fallback"), "#!/bin/sh\n");
+		writeFile(NodePath.join(stringBin, "string-bin"), "#!/bin/sh\n");
+		writeFile(NodePath.join(stringPkg, "package.json"), '{"bin":"./cli.js"}');
+		eq(NpmRuntime.which(fixture.deps, "@scope/string-bin"), NodePath.join(stringBin, "string-bin"), "npm which string bin uses unscoped name");
+
 		final missingBinDir = NpmRuntime.cacheDirectory(fixture.deps, "installed-later");
 		Fs.mkdirSync(missingBinDir, {recursive: true});
 		writeFile(NodePath.join(missingBinDir, "package-lock.json"), "{}");
