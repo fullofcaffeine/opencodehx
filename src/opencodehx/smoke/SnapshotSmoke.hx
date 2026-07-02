@@ -53,6 +53,7 @@ class SnapshotSmoke {
 		diffFullAddDeletePair();
 		diffFullMultipleAddDelete();
 		diffFullWhitespaceChanges();
+		diffFullLargeInterleavedMixedDiff();
 		diffFullOrderAcrossBatchBoundaries();
 		diffFullStatuses();
 		repeatedTrackStableHash();
@@ -796,6 +797,53 @@ class SnapshotSmoke {
 		final diff = requireDiff(diffs, "whitespace.txt");
 		eq(diff.additions > 0, true, "snapshot diffFull whitespace additions");
 		eq(diff.status, "modified", "snapshot diffFull whitespace status");
+		tmp.dispose();
+	}
+
+	static function diffFullLargeInterleavedMixedDiff():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final count = 60;
+		for (i in 0...count) {
+			final id = pad3(i);
+			write(dir, "mix/" + id + "-mod.txt", "before-" + id + "-e\nsmile\nline");
+			write(dir, "mix/" + id + "-del.txt", "gone-" + id + "\nhello");
+			writeBytes(dir, "mix/" + id + "-bin.bin", [0, i, 255, i % 251]);
+		}
+
+		final before = SnapshotRuntime.trackDirectory(dir);
+		for (i in 0...count) {
+			final id = pad3(i);
+			write(dir, "mix/" + id + "-mod.txt", "after-" + id + "-e\nrocket\nline");
+			write(dir, "mix/" + id + "-add.txt", "new-" + id + "\nhello");
+			writeBytes(dir, "mix/" + id + "-bin.bin", [9, i, 8, i % 251]);
+			Fs.rmSync(NodePath.join(dir, "mix/" + id + "-del.txt"), {force: true});
+		}
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, count * 4, "snapshot diffFull large mixed count");
+		for (i in 0...count) {
+			final id = pad3(i);
+			final modified = requireDiff(diffs, "mix/" + id + "-mod.txt");
+			eq(modified.patch.indexOf("-before-" + id + "-e") != -1, true, "snapshot diffFull large mixed modified old " + id);
+			eq(modified.patch.indexOf("+after-" + id + "-e") != -1, true, "snapshot diffFull large mixed modified new " + id);
+			eq(modified.status, "modified", "snapshot diffFull large mixed modified status " + id);
+
+			final deleted = requireDiff(diffs, "mix/" + id + "-del.txt");
+			eq(deleted.patch.indexOf("-gone-" + id) != -1, true, "snapshot diffFull large mixed deleted patch " + id);
+			eq(deleted.status, "deleted", "snapshot diffFull large mixed deleted status " + id);
+
+			final added = requireDiff(diffs, "mix/" + id + "-add.txt");
+			eq(added.patch.indexOf("+new-" + id) != -1, true, "snapshot diffFull large mixed added patch " + id);
+			eq(added.status, "added", "snapshot diffFull large mixed added status " + id);
+
+			final binary = requireDiff(diffs, "mix/" + id + "-bin.bin");
+			eq(binary.patch, "", "snapshot diffFull large mixed binary patch " + id);
+			eq(binary.additions, 0, "snapshot diffFull large mixed binary additions " + id);
+			eq(binary.deletions, 0, "snapshot diffFull large mixed binary deletions " + id);
+			eq(binary.status, "modified", "snapshot diffFull large mixed binary status " + id);
+		}
 		tmp.dispose();
 	}
 
