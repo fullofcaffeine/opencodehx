@@ -260,8 +260,8 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/session/SessionSystemPrompt.hx; src/opencodehx/session/SessionInstruction.hx; src/opencodehx/session/SessionInstructionClaims.hx; src/opencodehx/smoke/SessionProcessorSmoke.hx; src/opencodehx/smoke/SkillSmoke.hx; src/opencodehx/smoke/ToolSmoke.hx; scripts/harness/cli-smoke.mjs; scripts/harness/package-smoke.mjs; docs/session-processor-one-turn.md",
-        "plugin system transforms and reminder prompt insertion remain deferred",
-        "SessionSystemPrompt provider/environment/skills/instruction assembly including async remote instruction URL bodies plus SkillRegistry sorted verbose and permission-filtered availability smoke; generated CLI and package smokes prove assembled system prompt reaches request body; ToolSmoke proves read-tool per-message instruction claim dedupe/clear; SessionProcessorSmoke proves recovered read-tool loaded metadata suppresses repeated nearby reminders",
+        "full Plugin service integration and reminder prompt insertion remain deferred",
+        "SessionSystemPrompt provider/environment/skills/instruction assembly including async remote instruction URL bodies plus SkillRegistry sorted verbose and permission-filtered availability smoke; SessionProcessorSmoke proves typed plugin system transforms preserve upstream two-part finalization; generated CLI and package smokes prove assembled system prompt reaches request body; ToolSmoke proves read-tool per-message instruction claim dedupe/clear; SessionProcessorSmoke proves recovered read-tool loaded metadata suppresses repeated nearby reminders",
       ],
     ],
     ["bus/bus.test.ts", ["ported", "src/opencodehx/bus/BusRuntime.hx; src/opencodehx/smoke/BusSmoke.hx; docs/bus-runtime-parity.md", "none", "BusSmoke callback and scoped lifecycle fixtures"]],

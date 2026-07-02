@@ -7,6 +7,7 @@ import genes.ts.UnknownNarrow;
 import genes.ts.UnknownRecord;
 import haxe.DynamicAccess;
 import opencodehx.config.ConfigInfo;
+import opencodehx.config.ConfigPlugin.PluginScope;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelCallOptions;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptMessage;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelPromptPart;
@@ -20,6 +21,9 @@ import opencodehx.host.node.NodePath;
 import opencodehx.permission.PermissionRuntime;
 import opencodehx.permission.PermissionTypes.PermissionAskRecord;
 import opencodehx.permission.PermissionTypes.PermissionRule;
+import opencodehx.plugin.PluginRuntime;
+import opencodehx.plugin.PluginRuntime.PluginModule;
+import opencodehx.plugin.PluginShared;
 import opencodehx.provider.AiSdkProvider;
 import opencodehx.provider.AiSdkProvider.AiSdkMockModel;
 import opencodehx.provider.FakeProvider;
@@ -640,6 +644,29 @@ class SessionProcessorSmoke {
 		eq(changedHeader.length, 3, "llm system transform changed header untouched");
 		eq(changedHeader[0], "replacement", "llm system transform changed header first");
 
+		final transformed = SessionLlm.composeSystem({
+			provider: ["provider header"],
+			input: ["call scoped"],
+			userSystem: "user scoped",
+		});
+		final transformedHeader = transformed[0];
+		final pluginRuntime = new PluginRuntime([
+			{spec: {specifier: "session-plugin-one"}, source: "session-smoke", scope: PluginScope.PluginScopeLocal},
+			{spec: {specifier: "session-plugin-two"}, source: "session-smoke", scope: PluginScope.PluginScopeLocal},
+		], spec -> PluginShared.createPluginEntry(spec.specifier, spec.specifier),
+			entry -> {
+				return switch (entry.spec) {
+					case "session-plugin-one": systemPluginModule("plugin one");
+					case "session-plugin-two": systemPluginModule("plugin two");
+					default: null;
+				}
+			});
+		pluginRuntime.trigger("experimental.chat.system.transform", Unknown.fromBoundary({sessionID: "ses_system_transform"}), {system: transformed});
+		final transformedFinal = SessionLlm.finalizeSystemTransform(transformedHeader, transformed);
+		eq(transformedFinal.length, 2, "llm plugin system transform final count");
+		eq(transformedFinal[0], "provider header\ncall scoped\nuser scoped", "llm plugin system transform header");
+		eq(transformedFinal[1], "plugin one\nplugin two", "llm plugin system transform tail");
+
 		final messages:Array<AiLanguageModelPromptMessage> = [{role: AiLanguageModelPromptRole.User, content: "Hello"}];
 		final withSystem = SessionLlm.requestMessages(["system one", "system two"], messages, false, false);
 		eq(withSystem.length, 3, "llm request messages prepends system count");
@@ -707,6 +734,21 @@ description: Review workflow.
 		});
 		contains(providerFallback[0], "You are OpenCode, You and the user share the same workspace", "session system provider prompt");
 		tmp.dispose();
+	}
+
+	static function systemPluginModule(label:String):PluginModule {
+		return {
+			legacy: [
+				{
+					identity: label,
+					server: _ -> {
+						return {
+							systemTransform: (_input, output) -> output.system.push(label),
+						};
+					},
+				}
+			],
+		};
 	}
 
 	static function hasAiTool(tools:DynamicAccess<AiTool>, name:String):Bool {
