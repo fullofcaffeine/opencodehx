@@ -994,6 +994,18 @@ class ProjectRuntimeSmoke {
 		eq(InstallationRuntime.upgrade(upgradeFixture.deps, InstallationMethod.Npm, "9.9.9").code, 0, "installation npm upgrade");
 		eq(commandKey(upgradeFixture.commands[0]), "npm install -g opencode-ai@9.9.9", "installation npm upgrade command");
 
+		final curlUpgrade = installationFixture("/usr/local/bin/opencode");
+		curlUpgrade.responses.set("https://opencode.ai/install", "echo install");
+		eq(InstallationRuntime.upgrade(curlUpgrade.deps, InstallationMethod.Curl, "9.9.9").code, 0, "installation curl upgrade");
+		eq(curlUpgrade.requests[curlUpgrade.requests.length - 1].url, "https://opencode.ai/install", "installation curl upgrade script url");
+		eq(commandKey(curlUpgrade.commands[0]), "bash", "installation curl upgrade command");
+		final curlEnv = curlUpgrade.commands[0].env;
+		if (curlEnv == null)
+			throw "installation curl upgrade version env: missing env";
+		eq(curlEnv.get("VERSION"), "9.9.9", "installation curl upgrade version env");
+		eq(curlUpgrade.commands[0].input, "echo install", "installation curl upgrade script input");
+		eq(commandKey(curlUpgrade.commands[1]), "/usr/local/bin/opencode --version", "installation curl upgrade version probe");
+
 		final brewUpgrade = installationFixture("/usr/local/bin/opencode");
 		brewUpgrade.outputs.set("brew list --formula anomalyco/tap/opencode", processOk("opencode\n"));
 		brewUpgrade.outputs.set("brew --repo anomalyco/tap", processOk("/tmp/homebrew-tap\n"));
