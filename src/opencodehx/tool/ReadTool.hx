@@ -33,6 +33,7 @@ class ReadTool {
 	static inline final MAX_LINE_LENGTH = 2000;
 	static inline final MAX_LINE_SUFFIX = "... (line truncated to 2000 chars)";
 	static inline final MAX_BYTES = 50 * 1024;
+	static inline final MAX_BYTES_LABEL = "50 KB";
 	static inline final SAMPLE_BYTES = 4096;
 
 	public static function define():ToolDef {
@@ -212,8 +213,15 @@ class ReadTool {
 			}
 		}
 		final lineTruncated = end < lines.length;
-		final footer = byteTruncated
-			|| lineTruncated ? '(Read truncated. Use offset ${offset + body.length} to continue.)' : '(End of file - total ${lines.length} lines)';
+		final last = offset + body.length - 1;
+		final next = last + 1;
+		final footer = if (byteTruncated) {
+			'(Output capped at ${MAX_BYTES_LABEL}. Showing lines ${offset}-${last}. Use offset=${next} to continue.)';
+		} else if (lineTruncated) {
+			'(Showing lines ${offset}-${last} of ${lines.length}. Use offset=${next} to continue.)';
+		} else {
+			'(End of file - total ${lines.length} lines)';
+		}
 		final output = [
 			'<path>${absolute}</path>',
 			"<type>file</type>",

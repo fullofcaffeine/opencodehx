@@ -595,6 +595,19 @@ class ToolSmoke {
 		final finalDirPage = registry.execute(ToolIDs.known("read"), {filePath: "src", offset: 6, limit: 20}, ctx);
 		eq(finalDirPage.output.indexOf("Showing 20") == -1, true, "read directory final page not truncated");
 
+		write(ctx.directory, "src/many-lines.txt", numberedLines(100));
+		final lineLimited = registry.execute(ToolIDs.known("read"), {filePath: "src/many-lines.txt", limit: 10}, ctx);
+		eq(metadataText(lineLimited).indexOf('"truncated":true') != -1, true, "read line-limited metadata");
+		eq(lineLimited.output.indexOf("Showing lines 1-10 of 100") != -1, true, "read line-limited footer range");
+		eq(lineLimited.output.indexOf("Use offset=11") != -1, true, "read line-limited footer offset");
+		eq(lineLimited.output.indexOf("line10") == -1, true, "read line-limited excludes next line");
+
+		write(ctx.directory, "src/byte-cap.txt", numberedLinesWithPayload(2000, repeat("x", 48)));
+		final byteCapped = registry.execute(ToolIDs.known("read"), {filePath: "src/byte-cap.txt"}, ctx);
+		eq(metadataText(byteCapped).indexOf('"truncated":true') != -1, true, "read byte-capped metadata");
+		eq(byteCapped.output.indexOf("Output capped at 50 KB") != -1, true, "read byte-capped footer");
+		eq(byteCapped.output.indexOf("Use offset=") != -1, true, "read byte-capped offset hint");
+
 		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "src/a.ts", offset: 5, limit: 1}, ctx), function(failure) {
 			return switch failure {
 				case ExecutionFailed(id, message): id == "read" && message.indexOf("Offset 5 is out of range") != -1;
@@ -1322,6 +1335,10 @@ Use this skill.
 
 	static function numberedLines(count:Int):String {
 		return [for (i in 0...count) 'line${i}'].join("\n");
+	}
+
+	static function numberedLinesWithPayload(count:Int, payload:String):String {
+		return [for (i in 0...count) 'line${i}:${payload}'].join("\n");
 	}
 
 	static function repeat(text:String, count:Int):String {
