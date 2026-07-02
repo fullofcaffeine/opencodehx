@@ -1143,6 +1143,14 @@ class ProjectRuntimeSmoke {
 		eq(brewUpgrade.commands[3].cwd, "/tmp/homebrew-tap", "installation brew pull cwd");
 		eq(commandKey(brewUpgrade.commands[4]), "brew upgrade anomalyco/tap/opencode", "installation brew upgrade command");
 
+		final brewCoreUpgrade = installationFixture("/usr/local/bin/opencode");
+		brewCoreUpgrade.outputs.set("brew list --formula anomalyco/tap/opencode", processOk(""));
+		brewCoreUpgrade.outputs.set("brew list --formula opencode", processOk("opencode\n"));
+		eq(InstallationRuntime.upgrade(brewCoreUpgrade.deps, InstallationMethod.Brew, "9.9.9").code, 0, "installation brew core upgrade");
+		eq(commandKey(brewCoreUpgrade.commands[0]), "brew list --formula anomalyco/tap/opencode", "installation brew core checks tap first");
+		eq(commandKey(brewCoreUpgrade.commands[1]), "brew list --formula opencode", "installation brew core checks core formula");
+		eq(commandKey(brewCoreUpgrade.commands[2]), "brew upgrade opencode", "installation brew core upgrade command");
+
 		final chocoUpgrade = installationFixture("/usr/local/bin/opencode");
 		chocoUpgrade.outputs.set("choco upgrade opencode --version=9.9.9 -y", {code: 1, stdout: "", stderr: "denied"});
 		eq(InstallationRuntime.upgrade(chocoUpgrade.deps, InstallationMethod.Choco, "9.9.9").stderr, "not running from an elevated command shell",
