@@ -152,6 +152,10 @@ class EffectSmoke {
 
 		eq(exitValue(@:await runtime.runPromiseExit(svc -> Promise.resolve(svc.get()))), "success:1", "run-service promise exit success");
 		eq(exitValue(@:await runtime.runPromiseExit(_ -> Promise.reject(new Error("exit boom")))), "failed:exit boom", "run-service promise exit failure");
+		eq(exitValue(@:await runtime.runPromiseExit(_ -> {
+			throw new Error("sync boom");
+			return Promise.resolve(0);
+		})), "failed:sync boom", "run-service promise exit sync failure");
 
 		final callbackSuccess = new Promise<Bool>((resolve, reject) -> {
 			runtime.runCallback(svc -> Promise.resolve(svc.get()), result -> {
@@ -195,6 +199,7 @@ class EffectSmoke {
 		interrupted.interrupt();
 		eq(exitValue(@:await interrupted.exit), "interrupted", "run-service fork interrupt");
 		@:await delay("settled", 30);
+		eq(exitValue(@:await interrupted.exit), "interrupted", "run-service fork interrupt ignores late success");
 	}
 
 	static function instanceState():Void {
