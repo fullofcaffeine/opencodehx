@@ -923,6 +923,14 @@ class ProjectRuntimeSmoke {
 		eq(fixture.requests[fixture.requests.length - 1].dir, missingLockDir, "npm install missing lock reify dir");
 		eq(fixture.requests[fixture.requests.length - 1].add.join(","), "", "npm install missing lock add spec");
 
+		final malformedLockDir = directory(root, "npm-install-malformed-lock");
+		Fs.mkdirSync(NodePath.join(malformedLockDir, "node_modules"), {recursive: true});
+		write(malformedLockDir, "package.json", '{"dependencies":{"typescript":"5.0.0"}}');
+		write(malformedLockDir, "package-lock.json", "{");
+		NpmRuntime.install(fixture.deps, malformedLockDir, {add: []});
+		eq(fixture.requests[fixture.requests.length - 1].dir, malformedLockDir, "npm install malformed lock reify dir");
+		eq(fixture.requests[fixture.requests.length - 1].add.join(","), "", "npm install malformed lock add spec");
+
 		final peerCleanDir = directory(root, "npm-install-peer-clean");
 		Fs.mkdirSync(NodePath.join(peerCleanDir, "node_modules"), {recursive: true});
 		write(peerCleanDir, "package.json", '{"peerDependencies":{"react":"18.0.0"}}');
