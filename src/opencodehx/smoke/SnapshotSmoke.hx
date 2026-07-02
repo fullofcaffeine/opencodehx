@@ -24,6 +24,7 @@ class SnapshotSmoke {
 		binaryPatchAndRevert();
 		symlinkPatch();
 		diffFullNoChanges();
+		diffFullOrderAcrossBatchBoundaries();
 		diffFullStatuses();
 		repeatedTrackStableHash();
 		SnapshotRuntime.reset();
@@ -250,6 +251,28 @@ class SnapshotSmoke {
 		tmp.dispose();
 	}
 
+	static function diffFullOrderAcrossBatchBoundaries():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		for (i in 0...140) {
+			final id = pad3(i);
+			write(dir, "order/" + id + ".txt", "before-" + id);
+		}
+
+		final before = SnapshotRuntime.trackDirectory(dir);
+		for (i in 0...140) {
+			final id = pad3(i);
+			write(dir, "order/" + id + ".txt", "after-" + id);
+		}
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, 140, "snapshot diffFull order count");
+		for (i in 0...140)
+			eq(diffs[i].file, "order/" + pad3(i) + ".txt", "snapshot diffFull order " + i);
+		tmp.dispose();
+	}
+
 	static function diffFullStatuses():Void {
 		final tmp = bootstrap();
 		final dir = tmp.path;
@@ -324,6 +347,10 @@ class SnapshotSmoke {
 				return diff.status;
 		}
 		throw 'missing snapshot diff for ${file}';
+	}
+
+	static function pad3(value:Int):String {
+		return StringTools.lpad(Std.string(value), "0", 3);
 	}
 
 	static function abs(dir:String, file:String):String {
