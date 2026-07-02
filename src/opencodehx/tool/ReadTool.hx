@@ -245,12 +245,12 @@ class ReadTool {
 		for (entry in Fs.readdirDirentsSync(parent, {withFileTypes: true})) {
 			final name = entry.name;
 			if (name.toLowerCase().indexOf(wanted) != -1 || wanted.indexOf(name.toLowerCase()) != -1)
-				suggestions.push(name);
+				suggestions.push(NodePath.join(parent, name));
 		}
 		if (suggestions.length == 0)
 			return 'File not found: ${absolute}';
 		suggestions.sort(compareStrings);
-		return 'File not found: ${absolute}. Did you mean ${suggestions.join(", ")}?';
+		return 'File not found: ${absolute}\n\nDid you mean one of these?\n${suggestions.slice(0, 3).join("\n")}';
 	}
 
 	static function knownBinaryExtension(path:String):Bool {

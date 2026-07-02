@@ -602,6 +602,19 @@ class ToolSmoke {
 			}
 		}, "read out-of-range offset failure");
 
+		write(ctx.directory, "suggestions/alpha.txt", "alpha\n");
+		write(ctx.directory, "suggestions/alpine.txt", "alpine\n");
+		expectToolFailure(() -> registry.execute(ToolIDs.known("read"), {filePath: "suggestions/alp"}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message):
+					id == "read"
+					&& message.indexOf("Did you mean one of these?\n") != -1
+					&& message.indexOf(NodePath.join(ctx.directory, "suggestions/alpha.txt")) != -1
+					&& message.indexOf(NodePath.join(ctx.directory, "suggestions/alpine.txt")) != -1;
+				case _: false;
+			}
+		}, "read missing file suggestions");
+
 		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-read-outside-"));
 		final outsideFile = NodePath.join(outsideDir, "outside.ts");
 		Fs.writeFileSync(outsideFile, "external read\n", "utf8");
