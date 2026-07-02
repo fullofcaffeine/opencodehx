@@ -17,6 +17,8 @@ class SnapshotSmoke {
 		restoreSnapshot();
 		recreatedFileRevert();
 		nestedDirectoryRevert();
+		subdirectoryRevertKeepsEmptyParent();
+		mixedOperationsKeepEmptyParent();
 		overlappingRevertOrder();
 		repeatedHashRevertOrder();
 		largeBatchRevert();
@@ -135,6 +137,39 @@ class SnapshotSmoke {
 		contains(patch, dir, "level1/level2/level3/deep.txt", "snapshot nested added file");
 		SnapshotRuntime.revert(dir, [patch]);
 		eq(Fs.existsSync(NodePath.join(dir, "level1/level2/level3/deep.txt")), false, "snapshot nested revert removes added file");
+		tmp.dispose();
+	}
+
+	static function subdirectoryRevertKeepsEmptyParent():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "sub/file.txt", "SUB");
+		final patch = SnapshotRuntime.patch(dir, before);
+
+		SnapshotRuntime.revert(dir, [patch]);
+		eq(Fs.existsSync(NodePath.join(dir, "sub/file.txt")), false, "snapshot subdirectory revert removes added file");
+		eq(Fs.statSync(NodePath.join(dir, "sub")).isDirectory(), true, "snapshot subdirectory revert leaves empty parent");
+		tmp.dispose();
+	}
+
+	static function mixedOperationsKeepEmptyParent():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		Fs.rmSync(NodePath.join(dir, "a.txt"), {force: true});
+		write(dir, "c.txt", "C");
+		write(dir, "dir/d.txt", "D");
+		write(dir, "b.txt", "MODIFIED");
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		SnapshotRuntime.revert(dir, [patch]);
+
+		eq(Fs.readFileSync(NodePath.join(dir, "a.txt"), "utf8"), "A", "snapshot mixed restores deleted file");
+		eq(Fs.existsSync(NodePath.join(dir, "c.txt")), false, "snapshot mixed removes new file");
+		eq(Fs.existsSync(NodePath.join(dir, "dir/d.txt")), false, "snapshot mixed removes nested new file");
+		eq(Fs.statSync(NodePath.join(dir, "dir")).isDirectory(), true, "snapshot mixed leaves empty parent");
+		eq(Fs.readFileSync(NodePath.join(dir, "b.txt"), "utf8"), "B", "snapshot mixed restores modified file");
 		tmp.dispose();
 	}
 
