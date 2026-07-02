@@ -1,6 +1,6 @@
 # Effect Runtime Parity
 
-**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`, `opencodehx-4kc`, `opencodehx-vqu0`, `opencodehx-bfo1`, `opencodehx-tg0q`, `opencodehx-1874`, `opencodehx-9l41`, `opencodehx-nou6`, `opencodehx-0b94`, `opencodehx-000.11.35`
+**Beads:** `opencodehx-dov`, `opencodehx-1rt`, `opencodehx-n3n`, `opencodehx-4kc`, `opencodehx-vqu0`, `opencodehx-bfo1`, `opencodehx-tg0q`, `opencodehx-1874`, `opencodehx-9l41`, `opencodehx-nou6`, `opencodehx-0b94`, `opencodehx-000.11.35`, `opencodehx-000.11.36`
 
 ## Upstream Oracle
 
@@ -48,7 +48,7 @@
 
 `EffectSmoke.crossSpawnSpawner()` covers those cases while reusing the Node host seam from `util/process.test.ts`.
 
-`opencodehx.effect.RuntimeMemo` and `RunServiceRuntime` cover the stable memo-map behavior from upstream `makeRuntime`: separately-created runtimes can depend on the same shared layer and see one initialized dependency. `EffectSmoke.runServiceMemoMap()` creates two runtime services over one memoized shared service, proves both return the same shared ID, and proves the dependency factory ran once. `EffectSmoke.runServiceAsync()` covers Promise-backed service execution, typed success/failure exits including synchronous throws, callback success/failure delivery including synchronous callback action failures, fork success/failure/interruption, late fork-success suppression after interruption, and proves async calls reuse the initialized service.
+`opencodehx.effect.RuntimeMemo` and `RunServiceRuntime` cover the stable memo-map behavior from upstream `makeRuntime`: separately-created runtimes can depend on the same shared layer and see one initialized dependency. `EffectSmoke.runServiceMemoMap()` creates two runtime services over one memoized shared service, proves both return the same shared ID, and proves the dependency factory ran once. `EffectSmoke.runServiceAsync()` covers Promise-backed service execution, typed success/failure exits including synchronous throws, callback success/failure delivery including synchronous callback action failures, fork success/failure delivery including synchronous fork action failures, interruption, late fork-success suppression after interruption, and proves async calls reuse the initialized service.
 
 `opencodehx.effect.InstanceStateRuntime` covers the stable instance-state lifecycle: values are cached per instance directory, isolated across directories, invalidated on `InstanceRuntime.reload`, and disposed on `InstanceRuntime.disposeAll`.
 

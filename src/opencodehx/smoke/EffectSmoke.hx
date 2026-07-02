@@ -214,6 +214,13 @@ class EffectSmoke {
 		eq(exitValue(@:await forkFailure.exit), "failed:fork boom", "run-service fork failure");
 		eq(initialized, 1, "run-service fork failure reuses service");
 
+		final forkSyncFailure = runtime.runFork(_ -> {
+			throw new Error("sync fork boom");
+			return Promise.resolve(0);
+		});
+		eq(exitValue(@:await forkSyncFailure.exit), "failed:sync fork boom", "run-service fork sync failure");
+		eq(initialized, 1, "run-service fork sync failure reuses service");
+
 		final interrupted = runtime.runFork(_ -> delay("late", 25));
 		interrupted.interrupt();
 		eq(exitValue(@:await interrupted.exit), "interrupted", "run-service fork interrupt");
