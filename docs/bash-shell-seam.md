@@ -15,7 +15,7 @@ This seam started as the first Node-backed shell execution slice and now include
 - `NodeProcess.killTree` mirrors upstream process-tree teardown: `taskkill /f /t` on Windows and process-group `SIGTERM`/`SIGKILL` with a direct-process fallback on POSIX.
 - Tool permission requests are emitted for parsed `bash` command execution and for external working directories/path arguments.
 - Output is normalized into upstream-shaped `ToolResult` metadata with `exit`, `description`, `truncated`, optional `outputPath`, `signal`, and preview output. Timeout error-code detection narrows the caught Node error through `genes.ts.UnknownNarrow` instead of reflective field reads.
-- Runtime smoke covers command output, cwd, inherited env, timeout metadata, byte and line output truncation with saved full-output spill files, denied bash permission, denied external-directory permission, tree-sitter multi-command prompts, nested command path extraction, upstream shell-selection/classification fixtures, POSIX kill-tree descendant teardown, and deterministic Windows PowerShell scanner cases for drive-relative paths, `$PWD`, `$PSHOME`, FileSystem providers, and conditionals.
+- Runtime smoke covers command output, cwd, inherited env, timeout metadata, byte and line output truncation with saved full-output spill files, denied bash permission, denied external-directory permission for workdirs and wildcard path arguments, tree-sitter multi-command prompts, nested command path extraction, upstream shell-selection/classification fixtures, POSIX kill-tree descendant teardown, and deterministic Windows PowerShell scanner cases for drive-relative paths, `$PWD`, `$PSHOME`, FileSystem providers, and conditionals.
 
 ## Evidence
 

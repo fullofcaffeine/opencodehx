@@ -429,6 +429,31 @@ class ToolSmoke {
 				case _: false;
 			}
 		}, "bash external directory denied");
+
+		final wildcardDir = NodeProcess.platform() == "win32" ? NodeProcess.envValue("WINDIR") : "/etc";
+		if (wildcardDir != null && wildcardDir != "") {
+			final wildcardRequests:Array<ToolPermissionRequest> = [];
+			final wildcardCtx = context(ctx.directory, request -> {
+				wildcardRequests.push(request);
+				if (request.permission == "external_directory")
+					return {allowed: false, reason: "wildcard external blocked"};
+				return {allowed: true};
+			});
+			expectToolFailure(() -> registry.execute(ToolIDs.known("bash"), {
+				command: 'cat ${ToolPaths.normalize(NodePath.join(wildcardDir, "*"))}',
+				description: "Read wildcard path"
+			}, wildcardCtx), function(failure) {
+				return switch failure {
+					case PermissionDenied(id, message): id == "bash" && message.indexOf("wildcard external blocked") != -1;
+					case _: false;
+				}
+			}, "bash wildcard external denied");
+			final wildcardPattern = ToolPaths.normalize(NodePath.join(wildcardDir, "*"));
+			eq(wildcardRequests.length > 0, true, "bash wildcard external request count");
+			eq(wildcardRequests[0].permission, "external_directory", "bash wildcard external permission kind");
+			eq(wildcardRequests[0].patterns.indexOf(wildcardPattern) != -1, true, "bash wildcard external permission pattern");
+			eq(wildcardRequests[0].always.indexOf(wildcardPattern) != -1, true, "bash wildcard external permission always");
+		}
 	}
 
 	static function treeSitterScanner(ctx:ToolContext):Void {
