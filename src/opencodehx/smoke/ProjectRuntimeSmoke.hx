@@ -992,6 +992,10 @@ class ProjectRuntimeSmoke {
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "~2.9.0"), false, "npm outdated tilde range satisfied");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.10.0"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "~2.9.0"), true, "npm outdated tilde range escaped minor");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"3.0.0"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", ">=2.8.0 <3.0.0 || >=3.0.0 <4.0.0"), false, "npm outdated disjunction range satisfied");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"4.0.0"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", ">=2.8.0 <3.0.0 || >=3.0.0 <4.0.0"), true, "npm outdated disjunction range escaped");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: "{}"});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated missing dist-tags");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{}}'});
