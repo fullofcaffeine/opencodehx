@@ -20,6 +20,7 @@ typedef ToolContext = {
 	@:optional final toolOutputDir:String;
 	@:optional final instructionClaims:SessionInstructionClaims;
 	@:optional final loadedInstructions:Array<String>;
+	@:optional final formatFile:String->Bool;
 	@:optional final ask:(ToolPermissionRequest) -> ToolPermissionDecision;
 }
 

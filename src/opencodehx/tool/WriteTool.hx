@@ -70,6 +70,10 @@ class WriteTool {
 		});
 		Fs.mkdirSync(NodePath.dirname(absolute), {recursive: true});
 		Fs.writeFileSync(absolute, ToolBom.join(newContent, desiredBom), "utf8");
+		final formatFile = ctx.formatFile;
+		if (formatFile != null && formatFile(absolute)) {
+			ToolBom.syncFile(() -> Fs.readFileSync(absolute, "utf8"), text -> Fs.writeFileSync(absolute, text, "utf8"), desiredBom);
+		}
 		return {
 			title: relative,
 			metadata: ToolResultMetadata.checked({

@@ -29,4 +29,11 @@ class ToolBom {
 		final stripped = split(text).text;
 		return bom ? BOM + stripped : stripped;
 	}
+
+	public static function syncFile(read:Void->String, write:String->Void, bom:Bool):String {
+		final current = split(read());
+		if (current.bom != bom)
+			write(join(current.text, bom));
+		return current.text;
+	}
 }

@@ -18,6 +18,7 @@ import opencodehx.tool.BashCommandScanner;
 import opencodehx.tool.BashCommandScanner.BashScan;
 import opencodehx.tool.SkillTool;
 import opencodehx.tool.ToolDefinition;
+import opencodehx.tool.ToolBom;
 import opencodehx.tool.ToolError.ToolException;
 import opencodehx.tool.ToolError.ToolFailure;
 import opencodehx.tool.ToolPaths;
@@ -875,6 +876,31 @@ class ToolSmoke {
 		eq(bomContent.charCodeAt(0), 0xfeff, "write preserves existing BOM");
 		eq(bomContent.substr(1), "using Up;\n", "write replaces content after BOM");
 		eq(Json.stringify(bomResult.metadata).indexOf('"exists":true') != -1, true, "write BOM existed metadata");
+
+		final formattedBom = NodePath.join(ctx.directory, "src/formatted-bom.cs");
+		Fs.writeFileSync(formattedBom, bom + "using System;\n", "utf8");
+		var formattedPath = "";
+		final formattedCtx:ToolContext = {
+			directory: ctx.directory,
+			worktree: ctx.worktree,
+			sessionID: ctx.sessionID,
+			messageID: ctx.messageID,
+			callID: ctx.callID,
+			agent: ctx.agent,
+			toolOutputDir: ctx.toolOutputDir,
+			formatFile: file -> {
+				formattedPath = file;
+				final formatted = ToolBom.split(Fs.readFileSync(file, "utf8")).text;
+				Fs.writeFileSync(file, formatted, "utf8");
+				return true;
+			},
+			ask: ctx.ask,
+		};
+		registry.execute(ToolIDs.known("write"), {filePath: "src/formatted-bom.cs", content: "using Formatted;\n"}, formattedCtx);
+		final formattedBomContent = Fs.readFileSync(formattedBom, "utf8");
+		eq(formattedPath, formattedBom, "write formatter receives absolute path");
+		eq(formattedBomContent.charCodeAt(0), 0xfeff, "write restores BOM after formatter");
+		eq(formattedBomContent.substr(1), "using Formatted;\n", "write keeps formatted content after BOM restore");
 
 		final jsonContent = '{"key":"value","nested":{"array":[1,2,3]}}';
 		registry.execute(ToolIDs.known("write"), {filePath: "src/data.json", content: jsonContent}, ctx);
