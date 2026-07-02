@@ -876,6 +876,7 @@ class ProjectRuntimeSmoke {
 		eq(NpmRuntime.packageName("@scope/pkg@1.2.3"), "@scope/pkg", "npm packageName scoped version");
 		eq(NpmRuntime.packageName("prettier@git+https://github.com/prettier/prettier.git"), "prettier", "npm packageName git spec");
 		eq(NpmRuntime.packageName("npm:@scope/pkg@1.2.3"), "@scope/pkg", "npm packageName alias scoped version");
+		eq(NpmRuntime.packageName("npm:prettier@3.0.0"), "prettier", "npm packageName alias unscoped version");
 
 		final cachedPkg = NodePath.join(NodePath.join(NpmRuntime.cacheDirectory(fixture.deps, "prettier"), "node_modules"), "prettier");
 		Fs.mkdirSync(cachedPkg, {recursive: true});
