@@ -188,6 +188,25 @@ class EffectSmoke {
 		@:await callbackFailure;
 		eq(initialized, 1, "run-service callback failure reuses service");
 
+		final callbackSyncFailure = new Promise<Bool>((resolve, reject) -> {
+			runtime.runCallback(_ -> {
+				throw new Error("sync callback boom");
+				return Promise.resolve(0);
+			}, result -> {
+				switch (result) {
+					case Succeeded(_):
+						reject(new Error("callback sync failure should not succeed"));
+					case Failed(error):
+						eq(error.message, "sync callback boom", "run-service callback sync failure error");
+						resolve(true);
+					case Interrupted:
+						reject(new Error("callback sync failure should not interrupt"));
+				}
+			});
+		});
+		@:await callbackSyncFailure;
+		eq(initialized, 1, "run-service callback sync failure reuses service");
+
 		final fork = runtime.runFork(svc -> delay('fork-${svc.get()}', 10));
 		eq(exitValue(@:await fork.exit), "success:fork-1", "run-service fork success");
 
