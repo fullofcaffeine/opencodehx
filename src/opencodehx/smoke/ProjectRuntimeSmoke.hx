@@ -888,6 +888,9 @@ class ProjectRuntimeSmoke {
 		eq(uncached.directory.endsWith(NodePath.join(NodePath.join("node_modules", "@scope"), "tool")), true, "npm add uncached edge directory");
 		eq(fixture.requests[0].add.join(","), "@scope/tool@1.0.0", "npm add reify package spec");
 
+		final emptyReify = npmFixture(NodePath.join(root, "npm-empty-reify"), true);
+		expectFailure(() -> NpmRuntime.add(emptyReify.deps, "empty-edge"), "Npm.add failed for empty-edge", "npm add empty reify fails");
+
 		final readonlyDir = NodePath.join(root, "npm-readonly");
 		Fs.mkdirSync(readonlyDir, {recursive: true});
 		final beforeReadonly = fixture.requests.length;
@@ -1132,7 +1135,7 @@ class ProjectRuntimeSmoke {
 		return [command.command].concat(command.args).join(" ");
 	}
 
-	static function npmFixture(root:String):SmokeNpmDeps {
+	static function npmFixture(root:String, ?emptyEdges:Bool = false):SmokeNpmDeps {
 		final requests:Array<NpmReifyRequest> = [];
 		final responses = new Map<String, NpmHttpResponse>();
 		Fs.mkdirSync(root, {recursive: true});
@@ -1148,6 +1151,8 @@ class ProjectRuntimeSmoke {
 					requests.push(request);
 					Fs.mkdirSync(request.dir, {recursive: true});
 					final edges = [];
+					if (emptyEdges)
+						return {edges: edges};
 					for (spec in request.add) {
 						final name = NpmRuntime.packageName(spec);
 						final packageDir = NodePath.join(NodePath.join(request.dir, "node_modules"), name);
