@@ -57,11 +57,12 @@
 - the first `ensureRunning` work runs and returns its result;
 - failures propagate and reset the runner to idle;
 - concurrent callers share the active run;
+- concurrent callers all receive the same active-run failure;
 - replacement work passed while busy is ignored;
 - completed runners can run again;
 - idle cancellation is a no-op;
 - cancellation settles all queued callers, either with `RunnerCancelledError` or the configured interrupt fallback; and
-- stale work completions after cancellation are ignored so a later run can start cleanly.
+- stale work completions after cancellation are ignored so a later run can start cleanly, including when a replacement run starts before the interrupt fallback settles.
 
 `EffectSmoke.runner()` covers those cases as async smoke evidence.
 

@@ -41,6 +41,12 @@ typedef SmokeEnvEntry = {
 	final value:String;
 }
 
+typedef SmokeDeferredString = {
+	final promise:Promise<String>;
+	final resolve:String->Void;
+	final reject:Error->Void;
+}
+
 class EffectSmoke {
 	public static function run():Void {
 		observabilityResource();
@@ -217,6 +223,20 @@ class EffectSmoke {
 		eq(@:await sharedB, "shared", "runner shared second caller");
 		eq(sharedCalls, 1, "runner concurrent callers share one run");
 
+		var sharedFailureCalls = 0;
+		final sharedFailure = new RunnerRuntime<String>();
+		final sharedFailureA = sharedFailure.ensureRunning(() -> {
+			sharedFailureCalls++;
+			return delayedFailure("shared-boom", 20);
+		});
+		final sharedFailureB = sharedFailure.ensureRunning(() -> {
+			sharedFailureCalls++;
+			return Promise.resolve("ignored");
+		});
+		eq(@:await rejected(sharedFailureA), true, "runner shared first caller receives failure");
+		eq(@:await rejected(sharedFailureB), true, "runner shared second caller receives failure");
+		eq(sharedFailureCalls, 1, "runner shared failure starts one run");
+
 		final repeat = new RunnerRuntime<String>();
 		eq(@:await repeat.ensureRunning(() -> Promise.resolve("first")), "first", "runner first run");
 		eq(@:await repeat.ensureRunning(() -> Promise.resolve("second")), "second", "runner can run again");
@@ -258,6 +278,22 @@ class EffectSmoke {
 		@:await restart.cancel();
 		@:await restartPending.catchError(_ -> null);
 		eq(@:await restart.ensureRunning(() -> Promise.resolve("after-cancel")), "after-cancel", "runner starts after cancel");
+
+		final interrupt = deferredString();
+		final replacementDone = deferredString();
+		final interleaved = new RunnerRuntime<String>({onInterrupt: () -> interrupt.promise});
+		final interrupted = interleaved.ensureRunning(never);
+		final stopping = interleaved.cancel();
+		eq(interleaved.busy, false, "runner cancel releases busy before interrupt fallback settles");
+		final replacement = interleaved.ensureRunning(() -> replacementDone.promise);
+		eq(interleaved.busy, true, "runner replacement starts during pending interrupt fallback");
+		interrupt.resolve("fallback");
+		eq(@:await stopping, true, "runner pending interrupt fallback completes");
+		eq(@:await interrupted, "fallback", "runner pending interrupt fallback settles cancelled caller");
+		eq(interleaved.busy, true, "runner replacement stays active after interrupt fallback");
+		replacementDone.resolve("replacement");
+		eq(@:await replacement, "replacement", "runner replacement completes after interrupt fallback");
+		eq(interleaved.busy, false, "runner returns idle after interleaved replacement");
 	}
 
 	static function env(values:Array<SmokeEnvEntry>):DynamicAccess<String> {
@@ -297,8 +333,24 @@ class EffectSmoke {
 		});
 	}
 
+	static function delayedFailure(message:String, ms:Int):Promise<String> {
+		return new Promise<String>((_, reject) -> {
+			WebTimers.setTimeout(() -> reject(new Error(message)), ms);
+		});
+	}
+
 	static function never():Promise<String> {
 		return new Promise<String>((_, _) -> {});
+	}
+
+	static function deferredString():SmokeDeferredString {
+		var resolve:String->Void = _ -> {};
+		var reject:Error->Void = _ -> {};
+		final promise = new Promise<String>((done, fail) -> {
+			resolve = done;
+			reject = fail;
+		});
+		return {promise: promise, resolve: resolve, reject: reject};
 	}
 
 	@:async
@@ -389,5 +441,9 @@ class EffectSmoke {
 
 	static function cancelled(promise:Promise<String>):Promise<Bool> {
 		return promise.then(_ -> false).catchError(error -> Std.isOfType(error, RunnerCancelledError));
+	}
+
+	static function rejected(promise:Promise<String>):Promise<Bool> {
+		return promise.then(_ -> false).catchError(_ -> true);
 	}
 }
