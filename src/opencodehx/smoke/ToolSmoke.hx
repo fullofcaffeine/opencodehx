@@ -572,6 +572,18 @@ class ToolSmoke {
 		eq(dir.output.indexOf("<type>directory</type>") != -1, true, "read directory type");
 		eq(dir.output.indexOf("a.ts") != -1, true, "read directory entry");
 
+		write(ctx.directory, "links/target/file.txt", "linked\n");
+		var symlinkCreated = true;
+		try {
+			Fs.symlinkSync(NodePath.join(ctx.directory, "links/target"), NodePath.join(ctx.directory, "links/linked"));
+		} catch (_:haxe.Exception) {
+			symlinkCreated = false;
+		}
+		if (symlinkCreated) {
+			final symlinkDir = registry.execute(ToolIDs.known("read"), {filePath: "links"}, ctx);
+			eq(symlinkDir.output.indexOf("linked/") != -1, true, "read symlink directory suffix");
+		}
+
 		write(ctx.directory, "src/page-1.txt", "one\n");
 		write(ctx.directory, "src/page-2.txt", "two\n");
 		write(ctx.directory, "src/page-3.txt", "three\n");

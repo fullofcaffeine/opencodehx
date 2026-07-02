@@ -103,8 +103,7 @@ class ReadTool {
 			final name = entry.name;
 			if (name == ".git" || name == ".DS_Store")
 				continue;
-			final isDirectory = entry.isDirectory();
-			rows.push(name + (isDirectory ? "/" : ""));
+			rows.push(directoryEntryName(absolute, entry));
 		}
 		rows.sort(compareStrings);
 		final offset = intOr(offsetArg, 1);
@@ -130,6 +129,18 @@ class ReadTool {
 			metadata: ToolResultMetadata.checked({preview: shown, truncated: truncated, loaded: []}),
 			output: output.join("\n"),
 		};
+	}
+
+	static function directoryEntryName(absolute:String, entry:FsDirent):String {
+		if (entry.isDirectory())
+			return entry.name + "/";
+		if (!entry.isSymbolicLink())
+			return entry.name;
+		try {
+			return Fs.statSync(NodePath.join(absolute, entry.name)).isDirectory() ? entry.name + "/" : entry.name;
+		} catch (_:haxe.Exception) {
+			return entry.name;
+		}
 	}
 
 	static function readFile(ctx:ToolContext, absolute:String, offsetArg:Null<Int>, limitArg:Null<Int>):ToolResult {
