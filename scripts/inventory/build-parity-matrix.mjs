@@ -353,8 +353,8 @@ function directEvidence(path) {
       "tool/apply_patch.test.ts",
       [
         "partial",
-        "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
-        "representative add/update/delete/move, insert-only hunks, BOM preservation, EOF, context disambiguation, heredoc with/without cat, whitespace/Unicode matching, malformed/delete-target failures, no-side-effect behavior, and external-directory hunk/move-target permission shape are covered; full upstream Effect/LSP/event matrix remains deferred",
+        "src/opencodehx/tool/ApplyPatchTool.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
+        "representative add/update/delete/move, insert-only hunks, BOM preservation including formatter-strip restore, EOF, context disambiguation, heredoc with/without cat, whitespace/Unicode matching, malformed/delete-target failures, no-side-effect behavior, and external-directory hunk/move-target permission shape are covered; full upstream async Format service, Effect/LSP/event matrix remains deferred",
         "ToolSmoke.applyPatchExec",
       ],
     ],

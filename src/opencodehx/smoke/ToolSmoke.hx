@@ -1322,6 +1322,36 @@ class ToolSmoke {
 		eq(bomMetadata.indexOf("-using System;") == -1, true, "patch BOM diff avoids first-line churn");
 		eq(bomMetadata.indexOf("+using System;") == -1, true, "patch BOM diff avoids first-line add churn");
 
+		final formattedBom = NodePath.join(ctx.directory, "src/patch-formatted-bom.cs");
+		Fs.writeFileSync(formattedBom, bom + "using System;\nclass Test {}\n", "utf8");
+		var formattedPath = "";
+		final formattedCtx:ToolContext = {
+			directory: ctx.directory,
+			sessionID: ctx.sessionID,
+			messageID: ctx.messageID,
+			ask: ctx.ask,
+			formatFile: file -> {
+				formattedPath = file;
+				final formatted = ToolBom.split(Fs.readFileSync(file, "utf8")).text;
+				Fs.writeFileSync(file, formatted, "utf8");
+				return true;
+			}
+		};
+		registry.execute(ToolIDs.known("apply_patch"), {
+			patchText: [
+				"*** Begin Patch",
+				"*** Update File: src/patch-formatted-bom.cs",
+				"@@",
+				"-using System;",
+				"+using Formatted;",
+				"*** End Patch",
+			].join("\n")
+		}, formattedCtx);
+		final formattedBomContent = Fs.readFileSync(formattedBom, "utf8");
+		eq(formattedPath, formattedBom, "patch formatter receives target path");
+		eq(formattedBomContent.charCodeAt(0), 0xfeff, "patch restores BOM after formatter");
+		eq(formattedBomContent.substr(1), "using Formatted;\nclass Test {}\n", "patch keeps formatted content after BOM restore");
+
 		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-patch-outside-"));
 		final outsideAdd = NodePath.join(outsideDir, "added.txt");
 		final outsideRequests:Array<ToolPermissionRequest> = [];

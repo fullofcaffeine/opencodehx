@@ -96,7 +96,7 @@ class ApplyPatchTool {
 		});
 
 		for (change in changes)
-			applyChange(change);
+			applyChange(ctx, change);
 
 		final summary:Array<String> = [];
 		for (change in changes)
@@ -253,11 +253,13 @@ class ApplyPatchTool {
 		};
 	}
 
-	static function applyChange(change:PatchChange):Void {
+	static function applyChange(ctx:ToolContext, change:PatchChange):Void {
+		var formattedPath:Null<String> = null;
 		switch change.type {
 			case "add" | "update":
 				Fs.mkdirSync(NodePath.dirname(change.filePath), {recursive: true});
 				Fs.writeFileSync(change.filePath, ToolBom.join(change.newContent, change.bom), "utf8");
+				formattedPath = change.filePath;
 			case "move":
 				switch change.movePath {
 					case null:
@@ -267,10 +269,17 @@ class ApplyPatchTool {
 						Fs.mkdirSync(NodePath.dirname(target), {recursive: true});
 						Fs.writeFileSync(target, ToolBom.join(change.newContent, change.bom), "utf8");
 						Fs.rmSync(change.filePath, {force: true});
+						formattedPath = target;
 				}
 			case "delete":
 				Fs.rmSync(change.filePath, {force: true});
 			case _:
+		}
+		if (formattedPath != null) {
+			final target = formattedPath;
+			final formatFile = ctx.formatFile;
+			if (formatFile != null && formatFile(target))
+				ToolBom.syncFile(() -> Fs.readFileSync(target, "utf8"), content -> Fs.writeFileSync(target, content, "utf8"), change.bom);
 		}
 	}
 
