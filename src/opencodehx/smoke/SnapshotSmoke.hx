@@ -26,6 +26,7 @@ class SnapshotSmoke {
 		permissionChangesAreIgnored();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
+		newlyIgnoredSnapshotFileFiltering();
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
@@ -264,6 +265,22 @@ class SnapshotSmoke {
 		eq(hasDiff(diffs, ".gitignore"), true, "snapshot diffFull gitignore");
 		eq(hasDiff(diffs, "normal.txt"), true, "snapshot diffFull normal");
 		eq(hasDiff(diffs, "test.ignored"), false, "snapshot diffFull ignored");
+		tmp.dispose();
+	}
+
+	static function newlyIgnoredSnapshotFileFiltering():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		write(dir, "later-ignored.txt", "initial content");
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "later-ignored.txt", "modified content");
+		write(dir, ".gitignore", "later-ignored.txt\n");
+		write(dir, "still-tracked.txt", "new tracked file");
+
+		final patch = SnapshotRuntime.patch(dir, before);
+		missing(patch, dir, "later-ignored.txt", "snapshot newly ignored tracked file");
+		contains(patch, dir, ".gitignore", "snapshot newly ignored gitignore file");
+		contains(patch, dir, "still-tracked.txt", "snapshot newly ignored still-tracked file");
 		tmp.dispose();
 	}
 
