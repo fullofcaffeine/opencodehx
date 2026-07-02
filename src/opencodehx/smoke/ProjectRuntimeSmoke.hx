@@ -939,6 +939,16 @@ class ProjectRuntimeSmoke {
 		writeFile(NodePath.join(multiPkg, "package.json"), '{"bin":{"multi":"./cli.js","fallback":"./fallback.js"}}');
 		eq(NpmRuntime.which(fixture.deps, "@scope/multi"), NodePath.join(multiBin, "multi"), "npm which prefers unscoped bin");
 
+		final objectFallbackDir = NpmRuntime.cacheDirectory(fixture.deps, "@scope/object-fallback");
+		final objectFallbackBin = NodePath.join(NodePath.join(objectFallbackDir, "node_modules"), ".bin");
+		final objectFallbackPkg = NodePath.join(NodePath.join(objectFallbackDir, "node_modules"), NodePath.join("@scope", "object-fallback"));
+		Fs.mkdirSync(objectFallbackBin, {recursive: true});
+		Fs.mkdirSync(objectFallbackPkg, {recursive: true});
+		writeFile(NodePath.join(objectFallbackBin, "alpha"), "#!/bin/sh\n");
+		writeFile(NodePath.join(objectFallbackBin, "beta"), "#!/bin/sh\n");
+		writeFile(NodePath.join(objectFallbackPkg, "package.json"), '{"bin":{"alpha":"./alpha.js","beta":"./beta.js"}}');
+		eq(NpmRuntime.which(fixture.deps, "@scope/object-fallback"), NodePath.join(objectFallbackBin, "alpha"), "npm which object bin falls back to first key");
+
 		final stringBinDir = NpmRuntime.cacheDirectory(fixture.deps, "@scope/string-bin");
 		final stringBin = NodePath.join(NodePath.join(stringBinDir, "node_modules"), ".bin");
 		final stringPkg = NodePath.join(NodePath.join(stringBinDir, "node_modules"), NodePath.join("@scope", "string-bin"));
