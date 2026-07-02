@@ -973,6 +973,16 @@ class ProjectRuntimeSmoke {
 		writeFile(NodePath.join(objectFallbackPkg, "package.json"), '{"bin":{"alpha":"./alpha.js","beta":"./beta.js"}}');
 		eq(NpmRuntime.which(fixture.deps, "@scope/object-fallback"), NodePath.join(objectFallbackBin, "alpha"), "npm which object bin falls back to first key");
 
+		final objectSingleDir = NpmRuntime.cacheDirectory(fixture.deps, "@scope/object-single");
+		final objectSingleBin = NodePath.join(NodePath.join(objectSingleDir, "node_modules"), ".bin");
+		final objectSinglePkg = NodePath.join(NodePath.join(objectSingleDir, "node_modules"), NodePath.join("@scope", "object-single"));
+		Fs.mkdirSync(objectSingleBin, {recursive: true});
+		Fs.mkdirSync(objectSinglePkg, {recursive: true});
+		writeFile(NodePath.join(objectSingleBin, "fallback"), "#!/bin/sh\n");
+		writeFile(NodePath.join(objectSingleBin, "tool"), "#!/bin/sh\n");
+		writeFile(NodePath.join(objectSinglePkg, "package.json"), '{"bin":{"tool":"./cli.js"}}');
+		eq(NpmRuntime.which(fixture.deps, "@scope/object-single"), NodePath.join(objectSingleBin, "tool"), "npm which object bin uses single key");
+
 		final stringBinDir = NpmRuntime.cacheDirectory(fixture.deps, "@scope/string-bin");
 		final stringBin = NodePath.join(NodePath.join(stringBinDir, "node_modules"), ".bin");
 		final stringPkg = NodePath.join(NodePath.join(stringBinDir, "node_modules"), NodePath.join("@scope", "string-bin"));
