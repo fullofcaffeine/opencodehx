@@ -53,7 +53,8 @@ class StorageSmoke {
 	}
 
 	static function jsonKeyValueStorage(root:String):Void {
-		final storage = new StorageJsonRuntime(NodePath.join(root, "json-kv"));
+		final storageRoot = NodePath.join(root, "json-kv");
+		final storage = new StorageJsonRuntime(storageRoot);
 		final roundtrip = ["roundtrip", "value"];
 		storage.write(roundtrip, genes.ts.Json.value([{file: "a.ts", additions: 2, deletions: 1}]));
 		eq(jsonString(storage.read(roundtrip)), '[{"file":"a.ts","additions":2,"deletions":1}]', "storage json roundtrip");
@@ -86,6 +87,11 @@ class StorageSmoke {
 		expectNotFound(() -> storage.read(a), "storage removed read");
 		storage.remove(["does", "not", "exist"]);
 		eq(storage.list(["does"]).length, 0, "storage missing prefix empty");
+
+		final malformed = ["malformed", "row"];
+		storage.write(malformed, genes.ts.Json.value({before: true}));
+		Fs.writeFileSync(NodePath.join(NodePath.join(storageRoot, "malformed"), "row.json"), "{");
+		expectInvalidRow(() -> storage.read(malformed), "row.json", "Expected property name", "storage malformed json read");
 	}
 
 	@:async
@@ -431,6 +437,22 @@ class StorageSmoke {
 				return;
 		}
 		throw '${label}: expected NotFoundError';
+	}
+
+	static function expectInvalidRow(run:() -> Void, pathNeedle:String, issueNeedle:String, label:String):Void {
+		try {
+			run();
+		} catch (error:StorageException) {
+			switch error.failure {
+				case InvalidRow(source, issues):
+					expectContains(source, pathNeedle, '${label} path');
+					eq(issues.length > 0, true, '${label} issue count');
+					expectContains(issues[0], issueNeedle, '${label} issue');
+					return;
+				case _:
+			}
+		}
+		throw '${label}: expected InvalidRow';
 	}
 
 	static function isNotFound(failure:opencodehx.storage.StorageError.StorageFailure):Bool {
