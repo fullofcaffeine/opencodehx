@@ -16,6 +16,7 @@ class SnapshotSmoke {
 		restoreSnapshot();
 		recreatedFileRevert();
 		overlappingRevertOrder();
+		largeBatchRevert();
 		emptyDirectoryAndInvalidHash();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
@@ -111,6 +112,28 @@ class SnapshotSmoke {
 		contains(patch2, dir, "shared.txt", "snapshot overlapping second patch");
 		SnapshotRuntime.revert(dir, [patch1, patch2]);
 		eq(Fs.readFileSync(NodePath.join(dir, "shared.txt"), "utf8"), "v1", "snapshot overlapping revert uses first patch");
+		tmp.dispose();
+	}
+
+	static function largeBatchRevert():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		for (i in 0...140)
+			write(dir, "batch/" + i + ".txt", "base-" + i);
+
+		final snapshot = SnapshotRuntime.trackDirectory(dir);
+		for (i in 0...140) {
+			write(dir, "batch/" + i + ".txt", "next-" + i);
+			write(dir, "fresh/" + i + ".txt", "fresh-" + i);
+		}
+
+		final patch = SnapshotRuntime.patch(dir, snapshot);
+		eq(patch.files.length, 280, "snapshot large batch patch count");
+		SnapshotRuntime.revert(dir, [patch]);
+		for (i in 0...140) {
+			eq(Fs.readFileSync(NodePath.join(dir, "batch/" + i + ".txt"), "utf8"), "base-" + i, "snapshot large batch restored " + i);
+			eq(Fs.existsSync(NodePath.join(dir, "fresh/" + i + ".txt")), false, "snapshot large batch removed fresh " + i);
+		}
 		tmp.dispose();
 	}
 
