@@ -1151,6 +1151,11 @@ class ProjectRuntimeSmoke {
 		eq(commandKey(brewCoreUpgrade.commands[1]), "brew list --formula opencode", "installation brew core checks core formula");
 		eq(commandKey(brewCoreUpgrade.commands[2]), "brew upgrade opencode", "installation brew core upgrade command");
 
+		final chocoSuccessUpgrade = installationFixture("/usr/local/bin/opencode");
+		eq(InstallationRuntime.upgrade(chocoSuccessUpgrade.deps, InstallationMethod.Choco, "9.9.9").code, 0, "installation choco upgrade");
+		eq(commandKey(chocoSuccessUpgrade.commands[0]), "choco upgrade opencode --version=9.9.9 -y", "installation choco upgrade command");
+		eq(commandKey(chocoSuccessUpgrade.commands[1]), "/usr/local/bin/opencode --version", "installation choco upgrade version probe");
+
 		final chocoUpgrade = installationFixture("/usr/local/bin/opencode");
 		chocoUpgrade.outputs.set("choco upgrade opencode --version=9.9.9 -y", {code: 1, stdout: "", stderr: "denied"});
 		eq(InstallationRuntime.upgrade(chocoUpgrade.deps, InstallationMethod.Choco, "9.9.9").stderr, "not running from an elevated command shell",
