@@ -834,6 +834,30 @@ class ToolSmoke {
 		eq(bomContent.substr(1), "using Up;\n", "write replaces content after BOM");
 		eq(Json.stringify(bomResult.metadata).indexOf('"exists":true') != -1, true, "write BOM existed metadata");
 
+		final jsonContent = '{"key":"value","nested":{"array":[1,2,3]}}';
+		registry.execute(ToolIDs.known("write"), {filePath: "src/data.json", content: jsonContent}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/data.json"), "utf8"), jsonContent, "write json content");
+
+		final binaryContent = "Hello" + String.fromCharCode(0) + "World" + String.fromCharCode(1) + String.fromCharCode(2) + String.fromCharCode(3);
+		registry.execute(ToolIDs.known("write"), {filePath: "src/binary.bin", content: binaryContent}, ctx);
+		eq(Fs.readFileBufferSync(NodePath.join(ctx.directory, "src/binary.bin")).toString(), binaryContent, "write binary-safe content");
+
+		final emptyFile = NodePath.join(ctx.directory, "src/empty.txt");
+		registry.execute(ToolIDs.known("write"), {filePath: "src/empty.txt", content: ""}, ctx);
+		eq(Fs.readFileSync(emptyFile, "utf8"), "", "write empty content");
+		eq(Fs.statSync(emptyFile).size == 0, true, "write empty content size");
+
+		final multiline = ["Line 1", "Line 2", "Line 3", ""].join("\n");
+		registry.execute(ToolIDs.known("write"), {filePath: "src/multiline.txt", content: multiline}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/multiline.txt"), "utf8"), multiline, "write multiline content");
+
+		final crlf = "Line 1\r\nLine 2\r\nLine 3";
+		registry.execute(ToolIDs.known("write"), {filePath: "src/crlf.txt", content: crlf}, ctx);
+		eq(Fs.readFileBufferSync(NodePath.join(ctx.directory, "src/crlf.txt")).toString(), crlf, "write CRLF content");
+
+		final titled = registry.execute(ToolIDs.known("write"), {filePath: "src/components/Button.tsx", content: "export const Button = () => {}"}, ctx);
+		eq(titled.title, "src/components/Button.tsx", "write relative title");
+
 		final outsideDir = Fs.mkdtempSync(NodePath.join(Os.tmpdir(), "opencodehx-write-outside-"));
 		final outsideFile = NodePath.join(outsideDir, "outside.txt");
 		final outsideRequests:Array<ToolPermissionRequest> = [];
