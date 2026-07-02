@@ -1091,6 +1091,35 @@ class ToolSmoke {
 		eq(bomMetadata.indexOf("+using Up;") != -1, true, "edit BOM diff adds visible line");
 		eq(bomMetadata.indexOf(bom) == -1, true, "edit BOM diff hides marker");
 
+		final formattedBom = NodePath.join(ctx.directory, "src/edit-formatted-bom.cs");
+		Fs.writeFileSync(formattedBom, bom + "using System;\nclass Test {}\n", "utf8");
+		var formattedPath = "";
+		final formattedCtx:ToolContext = {
+			directory: ctx.directory,
+			worktree: ctx.worktree,
+			sessionID: ctx.sessionID,
+			messageID: ctx.messageID,
+			callID: ctx.callID,
+			agent: ctx.agent,
+			toolOutputDir: ctx.toolOutputDir,
+			formatFile: file -> {
+				formattedPath = file;
+				final formatted = ToolBom.split(Fs.readFileSync(file, "utf8")).text;
+				Fs.writeFileSync(file, formatted, "utf8");
+				return true;
+			},
+			ask: ctx.ask,
+		};
+		registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/edit-formatted-bom.cs",
+			oldString: "using System;",
+			newString: "using Formatted;"
+		}, formattedCtx);
+		final formattedBomContent = Fs.readFileSync(formattedBom, "utf8");
+		eq(formattedPath, formattedBom, "edit formatter receives absolute path");
+		eq(formattedBomContent.charCodeAt(0), 0xfeff, "edit restores BOM after formatter");
+		eq(formattedBomContent.substr(1), "using Formatted;\nclass Test {}\n", "edit keeps formatted content after BOM restore");
+
 		final bomCreate = NodePath.join(ctx.directory, "src/edit-created-bom.cs");
 		registry.execute(ToolIDs.known("edit"), {
 			filePath: "src/edit-created-bom.cs",

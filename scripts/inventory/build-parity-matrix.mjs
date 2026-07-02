@@ -344,8 +344,8 @@ function directEvidence(path) {
       "tool/edit.test.ts",
       [
         "partial",
-        "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
-        "representative exact/multiline/replace-all/multiple-match behavior, identical-input and directory-path failures, filediff stats, tolerant fallback behavior, CRLF/BOM preservation, and external-directory edit permission shape are covered; full upstream Effect/LSP/event matrix remains deferred",
+        "src/opencodehx/tool/EditTool.hx; src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
+        "representative exact/multiline/replace-all/multiple-match behavior, identical-input and directory-path failures, filediff stats, tolerant fallback behavior, CRLF/BOM preservation including formatter-strip restore, and external-directory edit permission shape are covered; full upstream async Format service, LSP, and event matrix remains deferred",
         "ToolSmoke.editExec",
       ],
     ],

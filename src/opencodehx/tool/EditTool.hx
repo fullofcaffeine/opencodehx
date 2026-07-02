@@ -99,8 +99,13 @@ class EditTool {
 			always: ["*"],
 			metadata: ToolPermissionMetadata.checked({filepath: absolute, diff: diff})
 		});
+		var finalContent = nextContent;
 		Fs.mkdirSync(NodePath.dirname(absolute), {recursive: true});
 		Fs.writeFileSync(absolute, ToolBom.join(nextContent, desiredBom), "utf8");
+		final formatFile = ctx.formatFile;
+		if (formatFile != null && formatFile(absolute)) {
+			finalContent = ToolBom.syncFile(() -> Fs.readFileSync(absolute, "utf8"), text -> Fs.writeFileSync(absolute, text, "utf8"), desiredBom);
+		}
 		return {
 			title: relative,
 			metadata: ToolResultMetadata.checked({
@@ -108,8 +113,8 @@ class EditTool {
 				filediff: {
 					file: absolute,
 					patch: diff,
-					additions: TextDiff.countAdditions(oldContent, nextContent),
-					deletions: TextDiff.countDeletions(oldContent, nextContent),
+					additions: TextDiff.countAdditions(oldContent, finalContent),
+					deletions: TextDiff.countDeletions(oldContent, finalContent),
 				},
 				diagnostics: {}
 			}),
