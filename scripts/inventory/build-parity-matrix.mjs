@@ -345,7 +345,7 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/smoke/ToolSmoke.hx; docs/core-file-tools-port.md",
-        "representative exact/replace-all/multiple-match, tolerant fallback behavior, BOM preservation, and external-directory edit permission shape are covered; full upstream Effect/LSP/event matrix remains deferred",
+        "representative exact/multiline/replace-all/multiple-match behavior, identical-input and directory-path failures, filediff stats, tolerant fallback behavior, CRLF/BOM preservation, and external-directory edit permission shape are covered; full upstream Effect/LSP/event matrix remains deferred",
         "ToolSmoke.editExec",
       ],
     ],

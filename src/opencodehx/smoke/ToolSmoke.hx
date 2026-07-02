@@ -917,6 +917,57 @@ class ToolSmoke {
 		eq(single.output, "Edit applied successfully.", "edit output");
 		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/a.ts"), "utf8").indexOf("pin") != -1, true, "edit content");
 
+		write(ctx.directory, "src/edit-multiline.txt", "line1\nline2\nline3");
+		registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/edit-multiline.txt",
+			oldString: "line2",
+			newString: "new line 2\nextra line"
+		}, ctx);
+		eq(Fs.readFileSync(NodePath.join(ctx.directory, "src/edit-multiline.txt"), "utf8"), "line1\nnew line 2\nextra line\nline3",
+			"edit multiline replacement");
+
+		write(ctx.directory, "src/edit-crlf.txt", "line1\r\nold\r\nline3");
+		registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/edit-crlf.txt",
+			oldString: "old",
+			newString: "new"
+		}, ctx);
+		eq(Fs.readFileBufferSync(NodePath.join(ctx.directory, "src/edit-crlf.txt")).toString(), "line1\r\nnew\r\nline3", "edit preserves CRLF");
+
+		expectToolFailure(() -> registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/a.ts",
+			oldString: "",
+			newString: ""
+		}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "edit" && message.indexOf("identical") != -1;
+				case _: false;
+			}
+		}, "edit identical failure");
+
+		Fs.mkdirSync(NodePath.join(ctx.directory, "src/edit-dir"), {recursive: true});
+		expectToolFailure(() -> registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/edit-dir",
+			oldString: "old",
+			newString: "new"
+		}, ctx), function(failure) {
+			return switch failure {
+				case ExecutionFailed(id, message): id == "edit" && message.indexOf("directory") != -1;
+				case _: false;
+			}
+		}, "edit directory failure");
+
+		write(ctx.directory, "src/edit-stats.txt", "line1\nline2\nline3");
+		final statsEdit = registry.execute(ToolIDs.known("edit"), {
+			filePath: "src/edit-stats.txt",
+			oldString: "line2",
+			newString: "new line 2"
+		}, ctx);
+		final statsMetadata = metadataText(statsEdit);
+		eq(statsMetadata.indexOf('"file":"' + jsonPath(NodePath.join(ctx.directory, "src/edit-stats.txt")) + '"') != -1, true, "edit filediff file metadata");
+		eq(statsMetadata.indexOf('"additions":1') != -1, true, "edit filediff additions metadata");
+		eq(statsMetadata.indexOf('"deletions":1') != -1, true, "edit filediff deletions metadata");
+
 		write(ctx.directory, "src/repeat.txt", "x\nx\n");
 		registry.execute(ToolIDs.known("edit"), {
 			filePath: "src/repeat.txt",
