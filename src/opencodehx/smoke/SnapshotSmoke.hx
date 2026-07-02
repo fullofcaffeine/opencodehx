@@ -38,6 +38,7 @@ class SnapshotSmoke {
 		binaryPatchAndRevert();
 		symlinkPatch();
 		diffFullNoChanges();
+		diffFullAddedTextPatch();
 		diffFullOrderAcrossBatchBoundaries();
 		diffFullStatuses();
 		repeatedTrackStableHash();
@@ -506,6 +507,24 @@ class SnapshotSmoke {
 		final after = SnapshotRuntime.trackDirectory(dir);
 		final diffs = SnapshotRuntime.diffFull(dir, before, after);
 		eq(diffs.length, 0, "snapshot diffFull no changes");
+		tmp.dispose();
+	}
+
+	static function diffFullAddedTextPatch():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "new.txt", "new content");
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, 1, "snapshot diffFull added text count");
+		final diff = diffs[0];
+		eq(diff.file, "new.txt", "snapshot diffFull added text file");
+		eq(diff.patch.indexOf("+new content") != -1, true, "snapshot diffFull added text patch");
+		eq(diff.additions, 1, "snapshot diffFull added text additions");
+		eq(diff.deletions, 0, "snapshot diffFull added text deletions");
+		eq(diff.status, "added", "snapshot diffFull added text status");
 		tmp.dispose();
 	}
 

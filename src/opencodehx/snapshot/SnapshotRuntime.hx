@@ -117,7 +117,7 @@ class SnapshotRuntime {
 			final newText = newEntry == null || newEntry.binary ? "" : newEntry.content;
 			out.push({
 				file: file,
-				patch: binary ? "" : "diff -- " + file,
+				patch: binary ? "" : textPatch(file, oldText, newText),
 				additions: binary ? 0 : lineCount(newText),
 				deletions: binary ? 0 : lineCount(oldText),
 				status: oldEntry == null ? "added" : (newEntry == null ? "deleted" : "modified"),
@@ -218,6 +218,21 @@ class SnapshotRuntime {
 		if (text == "")
 			return 0;
 		return text.split("\n").length;
+	}
+
+	static function textPatch(file:String, oldText:String, newText:String):String {
+		final lines = ["diff -- " + file];
+		for (line in patchLines("-", oldText))
+			lines.push(line);
+		for (line in patchLines("+", newText))
+			lines.push(line);
+		return lines.join("\n");
+	}
+
+	static function patchLines(prefix:String, text:String):Array<String> {
+		if (text == "")
+			return [];
+		return [for (line in text.split("\n")) prefix + line];
 	}
 
 	static function entryChanged(previous:Null<SnapshotEntry>, next:Null<SnapshotEntry>):Bool {
