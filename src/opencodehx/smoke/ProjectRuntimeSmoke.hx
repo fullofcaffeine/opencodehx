@@ -994,6 +994,8 @@ class ProjectRuntimeSmoke {
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated missing latest tag");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":""}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated empty latest tag");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: "{"});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated malformed registry JSON");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: false, body: ""});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "1.0.0"), false, "npm outdated registry failure");
 	}
