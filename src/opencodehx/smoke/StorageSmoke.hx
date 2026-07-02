@@ -87,6 +87,10 @@ class StorageSmoke {
 		expectNotFound(() -> storage.read(a), "storage removed read");
 		storage.remove(["does", "not", "exist"]);
 		eq(storage.list(["does"]).length, 0, "storage missing prefix empty");
+		Fs.writeFileSync(join3(storageRoot, "list", "notes.txt"), "ignore me");
+		Fs.mkdirSync(join3(storageRoot, "list", "empty-dir"), {recursive: true});
+		Fs.writeFileSync(join4(storageRoot, "list", "empty-dir", "notes.txt"), "ignore me too");
+		eq(keys(storage.list(["list"])), "list/b", "storage list ignores non-json artifacts");
 
 		final malformed = ["malformed", "row"];
 		storage.write(malformed, genes.ts.Json.value({before: true}));

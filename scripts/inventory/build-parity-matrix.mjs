@@ -218,7 +218,7 @@ function directEvidence(path) {
       [
         "partial",
         "src/opencodehx/storage/StorageJsonRuntime.hx; src/opencodehx/smoke/StorageSmoke.hx; docs/storage-port.md",
-        "generic JSON write/read/update/remove/list behavior, malformed-row errors, concurrent JSON reads, per-key concurrent JSON update serialization, and session/message CRUD are covered; real Effect service layering and full Drizzle/AppFileSystem integration remain deferred",
+        "generic JSON write/read/update/remove/list behavior, non-JSON list filtering, malformed-row errors, concurrent JSON reads, per-key concurrent JSON update serialization, and session/message CRUD are covered; real Effect service layering and full Drizzle/AppFileSystem integration remain deferred",
         "StorageSmoke.jsonKeyValueStorage/jsonConcurrentReads/jsonConcurrentUpdates plus session/message CRUD",
       ],
     ],
