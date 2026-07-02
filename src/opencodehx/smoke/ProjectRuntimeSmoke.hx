@@ -907,6 +907,14 @@ class ProjectRuntimeSmoke {
 		NpmRuntime.install(fixture.deps, cleanDir, {add: []});
 		eq(fixture.requests.length, beforeClean, "npm install clean lock skips reify");
 
+		final peerCleanDir = directory(root, "npm-install-peer-clean");
+		Fs.mkdirSync(NodePath.join(peerCleanDir, "node_modules"), {recursive: true});
+		write(peerCleanDir, "package.json", '{"peerDependencies":{"react":"18.0.0"}}');
+		write(peerCleanDir, "package-lock.json", '{"packages":{"":{"peerDependencies":{"react":"18.0.0"}}}}');
+		final beforePeerClean = fixture.requests.length;
+		NpmRuntime.install(fixture.deps, peerCleanDir, {add: []});
+		eq(fixture.requests.length, beforePeerClean, "npm install peer dependency lock skips reify");
+
 		final dirtyDir = directory(root, "npm-install-dirty");
 		Fs.mkdirSync(NodePath.join(dirtyDir, "node_modules"), {recursive: true});
 		write(dirtyDir, "package.json", '{"dependencies":{"typescript":"5.0.0"},"optionalDependencies":{"prettier":"3.0.0"}}');
