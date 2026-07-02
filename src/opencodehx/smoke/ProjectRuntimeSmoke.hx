@@ -1064,6 +1064,12 @@ class ProjectRuntimeSmoke {
 		eq(InstallationRuntime.upgrade(chocoUpgrade.deps, InstallationMethod.Choco, "9.9.9").stderr, "not running from an elevated command shell",
 			"installation choco failure message");
 
+		final unknownUpgrade = installationFixture("/usr/local/bin/opencode");
+		final unknownResult = InstallationRuntime.upgrade(unknownUpgrade.deps, InstallationMethod.UnknownMethod, "9.9.9");
+		eq(unknownResult.code, 1, "installation unknown upgrade failure code");
+		eq(unknownResult.stderr, "Unknown method: unknown", "installation unknown upgrade failure message");
+		eq(unknownUpgrade.commands.length, 0, "installation unknown upgrade skips commands");
+
 		final uninstallFixture = installationFixture("/usr/local/bin/opencode");
 		InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Npm);
 		InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Pnpm);
