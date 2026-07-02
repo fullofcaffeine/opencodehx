@@ -18,6 +18,7 @@ class SnapshotSmoke {
 		gitignoreFiltering();
 		binaryDiffFull();
 		binaryPatchAndRevert();
+		symlinkPatch();
 		SnapshotRuntime.reset();
 	}
 
@@ -135,6 +136,18 @@ class SnapshotSmoke {
 		modified.dispose();
 	}
 
+	static function symlinkPatch():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		final link = NodePath.join(dir, "link.txt");
+		if (trySymlink(NodePath.join(dir, "a.txt"), link)) {
+			final patch = SnapshotRuntime.patch(dir, before);
+			contains(patch, dir, "link.txt", "snapshot symlink patch file");
+		}
+		tmp.dispose();
+	}
+
 	static function bootstrap():SmokeTmpDir {
 		final tmp = SmokeTmpDir.create({git: true});
 		final dir = tmp.path;
@@ -195,6 +208,15 @@ class SnapshotSmoke {
 
 	static function bytesBase64(bytes:Array<Int>):String {
 		return Buffer.from(Uint8Array.from(bytes)).toString("base64");
+	}
+
+	static function trySymlink(target:String, link:String):Bool {
+		try {
+			Fs.symlinkSync(target, link);
+			return true;
+		} catch (_:haxe.Exception) {
+			return false;
+		}
 	}
 
 	static function repeat(text:String, count:Int):String {

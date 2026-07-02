@@ -1,6 +1,6 @@
 # Snapshot Runtime
 
-**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`
+**Beads:** `opencodehx-gruz`, `opencodehx-loib`, `opencodehx-tj90`, `opencodehx-l5rw`
 **Upstream oracle:** `../opencode/packages/opencode/src/snapshot/index.ts` and `../opencode/packages/opencode/test/snapshot/snapshot.test.ts`
 
 ## Slice
@@ -26,11 +26,12 @@ This slice replaces the placeholder snapshot ID helper with a focused Haxe runti
 - `diffFull` reports changed tracked files and excludes ignored files.
 - Binary `diffFull` entries preserve upstream's empty patch and zero text-churn shape.
 - Binary revert removes newly added binary files and restores modified binary contents byte-for-byte.
+- Symlink patch detection is covered on hosts that permit symlink creation.
 
 ## Deliberate Boundaries
 
 This is not the full upstream snapshot service yet. Upstream stores snapshots in a separate Git index and uses Effect services, scoped locks, cleanup, persistent snapshot directories, full restore semantics, worktree isolation, concurrent operation behavior, and structured patch parsing.
 
-OpenCodeHX currently uses Git for candidate discovery and ignore semantics, then stores typed content snapshots in process memory. That is enough to prove the first user-visible file-state semantics without mutating a source repo index. Full persistent Git-dir parity, `restore`, rich text `diffFull` patch metadata, worktree/concurrency cases, symlink edge cases, and cleanup/prune behavior remain deferred.
+OpenCodeHX currently uses Git for candidate discovery and ignore semantics, then stores typed content snapshots in process memory. That is enough to prove the first user-visible file-state semantics without mutating a source repo index. Full persistent Git-dir parity, `restore`, rich text `diffFull` patch metadata, worktree/concurrency cases, symlink restore/lifecycle edge cases, and cleanup/prune behavior remain deferred.
 
 The runtime intentionally does not add broad JSON, `Dynamic`, or raw TypeScript boundaries. If later snapshot work needs lower-level Git plumbing that `genes-ts` cannot express cleanly, reduce it into a generic compiler/runtime helper before weakening the product source.
