@@ -48,7 +48,7 @@
 
 `EffectSmoke.crossSpawnSpawner()` covers those cases while reusing the Node host seam from `util/process.test.ts`.
 
-`opencodehx.effect.RuntimeMemo` and `RunServiceRuntime` cover the stable memo-map behavior from upstream `makeRuntime`: separately-created runtimes can depend on the same shared layer and see one initialized dependency. `EffectSmoke.runServiceMemoMap()` creates two runtime services over one memoized shared service, proves both return the same shared ID, and proves the dependency factory ran once.
+`opencodehx.effect.RuntimeMemo` and `RunServiceRuntime` cover the stable memo-map behavior from upstream `makeRuntime`: separately-created runtimes can depend on the same shared layer and see one initialized dependency. `EffectSmoke.runServiceMemoMap()` creates two runtime services over one memoized shared service, proves both return the same shared ID, and proves the dependency factory ran once. `EffectSmoke.runServiceAsync()` covers Promise-backed service execution and proves async calls reuse the initialized service.
 
 `opencodehx.effect.InstanceStateRuntime` covers the stable instance-state lifecycle: values are cached per instance directory, isolated across directories, invalidated on `InstanceRuntime.reload`, and disposed on `InstanceRuntime.disposeAll`.
 

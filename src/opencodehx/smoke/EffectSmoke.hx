@@ -57,6 +57,7 @@ class EffectSmoke {
 
 	@:async
 	public static function runAsync():Promise<Void> {
+		@:await runServiceAsync();
 		@:await runner();
 		@:await appRuntimeLoggerBridge();
 		@:await crossSpawnSpawner();
@@ -130,6 +131,23 @@ class EffectSmoke {
 		eq(one.run(svc -> svc.get()), 1, "run-service first runtime shared id");
 		eq(two.run(svc -> svc.get()), 1, "run-service second runtime shared id");
 		eq(initialized, 1, "run-service dependent layer initialized once");
+	}
+
+	@:async
+	static function runServiceAsync():Promise<Void> {
+		var initialized = 0;
+		final runtime:RunServiceRuntime<SmokeRuntimeService> = RunServiceRuntime.make(() -> {
+			initialized += 1;
+			final id = initialized;
+			final get = () -> id;
+			return {get: get};
+		});
+
+		final first = @:await runtime.runPromise(svc -> Promise.resolve(svc.get()));
+		final second = @:await runtime.runPromise(svc -> delay('async-${svc.get()}', 10));
+		eq(first, 1, "run-service async first value");
+		eq(second, "async-1", "run-service async reuses service");
+		eq(initialized, 1, "run-service async initializes service once");
 	}
 
 	static function instanceState():Void {

@@ -1,5 +1,7 @@
 package opencodehx.effect;
 
+import js.lib.Promise;
+
 class RunServiceRuntime<TService> {
 	final factory:Void->TService;
 	final services:Array<TService> = [];
@@ -13,6 +15,10 @@ class RunServiceRuntime<TService> {
 	}
 
 	public function run<TResult>(fn:TService->TResult):TResult {
+		return fn(service());
+	}
+
+	public function runPromise<TResult>(fn:TService->Promise<TResult>):Promise<TResult> {
 		return fn(service());
 	}
 
