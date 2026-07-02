@@ -41,6 +41,7 @@ class SnapshotSmoke {
 		diffFullAddedTextPatch();
 		diffFullModifiedTextPatch();
 		diffFullDeletedTextPatch();
+		diffFullMultilineAddedTextPatch();
 		diffFullOrderAcrossBatchBoundaries();
 		diffFullStatuses();
 		repeatedTrackStableHash();
@@ -564,6 +565,25 @@ class SnapshotSmoke {
 		eq(diff.additions, 0, "snapshot diffFull deleted text additions");
 		eq(diff.deletions, 1, "snapshot diffFull deleted text deletions");
 		eq(diff.status, "deleted", "snapshot diffFull deleted text status");
+		tmp.dispose();
+	}
+
+	static function diffFullMultilineAddedTextPatch():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "multi.txt", "line1\nline2\nline3");
+
+		final after = SnapshotRuntime.trackDirectory(dir);
+		final diffs = SnapshotRuntime.diffFull(dir, before, after);
+		eq(diffs.length, 1, "snapshot diffFull multiline added count");
+		final diff = diffs[0];
+		eq(diff.file, "multi.txt", "snapshot diffFull multiline added file");
+		eq(diff.patch.indexOf("+line1") != -1, true, "snapshot diffFull multiline added first line");
+		eq(diff.patch.indexOf("+line3") != -1, true, "snapshot diffFull multiline added last line");
+		eq(diff.additions, 3, "snapshot diffFull multiline added additions");
+		eq(diff.deletions, 0, "snapshot diffFull multiline added deletions");
+		eq(diff.status, "added", "snapshot diffFull multiline added status");
 		tmp.dispose();
 	}
 
