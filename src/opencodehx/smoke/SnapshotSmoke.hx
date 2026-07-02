@@ -33,6 +33,7 @@ class SnapshotSmoke {
 		projectStateIsolation();
 		secondaryWorktreePatchDetection();
 		secondaryWorktreeRevertIsolation();
+		secondaryWorktreeDiffIsolation();
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
@@ -408,6 +409,33 @@ class SnapshotSmoke {
 
 			eq(Fs.existsSync(NodePath.join(worktree, "worktree.txt")), false, "snapshot worktree revert removes invoking file");
 			eq(Fs.readFileSync(NodePath.join(dir, "worktree.txt"), "utf8"), "primary content", "snapshot worktree revert preserves primary file");
+			cleanupWorktree(dir, worktree);
+		} catch (error:haxe.Exception) {
+			cleanupWorktree(dir, worktree);
+			tmp.dispose();
+			throw error;
+		}
+		tmp.dispose();
+	}
+
+	static function secondaryWorktreeDiffIsolation():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final worktree = dir + "-worktree";
+		require(Git.run(dir, ["worktree", "add", worktree, "HEAD"]), "snapshot diff worktree add");
+		try {
+			eq(SnapshotRuntime.trackDirectory(dir) != "", true, "snapshot diff primary worktree track");
+			final before = SnapshotRuntime.trackDirectory(worktree);
+
+			write(worktree, "worktree-only.txt", "worktree diff content");
+			write(worktree, "shared.txt", "worktree edit");
+			write(dir, "shared.txt", "primary edit");
+			write(dir, "primary-only.txt", "primary change");
+
+			final diff = SnapshotRuntime.diff(worktree, before);
+			eq(diff.indexOf("worktree-only.txt") != -1, true, "snapshot worktree diff includes worktree-only");
+			eq(diff.indexOf("shared.txt") != -1, true, "snapshot worktree diff includes shared");
+			eq(diff.indexOf("primary-only.txt") == -1, true, "snapshot worktree diff excludes primary-only");
 			cleanupWorktree(dir, worktree);
 		} catch (error:haxe.Exception) {
 			cleanupWorktree(dir, worktree);
