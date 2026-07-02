@@ -13,6 +13,7 @@ class SnapshotSmoke {
 	public static function run():Void {
 		SnapshotRuntime.reset();
 		patchAndRevert();
+		restoreSnapshot();
 		emptyDirectoryAndInvalidHash();
 		largeAddedFilesAreSkipped();
 		gitignoreFiltering();
@@ -45,6 +46,21 @@ class SnapshotSmoke {
 		eq(Fs.readFileSync(NodePath.join(dir, "a.txt"), "utf8"), "A", "snapshot revert deleted");
 		eq(Fs.readFileSync(NodePath.join(dir, "b.txt"), "utf8"), "B", "snapshot revert modified");
 		eq(Fs.existsSync(NodePath.join(dir, "c.txt")), false, "snapshot revert added");
+		tmp.dispose();
+	}
+
+	static function restoreSnapshot():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		Fs.rmSync(NodePath.join(dir, "a.txt"), {force: true});
+		write(dir, "new.txt", "new content");
+		write(dir, "b.txt", "modified");
+
+		SnapshotRuntime.restore(dir, before);
+		eq(Fs.readFileSync(NodePath.join(dir, "a.txt"), "utf8"), "A", "snapshot restore deleted file");
+		eq(Fs.readFileSync(NodePath.join(dir, "b.txt"), "utf8"), "B", "snapshot restore modified file");
+		eq(Fs.readFileSync(NodePath.join(dir, "new.txt"), "utf8"), "new content", "snapshot restore leaves new file");
 		tmp.dispose();
 	}
 

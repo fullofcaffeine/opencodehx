@@ -81,6 +81,21 @@ class SnapshotRuntime {
 		}
 	}
 
+	public static function restore(directory:String, hash:String):Void {
+		final snapshot = snapshots.get(hash);
+		if (snapshot == null)
+			return;
+		final files:Array<String> = [];
+		for (file in snapshot.keys())
+			files.push(file);
+		files.sort(compareString);
+		for (file in files) {
+			final entry = snapshot.get(file);
+			if (entry != null)
+				writeFile(NodePath.join(directory, file), entry);
+		}
+	}
+
 	public static function diff(directory:String, hash:String):String {
 		final patchInfo = patch(directory, hash);
 		if (patchInfo.files.length == 0)
