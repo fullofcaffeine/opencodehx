@@ -31,6 +31,7 @@ class SnapshotSmoke {
 		gitInfoExcludeFiltering();
 		gitInfoExcludeKeepsGlobalExcludes();
 		projectStateIsolation();
+		secondaryWorktreePatchDetection();
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
@@ -370,6 +371,26 @@ class SnapshotSmoke {
 		second.dispose();
 	}
 
+	static function secondaryWorktreePatchDetection():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final worktree = dir + "-worktree";
+		require(Git.run(dir, ["worktree", "add", worktree, "HEAD"]), "snapshot worktree add");
+		try {
+			eq(SnapshotRuntime.trackDirectory(dir) != "", true, "snapshot primary worktree track");
+			final before = SnapshotRuntime.trackDirectory(worktree);
+			write(worktree, "worktree.txt", "worktree content");
+			final patch = SnapshotRuntime.patch(worktree, before);
+			contains(patch, worktree, "worktree.txt", "snapshot secondary worktree patch file");
+			cleanupWorktree(dir, worktree);
+		} catch (error:haxe.Exception) {
+			cleanupWorktree(dir, worktree);
+			tmp.dispose();
+			throw error;
+		}
+		tmp.dispose();
+	}
+
 	static function binaryDiffFull():Void {
 		final tmp = bootstrap();
 		final dir = tmp.path;
@@ -592,6 +613,11 @@ class SnapshotSmoke {
 			NodeProcess.unsetEnv(key);
 		else
 			NodeProcess.setEnv(key, value);
+	}
+
+	static function cleanupWorktree(root:String, worktree:String):Void {
+		Git.run(root, ["worktree", "remove", "--force", worktree]);
+		Fs.rmSync(worktree, {recursive: true, force: true});
 	}
 
 	static function require(result:GitRunResult, label:String):Void {
