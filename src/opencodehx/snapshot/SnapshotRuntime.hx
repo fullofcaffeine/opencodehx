@@ -19,6 +19,12 @@ typedef SnapshotPatch = {
 private typedef SnapshotEntry = {
 	final content:String;
 	final binary:Bool;
+	final kind:SnapshotEntryKind;
+}
+
+private enum SnapshotEntryKind {
+	File;
+	Symlink;
 }
 
 /**
@@ -136,7 +142,15 @@ class SnapshotRuntime {
 			final path = NodePath.join(directory, file);
 			if (!Fs.existsSync(path))
 				continue;
-			final stat = Fs.statSync(path);
+			final stat = Fs.lstatSync(path);
+			if (stat.isSymbolicLink()) {
+				entries.set(file, {
+					content: Fs.readlinkSync(path),
+					binary: false,
+					kind: Symlink,
+				});
+				continue;
+			}
 			if (!stat.isFile())
 				continue;
 			final size = stat.size == null ? 0 : Std.int(stat.size);
@@ -148,6 +162,7 @@ class SnapshotRuntime {
 			entries.set(file, {
 				content: binary ? buffer.toString("base64") : text,
 				binary: binary,
+				kind: File,
 			});
 		}
 		return entries;
@@ -197,7 +212,14 @@ class SnapshotRuntime {
 		for (file in files) {
 			final entry = entries.get(file);
 			if (entry != null)
-				body.push(file + "\u0000" + (entry.binary ? "binary" : "text") + "\u0000" + entry.content + "\u0000");
+				body.push(file
+					+ "\u0000"
+					+ entryKindName(entry.kind)
+					+ "\u0000"
+					+ (entry.binary ? "binary" : "text")
+					+ "\u0000"
+					+ entry.content
+					+ "\u0000");
 		}
 		return Crypto.createHash("sha1").update(body.join("")).digest("hex");
 	}
@@ -208,6 +230,12 @@ class SnapshotRuntime {
 
 	static function writeFile(path:String, entry:SnapshotEntry):Void {
 		ensureDirectory(NodePath.dirname(path));
+		if (entry.kind == Symlink) {
+			if (Fs.existsSync(path))
+				Fs.rmSync(path, {force: true, recursive: true});
+			Fs.symlinkSync(entry.content, path);
+			return;
+		}
 		if (Fs.existsSync(path) && Fs.statSync(path).isDirectory())
 			Fs.rmSync(path, {force: true, recursive: true});
 		if (entry.binary)
@@ -248,11 +276,18 @@ class SnapshotRuntime {
 	}
 
 	static function entryChanged(previous:Null<SnapshotEntry>, next:Null<SnapshotEntry>):Bool {
-		return next == null || previous == null || next.binary != previous.binary || next.content != previous.content;
+		return next == null || previous == null || next.kind != previous.kind || next.binary != previous.binary || next.content != previous.content;
 	}
 
 	static function isBinaryDiff(oldEntry:Null<SnapshotEntry>, newEntry:Null<SnapshotEntry>):Bool {
 		return (oldEntry != null && oldEntry.binary) || (newEntry != null && newEntry.binary);
+	}
+
+	static function entryKindName(kind:SnapshotEntryKind):String {
+		return switch kind {
+			case File: "file";
+			case Symlink: "symlink";
+		}
 	}
 
 	static function isBinaryPath(file:String):Bool {

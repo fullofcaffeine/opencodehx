@@ -6,6 +6,7 @@ import js.lib.Uint8Array;
 extern typedef FsStats = {
 	function isDirectory():Bool;
 	function isFile():Bool;
+	function isSymbolicLink():Bool;
 	@:optional final size:Float;
 	@:optional final mode:Int;
 	@:optional final mtimeMs:Float;
@@ -44,7 +45,7 @@ extern class Fs {
 	static function writeFileSync(path:String, data:String, ?options:Dynamic):Void;
 	static function chmodSync(path:String, mode:Int):Void;
 	static function unlinkSync(path:String):Void;
-	static function symlinkSync(target:String, path:String):Void;
+	static function symlinkSync(target:String, path:String, ?type:String):Void;
 	static function mkdirSync(path:String, ?options:Dynamic):Void;
 	static function mkdtempSync(prefix:String):String;
 	static function rmSync(path:String, ?options:Dynamic):Void;
@@ -52,6 +53,8 @@ extern class Fs {
 	@:native("readdirSync") static function readdirDirentsSync(path:String, options:FsReaddirDirentOptions):Array<FsDirent>;
 	@:native("readdirSync") static function readdirNamesSync(path:String):Array<String>;
 	static function statSync(path:String):FsStats;
+	static function lstatSync(path:String):FsStats;
+	static function readlinkSync(path:String):String;
 	static function realpathSync(path:String):String;
 	static function watch(path:String, options:FsWatchOptions, listener:FsWatchListener):FsWatcher;
 }

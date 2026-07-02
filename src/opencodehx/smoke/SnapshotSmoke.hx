@@ -38,6 +38,7 @@ class SnapshotSmoke {
 		binaryDiffFull();
 		binaryPatchAndRevert();
 		symlinkPatch();
+		nestedSymlinkPatch();
 		diffFullNoChanges();
 		diffFullAddedTextPatch();
 		diffFullModifiedTextPatch();
@@ -527,9 +528,25 @@ class SnapshotSmoke {
 		final dir = tmp.path;
 		final before = SnapshotRuntime.trackDirectory(dir);
 		final link = NodePath.join(dir, "link.txt");
-		if (trySymlink(NodePath.join(dir, "a.txt"), link)) {
+		if (tryFileSymlink(NodePath.join(dir, "a.txt"), link)) {
 			final patch = SnapshotRuntime.patch(dir, before);
 			contains(patch, dir, "link.txt", "snapshot symlink patch file");
+		}
+		tmp.dispose();
+	}
+
+	static function nestedSymlinkPatch():Void {
+		final tmp = bootstrap();
+		final dir = tmp.path;
+		final before = SnapshotRuntime.trackDirectory(dir);
+		write(dir, "sub/dir/target.txt", "target content");
+		final fileLink = NodePath.join(dir, "sub/dir/link.txt");
+		final dirLink = NodePath.join(dir, "sub-link");
+		if (tryFileSymlink(NodePath.join(dir, "sub/dir/target.txt"), fileLink)
+			&& tryDirectorySymlink(NodePath.join(dir, "sub"), dirLink)) {
+			final patch = SnapshotRuntime.patch(dir, before);
+			contains(patch, dir, "sub/dir/link.txt", "snapshot nested symlink file link");
+			contains(patch, dir, "sub-link", "snapshot nested symlink directory link");
 		}
 		tmp.dispose();
 	}
@@ -818,9 +835,18 @@ class SnapshotSmoke {
 		return Buffer.from(Uint8Array.from(bytes)).toString("base64");
 	}
 
-	static function trySymlink(target:String, link:String):Bool {
+	static function tryFileSymlink(target:String, link:String):Bool {
 		try {
-			Fs.symlinkSync(target, link);
+			Fs.symlinkSync(target, link, "file");
+			return true;
+		} catch (_:haxe.Exception) {
+			return false;
+		}
+	}
+
+	static function tryDirectorySymlink(target:String, link:String):Bool {
+		try {
+			Fs.symlinkSync(target, link, "dir");
 			return true;
 		} catch (_:haxe.Exception) {
 			return false;
