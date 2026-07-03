@@ -1030,6 +1030,14 @@ class ProjectRuntimeSmoke {
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.x"), true, "npm outdated wildcard range escaped");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", ">=2.8.0 <3.0.0"), true, "npm outdated comparator range escaped");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "<=2.9.0"), true, "npm outdated less-than-or-equal range escaped");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"0.2.1"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^0.2.0"), false, "npm outdated zero-major caret range satisfied");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"0.3.0"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^0.2.0"), true, "npm outdated zero-major caret range escaped minor");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"0.0.2"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^0.0.2"), false, "npm outdated zero-minor caret range satisfied");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"0.0.3"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^0.0.2"), true, "npm outdated zero-minor caret range escaped patch");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.9.1"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "~2.9.0"), false, "npm outdated tilde range satisfied");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.10.0"}}'});
