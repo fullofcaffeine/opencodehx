@@ -1060,6 +1060,7 @@ class ProjectRuntimeSmoke {
 		fixture.outputs.set("npm config get registry", processOk(""));
 		fixture.responses.set("https://registry.npmjs.org/opencode-ai/latest", '{"version":"1.6.0"}');
 		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Bun), "1.6.0", "installation bun latest via npm registry");
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Pnpm), "1.6.0", "installation pnpm latest via npm registry");
 
 		fixture.responses.set("https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/opencode.json", '{"version":"2.3.4"}');
 		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Scoop), "2.3.4", "installation scoop latest");
