@@ -1071,6 +1071,11 @@ class ProjectRuntimeSmoke {
 		fixture.responses.set("https://registry.example/opencode-ai/latest", '{"version":"1.5.0"}');
 		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Npm), "1.5.0", "installation npm latest");
 		eq(fixture.requests[fixture.requests.length - 1].url, "https://registry.example/opencode-ai/latest", "installation npm registry url");
+		fixture.outputs.set("npm config get registry", processOk("https://registry.example\n"));
+		fixture.responses.set("https://registry.example/opencode-ai/latest", '{"version":"1.5.1"}');
+		eq(InstallationRuntime.latest(fixture.deps, InstallationMethod.Npm), "1.5.1", "installation npm registry without trailing slash latest");
+		eq(fixture.requests[fixture.requests.length - 1].url, "https://registry.example/opencode-ai/latest",
+			"installation npm registry without trailing slash url");
 
 		fixture.outputs.set("npm config get registry", processOk(""));
 		fixture.responses.set("https://registry.npmjs.org/opencode-ai/latest", '{"version":"1.6.0"}');
