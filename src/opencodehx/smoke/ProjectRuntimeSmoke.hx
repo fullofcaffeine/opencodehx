@@ -1026,13 +1026,18 @@ class ProjectRuntimeSmoke {
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", ">2.8.0"), false, "npm outdated greater-than range satisfied");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "=2.9.0"), false, "npm outdated exact comparator range satisfied");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.x"), false, "npm outdated wildcard range satisfied");
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.*"), false, "npm outdated minor wildcard range satisfied");
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.9.*"), false, "npm outdated patch wildcard range satisfied");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "*"), false, "npm outdated star wildcard range satisfied");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "x"), false, "npm outdated lower x wildcard range satisfied");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "X"), false, "npm outdated upper x wildcard range satisfied");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"3.0.0"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.x"), true, "npm outdated wildcard range escaped");
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.*"), true, "npm outdated minor wildcard range escaped");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", ">=2.8.0 <3.0.0"), true, "npm outdated comparator range escaped");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "<=2.9.0"), true, "npm outdated less-than-or-equal range escaped");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.10.0"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.9.*"), true, "npm outdated patch wildcard range escaped");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"0.2.1"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^0.2.0"), false, "npm outdated zero-major caret range satisfied");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"0.3.0"}}'});
