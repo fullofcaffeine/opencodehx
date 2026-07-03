@@ -74,6 +74,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - package `outdated` covers registry failure, malformed registry JSON, missing latest metadata, exact-version comparison, comparator edge satisfaction/escape, whole-range and partial wildcard satisfaction/escape, zero-major caret, tilde, and disjunction semver ranges,
   - installation method detection follows upstream manager priority and installed-name checks for npm, yarn, pnpm, Bun, Homebrew, Scoop, Chocolatey, POSIX/Windows curl-path installs, and unknown fallbacks,
   - latest-version lookup covers unknown-method GitHub fallback, GitHub releases, npm/pnpm/Bun registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
+  - release-type classification covers patch, minor, major, and v-prefixed semver tags,
   - upgrade command planning covers curl install-script fetch/stdin/env/version-probe behavior, npm/pnpm/Bun/Scoop command/version-probe behavior, Homebrew core upgrade, tap refresh/upgrade, empty-repo skip, tap failure containment, and tap pull failure containment, Chocolatey upgrade plus elevated-shell failure messaging, and unknown-method no-command failure,
   - uninstall package-manager command planning covers npm, pnpm, bun, yarn, Homebrew, Chocolatey, Scoop, and the curl no-op package-manager case.
 - Opt-in live package-manager harness:

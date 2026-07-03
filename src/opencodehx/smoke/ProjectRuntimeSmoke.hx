@@ -1238,6 +1238,7 @@ class ProjectRuntimeSmoke {
 		eq(InstallationRuntime.getReleaseType("1.2.3", "1.2.4"), InstallationReleaseType.Patch, "installation patch release type");
 		eq(InstallationRuntime.getReleaseType("1.2.3", "1.3.0"), InstallationReleaseType.Minor, "installation minor release type");
 		eq(InstallationRuntime.getReleaseType("1.2.3", "2.0.0"), InstallationReleaseType.Major, "installation major release type");
+		eq(InstallationRuntime.getReleaseType("v1.2.3", "v1.2.4"), InstallationReleaseType.Patch, "installation v-prefixed patch release type");
 	}
 
 	static function installationFixture(?execPath:String):SmokeInstallationDeps {
