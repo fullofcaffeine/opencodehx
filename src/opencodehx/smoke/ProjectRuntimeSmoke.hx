@@ -1234,6 +1234,10 @@ class ProjectRuntimeSmoke {
 		final beforeCurlUninstall = uninstallFixture.commands.length;
 		eq(InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.Curl).code, 0, "installation curl uninstall package noop");
 		eq(uninstallFixture.commands.length, beforeCurlUninstall, "installation curl uninstall package no command");
+		final beforeUnknownUninstall = uninstallFixture.commands.length;
+		eq(InstallationRuntime.uninstallPackage(uninstallFixture.deps, InstallationMethod.UnknownMethod).code, 0,
+			"installation unknown uninstall package noop");
+		eq(uninstallFixture.commands.length, beforeUnknownUninstall, "installation unknown uninstall package no command");
 
 		eq(InstallationRuntime.getReleaseType("1.2.3", "1.2.4"), InstallationReleaseType.Patch, "installation patch release type");
 		eq(InstallationRuntime.getReleaseType("1.2.3", "1.3.0"), InstallationReleaseType.Minor, "installation minor release type");

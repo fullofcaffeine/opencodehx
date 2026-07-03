@@ -76,7 +76,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - latest-version lookup covers unknown-method GitHub fallback, GitHub releases, npm/pnpm/Bun registry behavior, Homebrew core/tap, Scoop, and Chocolatey response shapes,
   - release-type classification covers patch, minor, major, and v-prefixed semver tags,
   - upgrade command planning covers curl install-script fetch/stdin/env/version-probe behavior, npm/pnpm/Bun/Scoop command/version-probe behavior, Homebrew core upgrade, tap refresh/upgrade, empty-repo skip, tap failure containment, and tap pull failure containment, Chocolatey upgrade plus elevated-shell failure messaging, and unknown-method no-command failure,
-  - uninstall package-manager command planning covers npm, pnpm, bun, yarn, Homebrew, Chocolatey, Scoop, and the curl no-op package-manager case.
+  - uninstall package-manager command planning covers npm, pnpm, bun, yarn, Homebrew, Chocolatey, Scoop, curl no-op, and unknown-method no-op cases.
 - Opt-in live package-manager harness:
   - `npm run live:package-managers` is a guarded no-op unless `OPENCODEHX_LIVE_PACKAGE_MANAGERS=1` is set,
   - npm uses a temporary global prefix/cache and exercises install, upgrade-by-reinstall, and uninstall,
