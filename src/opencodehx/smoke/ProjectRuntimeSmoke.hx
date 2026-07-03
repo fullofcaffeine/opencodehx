@@ -1067,6 +1067,9 @@ class ProjectRuntimeSmoke {
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"3.0.0"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.9.0"), true, "npm outdated exact older");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "3.0.0"), false, "npm outdated exact current");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"v3.0.0+build.2"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "3.0.0+build.1"), false, "npm outdated exact ignores build metadata");
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "2.9.0+build.1"), true, "npm outdated exact latest allows v prefix build metadata");
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^2.8.0"), true, "npm outdated range escaped major");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.9.0"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^2.8.0"), false, "npm outdated range satisfied");
@@ -1097,6 +1100,8 @@ class ProjectRuntimeSmoke {
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "^0.0.2"), true, "npm outdated zero-minor caret range escaped patch");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.9.1"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "~2.9.0"), false, "npm outdated tilde range satisfied");
+		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"v2.9.1+build.3"}}'});
+		eq(NpmRuntime.outdated(fixture.deps, "prettier", "~2.9.0"), false, "npm outdated range latest allows v prefix build metadata");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"2.10.0"}}'});
 		eq(NpmRuntime.outdated(fixture.deps, "prettier", "~2.9.0"), true, "npm outdated tilde range escaped minor");
 		fixture.responses.set("https://registry.npmjs.org/prettier", {ok: true, body: '{"dist-tags":{"latest":"3.0.0"}}'});
