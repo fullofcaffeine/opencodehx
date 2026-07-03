@@ -1155,6 +1155,16 @@ class ProjectRuntimeSmoke {
 		eq(brewTapFailureResult.stderr, "tap failed", "installation brew tap failure stderr");
 		eq(brewTapFailure.commands.length, 2, "installation brew tap failure skips repo and upgrade");
 
+		final brewPullFailure = installationFixture("/usr/local/bin/opencode");
+		brewPullFailure.outputs.set("brew list --formula anomalyco/tap/opencode", processOk("opencode\n"));
+		brewPullFailure.outputs.set("brew --repo anomalyco/tap", processOk("/tmp/homebrew-tap\n"));
+		brewPullFailure.outputs.set("git pull --ff-only", {code: 3, stdout: "", stderr: "pull failed"});
+		final brewPullFailureResult = InstallationRuntime.upgrade(brewPullFailure.deps, InstallationMethod.Brew, "9.9.9");
+		eq(brewPullFailureResult.code, 3, "installation brew pull failure code");
+		eq(brewPullFailureResult.stderr, "pull failed", "installation brew pull failure stderr");
+		eq(commandKey(brewPullFailure.commands[3]), "git pull --ff-only", "installation brew pull failure command");
+		eq(brewPullFailure.commands.length, 4, "installation brew pull failure skips upgrade");
+
 		final brewCoreUpgrade = installationFixture("/usr/local/bin/opencode");
 		brewCoreUpgrade.outputs.set("brew list --formula anomalyco/tap/opencode", processOk(""));
 		brewCoreUpgrade.outputs.set("brew list --formula opencode", processOk("opencode\n"));
