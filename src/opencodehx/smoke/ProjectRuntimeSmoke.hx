@@ -1165,6 +1165,13 @@ class ProjectRuntimeSmoke {
 		eq(commandKey(brewPullFailure.commands[3]), "git pull --ff-only", "installation brew pull failure command");
 		eq(brewPullFailure.commands.length, 4, "installation brew pull failure skips upgrade");
 
+		final brewEmptyRepo = installationFixture("/usr/local/bin/opencode");
+		brewEmptyRepo.outputs.set("brew list --formula anomalyco/tap/opencode", processOk("opencode\n"));
+		brewEmptyRepo.outputs.set("brew --repo anomalyco/tap", processOk(""));
+		eq(InstallationRuntime.upgrade(brewEmptyRepo.deps, InstallationMethod.Brew, "9.9.9").code, 0, "installation brew empty repo upgrade");
+		eq(commandKey(brewEmptyRepo.commands[2]), "brew --repo anomalyco/tap", "installation brew empty repo command");
+		eq(commandKey(brewEmptyRepo.commands[3]), "brew upgrade anomalyco/tap/opencode", "installation brew empty repo skips pull");
+
 		final brewCoreUpgrade = installationFixture("/usr/local/bin/opencode");
 		brewCoreUpgrade.outputs.set("brew list --formula anomalyco/tap/opencode", processOk(""));
 		brewCoreUpgrade.outputs.set("brew list --formula opencode", processOk("opencode\n"));
