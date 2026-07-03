@@ -885,6 +885,15 @@ class ProjectRuntimeSmoke {
 		eq(cached.entrypoint, NodePath.join(cachedPkg, "index.js"), "npm add cached entrypoint");
 		eq(fixture.requests.length, 0, "npm add cached skips reify");
 
+		final noEntryFixture = npmFixture(NodePath.join(root, "npm-no-entrypoint"), false, false);
+		final noEntryCachedPkg = NodePath.join(NodePath.join(NpmRuntime.cacheDirectory(noEntryFixture.deps, "prettier"), "node_modules"), "prettier");
+		Fs.mkdirSync(noEntryCachedPkg, {recursive: true});
+		final noEntryCached = NpmRuntime.add(noEntryFixture.deps, "prettier");
+		eq(noEntryCached.entrypoint, null, "npm add cached without resolver has null entrypoint");
+		final noEntryUncached = NpmRuntime.add(noEntryFixture.deps, "@scope/no-entry@1.0.0");
+		eq(noEntryUncached.entrypoint, null, "npm add reified without resolver has null entrypoint");
+		eq(noEntryFixture.requests[0].add.join(","), "@scope/no-entry@1.0.0", "npm add without resolver reify package spec");
+
 		final uncached = NpmRuntime.add(fixture.deps, "@scope/tool@1.0.0");
 		eq(uncached.directory.endsWith(NodePath.join(NodePath.join("node_modules", "@scope"), "tool")), true, "npm add uncached edge directory");
 		eq(fixture.requests[0].add.join(","), "@scope/tool@1.0.0", "npm add reify package spec");
@@ -1293,7 +1302,7 @@ class ProjectRuntimeSmoke {
 		return [command.command].concat(command.args).join(" ");
 	}
 
-	static function npmFixture(root:String, ?emptyEdges:Bool = false):SmokeNpmDeps {
+	static function npmFixture(root:String, ?emptyEdges:Bool = false, ?resolveEntryPoint:Bool = true):SmokeNpmDeps {
 		final requests:Array<NpmReifyRequest> = [];
 		final responses = new Map<String, NpmHttpResponse>();
 		Fs.mkdirSync(root, {recursive: true});
@@ -1304,7 +1313,7 @@ class ProjectRuntimeSmoke {
 				cache: root,
 				http: url -> responses.exists(url) ? responses.get(url) : {ok: false, body: ""},
 				canWrite: dir -> !dir.endsWith("readonly"),
-				resolveEntryPoint: (name, dir) -> NodePath.join(dir, "index.js"),
+				resolveEntryPoint: resolveEntryPoint ? npmEntryPoint : null,
 				reify: request -> {
 					requests.push(request);
 					Fs.mkdirSync(request.dir, {recursive: true});
@@ -1327,6 +1336,10 @@ class ProjectRuntimeSmoke {
 			},
 		};
 		return fixture;
+	}
+
+	static function npmEntryPoint(name:String, dir:String):Null<String> {
+		return NodePath.join(dir, "index.js");
 	}
 
 	static function syncEvents():Void {

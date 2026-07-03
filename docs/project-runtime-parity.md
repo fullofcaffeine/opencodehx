@@ -68,7 +68,7 @@ This slice adds Haxe-owned runtime evidence for upstream project, git, VCS, work
   - package spec sanitizing matches the upstream Windows-safe path rule while staying a no-op on POSIX.
   - package-name parsing covers scoped/versioned specs, git specs, and scoped/unscoped `npm:` alias prefixes,
   - package cache paths are derived from sanitized package specs,
-  - package `add` uses an existing cache when present, otherwise delegates to an Arborist-shaped reify seam, and fails empty reify results,
+  - package `add` uses an existing cache when present, otherwise delegates to an Arborist-shaped reify seam, preserves null entrypoints when no resolver seam is present, and fails empty reify results,
   - package `install` skips non-writable directories, treats clean dependency/devDependency/peerDependency package-lock roots as current, reifies missing `node_modules` with versioned and bare add specs, and reifies missing, malformed, or dirty package-lock roots,
   - package `which` covers bin selection, scoped package bin names, string/object `package.json` bin declarations including single-key object selection and first-key fallback, no-metadata bin file fallback, stale cache lock removal, absent-cache installation, and add failure containment,
   - package `outdated` covers registry failure, malformed registry JSON, missing latest metadata, exact-version comparison, comparator edge satisfaction/escape, whole-range plus minor/patch wildcard satisfaction/escape, zero-major caret, tilde, and disjunction semver ranges,
