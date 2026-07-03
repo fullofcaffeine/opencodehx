@@ -1084,6 +1084,10 @@ class ProjectRuntimeSmoke {
 		eq(InstallationRuntime.method(methodFixture.deps), InstallationMethod.Npm, "installation method prefers exec path");
 		eq(InstallationRuntime.method(installationFixture("/Users/me/.opencode/bin/opencode").deps), InstallationMethod.Curl,
 			"installation method curl opencode path");
+		eq(InstallationRuntime.method(installationFixture("/Users/me/.local/bin/opencode").deps), InstallationMethod.Curl,
+			"installation method curl local bin path");
+		eq(InstallationRuntime.method(installationFixture("C:\\Users\\me\\.opencode\\bin\\opencode.exe").deps), InstallationMethod.Curl,
+			"installation method curl windows opencode path");
 		final yarnMethod = installationFixture("/usr/local/bin/opencode");
 		yarnMethod.outputs.set("yarn global list", processOk("opencode-ai@0.1.0\n"));
 		eq(InstallationRuntime.method(yarnMethod.deps), InstallationMethod.Yarn, "installation method yarn global list");
