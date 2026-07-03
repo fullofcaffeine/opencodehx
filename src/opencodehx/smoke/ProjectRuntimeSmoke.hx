@@ -941,6 +941,14 @@ class ProjectRuntimeSmoke {
 		NpmRuntime.install(fixture.deps, cleanDir, {add: []});
 		eq(fixture.requests.length, beforeClean, "npm install clean lock skips reify");
 
+		final requestedCleanDir = directory(root, "npm-install-requested-clean");
+		Fs.mkdirSync(NodePath.join(requestedCleanDir, "node_modules"), {recursive: true});
+		write(requestedCleanDir, "package.json", "{}");
+		write(requestedCleanDir, "package-lock.json", '{"packages":{"":{"dependencies":{"eslint":"9.0.0"}}}}');
+		final beforeRequestedClean = fixture.requests.length;
+		NpmRuntime.install(fixture.deps, requestedCleanDir, {add: [{name: "eslint"}]});
+		eq(fixture.requests.length, beforeRequestedClean, "npm install requested clean lock skips reify");
+
 		final missingLockDir = directory(root, "npm-install-missing-lock");
 		Fs.mkdirSync(NodePath.join(missingLockDir, "node_modules"), {recursive: true});
 		write(missingLockDir, "package.json", '{"dependencies":{"typescript":"5.0.0"}}');
