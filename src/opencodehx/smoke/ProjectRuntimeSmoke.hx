@@ -32,7 +32,9 @@ import opencodehx.installation.InstallationRuntime.InstallationReleaseType;
 import opencodehx.npm.Npm as NpmRuntime;
 import opencodehx.npm.Npm.NpmDeps;
 import opencodehx.npm.Npm.NpmHttpResponse;
+import opencodehx.npm.Npm.NpmReifyEdge;
 import opencodehx.npm.Npm.NpmReifyRequest;
+import opencodehx.npm.Npm.NpmReifyResult;
 import opencodehx.project.InstanceBootstrapRuntime;
 import opencodehx.project.InstanceRuntime;
 import opencodehx.project.InstanceRuntime.InstanceContext;
@@ -907,6 +909,15 @@ class ProjectRuntimeSmoke {
 		NpmRuntime.install(fixture.deps, readonlyDir, {add: []});
 		eq(fixture.requests.length, beforeReadonly, "npm install skips non-writable dir");
 
+		final defaultCanWrite = npmFixture(NodePath.join(root, "npm-default-can-write"), false, true, false);
+		final defaultWritableDir = directory(root, "npm-default-can-write-dir");
+		NpmRuntime.install(defaultCanWrite.deps, defaultWritableDir, {add: [{name: "eslint"}]});
+		eq(defaultCanWrite.requests[0].dir, defaultWritableDir, "npm install default canWrite existing dir reifies");
+		final missingDefaultWritableDir = NodePath.join(root, "npm-default-can-write-missing");
+		final beforeMissingDefaultWritable = defaultCanWrite.requests.length;
+		NpmRuntime.install(defaultCanWrite.deps, missingDefaultWritableDir, {add: [{name: "eslint"}]});
+		eq(defaultCanWrite.requests.length, beforeMissingDefaultWritable, "npm install default canWrite missing dir skips reify");
+
 		final installDir = directory(root, "npm-install-missing-node-modules");
 		NpmRuntime.install(fixture.deps, installDir, {add: [{name: "eslint", version: "9.0.0"}]});
 		eq(fixture.requests[fixture.requests.length - 1].dir, installDir, "npm install missing node_modules reify dir");
@@ -1302,38 +1313,48 @@ class ProjectRuntimeSmoke {
 		return [command.command].concat(command.args).join(" ");
 	}
 
-	static function npmFixture(root:String, ?emptyEdges:Bool = false, ?resolveEntryPoint:Bool = true):SmokeNpmDeps {
+	static function npmFixture(root:String, ?emptyEdges:Bool = false, ?resolveEntryPoint:Bool = true, ?injectCanWrite:Bool = true):SmokeNpmDeps {
 		final requests:Array<NpmReifyRequest> = [];
 		final responses = new Map<String, NpmHttpResponse>();
 		Fs.mkdirSync(root, {recursive: true});
+		final http:String->NpmHttpResponse = function(url:String):NpmHttpResponse {
+			return responses.exists(url) ? responses.get(url) : {ok: false, body: ""};
+		};
+		final reify:NpmReifyRequest->NpmReifyResult = function(request:NpmReifyRequest):NpmReifyResult {
+			requests.push(request);
+			Fs.mkdirSync(request.dir, {recursive: true});
+			final edges:Array<NpmReifyEdge> = [];
+			if (emptyEdges)
+				return {edges: edges};
+			for (spec in request.add) {
+				final name = NpmRuntime.packageName(spec);
+				final packageDir = NodePath.join(NodePath.join(request.dir, "node_modules"), name);
+				final binDir = NodePath.join(NodePath.join(request.dir, "node_modules"), ".bin");
+				Fs.mkdirSync(packageDir, {recursive: true});
+				Fs.mkdirSync(binDir, {recursive: true});
+				writeFile(NodePath.join(binDir,
+					NpmRuntime.packageName(spec).startsWith("@") ? NpmRuntime.packageName(spec).split("/")[1] : NpmRuntime.packageName(spec)),
+					"#!/bin/sh\n");
+				edges.push({name: name, path: packageDir});
+			}
+			return {edges: edges};
+		};
+		final deps:NpmDeps = injectCanWrite ? {
+			cache: root,
+			http: http,
+			canWrite: dir -> !dir.endsWith("readonly"),
+			resolveEntryPoint: resolveEntryPoint ? npmEntryPoint : null,
+			reify: reify,
+		} : {
+			cache: root,
+			http: http,
+			resolveEntryPoint: resolveEntryPoint ? npmEntryPoint : null,
+			reify: reify,
+			};
 		final fixture:SmokeNpmDeps = {
 			requests: requests,
 			responses: responses,
-			deps: {
-				cache: root,
-				http: url -> responses.exists(url) ? responses.get(url) : {ok: false, body: ""},
-				canWrite: dir -> !dir.endsWith("readonly"),
-				resolveEntryPoint: resolveEntryPoint ? npmEntryPoint : null,
-				reify: request -> {
-					requests.push(request);
-					Fs.mkdirSync(request.dir, {recursive: true});
-					final edges = [];
-					if (emptyEdges)
-						return {edges: edges};
-					for (spec in request.add) {
-						final name = NpmRuntime.packageName(spec);
-						final packageDir = NodePath.join(NodePath.join(request.dir, "node_modules"), name);
-						final binDir = NodePath.join(NodePath.join(request.dir, "node_modules"), ".bin");
-						Fs.mkdirSync(packageDir, {recursive: true});
-						Fs.mkdirSync(binDir, {recursive: true});
-						writeFile(NodePath.join(binDir,
-							NpmRuntime.packageName(spec).startsWith("@") ? NpmRuntime.packageName(spec).split("/")[1] : NpmRuntime.packageName(spec)),
-							"#!/bin/sh\n");
-						edges.push({name: name, path: packageDir});
-					}
-					return {edges: edges};
-				},
-			},
+			deps: deps,
 		};
 		return fixture;
 	}
