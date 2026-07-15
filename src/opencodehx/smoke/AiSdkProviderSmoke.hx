@@ -1,6 +1,7 @@
 package opencodehx.smoke;
 
 import genes.js.Async.await;
+import genes.ts.Unknown;
 import genes.ts.UnknownNarrow;
 import haxe.DynamicAccess;
 import haxe.Exception;
@@ -16,6 +17,7 @@ import opencodehx.externs.ai.AiSdk.AiLanguageModelSpecificationVersion;
 import opencodehx.externs.ai.AiSdk.AiLanguageModelStreamResult;
 import opencodehx.externs.ai.AiSdk.AiSdkBundledProvider;
 import opencodehx.externs.ai.AiSdk.AiSupportedUrls;
+import opencodehx.externs.ai.AiSdk.AiTextStreamPart;
 import opencodehx.externs.ai.AiSdk.AiFinishReason;
 import opencodehx.provider.AiSdkLanguageLoader;
 import opencodehx.provider.AiSdkLanguageLoader.AiSdkModelMethod;
@@ -38,9 +40,11 @@ import opencodehx.provider.ProviderTypes.ProviderOptions;
 import opencodehx.tool.ReadTool;
 import opencodehx.tool.ToolRegistry;
 
+/** Credential-free runtime contracts for the typed AI SDK provider boundary. */
 class AiSdkProviderSmoke {
 	@:async
 	public static function run():Promise<Void> {
+		streamChunkBoundary();
 		await(textStream());
 		await(toolCallStream());
 		await(toolSchemaAdvertisement());
@@ -60,6 +64,55 @@ class AiSdkProviderSmoke {
 		gitLabFactory();
 		sdkModelSelection();
 		sdkFailureSelection();
+	}
+
+	/**
+	 * Proves the flattened Haxe chunk facade fails closed after discrimination.
+	 *
+	 * The live mock exercises valid SDK-created chunks. These direct records add
+	 * the boundary cases TypeScript normally prevents: missing arm fields and an
+	 * explicit `null` unknown payload, which must not be confused with absence.
+	 */
+	static function streamChunkBoundary():Void {
+		final nullPayload:Unknown = Unknown.fromBoundary(null);
+		final emptyPayload:Unknown = Unknown.fromBoundary({});
+		final validCall:AiTextStreamPart = {
+			type: "tool-call",
+			toolCallId: "tool_null",
+			toolName: "read",
+			input: nullPayload,
+		};
+		eq(switch AiSdkProvider.decodeStreamChunk(validCall) {
+			case ToolCall("tool_null", "read", _): true;
+			case _: false;
+		}, true, "ai sdk explicit null tool input remains present");
+
+		final validResult:AiTextStreamPart = {
+			type: "tool-result",
+			toolCallId: "tool_null",
+			toolName: "read",
+			input: emptyPayload,
+			output: nullPayload,
+		};
+		eq(switch AiSdkProvider.decodeStreamChunk(validResult) {
+			case ToolResult("tool_null", "read", _): true;
+			case _: false;
+		}, true, "ai sdk explicit null tool output remains present");
+
+		expectMalformedChunk({type: "text-delta", text: "hello"}, "AI SDK text-delta chunk is missing required id");
+		expectMalformedChunk({type: "text-delta", id: "txt_1"}, "AI SDK text-delta chunk is missing required text");
+		expectMalformedChunk({type: "tool-call", toolName: "read", input: emptyPayload}, "AI SDK tool-call chunk is missing required toolCallId");
+		expectMalformedChunk({type: "tool-call", toolCallId: "tool_1", input: emptyPayload}, "AI SDK tool-call chunk is missing required toolName");
+		expectMalformedChunk({type: "tool-call", toolCallId: "tool_1", toolName: "read"}, "AI SDK tool-call chunk is missing required input");
+		expectMalformedChunk({
+			type: "tool-result",
+			toolCallId: "tool_1",
+			toolName: "read",
+			input: emptyPayload,
+		}, "AI SDK tool-result chunk is missing required output");
+
+		final ignored:AiTextStreamPart = {type: "raw"};
+		eq(AiSdkProvider.decodeStreamChunk(ignored), null, "ai sdk unconsumed stream part ignored");
 	}
 
 	@:async
@@ -882,6 +935,15 @@ class AiSdkProviderSmoke {
 				total++;
 		}
 		return total;
+	}
+
+	static function expectMalformedChunk(chunk:AiTextStreamPart, expectedMessage:String):Void {
+		switch AiSdkProvider.decodeStreamChunk(chunk) {
+			case StreamError(message):
+				eq(message, expectedMessage, "ai sdk malformed stream chunk");
+			case other:
+				throw 'ai sdk malformed stream chunk: expected StreamError, got ${other}';
+		}
 	}
 
 	static function expectFailure(run:() -> Void, label:String, contains:String):Void {

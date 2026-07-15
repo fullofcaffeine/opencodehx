@@ -68,6 +68,22 @@ typedef AiLanguageModelUsage = {
 	@:optional final cachedInputTokens:Float;
 }
 
+/**
+ * Haxe-side superset of the AI SDK `onChunk` discriminated union.
+ *
+ * Why: the SDK exposes a generic TypeScript union whose fields become required
+ * only after narrowing `type`. Haxe cannot express that structural narrowing
+ * directly, so the raw extern must make arm-specific fields optional.
+ *
+ * What: this record is deliberately restricted to data consumed by the Haxe
+ * provider bridge. Optional here means "not present on every union arm", not
+ * "optional after an arm has been selected".
+ *
+ * How: `AiSdkProvider.decodeStreamChunk` validates every required field for the
+ * selected arm before constructing a strongly typed application event. New
+ * consumed variants must extend that decoder rather than reading nullable
+ * fields directly or asserting them in generated TypeScript.
+ */
 typedef AiTextStreamPart = {
 	final type:String;
 	@:optional final id:String;

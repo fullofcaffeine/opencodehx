@@ -34,7 +34,7 @@ class BadToolID {
 	}
 }
 `,
-	'Unknown source-authored tool id "grepp". Known tool ids: apply_patch, bash, edit, glob, grep, invalid, lsp, read, write.',
+	'Unknown source-authored tool id "grepp". Known tool ids: apply_patch, bash, edit, glob, grep, invalid, lsp, question, read, skill, write.',
 );
 
 expectCompileFailure(
@@ -73,7 +73,7 @@ class BadServerEventType {
 	}
 }
 `,
-	'Unknown source-authored server event type "session.cretaed". Known server event types: server.connected, server.heartbeat, session.created, session.selected.',
+	'Unknown source-authored server event type "session.cretaed". Known server event types: server.connected, server.heartbeat, session.created, session.selected, session.status, session.idle.',
 );
 
 expectCompileFailure(
@@ -86,7 +86,7 @@ class BadResourcePath {
 	}
 }
 `,
-	'Unknown source-authored resource path "prompt/missing.txt". Known resource paths: asset/pulse-a.wav, prompt/example.txt, smoke-resource.json, wasm/tree-sitter-bash.wasm, wasm/tree-sitter-fixture.wasm, wasm/tree-sitter-powershell.wasm, wasm/tree-sitter.wasm, worker/parser-worker.mjs, worker/tui-worker.mjs.',
+	'Unknown source-authored resource path "prompt/missing.txt". Known resource paths: asset/pulse-a.wav, errors/diagnostics.golden.json, prompt/example.txt, prompt/session/anthropic.txt, prompt/session/beast.txt, prompt/session/codex.txt, prompt/session/default.txt, prompt/session/gemini.txt, prompt/session/gpt.txt, prompt/session/kimi.txt, prompt/session/trinity.txt, smoke-resource.json, wasm/tree-sitter-bash.wasm, wasm/tree-sitter-fixture.wasm, wasm/tree-sitter-powershell.wasm, wasm/tree-sitter.wasm, worker/parser-worker.mjs, worker/tui-worker.mjs.',
 );
 
 function expectCompileFailure(name, source, expectedDiagnostic) {

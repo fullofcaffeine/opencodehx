@@ -30,6 +30,7 @@ import opencodehx.externs.ai.AiSdk.AiSdkTest;
 import opencodehx.externs.ai.AiSdk.AiSharedProviderOptionsMap;
 import opencodehx.externs.ai.AiSdk.AiSharedProviderOptions;
 import opencodehx.externs.ai.AiSdk.AiStreamHeaders;
+import opencodehx.externs.ai.AiSdk.AiTextStreamPart;
 import opencodehx.externs.ai.AiSdk.AiStreamTextOptions;
 import opencodehx.externs.ai.AiSdk.AiTool;
 import opencodehx.externs.ai.AiSdk.MockLanguageModelV3;
@@ -110,7 +111,7 @@ class AiSdkProvider {
 			topK: undefinableNumberOrAbsent(input.topK),
 			headers: headersOrAbsent(input.headers),
 			providerOptions: providerOptionsOrAbsent(input.providerOptions),
-			onChunk: streamChunkHandler(events),
+			onChunk: streamChunkHandler(events, errors),
 			onError: streamErrorHandler(events, errors),
 			onAbort: streamAbortHandler(events),
 		};
@@ -230,17 +231,70 @@ class AiSdkProvider {
 		return shared;
 	}
 
-	static function streamChunkHandler(events:Array<AiSdkStreamEvent>):opencodehx.externs.ai.AiSdk.AiStreamChunkEvent->Void {
+	/**
+	 * Validates one raw AI SDK stream union member before it enters app state.
+	 *
+	 * Why: `AiTextStreamPart` is a Haxe superset of a TypeScript discriminated
+	 * union. Its arm-specific fields are nullable to Haxe even though the SDK
+	 * requires them after `type` is narrowed. Passing those fields through would
+	 * weaken generated TypeScript and could create malformed runtime events.
+	 *
+	 * What: mapped variants become closed `AiSdkStreamEvent` values, malformed
+	 * mapped variants become deterministic `StreamError` values, and callback
+	 * variants this facade does not consume return `null`.
+	 *
+	 * How: string fields narrow through explicit null checks. Unknown payloads
+	 * use `Undefinable.isAbsent` so a missing property is rejected while an
+	 * explicit JavaScript `null` remains a legitimate `unknown` payload. No
+	 * unsafe assertion or generated non-null assertion is needed.
+	 */
+	public static function decodeStreamChunk(chunk:AiTextStreamPart):Null<AiSdkStreamEvent> {
+		switch chunk.type {
+			case "text-delta":
+				final id = chunk.id;
+				if (id == null)
+					return malformedStreamChunk("text-delta", "id");
+				final text = chunk.text;
+				if (text == null)
+					return malformedStreamChunk("text-delta", "text");
+				return TextDelta(text);
+			case "tool-call":
+				final toolCallId = chunk.toolCallId;
+				if (toolCallId == null)
+					return malformedStreamChunk("tool-call", "toolCallId");
+				final toolName = chunk.toolName;
+				if (toolName == null)
+					return malformedStreamChunk("tool-call", "toolName");
+				if (Undefinable.isAbsent(chunk.input))
+					return malformedStreamChunk("tool-call", "input");
+				return ToolCall(toolCallId, toolName, chunk.input);
+			case "tool-result":
+				final toolCallId = chunk.toolCallId;
+				if (toolCallId == null)
+					return malformedStreamChunk("tool-result", "toolCallId");
+				final toolName = chunk.toolName;
+				if (toolName == null)
+					return malformedStreamChunk("tool-result", "toolName");
+				if (Undefinable.isAbsent(chunk.input))
+					return malformedStreamChunk("tool-result", "input");
+				if (Undefinable.isAbsent(chunk.output))
+					return malformedStreamChunk("tool-result", "output");
+				return ToolResult(toolCallId, toolName, chunk.output);
+			case _:
+				return null;
+		}
+	}
+
+	static function streamChunkHandler(events:Array<AiSdkStreamEvent>, errors:Array<String>):opencodehx.externs.ai.AiSdk.AiStreamChunkEvent->Void {
 		return event -> {
-			final chunk = event.chunk;
-			switch chunk.type {
-				case "text-delta":
-					if (chunk.text != null) events.push(TextDelta(chunk.text));
-				case "tool-call":
-					events.push(ToolCall(chunk.toolCallId, chunk.toolName, optionalUnknown(chunk.input)));
-				case "tool-result":
-					events.push(ToolResult(chunk.toolCallId, chunk.toolName, optionalUnknown(chunk.output)));
-				case _:
+			final streamEvent = decodeStreamChunk(event.chunk);
+			if (streamEvent != null) {
+				events.push(streamEvent);
+				switch streamEvent {
+					case StreamError(message):
+						errors.push(message);
+					case _:
+				}
 			}
 		};
 	}
@@ -259,8 +313,8 @@ class AiSdkProvider {
 		};
 	}
 
-	static function optionalUnknown(value:Null<Unknown>):Unknown {
-		return value == null ? Unknown.fromBoundary({}) : value;
+	static inline function malformedStreamChunk(type:String, field:String):AiSdkStreamEvent {
+		return StreamError('AI SDK ${type} chunk is missing required ${field}');
 	}
 
 	static function isAbortRequested(input:AiSdkStreamInput, signal:Null<AbortSignal>):Bool {
