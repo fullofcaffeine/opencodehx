@@ -77,7 +77,11 @@ class Main {
 	static function runSmoke():Void {
 		final smokePath = NodePath.normalize(NodePath.join("opencodehx", "smoke"));
 		final smokeTask = Task.succeed(smokePath);
-		final resource:SmokeResource = Imports.defaultImportWith("#opencodehx/smoke-resource", "json", "SmokeResourceJson");
+		// Main is emitted under opencodehx/ in both source profiles. Keeping the
+		// asset relative to that generated module lets the same tracked import and
+		// JSON attribute resolve in src-gen/dist and classic-dist without a
+		// profile-specific package condition.
+		final resource:SmokeResource = Imports.defaultImportWith("../resources/smoke-resource.json", "json", "SmokeResourceJson");
 		smokeTask.toEffect();
 		log('${BuildInfo.label()} ${smokePath}');
 		log('${resource.name}:${resource.mode}');

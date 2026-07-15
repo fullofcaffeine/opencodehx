@@ -11,7 +11,7 @@ The project intentionally uses 0.x beta versioning until upstream OpenCode parit
 Current Beads-based completion snapshot:
 
 ```text
-[#######################################-] 98% (501/510 non-epic port beads closed)
+[#######################################-] 98% (503/512 non-epic port beads closed)
 ```
 
 This is an unweighted planning indicator, not a parity claim.
@@ -40,6 +40,12 @@ To exercise the packaged binary path, run:
 npm run package:smoke
 ```
 
+To build and exercise the same Haxe application through classic Genes ESM, run:
+
+```sh
+npm run test:classic-profile
+```
+
 The working plan lives in [opencodehx-prd-plan.md](opencodehx-prd-plan.md). Day-to-day work is tracked in Beads under `.beads/issues.jsonl`; start with:
 
 ```sh
@@ -53,7 +59,7 @@ Primary local references:
 
 Builds currently require the sibling `../genes` checkout pinned in [reference/genes.pin.json](reference/genes.pin.json). GitHub CI checks out `fullofcaffeine/genes-ts` next to this repository to preserve that layout.
 
-Strict TypeScript output is the default generated product surface. Classic Genes ES6 output is tracked only as a future secondary profile; see [compiler-output-profiles.md](docs/compiler-output-profiles.md).
+Strict TypeScript output remains the default generated and package-facing product surface. Classic Genes ESM is a bounded secondary application profile: `npm run test:classic-profile` emits the same Haxe source directly as modern JavaScript, audits its project-owned declarations, and runs the local application smoke. See [compiler-output-profiles.md](docs/compiler-output-profiles.md) for the exact guarantees and exclusions.
 
 CI installs npm packages with lifecycle scripts disabled, then explicitly rebuilds the `better-sqlite3` native addon and runs the local `bun` package installer for Bun-backed harnesses. The Node smoke job also installs `ripgrep` before exercising the file-search seam. Keep those bootstrap steps with `npm run test:haxe:unit`, `npm run macro:diagnostics`, `npm run tui:scaffold`, and `npm run smoke`.
 
@@ -90,6 +96,8 @@ The broader local CI gate is:
 ```sh
 npm run ci:full
 ```
+
+That gate exercises both the default TypeScript profile and the same-source classic ESM profile.
 
 The native Windows shell/PTY parity gate is separate from the portable local gate:
 

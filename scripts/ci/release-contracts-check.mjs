@@ -86,6 +86,9 @@ expectIncludes(packageJson.scripts["public:precommit"], "security:gitleaks", "pu
 expectIncludes(packageJson.scripts["ci:full"], "npm run build", "ci:full");
 expectIncludes(packageJson.scripts["ci:full"], "npm run package:smoke", "ci:full");
 expectIncludes(packageJson.scripts["ci:full"], "npm run tui:scaffold", "ci:full");
+expectIncludes(packageJson.scripts["ci:full"], "npm run typed-boundary:scan", "ci:full");
+expectIncludes(packageJson.scripts["ci:full"], "npm run test:classic-profile", "ci:full");
+expectIncludes(packageJson.scripts["typecheck:classic"], "classic-declarations-check.mjs", "classic declaration gate");
 expectExcludes(packageJson.scripts["ci:full"], "file:watcher:smoke", "ci:full");
 expectExcludes(packageJson.scripts["ci:full"], "live:package-managers", "ci:full");
 
@@ -154,8 +157,10 @@ expectIncludes(ciWorkflow, "npm run ci:release-contracts", "CI workflow");
 expectIncludes(ciWorkflow, "npm run format:haxe:check", "CI workflow");
 expectIncludes(ciWorkflow, "npm run build", "CI workflow");
 expectIncludes(ciWorkflow, "npm run test:haxe:unit", "CI workflow");
+expectIncludes(ciWorkflow, "npm run typed-boundary:scan", "CI workflow");
 expectIncludes(ciWorkflow, "npm run smoke", "CI workflow");
 expectIncludes(ciWorkflow, "npm run package:smoke", "CI workflow");
+expectIncludes(ciWorkflow, "npm run test:classic-profile", "CI workflow");
 expectIncludes(ciWorkflow, "npm run tui:scaffold", "CI workflow");
 expectIncludes(ciWorkflow, "windows-latest", "CI workflow");
 expectIncludes(ciWorkflow, "npm run windows:shell:smoke", "CI workflow");

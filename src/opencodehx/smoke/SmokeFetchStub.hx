@@ -1,12 +1,12 @@
 package opencodehx.smoke;
 
+import genes.Register;
 import haxe.DynamicAccess;
 import haxe.Json;
 import js.html.Headers;
 import js.html.Request;
 import js.html.Response;
 import js.html.URL;
-import js.Syntax;
 import js.lib.Promise;
 import js.lib.Uint8Array;
 import opencodehx.externs.web.Fetch.FetchInput;
@@ -35,9 +35,10 @@ abstract SmokeFetchStubFunction(SmokeFetchStubCallback) {
 	@:noCompletion
 	public static function fromStub(callback:SmokeFetchStubCallback):SmokeFetchStubFunction {
 		// The stub callback handles the subset used by these smoke tests:
-		// string/URL/Request input and optional headers. Cast only at the
-		// monkey-patch boundary so the body stays typed Haxe.
-		return Syntax.code("{0} as typeof fetch", callback);
+		// string/URL/Request input and optional headers. Register.unsafeCast is
+		// confined to this monkey-patch boundary: genes-ts retains the host
+		// `typeof fetch` surface and classic Genes preserves the callback value.
+		return Register.unsafeCast(callback);
 	}
 }
 

@@ -31,6 +31,7 @@ export const resourcePaths = Object.freeze({
 	sourceDir: rootPath("fixtures", "resources"),
 	srcGenDir: rootPath("src-gen", "resources"),
 	distDir: rootPath("dist", "resources"),
+	classicDistDir: rootPath("classic-dist", "resources"),
 	manifest: "manifest.json",
 	generator: "scripts/build/copy-resources.mjs",
 	promptExample: "prompt/example.txt",

@@ -1,11 +1,11 @@
 package opencodehx.provider;
 
+import genes.Register;
 import genes.js.Async.await;
 import genes.ts.Unknown;
 import genes.ts.Undefinable;
 import haxe.DynamicAccess;
 import haxe.extern.EitherType;
-import js.Syntax;
 import js.html.AbortSignal;
 import js.lib.Promise;
 import js.lib.Error as JsError;
@@ -422,9 +422,11 @@ class AiSdkProvider {
 	static inline function aiPrompt(prompt:Array<ProviderMessage>):AiLanguageModelPrompt {
 		// The AI SDK V3 provider prompt is assignable to ProviderTransform's
 		// wider prompt record on input. ProviderTransform returns that wider
-		// Haxe record, so TypeScript needs one local assertion when the same
-		// runtime prompt shape crosses back into the SDK's discriminated union.
-		return Syntax.code("({0} as import('@ai-sdk/provider').LanguageModelV3Prompt)", prompt);
+		// Haxe record, so one local typed assertion is required when the same
+		// runtime shape crosses back into the SDK's discriminated union.
+		// Register.unsafeCast is the Genes runtime's typed identity boundary: TS
+		// retains the exact SDK type while classic JS receives the same array.
+		return Register.unsafeCast(prompt);
 	}
 }
 

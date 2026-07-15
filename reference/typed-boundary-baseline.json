@@ -7,6 +7,7 @@
     "cast",
     "untyped",
     "Syntax.code",
+    "Register.unsafeCast",
     "@:ts.type",
     "Reflect.field",
     "Reflect.hasField",
@@ -22,7 +23,8 @@
     "DynamicAccess": 540,
     "cast": 133,
     "untyped": 2,
-    "Syntax.code": 23,
+    "Syntax.code": 21,
+    "Register.unsafeCast": 6,
     "@:ts.type": 82,
     "Reflect.field": 87,
     "Reflect.hasField": 21,
@@ -105,6 +107,7 @@
     "src/opencodehx/externs/ai/AiSdk.hx": {
       "Dynamic": 6,
       "DynamicAccess": 28,
+      "Register.unsafeCast": 2,
       "@:ts.type": 60
     },
     "src/opencodehx/externs/aws/AwsCredentialProviders.hx": {
@@ -253,7 +256,7 @@
       "Dynamic": 3,
       "DynamicAccess": 10,
       "cast": 3,
-      "Syntax.code": 1
+      "Register.unsafeCast": 2
     },
     "src/opencodehx/provider/CloudflareAiGatewayLoader.hx": {
       "Dynamic": 2
@@ -490,7 +493,8 @@
       "Dynamic": 2,
       "DynamicAccess": 4,
       "cast": 4,
-      "Syntax.code": 2,
+      "Syntax.code": 1,
+      "Register.unsafeCast": 2,
       "@:ts.type": 1
     },
     "src/opencodehx/smoke/StorageSmoke.hx": {

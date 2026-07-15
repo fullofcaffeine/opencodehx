@@ -1,6 +1,6 @@
 # Typed Boundary Audit
 
-OpenCodeHX should be as typed as practical at every product boundary. Broad `Dynamic`, `DynamicAccess`, `cast`, `untyped`, raw `Syntax.code`, `@:ts.type`, generated `any`, and string-keyed reflection are boundary debt unless they are isolated, documented, and tracked.
+OpenCodeHX should be as typed as practical at every product boundary. Broad `Dynamic`, `DynamicAccess`, `cast`, `untyped`, raw `Syntax.code`, `Register.unsafeCast`, `@:ts.type`, generated `any`, and string-keyed reflection are boundary debt unless they are isolated, documented, and tracked.
 
 ## Current Guard
 
@@ -10,7 +10,9 @@ Run:
 npm run typed-boundary:scan
 ```
 
-The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1342 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence:
+The scan compares `src/opencodehx/**/*.hx` against `reference/typed-boundary-baseline.json`. The current ratcheted baseline is 1346 source markers. Reductions pass automatically. New weak-type markers, new weakly typed files, or per-file increases fail until the code is narrowed or the baseline is deliberately updated with evidence. `npm run ci:full` runs this guard before either generated-output profile.
+
+After reviewing an intentional boundary, update the baseline with:
 
 ```bash
 npm run typed-boundary:update

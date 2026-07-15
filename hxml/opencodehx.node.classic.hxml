@@ -1,0 +1,12 @@
+-lib genes-ts
+-cp src
+--main opencodehx.Main
+
+# Emit final modern ESM JavaScript from the same Haxe source as the default
+# genes-ts profile. The separate tree keeps classic artifacts from masking or
+# being mistaken for strict TypeScript output.
+-js classic-dist/index.js
+-D js-es=6
+-D dts
+
+-dce full

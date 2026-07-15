@@ -11,6 +11,7 @@ const patterns = [
   ["cast", /\bcast\b/g],
   ["untyped", /\buntyped\b/g],
   ["Syntax.code", /Syntax\.code/g],
+  ["Register.unsafeCast", /Register\.unsafeCast/g],
   ["@:ts.type", /@:ts\.type/g],
   ["Reflect.field", /Reflect\.field/g],
   ["Reflect.hasField", /Reflect\.hasField/g],

@@ -139,13 +139,15 @@ jobs:
           export PATH="$(pwd)/node_modules/.bin:$PATH"
           haxe -version
 
-      - name: Build and smoke
+      - name: Build and smoke both output profiles
         working-directory: opencodehx
         run: |
+          npm run typed-boundary:scan
           npm run build
           npm run test:haxe:unit
           npm run smoke
           npm run package:smoke
+          npm run test:classic-profile
 
   tui-scaffold:
     name: OpenTUI TSX scaffold

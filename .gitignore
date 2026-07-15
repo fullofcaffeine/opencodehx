@@ -5,6 +5,7 @@ npm-debug.log*
 # Build and generated artifacts
 dist/
 dist-tui/
+classic-dist/
 src-gen/
 generated/
 out/

@@ -27,6 +27,6 @@ This is not the full upstream Effect/Zod/plugin registry. Dynamic description ho
 
 The registry keeps validation explicit rather than depending on Zod externs. Built-ins receive typed inputs; only the registry edge handles unknown tool-call JSON. If more tools repeat schema boilerplate, derive simple validators with a macro instead of expanding broad weak typing.
 
-`npm run typed-boundary:scan` tracks the remaining `Dynamic`, `DynamicAccess`, `cast`, `untyped`, raw `Syntax.code`, `@:ts.type`, and reflection debt across product source. Its baseline is a ratchet: reductions pass, but new or increased weak markers fail until justified.
+`npm run typed-boundary:scan` tracks the remaining `Dynamic`, `DynamicAccess`, `cast`, `untyped`, raw `Syntax.code`, `Register.unsafeCast`, `@:ts.type`, and reflection debt across product source. Its baseline is a ratchet: reductions pass, but new or increased weak markers fail until justified.
 
 `npm run macro:diagnostics` includes a generated negative Haxe fixture for `ToolIDs.known("grepp")`, proving typos in source-authored tool IDs fail at compile time. The current checked-string audit status for provider IDs, event discriminants, resource names, JS harness generated targets, and deliberate boundary strings is tracked in `docs/checked-artifact-constructors.md`.

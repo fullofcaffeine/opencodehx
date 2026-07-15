@@ -4,7 +4,8 @@ import path from "node:path";
 import { nodeModuleResources, resourcePaths } from "../harness/paths.mjs";
 
 const source = resourcePaths.sourceDir;
-const targets = [resourcePaths.srcGenDir, resourcePaths.distDir];
+const profile = process.argv[2] ?? "typescript";
+const targets = switchTargets(profile);
 
 for (const target of targets) {
   rmSync(target, { recursive: true, force: true });
@@ -61,4 +62,15 @@ function resourceKind(resourcePath) {
   if (ext === ".wasm") return "wasm";
   if (ext === ".txt" || ext === ".md") return "text";
   return "file";
+}
+
+/**
+ * Selects resource destinations without coupling application source to an
+ * output profile. TypeScript needs source and transpiled copies; classic Genes
+ * emits final JavaScript directly and therefore owns only classic-dist.
+ */
+function switchTargets(profile) {
+  if (profile === "typescript") return [resourcePaths.srcGenDir, resourcePaths.distDir];
+  if (profile === "classic") return [resourcePaths.classicDistDir];
+  throw new Error(`Unknown resource output profile: ${profile}`);
 }
